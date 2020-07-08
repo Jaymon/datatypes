@@ -136,6 +136,7 @@ class PriorityQueue(object):
 class NormalizeDict(dict):
     """A normalizing dictionary, taken from herd.utils.NormalizeDict"""
     def __init__(self, *args, **kwargs):
+        super(NormalizeDict, self).__init__()
         self.update(*args, **kwargs)
 
     def __setitem__(self, k, v):
@@ -189,7 +190,7 @@ class idict(NormalizeDict):
     python's built-in dict class (which is why the classname is all lowercase)"""
     def __init__(self, *args, **kwargs):
         self.ikeys = {} # hold mappings from normalized keys to the actual key
-        super(idict, self).__init__()
+        super(idict, self).__init__(*args, **kwargs)
 
     def normalize_key(self, k):
         nk = k.lower()

@@ -4,6 +4,7 @@ import logging
 
 from .string import (
     String,
+    Unicode, # alias for String
     ByteString,
     Base64,
     HTMLCleaner,
@@ -24,7 +25,7 @@ from .csv import (
 )
 
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

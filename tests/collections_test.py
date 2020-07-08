@@ -43,6 +43,15 @@ class PoolTest(TestCase):
 
 
 class IdictTest(TestCase):
+    def test_create(self):
+        d = idict({
+            "foo": 1,
+            "BAR": 2
+        })
+        self.assertTrue("Foo" in d)
+        self.assertTrue("bar" in d)
+        self.assertEqual(2, len(d))
+
     def test_keys(self):
         d = idict()
 
