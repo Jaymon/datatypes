@@ -149,6 +149,41 @@ class String(Str):
 
     def sha256(self):
         return hashlib.sha256(self.bytes()).digest()
+
+    def truncate(self, size, postfix='...'):
+        """
+        similar to a normal string split but it actually will split on a word boundary
+
+        :Example:
+            s = "foo barche"
+            print s[0:5] # "foo b"
+            s2 = String(s)
+            print s2.truncate(5) # "foo"
+
+        truncate a string by word breaks instead of just length
+        this will guarrantee that the string is not longer than length, but it could be shorter
+
+        http://stackoverflow.com/questions/250357/smart-truncate-in-python/250373#250373
+
+        This was originally a method called word_truncate by Cahlan Sharp for Undrip
+
+        :param size: int, the size you want to truncate to at max
+        :param postfix: string, what you would like to be appended to the truncated
+            string
+        :returns: string, a new string, truncated
+        """
+        if len(self) < size: return self
+
+        # our algo is pretty easy here, it truncates the string to size - postfix size
+        # then right splits the string on any whitespace for a maximum of one time
+        # and returns the first item of that split right stripped of whitespace
+        # (just in case)
+        postfix = type(self)(postfix)
+        ret = self[0:size - len(postfix)]
+        # if rsplit sep is None, any whitespace string is a separator
+        ret = ret[:-1].rsplit(None, 1)[0].rstrip()
+        return type(self)(ret + postfix)
+
 Unicode = String
 
 

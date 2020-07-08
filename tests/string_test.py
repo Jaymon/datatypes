@@ -71,6 +71,17 @@ class StringTest(TestCase):
         s2 = String(sb)
         self.assertEqual(s, s2)
 
+    def test_truncate(self):
+        """tests that we can truncate a string on a word boundary"""
+        s = String("foo bar bang bing")
+        self.assertEqual("foo", s.truncate(5, ""))
+        self.assertEqual("foo bar", s.truncate(10, ""))
+        self.assertEqual("foo bar bang", s.truncate(15, ""))
+        self.assertEqual("foo...", s.truncate(8))
+        self.assertEqual("foo bar...", s.truncate(14))
+        self.assertEqual("foop", s.truncate(5, "p"))
+        self.assertEqual(s, s.truncate(len(s) + 100, "..."))
+
 
 class ByteStringTest(TestCase):
     def test_unicode(self):
