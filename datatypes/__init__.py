@@ -24,7 +24,7 @@ from .csv import (
 )
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
