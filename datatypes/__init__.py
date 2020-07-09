@@ -23,9 +23,12 @@ from .collections import (
 from .csv import (
     CSV,
 )
+from .enum import (
+    Enum,
+)
 
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
