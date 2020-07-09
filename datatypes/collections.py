@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 import heapq
 import itertools
+import bisect
 
 from .compat import *
 
@@ -15,7 +16,7 @@ class Pool(dict):
     """
     def __init__(self, size=0):
         super(Pool, self).__init__()
-        self.pq = PriorityQueue(size)
+        self.pq = KeyQueue(size)
 
     def __getitem__(self, key):
         shuffle = key in self
@@ -23,17 +24,17 @@ class Pool(dict):
 
         # since this is being accessed again, we move it to the end
         if shuffle:
-            self.pq.add(val, key=key)
+            self.pq.put(key, val)
 
         return val
 
     def __setitem__(self, key, val):
         super(Pool, self).__setitem__(key, val)
         try:
-            self.pq.add(val, key=key)
+            self.pq.put(key, val)
         except OverflowError:
-            self.popitem()
-            self.pq.add(val, key=key)
+            self.get()
+            self.pq.put(key, val)
 
     def popitem(self):
         dead_key, dead_val, dead_priority = self.pq.popitem()
@@ -50,8 +51,52 @@ class Pool(dict):
 
 
 class PriorityQueue(object):
+    """A simple priority queue
+
+    if passing in a tuple (priority, value) then...
+
+        * MinQueue: lambda x: x[0]
+        * MaxQueue: lambda x: -x[0]
+
+    based off of https://stackoverflow.com/a/3311765/5006
+
+    https://en.wikipedia.org/wiki/Priority_queue
+
+    :Example:
+        pq = PriorityQueue(lambda x: x[0])
+        pq.put((30, "che"))
+        pq.put((1, "foo"))
+        pq.put((4, "bar"))
+        pq.get() # (1, "foo")
+    """
+    def __init__(self, key=None):
+        self.pq = []
+        if key:
+            self.key = key
+
+    def key(self, x):
+        return x
+
+    def __len__(self):
+        return len(self.pq)
+
+    def __bool__(self):
+        return bool(len(self))
+    __nonzero__ = __bool__
+
+    def put(self, x):
+        heapq.heappush(self.pq, (self.key(x), x))
+
+    def get(self):
+        return heapq.heappop(self.pq)[-1]
+
+
+class KeyQueue(object):
     """A semi-generic priority queue, if you never pass in priorities it defaults to
-    a FIFO queue
+    a FIFO queue, this allows you to pass in keys to add() to set uniqueness and move
+    items back to the top of the queue if they have the same key, another name for this
+    might be RefreshQueue since a value with the same key will move to the top of the
+    list
 
     This is basically an implementation of the example on this page:
     https://docs.python.org/2/library/heapq.html#priority-queue-implementation-notes
@@ -67,7 +112,7 @@ class PriorityQueue(object):
         self.size = size
         self.removed_count = 0
 
-    def add(self, val, key="", priority=None):
+    def put(self, key, val, priority=None):
         """add a value to the queue with priority, using the key to know uniqueness
 
         :param val: mixed, the value to add to the queue
@@ -109,9 +154,9 @@ class PriorityQueue(object):
                 del self.item_finder[key]
                 return key, val, priority
 
-        raise KeyError("pop from an empty priority queue")
+        raise KeyError("Pop from an empty queue")
 
-    def pop(self):
+    def get(self):
         """remove the next prioritized val and return it"""
         key, val, priority = self.popitem()
         return val
@@ -203,6 +248,52 @@ IDict = idict
 iDict = idict
 
 
+class Trie(object):
+    """https://en.wikipedia.org/wiki/Trie"""
+    def __init__(self, *values):
+        self.values = {} #defaultdict(list)
+
+        for value in values:
+            self.add(value)
+
+    def add(self, value):
+        if value:
+            ch = value[0]
+            remainder = value[1:]
+            if ch not in self.values:
+                self.values[ch] = None
+
+            if remainder:
+                if self.values[ch] is None:
+                    self.values[ch] = type(self)(remainder)
+
+                else:
+                    self.values[ch].add(self.normalize_value(remainder))
+
+    def has(self, value):
+        ret = True
+        ch = self.normalize_value(value[0])
+        remainder = value[1:]
+        if ch in self.values:
+            if remainder:
+                if self.values[ch] is None:
+                    ret = False
+                else:
+                    ret = self.values[ch].has(remainder)
+
+        else:
+            ret = False
+
+        #pout.v(ch, ret, self.values.keys())
+        return ret
+
+    def __contains__(self, value):
+        return self.has(value)
+
+    def normalize_value(self, value):
+        return value.lower()
+
+
 class AppendList(list):
     """A READ ONLY list that does all adding of items through the append method
     To customize this list just extend the append() method
@@ -230,4 +321,68 @@ class AppendList(list):
     pop = __setitem__
     clear = __setitem__
     __delitem__ = __setitem__
+
+
+class OrderedList(list):
+    """Keep a list sorted as you append or extend it
+
+    An ordered list, this sorts items from smallest to largest using key, so
+    if you want MaxQueue like functionality use negative values: .pop(-1) and
+    if you want MinQueue like functionality use positive values: .pop(0)
+    """
+    def __init__(self, iterable=None, key=None):
+        if key:
+            self.key = key
+        self._keys = []
+        super(OrderedList, self).__init__()
+        if iterable:
+            for x in iterable:
+                self.append(x)
+
+    def key(self, x):
+        return x
+
+    def append(self, x):
+        k = self.key(x)
+        # https://docs.python.org/3/library/bisect.html#bisect.bisect_right
+        i = bisect.bisect_right(self._keys, k)
+        if i is None:
+            super(OrderedList, self).append((self.key(x), x))
+            self._keys.append(k)
+        else:
+            super(OrderedList, self).insert(i, (self.key(x), x))
+            self._keys.insert(i, k)
+
+    def extend(self, iterable):
+        for x in iterable:
+            self.append(x)
+
+    def remove(self, x):
+        k = self.key(x)
+        self._keys.remove(k)
+        super(OrderedList, self).remove((k, x))
+
+    def pop(self, i=-1):
+        self._keys.pop(i)
+        return super(OrderedList, self).pop(i)[-1]
+
+    def clear(self):
+        super(OrderedList, self).clear()
+        self._keys.clear()
+
+    def __iter__(self):
+        for x in super(OrderedList, self).__iter__():
+            yield x[-1]
+
+    def __getitem__(self, i):
+        return super(OrderedList, self).__getitem__(i)[-1]
+
+    def insert(self, i, x):
+        raise NotImplementedError()
+    def __setitem__(self, x):
+        raise NotImplementedError()
+    def reverse(self):
+        raise NotImplementedError()
+    def sort(self):
+        raise NotImplementedError()
 
