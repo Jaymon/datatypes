@@ -82,6 +82,13 @@ class StringTest(TestCase):
         self.assertEqual("foop", s.truncate(5, "p"))
         self.assertEqual(s, s.truncate(len(s) + 100, "..."))
 
+    def test_indent(self):
+        s = String("foo\nbar\nche")
+
+        s2 = s.indent("  ")
+        self.assertNotEqual(s, s2)
+        for line in s2.splitlines():
+            self.assertTrue(line.startswith("  "))
 
 class ByteStringTest(TestCase):
     def test_unicode(self):

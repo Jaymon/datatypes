@@ -31,7 +31,7 @@ from .enum import (
 )
 
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

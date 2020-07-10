@@ -18,6 +18,7 @@ if is_py2:
     basestring = basestring
     unicode = unicode
     range = xrange # range is now always an iterator
+    input = raw_input
 
     import Queue as queue
     import thread as _thread
@@ -36,6 +37,16 @@ if is_py2:
     unescape = HTMLParser().unescape
     import urlparse as parse
 
+    import itertools
+    zip = itertools.izip
+    zip_longest = itertools.izip_longest
+    from collections import Iterable, Mapping, Callable
+
+
+    # NOTE -- getargspace isn't a full mapping of getfullargspec
+    from inspect import getargspec as getfullargspec
+
+
     exec("""def reraise(exception_class, e, traceback=None):
         try:
             raise exception_class, e, traceback
@@ -48,6 +59,7 @@ elif is_py3:
     basestring = (str, bytes)
     unicode = str
     long = int
+    input = input
 
     import queue
     import _thread
@@ -64,6 +76,11 @@ elif is_py3:
         from html import unescape
     except ImportError:
         unescape = HTMLParser.unescape
+
+    from inspect import getfullargspec
+    from itertools import zip_longest
+    from collections.abc import Iterable, Mapping, Callable
+
 
     # ripped from six https://github.com/benjaminp/six
     def reraise(exception_class, e, traceback=None):

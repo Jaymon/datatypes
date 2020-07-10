@@ -151,8 +151,7 @@ class String(Str):
         return hashlib.sha256(self.bytes()).digest()
 
     def truncate(self, size, postfix='...'):
-        """
-        similar to a normal string split but it actually will split on a word boundary
+        """similar to a normal string split but it actually will split on a word boundary
 
         :Example:
             s = "foo barche"
@@ -184,6 +183,19 @@ class String(Str):
         ret = ret[:-1].rsplit(None, 1)[0].rstrip()
         return type(self)(ret + postfix)
 
+    def indent(self, indent):
+        """add whitespace to the beginning of each line of val
+
+        http://code.activestate.com/recipes/66055-changing-the-indentation-of-a-multi-line-string/
+
+        :param indent: string, what you want the prefix of each line to be
+        :returns: string, string with prefix at the beginning of each line
+        """
+        if not indent: return self
+
+        s = (indent + line for line in self.splitlines(False))
+        s = "\n".join(s)
+        return type(self)(s)
 Unicode = String
 
 
