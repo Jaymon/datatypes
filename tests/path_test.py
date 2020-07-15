@@ -205,8 +205,50 @@ class FilepathTest(TestCase):
         self.assertFalse(p.exists())
         self.assertFalse(p.is_file())
 
-    def test_mv_file_to_file(self):
+    def test_unlink(self):
 
+        p = self.create_path()
+        self.assertTrue(p.exists())
+
+        p.unlink(missing_ok=False)
+        self.assertFalse(p.exists())
+
+        with self.assertRaises(OSError):
+            p.unlink(missing_ok=False)
+
+        p.unlink(missing_ok=True)
+        p.rm()
+        p.delete()
+        p.remove()
+
+    def test_cp_file_to_file(self):
+        contents = "this is the content"
+        p = self.create_path(contents=contents)
+        p2 = self.create_path(exists=False)
+
+        self.assertTrue(p.exists())
+        self.assertFalse(p2.exists())
+
+        p3 = p.cp(p2)
+        self.assertTrue(p3.exists())
+        self.assertTrue(p.exists())
+        self.assertEqual(contents, p3.read_text())
+
+    def test_cp_file_to_dir(self):
+        contents = "this is the content"
+        fp = self.create_path(contents=contents)
+        dp = testdata.create_dir()
+
+        self.assertTrue(fp.exists())
+        self.assertTrue(dp.exists())
+
+        fp2 = fp.cp(dp)
+        self.assertTrue(fp2.exists())
+        self.assertTrue(fp.exists())
+        self.assertTrue(fp.basename, fp2.basename)
+        self.assertEqual(contents, fp2.read_text())
+
+    def test_mv_file_to_file(self):
         contents = "this is the content"
         p = self.create_path(contents=contents)
         p2 = self.create_path(exists=False)
@@ -219,7 +261,59 @@ class FilepathTest(TestCase):
         self.assertFalse(p.exists())
         self.assertEqual(contents, p3.read_text())
 
+    def test_mv_file_to_dir(self):
+        contents = "this is the content"
+        fp = self.create_path(contents=contents)
+        dp = testdata.create_dir()
 
+        self.assertTrue(fp.exists())
+        self.assertTrue(dp.exists())
 
+        p3 = fp.mv(dp)
+        self.assertTrue(p3.exists())
+        self.assertFalse(fp.exists())
+        self.assertTrue(fp.basename, p3.basename)
+        self.assertEqual(contents, p3.read_text())
 
+    def test_touch(self):
+        p = self.create_path()
+        self.assertTrue(p.exists())
+        p.touch()
+        with self.assertRaises(OSError):
+            p.touch(exist_ok=False)
+
+        p = self.create_path(exists=False)
+        self.assertFalse(p.exists())
+        p.touch()
+        self.assertTrue(p.exists())
+
+    def test_head_tail(self):
+        count = 10
+        p = self.create_path(contents=testdata.get_lines(21))
+        hlines = p.head(count)
+        self.assertEqual(count, len(hlines))
+
+        tlines = p.tail(count)
+        self.assertEqual(count, len(tlines))
+        self.assertNotEqual("\n".join(hlines), "\n".join(tlines))
+
+    def test_checksum(self):
+        contents = "foo bar che"
+        path1 = self.create_path(contents=contents)
+        h1 = path1.checksum()
+        self.assertNotEqual("", h1)
+
+        path2 = self.create_path(contents=contents)
+        h2 = path2.checksum()
+        self.assertNotEqual("", h2)
+
+        self.assertEqual(h1, h2)
+
+    def test_clear(self):
+        contents = "foo bar che"
+        p = self.create_path(contents=contents)
+        self.assertLess(0, p.count())
+
+        p.clear()
+        self.assertEqual(0, p.count())
 

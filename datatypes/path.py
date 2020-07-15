@@ -5,6 +5,11 @@ import os
 import fnmatch
 import stat
 import codecs
+import shutil
+import hashlib
+from collections import deque
+from distutils import dir_util, file_util
+from zipfile import ZipFile
 
 try:
     from pathlib import Path as Pathlib
@@ -279,7 +284,12 @@ class Path(String):
 
     def __new__(cls, *parts, **kwargs):
         path = cls.normpath(*parts, **kwargs)
-        instance = super(Path, cls).__new__(cls, path)
+        instance = super(Path, cls).__new__(
+            cls,
+            path,
+            encoding=kwargs.pop("encoding", environ.ENCODING),
+            errors=kwargs.pop("errors", environ.ENCODING_ERRORS),
+        )
         instance.path = path
         return instance
 
@@ -326,6 +336,14 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.chmod
         """
+        if isinstance(mode, int):
+            mode = "{0:04d}".format(mode)
+
+        try:
+            mode = int(mode, 8)
+        except TypeError:
+            pass
+
         return os.chmod(self.path, mode)
 
     def expanduser(self):
@@ -384,7 +402,8 @@ class Path(String):
         """
         return os.path.isdir(self.path)
 
-    def isdir(self): return self.is_dir()
+    def isdir(self):
+        return self.is_dir()
 
     def is_file(self):
         """Return True if the path points to a regular file (or a symbolic link pointing to a regular file),
@@ -397,7 +416,8 @@ class Path(String):
         """
         return os.path.isfile(self.path)
 
-    def isfile(self): return self.is_file()
+    def isfile(self):
+        return self.is_file()
 
     def is_mount(self):
         """Return True if the path is a mount point: a point in a file system where
@@ -452,6 +472,9 @@ class Path(String):
         else:
             ret = self.create(self.pathlib.joinpath(*other))
         return ret
+
+    def child(self, *other):
+        return self.joinpath(*other)
 
     def match(self, pattern):
         """Match this path against the provided glob-style pattern. Return True if
@@ -514,13 +537,6 @@ class Path(String):
             if ret.startswith(".."):
                 raise ValueError("'{}' does not start with '{}'".format(self.path, ancestor_dir))
 
-#             ret = self.path.replace(ancestor_dir, '', 1)
-#             if ret != self.path:
-#                 ret = ret.strip("/")
-# 
-#             else:
-#                 raise ValueError("'{}' does not start with '{}'".format(self.path, ancestor_dir))
-
         else:
             ret = String(self.pathlib.relative_to(*other))
 
@@ -569,9 +585,6 @@ class Path(String):
         :returns: the new Path instance
         """
         return self.mv(target)
-#         dest = self.create(target)
-#         os.rename(self.path, dest)
-#         return dest
 
     def replace(self, target):
         """Rename this file or directory to the given target, and return a new Path
@@ -611,6 +624,22 @@ class Path(String):
 
         return self
 
+    def symlink_to(self, target, target_is_directory=False):
+        """Make this path a symbolic link to target. Under Windows, target_is_directory
+        must be true (default False) if the link’s target is a directory.
+        Under POSIX, target_is_directory’s value is ignored
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.symlink_to
+        """
+        target = self.create(target)
+        if is_py2:
+            os.symlink(self.path, target)
+
+        else:
+            self.pathlib.symlink_to(target, target_is_directory=target_is_directory)
+
+        return target
+
     def samefile(self, other_path):
         """Return whether this path points to the same file as other_path, which
         can be either a Path object, or a string. The semantics are similar to
@@ -632,32 +661,22 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.touch
         """
+        raise NotImplementedError()
 
-    def unlink(self, missing_ok=False):
-        """Remove this file or symbolic link. If the path points to a directory,
-        use Path.rmdir() instead.
-
-        If missing_ok is false (the default), FileNotFoundError is raised if the
-        path does not exist.
-
-        If missing_ok is true, FileNotFoundError exceptions will be ignored
-        (same behavior as the POSIX rm -f command).
-
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.unlink
-        """
+    def rm(self):
+        """remove file/dir, does not raise error on file/dir not existing"""
         raise NotImplementedError()
 
     def delete(self):
-        return self.unlink(missing_ok=True)
+        """remove file/dir, alias of .rm(), does not raise error on file/dir not existing"""
+        return self.rm()
 
     def remove(self):
-        return self.delete()
+        """remove file/dir, alias of .rm(), does not raise error on file/dir not existing"""
+        return self.rm()
 
-    def link_to(self, target):
-        """Create a hard link pointing to a path named target.
-
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.link_to
-        """
+    def clear(self):
+        """clear the file/directory but don't delete it"""
         raise NotImplementedError()
 
     def __fspath__(self):
@@ -704,13 +723,6 @@ class Dirpath(Path):
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
         """
 
-    def iterdir(self):
-        """When the path points to a directory, yield path objects of the directory contents
-
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.iterdir
-        """
-        pass
-
     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
         """Create a new directory at this given path. If mode is given, it is combined
         with the process’ umask value to determine the file mode and access flags.
@@ -737,11 +749,89 @@ class Dirpath(Path):
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob
         """
 
+    def rm(self):
+        shutil.rmtree(self.path)
+
     def rmdir(self):
         """Remove this directory. The directory must be empty
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.rmdir
         """
+
+    def touch(self, mode=0o666, exist_ok=True):
+        """Create the directory at this given path.  If the directory already exists,
+        the function succeeds if exist_ok is true (and its modification time is
+        updated to the current time), otherwise FileExistsError is raised."""
+        if self.exists():
+            if not exist_ok:
+                raise OSError("FileExistsError")
+
+            os.utime(self.path, None)
+
+        else:
+            dir_util.mkpath(self.path)
+
+    def zip_to(self, target):
+        target = self.create_file(target)
+        if target.endswith(".zip"):
+            target = os.path.splitext(target)[0]
+        # https://docs.python.org/3/library/shutil.html#shutil.make_archive
+        # https://stackoverflow.com/a/25650295/5006
+        return shutil.make_archive(target, 'zip', self.path)
+
+    def iterdir(self):
+        """When the path points to a directory, yield path objects of the directory contents
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.iterdir
+        """
+        if is_py2:
+            for basename in os.listdir(self.path):
+                pout.v(basename)
+
+        else:
+            for p in self.pathlib.iterdir():
+                pout.v(p)
+
+    def iterdirs(self):
+        """iterate through all the directories in this directory only"""
+        for basedir, directories, files in os.walk(self.path, topdown=True):
+            basedir = self.create_dir(basedir)
+            for basename in directories:
+                yield self.create_dir(basedir, basename)
+            break
+
+    def dirs(self):
+        """iterate through all the directories in this directory only"""
+        for basedir, directories, files in os.walk(self.path, topdown=True):
+            basedir = self.create_dir(basedir)
+            for basename in directories:
+                yield self.create_dir(basedir, basename)
+
+    def iterfiles(self):
+        """iterate through all the files in this directory only"""
+        for basedir, directories, files in os.walk(self.path, topdown=True):
+            basedir = self.create_dir(basedir)
+            for basename in files:
+                yield self.create_file(basedir, basename)
+            break
+
+    def files(self):
+        """iterate through all the files in this directory and subdirectories"""
+        for basedir, directories, files in os.walk(self.path, topdown=True):
+            basedir = self.create_dir(basedir)
+            for basename in files:
+                yield self.create_file(basedir, basename)
+
+    def __iter__(self):
+        for basedir, dirs, files in os.walk(self.path, topdown=True):
+            basedir = self.create_dir(basedir)
+            for i in range(len(dirs)):
+                dirs[i] = self.create_dir(basedir, dirs[i])
+
+            for i in range(len(files)):
+                files[i] = self.create_file(basedir, files[i])
+
+            yield basedir, dirs, files
 
 
 class Filepath(Path):
@@ -758,8 +848,8 @@ class Filepath(Path):
             if encoding:
                 fp = codecs.open(
                     self.path,
-                    encoding=encoding,
                     mode=mode,
+                    encoding=encoding,
                     errors=errors,
                     buffering=buffering,
                 )
@@ -776,12 +866,10 @@ class Filepath(Path):
                 self.path,
                 mode=mode,
                 encoding=encoding,
-                mode=mode,
                 errors=errors,
                 buffering=buffering,
                 newline=newline,
             )
-
 
         return fp
 
@@ -798,7 +886,8 @@ class Filepath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.read_text
         """
-        encoding = encoding or environ.ENCODING
+        encoding = encoding or self.encoding
+        errors = errors or self.errors
         with self.open(encoding=encoding, errors=errors) as fp:
             return fp.read()
 
@@ -816,32 +905,152 @@ class Filepath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text
         """
-        encoding = encoding or environ.ENCODING
-        data = String(data, encoding=encoding)
-        with self.open(mode="w+", encoding=encoding) as fp:
+        data = String(data, encoding=self.encoding)
+        with self.open(mode="w+", encoding=self.encoding, errors=self.errors) as fp:
+            return fp.write(data)
+
+    def append_text(self, data):
+        data = String(data, encoding=self.encoding)
+        with self.open(mode="a+", encoding=self.encoding, errors=self.errors) as fp:
             return fp.write(data)
 
     def joinpath(self, *other):
         raise NotImplementedError()
 
-    def mv(self, target):
-        raise NotImplementedError()
-
     def cp(self, target):
-        """copy self to target"""
-        raise NotImplementedError()
+        """copy self to/into target"""
+        target = self.create_inferred(target)
+        if target.is_dir():
+            target = self.create_file(target, self.basename)
 
+        shutil.copy(self.path, target)
+        return target
 
     def copy_to(self, dest_path):
-        r = shutil.copy(self.path, dest_path)
+        """alias of .cp()"""
+        return self.cp(target)
 
-    def delete(self):
-        """remove the file"""
-        os.unlink(self.path)
+    def mv(self, target):
+        target = self.create_inferred(target)
+        if target.is_dir():
+            target = self.create_file(target, self.basename)
+
+        shutil.move(self.path, target)
+        return target
+
+    def unlink(self, missing_ok=False):
+        """Remove this file or symbolic link. If the path points to a directory,
+        use Path.rmdir() instead.
+
+        If missing_ok is false (the default), FileNotFoundError is raised if the
+        path does not exist.
+
+        If missing_ok is true, FileNotFoundError exceptions will be ignored
+        (same behavior as the POSIX rm -f command).
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.unlink
+        """
+        try:
+            os.unlink(self.path)
+
+        except OSError as e:
+            if not missing_ok:
+                raise
+
+    def rm(self):
+        return self.unlink(missing_ok=True)
+
+    def clear(self):
+        """clear the file/directory but don't delete it"""
+        self.write_bytes(b"")
+
+    def touch(self, mode=0o666, exist_ok=True):
+        """Create a file at this given path. If mode is given, it is combined with
+        the process’ umask value to determine the file mode and access flags.
+        If the file already exists, the function succeeds if exist_ok is true
+        (and its modification time is updated to the current time), otherwise
+        FileExistsError is raised.
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.touch
+        """
+        if is_py2:
+            if self.exists():
+                if not exist_ok:
+                    raise OSError("FileExistsError")
+
+                os.utime(self.path, None)
+
+            else:
+                self.parent.touch(mode, exist_ok)
+                with self.open("a") as f:
+                    os.utime(self.path, None)
+
+        else:
+            self.pathlib.touch(mode, exist_ok)
+
+    def linecount(self):
+        """return line count"""
+        return len(list(self.splitlines()))
+
+    def lc(self):
+        return self.linecount()
+
+    def count(self):
+        return len(self.read_text())
+
+    def checksum(self):
+        """return md5 hash of a file"""
+        h = hashlib.md5()
+        blocksize = 65536
+        # http://stackoverflow.com/a/21565932/5006
+        with self.open(mode="rb") as fp:
+            for block in iter(lambda: fp.read(blocksize), b""):
+                h.update(block)
+        return h.hexdigest()
+
+    def hash(self): return self.checksum()
+    def md5(self): return self.checksum()
+
+    def head(self, count):
+        """get the first count lines of self.path
+
+        :param count: int, how many lines you want from the start of the file
+        :returns: list, the lines in a similar format to .lines()
+        """
+        if count == 0:
+            ret = self.splitlines()
+        else:
+            ret = [l[1] for l in enumerate(self.splitlines()) if l[0] < count]
+        return ret
+
+    def tail(self, count):
+        """
+        get the last count lines of self.path
+
+        https://stackoverflow.com/a/280083/5006
+
+        :param count: int, how many lines you want from the end of the file
+        :returns: list, the lines in a similar format to .lines()
+        """
+        if count == 0:
+            ret = self.splitlines()
+        else:
+            ret = deque(self.splitlines(), maxlen=count)
+        return ret
+
+    def zip_to(self, target):
+        target = self.create_file(target)
+        with ZipFile(target, 'w') as z:
+            z.write(self.path)
+        return target
 
     def splitlines(self, keepends=False):
         """iterate through all the lines"""
-        with self.open("r") as f:
+        with self.open("r", encoding=self.encoding, errors=self.errors) as f:
             for line in f:
                 yield line if keepends else line.rstrip()
+
+    def __iter__(self):
+        for line in self.splitlines():
+            yield line
 

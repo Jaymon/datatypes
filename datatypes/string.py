@@ -26,7 +26,7 @@ class ByteString(Bytes):
         unicode(s) # calls __unicode__ and returns String
         bytes(s) # calls __str__ and returns ByteString
     """
-    def __new__(cls, val=b"", encoding="", errors="replace"):
+    def __new__(cls, val=b"", encoding="", errors=""):
         """
         :param val: mixed, the value you are casting to bytes
         :param encoding: string, the string encoding to use to encode/decode
@@ -46,6 +46,9 @@ class ByteString(Bytes):
 
         if not encoding:
             encoding = environ.ENCODING
+
+        if not errors:
+            errors = environ.ENCODING_ERRORS
 
         if not isinstance(val, (bytes, bytearray)):
             if is_py2:
@@ -102,7 +105,7 @@ class String(Str):
 
     https://en.wikipedia.org/wiki/Base64
     """
-    def __new__(cls, val="", encoding="", errors="replace"):
+    def __new__(cls, val="", encoding="", errors=""):
         """
         :param val: mixed, the value you are casting to a string
         :param encoding: string, the string encoding to use to encode/decode
@@ -118,6 +121,9 @@ class String(Str):
 
         if not encoding:
             encoding = environ.ENCODING
+
+        if not errors:
+            errors = environ.ENCODING_ERRORS
 
         if not isinstance(val, (Str, int)):
             val = ByteString(val, encoding, errors).unicode()
