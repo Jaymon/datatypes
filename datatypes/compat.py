@@ -40,6 +40,7 @@ if is_py2:
     import itertools
     zip = itertools.izip
     zip_longest = itertools.izip_longest
+
     from collections import Iterable, Mapping, Callable
 
 
@@ -55,7 +56,7 @@ if is_py2:
     """)
 
 
-elif is_py3:
+else:
     basestring = (str, bytes)
     unicode = str
     long = int
@@ -79,6 +80,7 @@ elif is_py3:
 
     from inspect import getfullargspec
     from itertools import zip_longest
+
     from collections.abc import Iterable, Mapping, Callable
 
 
