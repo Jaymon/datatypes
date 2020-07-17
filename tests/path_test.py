@@ -1,43 +1,75 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
+import os
 
 from datatypes.compat import *
 from datatypes.path import (
     Path,
     Dirpath,
     Filepath,
+    Archivepath,
 )
 
-from . import TestCase as BaseTestCase, testdata
+from . import TestCase, testdata
 
-class TestCase(BaseTestCase):
+
+class PathTest(TestCase):
     path_class = Path
 
     def create_path(self, *parts, **kwargs):
         kwargs.setdefault("path_class", self.path_class)
-        if not parts:
-            exists = kwargs.pop("exists", True)
-            if isinstance(self.path_class, Dirpath):
-                contents = kwargs.pop("contents", {})
-                if exists:
-                    if contents:
-                        parts = [testdata.create_dirs(contents)]
-                    else:
-                        parts = [testdata.create_dir()]
+
+        #parts = list(parts)
+#         if not parts or not os.path.exists(parts[0]):
+#             parts.insert(0, testdata.get_dir(testdata.get_filename()))
+        path = os.path.join(*parts) if parts else ""
+
+        contents = kwargs.pop("contents", {})
+        exists = kwargs.pop("exists", True if contents else False if path else True)
+        if issubclass(kwargs["path_class"], Dirpath):
+            if contents:
+                if isinstance(contents, Mapping):
+                    parts = [testdata.create_files(contents, tmpdir=path)]
+
+                elif isinstance(contents, Iterable):
+                    parts = [testdata.create_dirs(contents, tmpdir=path)]
 
                 else:
-                    parts = [testdata.get_dir(testdata.get_ascii())]
+                    raise ValueError("Unknown contents for directory")
+
             else:
-                if exists:
-                    parts = [testdata.create_file(contents=kwargs.pop("contents", ""))]
-
+                if path.startswith("/"):
+                    parts = [path]
                 else:
-                    parts = [testdata.get_file()]
+                    parts = [testdata.get_dir(path if path else testdata.get_filename())]
 
-        return Path.create(*parts, **kwargs)
+#                 else:
+#                     parts = [testdata.get_filename()]
 
+        else:
+            if contents:
+                parts = [testdata.create_file(path, contents=contents)]
 
-class PathTest(TestCase):
+            else:
+                if path.startswith("/"):
+                    parts = [path]
+                else:
+                    parts = [testdata.get_file(path)]
+
+        p = Path.create(*parts, **kwargs)
+        if exists and not p.exists():
+            p.touch()
+
+        return p
+
+    def create_dir(self, *parts, **kwargs):
+        kwargs.setdefault("path_class", Dirpath)
+        return self.create_path(*parts, **kwargs)
+
+    def create_file(self, *parts, **kwargs):
+        kwargs.setdefault("path_class", Filepath)
+        return self.create_path(*parts, **kwargs)
+
     def test_join(self):
         r = Path.join("", "foo", "bar")
         self.assertEqual('/foo/bar', r)
@@ -105,12 +137,6 @@ class PathTest(TestCase):
         p = self.create_path("fileroot")
         self.assertEqual([], p.suffixes)
 
-    def test_joinpath(self):
-        p = self.create_path("/foo/bar")
-
-        p2 = p.joinpath("che", "baz")
-        self.assertEqual("/foo/bar/che/baz", p2)
-
     def test_match(self):
         self.assertTrue(self.create_path('/a.py').match('/*.py'))
 
@@ -160,31 +186,6 @@ class PathTest(TestCase):
         p = self.create_path("/foo/bar.ext")
         self.assertEqual("/foo/bar", p.with_suffix(""))
 
-
-class DirpathTest(TestCase):
-    path_class = Dirpath
-
-    def test_parts(self):
-        path = "/foo/bar/che"
-        p = self.create_path(path)
-        parents = p.parents
-        pout.v(parents)
-
-        return
-
-
-
-        path = testdata.create_dir()
-
-        pout.v(path)
-
-        p = self.create_path(path)
-        pout.v(p, type(p))
-
-
-class FilepathTest(TestCase):
-    path_class = Filepath
-
     def test_stat(self):
         p = self.create_path()
         r = p.stat()
@@ -199,11 +200,297 @@ class FilepathTest(TestCase):
     def test_exists(self):
         p = self.create_path()
         self.assertTrue(p.exists())
+
+        p = self.create_file()
         self.assertTrue(p.is_file())
 
-        p = self.create_path("/foo/bar")
+        p = self.create_file()
+        self.assertTrue(p.exists())
+        self.assertTrue(p.is_file())
+
+        p = self.create_dir()
+        self.assertTrue(p.exists())
+        self.assertTrue(p.is_dir())
+
+    def test_touch(self):
+        p = self.create_path()
+        self.assertTrue(p.exists())
+        p.touch()
+        with self.assertRaises(OSError):
+            p.touch(exist_ok=False)
+
+        p = self.create_path(exists=False)
         self.assertFalse(p.exists())
-        self.assertFalse(p.is_file())
+        p.touch()
+        self.assertTrue(p.exists())
+
+    def test_parts(self):
+        path = "/foo/bar/che"
+        p = self.create_path(path)
+        parts = p.parts
+        self.assertEqual("/", parts[0])
+        self.assertEqual("che", parts[-1])
+        self.assertEqual("bar", parts[-2])
+        self.assertEqual("foo", parts[-3])
+
+
+class DirpathTest(PathTest):
+    path_class = Dirpath
+
+    def test_joinpath(self):
+        p = self.create_path("/foo/bar")
+
+        p2 = p.joinpath("che", "baz")
+        self.assertTrue(p2.endswith("/foo/bar/che/baz"))
+
+    def test_iterdir(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+            "baz.txt": testdata.get_lines(),
+            "boom/pow/bam.txt": testdata.get_lines(),
+        })
+
+        count = 0
+        for fp in p.iterdir():
+            count += 1
+        self.assertEqual(4, count)
+
+    def test_iterdirs(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+            "baz.txt": testdata.get_lines(),
+            "boom/pow/bam.txt": testdata.get_lines(),
+        })
+
+        count = 0
+        for dp in p.iterdirs():
+            count += 1
+        self.assertEqual(3, count)
+
+    def test_iterfiles(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+            "baz.txt": testdata.get_lines(),
+            "boom/pow/bam.txt": testdata.get_lines(),
+        })
+
+        count = 0
+        for fp in p.iterfiles():
+            count += 1
+        self.assertEqual(4, count)
+
+    def test_glob(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+            "goo/gap.py": testdata.get_lines(),
+            "baz.txt": testdata.get_lines(),
+            "boom/pow/bam.txt": testdata.get_lines(),
+        })
+
+        count = 0
+        for fp in p.glob("*.txt"):
+            self.assertTrue(fp.endswith(".txt"))
+            count += 1
+        self.assertEqual(2, count)
+
+    def test_rglob(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+            "goo/gap.py": testdata.get_lines(),
+            "baz.txt": testdata.get_lines(),
+            "boom/pow/bam.txt": testdata.get_lines(),
+        })
+
+        count = 0
+        for fp in p.rglob("*.txt"):
+            self.assertTrue(fp.endswith(".txt"))
+            count += 1
+        self.assertEqual(4, count)
+
+    def test_reglob(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+            "goo/gap.py": testdata.get_lines(),
+            "baz.txt": testdata.get_lines(),
+            "boom/pow/bam.txt": testdata.get_lines(),
+        })
+
+        count = 0
+        for fp in p.reglob(r"\.txt$"):
+            self.assertTrue(fp.endswith(".txt"))
+            count += 1
+        self.assertEqual(4, count)
+
+    def test_rm(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+
+        self.assertTrue(p.exists())
+        self.assertLess(0, p.count())
+
+        p.rm()
+        self.assertFalse(p.exists())
+
+        p.rm() # no error raised means it worked
+
+    def test_clear(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+
+        self.assertTrue(p.exists())
+        self.assertLess(0, p.count())
+
+        p.clear()
+        self.assertTrue(p.exists())
+        self.assertEqual(0, p.count())
+
+    def test_rmdir(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+
+        self.assertTrue(p.exists())
+        self.assertLess(0, p.count())
+
+        with self.assertRaises(OSError):
+            p.rmdir()
+
+        p.clear()
+        self.assertTrue(p.exists())
+        self.assertEqual(0, p.count())
+
+        p.rmdir()
+        self.assertFalse(p.exists())
+
+    def test_mv_noexist(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir("mv_no", "mv_noexist", exists=False)
+        self.assertFalse(target.exists())
+
+        target = p.mv(target)
+        self.assertFalse(p.exists())
+        self.assertTrue(target.exists())
+        self.assertLess(0, target.count())
+
+    def test_mv_exist(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir()
+        self.assertTrue(target.exists())
+
+        dest = p.mv(target)
+        self.assertFalse(p.exists())
+        self.assertTrue(dest.exists())
+        self.assertNotEqual(target, dest)
+        self.assertLess(0, target.count())
+
+    def test_mv_notempty(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir()
+        dest = self.create_dir(target, p.basename, contents={"bar.txt": testdata.get_lines()})
+
+        self.assertTrue(target.exists())
+        self.assertTrue(dest.exists())
+
+        with self.assertRaises(OSError):
+            p.mv(target)
+
+    def test_mv_empty(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir()
+        dest = self.create_dir(target, p.basename, exists=True)
+        self.assertEqual(0, dest.count())
+
+        self.assertTrue(target.exists())
+        self.assertTrue(dest.exists())
+
+        dest = p.mv(target)
+        self.assertLess(0, dest.count())
+        self.assertFalse(p.exists())
+
+    def test_cp_noexist(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir(exists=False)
+        self.assertFalse(target.exists())
+
+        dest = p.cp(target)
+
+        self.assertTrue(p.exists())
+        self.assertTrue(dest.exists())
+        self.assertLess(0, p.count())
+        self.assertLess(0, dest.count())
+
+    def test_cp_exist(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines()
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir()
+        self.assertTrue(target.exists())
+
+        dest = p.cp(target)
+        self.assertTrue(p.exists())
+        self.assertTrue(dest.exists())
+        self.assertNotEqual(target, dest)
+        self.assertLess(0, p.count())
+        self.assertLess(0, target.count())
+
+    def test_cp_notempty(self):
+        p = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+        })
+        self.assertLess(0, p.count())
+
+        target = self.create_dir()
+        dest = self.create_dir(target, p.basename, contents={"bar.txt": testdata.get_lines()})
+
+        self.assertTrue(target.exists())
+        self.assertTrue(dest.exists())
+
+        p.cp(target)
+        self.assertEqual(1, p.count(recursive=True))
+        self.assertEqual(2, dest.count(recursive=True))
+
+
+class FilepathTest(PathTest):
+    path_class = Filepath
 
     def test_unlink(self):
 
@@ -275,18 +562,6 @@ class FilepathTest(TestCase):
         self.assertTrue(fp.basename, p3.basename)
         self.assertEqual(contents, p3.read_text())
 
-    def test_touch(self):
-        p = self.create_path()
-        self.assertTrue(p.exists())
-        p.touch()
-        with self.assertRaises(OSError):
-            p.touch(exist_ok=False)
-
-        p = self.create_path(exists=False)
-        self.assertFalse(p.exists())
-        p.touch()
-        self.assertTrue(p.exists())
-
     def test_head_tail(self):
         count = 10
         p = self.create_path(contents=testdata.get_lines(21))
@@ -316,4 +591,41 @@ class FilepathTest(TestCase):
 
         p.clear()
         self.assertEqual(0, p.count())
+
+    def test_contextmanager(self):
+        p = self.create_path()
+
+        contents = testdata.get_lines()
+        with p as fp:
+            fp.write(contents)
+        self.assertEqual(contents, p.read_text())
+
+        contents = testdata.get_lines()
+        with p("w+") as fp:
+            fp.write(contents)
+        self.assertEqual(contents, p.read_text())
+
+
+class ArchivepathTest(TestCase):
+    path_class = Archivepath
+
+    def test_add_zip(self):
+        zp = self.create_path("foo.zip")
+        fp = self.create_file(contents=testdata.get_lines())
+        dp = self.create_dir(contents={
+            "foo.txt": testdata.get_lines(),
+            "bar/che.txt": testdata.get_lines(),
+        })
+
+        zp.add(fp)
+
+        zp.add(dp)
+
+        for n in zp:
+            pout.v(n)
+
+        pout.v(fp, zp, dp)
+
+    # TODO: test other formats like .tar.gz
+
 

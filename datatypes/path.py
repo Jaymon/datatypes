@@ -9,7 +9,16 @@ import shutil
 import hashlib
 from collections import deque
 from distutils import dir_util, file_util
-from zipfile import ZipFile
+#from zipfile import ZipFile
+import zipfile
+import tarfile
+import site
+import logging
+import tempfile
+#import itertools
+import glob
+import datetime
+import re
 
 try:
     from pathlib import Path as Pathlib
@@ -21,18 +30,42 @@ from . import environ
 from .string import String, ByteString
 
 
+logger = logging.getLogger(__name__)
+
+
 class Path(String):
     """Provides a more or less compatible interface to the pathlib.Path api of
-    python 3 that can be used across py2 and py3 codebases. The biggest difference
-    is the Path instances are actually string instances and are always resolved, if
-    you don't want that behavior then you should use Pathlib in py3 or your own
-    solution in py2
+    python 3 that can be used across py2 and py3 codebases. However, The Path
+    instances are actually string instances and are always resolved
 
-    This finally brings into a DRY location my path code from testdata and bang
-    among other places I've needed this functionality. I've also tried to standardize
+    This finally brings into a DRY location my path code from testdata, stockton,
+    and bang, among others. I've needed this functionality. I've also tried to standardize
     the interface to be very similar to Pathlib so you can, hopefully, swap between
     them
 
+    Directories: 
+        * path: /parent/basename
+        * fileroot: basename
+        * basename: basename
+        * filename: basename
+        * directory: /parent
+        * parent: /parent
+        * stempath: /parent/basename
+        * ext: ""
+        * suffix: ""
+
+    Files: 
+        * path: /parent/fileroot.ext
+        * fileroot: fileroot
+        * filename: fileroot.ext
+        * basename: fileroot.ext
+        * directory: /parent
+        * parent: /parent
+        * stempath: /parent/fileroot
+        * ext: ext
+        * suffix: .ext
+
+    https://en.wikipedia.org/wiki/Fully_qualified_name#Filenames_and_paths
     https://docs.python.org/3/library/pathlib.html
     https://github.com/python/cpython/blob/3.8/Lib/pathlib.py
     """
@@ -129,12 +162,20 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.parent
         """
-        return self.directory
+        return self.create_dir(os.path.dirname(self.path))
 
     @property
     def directory(self):
         """return the directory portion of a directory/fileroot.ext path"""
-        return self.create_dir(os.path.dirname(self.path))
+        return self.parent
+
+    @property
+    def dirname(self):
+        return self.parent
+
+    @property
+    def basedir(self):
+        return self.parent
 
     @property
     def name(self):
@@ -142,6 +183,10 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.name
         """
+        return self.basename
+
+    @property
+    def filename(self):
         return self.basename
 
     @property
@@ -164,6 +209,18 @@ class Path(String):
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.stem
         """
         return self.fileroot
+
+    @property
+    def stempath(self):
+        """The complete path, without its suffix
+
+        :Example:
+            p = Path("/foo/bar/fileroot.ext")
+            p.stempath # /foo/bar/fileroot
+
+        :returns: String, the full path and fileroot without suffix (ext)
+        """
+        return os.path.splitext(self.path)[0]
 
     @property
     def suffix(self):
@@ -222,7 +279,7 @@ class Path(String):
             p = cls.create(*parts, **kwargs)
 
         else:
-            p = cls.create(*parts, **kwargs)
+            p = cls.create_path(*parts, path_class=Path)
             if p.is_file():
                 p = cls.create_file(p, **kwargs)
 
@@ -264,14 +321,14 @@ class Path(String):
                     p = "/"
 
             if ps:
-                ps.append(p.strip("/").strip("\\"))
+                ps.append(p.strip("\\/"))
 
             else:
                 if p == "/":
                     ps.append(p)
 
                 else:
-                    ps.append(p.rstrip("/").rstrip("\\"))
+                    ps.append(p.rstrip("\\/"))
 
         return os.path.join(*ps)
 
@@ -279,11 +336,17 @@ class Path(String):
     def normpath(cls, *parts, **kwargs):
         '''normalize a path, accounting for things like windows dir seps'''
         path = cls.join(*parts)
-        path = os.path.abspath(os.path.expanduser(path))
+        path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
         return path
 
     def __new__(cls, *parts, **kwargs):
         path = cls.normpath(*parts, **kwargs)
+
+        suffix = kwargs.pop("suffix", kwargs.pop("ext", ""))
+        if suffix:
+            if not path.endswith(suffix):
+                path = "{}.{}".format(path, suffix.lstrip("."))
+
         instance = super(Path, cls).__new__(
             cls,
             path,
@@ -304,6 +367,17 @@ class Path(String):
     def as_path(self):
         """return a new instance of this path as a Path"""
         return self.create_path(self, **kwargs)
+
+    def as_uri(self):
+        """Represent the path as a file URI
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.as_uri
+        """
+        return "file://{}".format(self.path)
+
+    def empty(self):
+        """Return True if the file/directory is empty"""
+        raise NotImplementedError()
 
     def stat(self):
         """Return a os.stat_result object containing information about this path,
@@ -512,36 +586,6 @@ class Path(String):
 
         return ret
 
-    def relative_to(self, *other):
-        """Compute a version of this path relative to the path represented by other.
-        If it’s impossible, ValueError is raised
-
-        returns the relative part to the *other
-
-        :Example:
-            d = Path("/foo/bar/baz/che")
-            d.relative_to("/foo/bar") # baz/che
-            d.relative_to("/foo") # bar/baz/che
-
-        https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.relative_to
-
-        :param *other: string|Directory, the directory you want to return that self
-            is a child of
-        :returns: string, the part of the path that is relative, because these are
-            relative paths they can't return Path instances
-        """
-        if is_py2:
-            ancestor_dir = self.join(*other)
-
-            ret = os.path.relpath(self.path, ancestor_dir)
-            if ret.startswith(".."):
-                raise ValueError("'{}' does not start with '{}'".format(self.path, ancestor_dir))
-
-        else:
-            ret = String(self.pathlib.relative_to(*other))
-
-        return ret
-
     def with_name(self, name):
         """Return a new path with the name changed. If the original path doesn’t
         have a name, ValueError is raised
@@ -574,6 +618,24 @@ class Path(String):
 
         return self.create_inferred(parent, basename)
 
+    def backup(self, suffix=".bak", ignore_existing=True):
+        """backup the file to the same directory with given suffix
+
+        :param suffix: str, what will be appended to the file name (eg, foo.ext becomes
+            foo.ext.bak)
+        :param ignore_existing: boolean, if True overwrite an existing backup, if false
+            then don't backup if a backup file already exists
+        :returns: instance, the backup Path
+        """
+        target = self.create_inferred("{}{}".format(self.path, suffix))
+        return self.backup_to(target)
+
+    def backup_to(self, target, ignore_existing=True):
+        target = self.create_inferred(target)
+        if ignore_existing or not target.exists():
+            self.cp(target)
+        return target
+
     def rename(self, target):
         """Rename this file or directory to the given target, and return a new Path
         instance pointing to target. On Unix, if target exists and is a file,
@@ -584,7 +646,9 @@ class Path(String):
 
         :returns: the new Path instance
         """
-        return self.mv(target)
+        target = self.create_path(target)
+        os.rename(self.path, target)
+        return self.create_inferred(target)
 
     def replace(self, target):
         """Rename this file or directory to the given target, and return a new Path
@@ -595,34 +659,59 @@ class Path(String):
 
         :returns: the new Path instance.
         """
-        return self.mv(target)
+        if is_py2:
+            ret = self.rename(target)
+
+        else:
+            target = self.create_path(target)
+            self.pathlib.replace(target)
+            ret = self.create_inferred(target)
+
+        return ret
 
     def mv(self, target):
+        """mimics the behavior of unix mv command"""
         raise NotImplementedError()
 
+    def move_to(self, target):
+        return self.mv(target)
+
     def cp(self, target):
-        """copy self to target"""
+        """mimics the behavior of unix cp command"""
         raise NotImplementedError()
 
     def copy_to(self, target):
         return self.cp(target)
 
-    def resolve(self, strict=False):
-        """Make the path absolute, resolving any symlinks. A new path object is returned
+    def relative_to(self, *other):
+        """Compute a version of this path relative to the path represented by other.
+        If it’s impossible, ValueError is raised
 
-        If the path doesn’t exist and strict is True, FileNotFoundError is raised.
-        If strict is False, the path is resolved as far as possible and any remainder
-        is appended without checking whether it exists. If an infinite loop is
-        encountered along the resolution path, RuntimeError is raised.
+        returns the relative part to the *other
 
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve
+        :Example:
+            d = Path("/foo/bar/baz/che")
+            d.relative_to("/foo/bar") # baz/che
+            d.relative_to("/foo") # bar/baz/che
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.relative_to
+
+        :param *other: string|Directory, the directory you want to return that self
+            is a child of
+        :returns: string, the part of the path that is relative, because these are
+            relative paths they can't return Path instances
         """
-        ret = self.create_inferred(os.path.realpath(self.path))
-        if strict:
-            if not self.exists():
-                raise OSError(self.path)
+        if is_py2:
+            ancestor_dir = self.join(*other)
 
-        return self
+            ret = os.path.relpath(self.path, ancestor_dir)
+            if ret.startswith(".."):
+                raise ValueError("'{}' does not start with '{}'".format(self.path, ancestor_dir))
+
+        else:
+            ret = String(self.pathlib.relative_to(*other))
+
+        return ret
 
     def symlink_to(self, target, target_is_directory=False):
         """Make this path a symbolic link to target. Under Windows, target_is_directory
@@ -639,6 +728,26 @@ class Path(String):
             self.pathlib.symlink_to(target, target_is_directory=target_is_directory)
 
         return target
+
+    def archive_to(self, target):
+        raise NotImplementedError("Waiting for Archivepath api to be finalized")
+
+    def resolve(self, strict=False):
+        """Make the path absolute, resolving any symlinks. A new path object is returned
+
+        If the path doesn’t exist and strict is True, FileNotFoundError is raised.
+        If strict is False, the path is resolved as far as possible and any remainder
+        is appended without checking whether it exists. If an infinite loop is
+        encountered along the resolution path, RuntimeError is raised.
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve
+        """
+        ret = self.create_inferred(os.path.realpath(self.path))
+        if strict:
+            if not ret.exists():
+                raise OSError(self.path)
+
+        return ret
 
     def samefile(self, other_path):
         """Return whether this path points to the same file as other_path, which
@@ -679,6 +788,25 @@ class Path(String):
         """clear the file/directory but don't delete it"""
         raise NotImplementedError()
 
+    def created(self):
+        """return a datetime.datetime of when the file was created"""
+        t = os.path.getctime(self.path)
+        return datetime.datetime.fromtimestamp(t)
+
+    def modified(self):
+        """return a datetime.datetime of when the file was modified"""
+        # http://stackoverflow.com/a/1526089/5006
+        t = os.path.getmtime(self.path)
+        return datetime.datetime.fromtimestamp(t)
+
+    def updated(self):
+        return self.modified()
+
+    def accessed(self):
+        """return a datetime.datetime of when the file was accessed"""
+        t = os.path.getatime(self.path)
+        return datetime.datetime.fromtimestamp(t)
+
     def __fspath__(self):
         """conform to PathLike abstract base class for py3.6+
 
@@ -713,15 +841,33 @@ class Dirpath(Path):
         """
         return os.path.expanduser("~")
 
-    def glob(self, pattern):
-        """Glob the given relative pattern in the directory represented by this path,
-        yielding all matching files (of any kind)
+    def empty(self):
+        """Return True if directory is empty"""
+        ret = True
+        for p in self.iterdir():
+            ret = False
+            break
+        return ret
 
-        The “**” pattern means "this directory and all subdirectories, recursively".
-        In other words, it enables recursive globbing
+    def rm(self):
+        try:
+            shutil.rmtree(self.path)
 
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
+        except OSError:
+            # we don't care if the directory doesn't exist
+            pass
+
+    def rmdir(self):
+        """Remove this directory. The directory must be empty
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.rmdir
         """
+        os.rmdir(self.path)
+
+    def clear(self):
+        """Remove all the contents of this directory but leave the directory"""
+        for p in self.iterdir():
+            p.rm()
 
     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
         """Create a new directory at this given path. If mode is given, it is combined
@@ -742,21 +888,60 @@ class Dirpath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.mkdir
         """
+        if not exist_ok:
+            if self.is_dir():
+                raise OSError("FileExistsError")
 
-    def rglob(self, pattern):
-        """This is like calling Path.glob() with “**/” added in front of the given relative pattern
+        if parents:
+            os.makedirs(self.path, mode)
 
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob
+        else:
+            os.mkdir(self.path, mode)
+
+    def mv(self, target):
+        """Move the entire contents of the directory at self into a directory at target
+
+        :Example:
+            $ mv src target
+            target/src if target exists
+            error is thrown if target/src exists and target/src is not empty
+                (mv: rename src to target/src: Directory not empty)
+            src is moved to target/src if target/src exists but is empty
+            src is moved to target if target does not exist
         """
+        target = self.create_dir(target)
 
-    def rm(self):
-        shutil.rmtree(self.path)
+        if target.is_dir():
+            # https://stackoverflow.com/a/15034373/5006
+            target = self.create_dir(target, self.basename)
 
-    def rmdir(self):
-        """Remove this directory. The directory must be empty
+            if target.is_dir() and not target.empty():
+                # this will error out if target is not empty
+                raise OSError("Directory not empty: {}".format(target))
 
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.rmdir
+        dir_util.copy_tree(self.path, target, update=1)
+
+        self.rm()
+
+        return target
+
+    def cp(self, target):
+        """Copy the entire contents of the directory at self into a directory at target
+
+        :Example:
+            $ cp -R src target
+            src is copied to target if target does not exist
+            target/src if target exists
+            src is merged into target/src if target/src exists
         """
+        target = self.create_dir(target)
+
+        if target.is_dir():
+            target = self.create_dir(target, self.basename)
+
+        dir_util.copy_tree(self.path, target, update=1)
+
+        return target
 
     def touch(self, mode=0o666, exist_ok=True):
         """Create the directory at this given path.  If the directory already exists,
@@ -771,13 +956,67 @@ class Dirpath(Path):
         else:
             dir_util.mkpath(self.path)
 
-    def zip_to(self, target):
-        target = self.create_file(target)
-        if target.endswith(".zip"):
-            target = os.path.splitext(target)[0]
-        # https://docs.python.org/3/library/shutil.html#shutil.make_archive
-        # https://stackoverflow.com/a/25650295/5006
-        return shutil.make_archive(target, 'zip', self.path)
+    def glob(self, pattern):
+        """Glob the given relative pattern in the directory represented by this path,
+        yielding all matching files (of any kind)
+
+        The “**” pattern means "this directory and all subdirectories, recursively".
+        In other words, it enables recursive globbing
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
+        """
+        if is_py2:
+            # https://docs.python.org/2/library/glob.html
+            for fp in glob.iglob(os.path.join(self.path, pattern)):
+                yield self.create_inferred(fp)
+
+#             for dp in self.iterdirs(recursive=True):
+#                 for fp in glob.iglob(os.path.join(dp, pattern)):
+#                     yield self.create_inferred(fp)
+
+        else:
+            for fp in self.pathlib.glob(pattern):
+                yield self.create_inferred(fp)
+
+    def rglob(self, pattern):
+        """This is like calling Path.glob() with “**/” added in front of the given
+        relative pattern, meaning it will match files in this directory and all
+        subdirectories
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob
+        """
+        if is_py2:
+            for fp in self.glob(pattern):
+                yield fp
+
+            for dp in self.iterdirs(recursive=True):
+                for fp in glob.iglob(os.path.join(dp, pattern)):
+                    yield self.create_inferred(fp)
+
+#             for fp in self.glob(pattern):
+#                 yield fp
+
+        else:
+            for fp in self.pathlib.rglob(pattern):
+                yield self.create_inferred(fp)
+
+    def reglob(self, pattern, recursive=True):
+        """A glob but uses a regex instead of the common glob syntax"""
+        for fp in self.iterfiles(recursive=recursive):
+            if re.search(pattern, fp):
+                yield fp
+
+    def filecount(self, recursive=True):
+        """return how many files in directory"""
+        return len(list(self.iterfiles(recursive=recursive)))
+
+    def dircount(self, recursive=True):
+        """return how many directories in directory"""
+        return len(list(self.iterdirs(recursive=recursive)))
+
+    def count(self, recursive=True):
+        """return how many files and directories in directory"""
+        return self.filecount(recursive=recursive) + self.dircount(recursive=recursive)
 
     def iterdir(self):
         """When the path points to a directory, yield path objects of the directory contents
@@ -786,41 +1025,33 @@ class Dirpath(Path):
         """
         if is_py2:
             for basename in os.listdir(self.path):
-                pout.v(basename)
+                yield self.create_inferred(self.path, basename)
 
         else:
             for p in self.pathlib.iterdir():
-                pout.v(p)
+                yield self.create_inferred(p)
 
-    def iterdirs(self):
+    def iterdirs(self, recursive=True):
         """iterate through all the directories in this directory only"""
-        for basedir, directories, files in os.walk(self.path, topdown=True):
-            basedir = self.create_dir(basedir)
-            for basename in directories:
-                yield self.create_dir(basedir, basename)
-            break
-
-    def dirs(self):
         """iterate through all the directories in this directory only"""
         for basedir, directories, files in os.walk(self.path, topdown=True):
             basedir = self.create_dir(basedir)
             for basename in directories:
                 yield self.create_dir(basedir, basename)
 
-    def iterfiles(self):
+            if not recursive:
+                break
+
+    def iterfiles(self, recursive=True):
         """iterate through all the files in this directory only"""
-        for basedir, directories, files in os.walk(self.path, topdown=True):
-            basedir = self.create_dir(basedir)
-            for basename in files:
-                yield self.create_file(basedir, basename)
-            break
-
-    def files(self):
         """iterate through all the files in this directory and subdirectories"""
         for basedir, directories, files in os.walk(self.path, topdown=True):
             basedir = self.create_dir(basedir)
             for basename in files:
                 yield self.create_file(basedir, basename)
+
+            if not recursive:
+                break
 
     def __iter__(self):
         for basedir, dirs, files in os.walk(self.path, topdown=True):
@@ -835,6 +1066,11 @@ class Dirpath(Path):
 
 
 class Filepath(Path):
+
+    def empty(self):
+        """Return True if file is empty"""
+        st = self.stat()
+        return True if st.st_size else False
 
     def open(self, mode='r', buffering=-1, encoding=None, errors=None, newline=None):
         """Open the file pointed to by the path, like the built-in open() function does
@@ -872,6 +1108,40 @@ class Filepath(Path):
             )
 
         return fp
+
+    def __call__(self, mode="w+", **kwargs):
+        """Allow an easier interface for opening a writing file descriptor
+
+        This uses the class defaults for things like encoding, so it's better to
+        use .open() or .write_bytes() if you want to write non-encoded raw text
+
+        :Example:
+            p = Filepath("foo/bar.ext")
+            with p("a+) as fp:
+                fp.write("some value")
+        """
+        return self.open(
+            mode=mode,
+            buffering=kwargs.get("buffering", -1),
+            newline=kwargs.get("newline", None),
+            encoding=kwargs.get("encoding", self.encoding),
+            errors=kwargs.get("errors", self.errors),
+        )
+
+    def __enter__(self):
+        """Allow an easier interface for opening a writing file descriptor
+
+        :Example:
+            p = Filepath("foo/bar.ext")
+            with p as fp:
+                fp.write("some value")
+        """
+        self._context_fp = self()
+        return self._context_fp
+
+    def __exit__(self, exception_type, exception_val, trace):
+        self._context_fp.close()
+        del self._context_fp
 
     def read_bytes(self):
         """Return the binary contents of the pointed-to file as a bytes object
@@ -924,11 +1194,7 @@ class Filepath(Path):
             target = self.create_file(target, self.basename)
 
         shutil.copy(self.path, target)
-        return target
-
-    def copy_to(self, dest_path):
-        """alias of .cp()"""
-        return self.cp(target)
+        return target.as_file()
 
     def mv(self, target):
         target = self.create_inferred(target)
@@ -936,7 +1202,7 @@ class Filepath(Path):
             target = self.create_file(target, self.basename)
 
         shutil.move(self.path, target)
-        return target
+        return target.as_file()
 
     def unlink(self, missing_ok=False):
         """Remove this file or symbolic link. If the path points to a directory,
@@ -973,20 +1239,18 @@ class Filepath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.touch
         """
-        if is_py2:
-            if self.exists():
-                if not exist_ok:
-                    raise OSError("FileExistsError")
+        if self.exists():
+            if not exist_ok:
+                raise OSError("FileExistsError")
 
-                os.utime(self.path, None)
-
-            else:
-                self.parent.touch(mode, exist_ok)
-                with self.open("a") as f:
-                    os.utime(self.path, None)
+            os.utime(self.path, None)
 
         else:
-            self.pathlib.touch(mode, exist_ok)
+            self.parent.touch(mode, exist_ok)
+
+            # http://stackoverflow.com/a/1160227/5006
+            with self.open("a") as f:
+                os.utime(self.path, None)
 
     def linecount(self):
         """return line count"""
@@ -1038,12 +1302,6 @@ class Filepath(Path):
             ret = deque(self.splitlines(), maxlen=count)
         return ret
 
-    def zip_to(self, target):
-        target = self.create_file(target)
-        with ZipFile(target, 'w') as z:
-            z.write(self.path)
-        return target
-
     def splitlines(self, keepends=False):
         """iterate through all the lines"""
         with self.open("r", encoding=self.encoding, errors=self.errors) as f:
@@ -1053,4 +1311,208 @@ class Filepath(Path):
     def __iter__(self):
         for line in self.splitlines():
             yield line
+
+#     def __contains__(self, needle):
+#         haystack = self.read_text()
+#         return needle in haystack
+
+
+
+
+
+
+
+
+class Archivepath(Dirpath):
+    def __new__(cls, *parts, **kwargs):
+        instance = super(Archivepath, cls).__new__(cls, *parts, **kwargs)
+
+        archive_info = {
+            ".zip": {
+                "archive_class": zipfile.ZipFile,
+                "archive_format": "zip",
+                "write_mode": "w",
+                "write_method": "write",
+                "__iter__": "namelist",
+            },
+            ".tar": {
+                "archive_class": tarfile.TarFile,
+                "archive_format": "tar",
+                "write_mode": "w:",
+                "write_method": "add"
+            },
+            ".tar.gz": {
+                "archive_class": tarfile.TarFile,
+                "archive_format": "gztar",
+                "write_mode": "w:gz",
+                "write_method": "add"
+            },
+            ".tar.bz2": {
+                "archive_class": tarfile.TarFile,
+                "archive_format": "bztar",
+                "write_mode": "w:bz2",
+                "write_method": "add"
+            },
+            ".tar.xz": {
+                "archive_class": tarfile.TarFile,
+                "archive_format": "xztar",
+                "write_mode": "w:xz",
+                "write_method": "add"
+            },
+        }
+
+        instance.info = {}
+        for suffix, info in archive_info.items():
+            if instance.endswith(suffix):
+                instance.info = info
+                break
+
+        if not instance.info:
+            raise ValueError("No archive info found for archive file {}".format(instance.path))
+
+        return instance
+
+    def __iter__(self):
+        z = self.info["archive_class"](self.path)
+        for n in getattr(z, self.info["__iter__"])():
+            yield n
+
+    def add(self, target, arcname=""):
+        target = self.create_inferred(target)
+
+        # !!! This works but it overwrites the zip file on every call, a
+        # solution would be to make this a context manager so you could do
+        # something like:
+        #
+        # with self as z:
+        #     z.add(path1)
+        #     z.add(path2)
+        #     z.add(path3)
+        #
+        # so each .add copies the files/directories to a temp directory and when the __exit__
+        # fires you would use shutil.make_archive to create the actual archive
+        # file, this method would then be renamed .set()
+
+
+        # if the archive doesn't exist we want to make sure at least the directory
+        # exists because the file will be created when target is added to the
+        # archive
+        if not self.exists():
+            self.parent.touch()
+
+        if target.is_file():
+            if not arcname:
+                arcname = target.basename
+
+            with self.info["archive_class"](self.path, mode=self.info["write_mode"]) as z:
+                getattr(z, self.info["write_method"])(target, arcname=arcname)
+
+        elif target.is_dir():
+            if not arcname:
+                arcname = target.path
+
+            target = self.stempath
+            # https://docs.python.org/3/library/shutil.html#shutil.make_archive
+            # https://stackoverflow.com/a/25650295/5006
+            shutil.make_archive(self.stempath, self.info["archive_format"], root_dir=arcname)
+
+        else:
+            raise ValueError("Target is neither a file or a directory")
+
+    def extract_to(self, target):
+        target = self.create_dir(target)
+
+
+
+
+
+
+
+
+# !!! Ripped from herd.path
+class TempDirpath(Dirpath):
+    def __new__(cls, *parts, **kwargs):
+        basedir = kwargs.pop("dir") if "dir" in kwargs else tempfile.gettempdir()
+
+        prefix = ""
+        if parts:
+            prefix = cls.join(*parts)
+        if prefix:
+            prefix += "-"
+
+        path = tempfile.mkdtemp(prefix=prefix, dir=basedir)
+        return super(TempDirpath, cls).__new__(cls, path, **kwargs)
+
+
+# class TempFilepath(Filepath):
+#     def __new__(cls, *parts, **kwargs):
+#         basedir = kwargs.pop("dir") if "dir" in kwargs else tempfile.gettempdir()
+# 
+#         prefix = ""
+#         if parts:
+#             prefix = cls.join(*parts)
+#         if prefix:
+#             prefix += "-"
+# 
+#         path = tempfile.mkdtemp(prefix=prefix, dir=basedir)
+#         return super(TempDirpath, cls).__new__(cls, path, **kwargs)
+
+
+
+# !!! Ripped from pyt.path which was ripped from pout.path
+class SitePackagesDirpath(Dirpath):
+    """Finds the site-packages directory and sets the value of this string to that
+    path"""
+    def __new__(cls):
+        basepath = cls._basepath
+        if not basepath:
+            try:
+                paths = site.getsitepackages()
+                basepath = paths[0] 
+                logger.debug(
+                    "Found site-packages directory {} using site.getsitepackages".format(
+                        basepath
+                    )
+                )
+
+            except AttributeError:
+                # we are probably running this in a virtualenv, so let's try a different
+                # approach
+                # try and brute-force discover it since it's not defined where it
+                # should be defined
+                sitepath = os.path.join(os.path.dirname(site.__file__), "site-packages")
+                if os.path.isdir(sitepath):
+                    basepath = sitepath
+                    logger.debug(
+                        "Found site-packages directory {} using site.__file__".format(
+                            basepath
+                        )
+                    )
+
+                else:
+                    for path in sys.path:
+                        if path.endswith("site-packages"):
+                            basepath = path
+                            logger.debug(
+                                "Found site-packages directory {} using sys.path".format(
+                                    basepath
+                                )
+                            )
+                            break
+
+                    if not basepath:
+                        for path in sys.path:
+                            if path.endswith("dist-packages"):
+                                basepath = path
+                                logger.debug(
+                                    "Found dist-packages directory {} using sys.path".format(
+                                        basepath
+                                    )
+                                )
+                                break
+
+        if not basepath:
+            raise IOError("Could not find site-packages directory")
+
+        return super(SitePackagesDirpath, cls).__new__(cls, basepath)
 
