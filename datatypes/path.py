@@ -19,6 +19,8 @@ import tempfile
 import glob
 import datetime
 import re
+import string
+import random
 
 try:
     from pathlib import Path as Pathlib
@@ -255,43 +257,76 @@ class Path(String):
 
     @classmethod
     def create_file(cls, *parts, **kwargs):
-        kwargs.setdefault("path_class", Filepath)
-        return cls.create(*parts, **kwargs)
-
-    @classmethod
-    def create_dir(cls, *parts, **kwargs):
-        kwargs.setdefault("path_class", Dirpath)
-        return cls.create(*parts, **kwargs)
-
-    @classmethod
-    def create_path(cls, *parts, **kwargs):
-        kwargs.setdefault("path_class", Path)
-        return cls.create(*parts, **kwargs)
-
-    @classmethod
-    def create(cls, *parts, **kwargs):
-        path_class = kwargs.pop("path_class", cls)
+        path_class = kwargs.pop("path_class", Filepath)
         return path_class(*parts, **kwargs)
 
     @classmethod
-    def create_inferred(cls, *parts, **kwargs):
+    def create_dir(cls, *parts, **kwargs):
+        path_class = kwargs.pop("path_class", Dirpath)
+        return path_class(*parts, **kwargs)
+
+    @classmethod
+    def create_path(cls, *parts, **kwargs):
+        path_class = kwargs.pop("path_class", Path)
+        return path_class(*parts, **kwargs)
+
+    @classmethod
+    def create(cls, *parts, **kwargs):
         if "path_class" in kwargs:
-            p = cls.create(*parts, **kwargs)
+            path_class = kwargs.pop("path_class")
+            p = path_class(*parts, **kwargs)
 
         else:
             p = cls.create_path(*parts, path_class=Path)
             if p.is_file():
-                p = cls.create_file(p, **kwargs)
+                p = p.as_file(**kwargs)
 
             elif p.is_dir():
-                p = cls.create_dir(p, **kwargs)
+                p = p.as_dir(**kwargs)
 
             else:
                 # let's assume a file if it has an extension
                 if p.ext:
-                    p = cls.create_file(p, **kwargs)
+                    p = p.as_file(**kwargs)
+
+                else:
+                    p = cls(p, **kwargs)
 
         return p
+
+    @classmethod
+    def split(cls, *parts):
+        """Does the opposite of .join()"""
+        ps = []
+        for p in parts:
+            if isinstance(p, Path):
+                for pb in p.parts:
+                    if pb == "/":
+                        if not ps:
+                            ps.append(pb)
+
+                    else:
+                        ps.append(pb)
+
+            elif not isinstance(p, basestring) and isinstance(p, Iterable):
+                for pb in cls.split(*p):
+                    if pb == "/":
+                        if not ps:
+                            ps.append(pb)
+
+                    else:
+                        ps.append(pb)
+
+            else:
+                for pb in String(p).split("/"):
+                    if pb:
+                        ps.append(pb.rstrip("\\/"))
+
+                    else:
+                        if not ps:
+                            ps.append("/")
+
+        return ps
 
     @classmethod
     def join(cls, *parts):
@@ -594,7 +629,7 @@ class Path(String):
         """
         if self.is_root():
             raise ValueError("{} has an empty name".format(self))
-        return self.create_inferred(self.parent, name)
+        return self.create(self.parent, name)
 
     def with_suffix(self, suffix):
         """Return a new path with the suffix changed. If the original path doesn't
@@ -616,7 +651,7 @@ class Path(String):
         else:
             basename += suffix
 
-        return self.create_inferred(parent, basename)
+        return self.create(parent, basename)
 
     def backup(self, suffix=".bak", ignore_existing=True):
         """backup the file to the same directory with given suffix
@@ -627,11 +662,11 @@ class Path(String):
             then don't backup if a backup file already exists
         :returns: instance, the backup Path
         """
-        target = self.create_inferred("{}{}".format(self.path, suffix))
+        target = self.create("{}{}".format(self.path, suffix))
         return self.backup_to(target)
 
     def backup_to(self, target, ignore_existing=True):
-        target = self.create_inferred(target)
+        target = self.create(target)
         if ignore_existing or not target.exists():
             self.cp(target)
         return target
@@ -648,7 +683,7 @@ class Path(String):
         """
         target = self.create_path(target)
         os.rename(self.path, target)
-        return self.create_inferred(target)
+        return self.create(target)
 
     def replace(self, target):
         """Rename this file or directory to the given target, and return a new Path
@@ -665,7 +700,7 @@ class Path(String):
         else:
             target = self.create_path(target)
             self.pathlib.replace(target)
-            ret = self.create_inferred(target)
+            ret = self.create(target)
 
         return ret
 
@@ -742,7 +777,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve
         """
-        ret = self.create_inferred(os.path.realpath(self.path))
+        ret = self.create(os.path.realpath(self.path))
         if strict:
             if not ret.exists():
                 raise OSError(self.path)
@@ -758,7 +793,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.samefile
         """
-        other_path = self.create_inferred(other_path)
+        other_path = self.create(other_path)
         return os.path.samefile(self.path, other_path)
 
     def touch(self, mode=0o666, exist_ok=True):
@@ -823,7 +858,8 @@ class Path(String):
 
 
 class Dirpath(Path):
-
+    """Represents a directory so extends Path with methods to iterate through
+    a directory"""
     @classmethod
     def cwd(cls):
         """Return a new path object representing the current directory (as returned by os.getcwd())
@@ -919,6 +955,10 @@ class Dirpath(Path):
                 # this will error out if target is not empty
                 raise OSError("Directory not empty: {}".format(target))
 
+        # dir_util says it creates all the parent directories but for some
+        # reason it wasn't working, this makes sure the target exist before
+        # trying to copy everything over from src (self.path)
+        target.touch()
         dir_util.copy_tree(self.path, target, update=1)
 
         self.rm()
@@ -939,6 +979,7 @@ class Dirpath(Path):
         if target.is_dir():
             target = self.create_dir(target, self.basename)
 
+        target.touch()
         dir_util.copy_tree(self.path, target, update=1)
 
         return target
@@ -968,15 +1009,11 @@ class Dirpath(Path):
         if is_py2:
             # https://docs.python.org/2/library/glob.html
             for fp in glob.iglob(os.path.join(self.path, pattern)):
-                yield self.create_inferred(fp)
-
-#             for dp in self.iterdirs(recursive=True):
-#                 for fp in glob.iglob(os.path.join(dp, pattern)):
-#                     yield self.create_inferred(fp)
+                yield self.create(fp)
 
         else:
             for fp in self.pathlib.glob(pattern):
-                yield self.create_inferred(fp)
+                yield self.create(fp)
 
     def rglob(self, pattern):
         """This is like calling Path.glob() with “**/” added in front of the given
@@ -991,14 +1028,11 @@ class Dirpath(Path):
 
             for dp in self.iterdirs(recursive=True):
                 for fp in glob.iglob(os.path.join(dp, pattern)):
-                    yield self.create_inferred(fp)
-
-#             for fp in self.glob(pattern):
-#                 yield fp
+                    yield self.create(fp)
 
         else:
             for fp in self.pathlib.rglob(pattern):
-                yield self.create_inferred(fp)
+                yield self.create(fp)
 
     def reglob(self, pattern, recursive=True):
         """A glob but uses a regex instead of the common glob syntax"""
@@ -1025,11 +1059,11 @@ class Dirpath(Path):
         """
         if is_py2:
             for basename in os.listdir(self.path):
-                yield self.create_inferred(self.path, basename)
+                yield self.create(self.path, basename)
 
         else:
             for p in self.pathlib.iterdir():
-                yield self.create_inferred(p)
+                yield self.create(p)
 
     def iterdirs(self, recursive=True):
         """iterate through all the directories in this directory only"""
@@ -1066,7 +1100,7 @@ class Dirpath(Path):
 
 
 class Filepath(Path):
-
+    """Represents a file so extends Path with file reading/writing methods"""
     def empty(self):
         """Return True if file is empty"""
         st = self.stat()
@@ -1189,7 +1223,7 @@ class Filepath(Path):
 
     def cp(self, target):
         """copy self to/into target"""
-        target = self.create_inferred(target)
+        target = self.create(target)
         if target.is_dir():
             target = self.create_file(target, self.basename)
 
@@ -1197,7 +1231,7 @@ class Filepath(Path):
         return target.as_file()
 
     def mv(self, target):
-        target = self.create_inferred(target)
+        target = self.create(target)
         if target.is_dir():
             target = self.create_file(target, self.basename)
 
@@ -1260,6 +1294,7 @@ class Filepath(Path):
         return self.linecount()
 
     def count(self):
+        """how many characters in the file"""
         return len(self.read_text())
 
     def checksum(self):
@@ -1312,18 +1347,11 @@ class Filepath(Path):
         for line in self.splitlines():
             yield line
 
-#     def __contains__(self, needle):
-#         haystack = self.read_text()
-#         return needle in haystack
-
-
-
-
-
-
-
 
 class Archivepath(Dirpath):
+    """This was based off of code from herd.path but as I was expanding it I realized
+    it was going to be more work than my needs currently warranted so I'm leaving
+    this here and I'll get back to it another time"""
     def __new__(cls, *parts, **kwargs):
         instance = super(Archivepath, cls).__new__(cls, *parts, **kwargs)
 
@@ -1378,7 +1406,7 @@ class Archivepath(Dirpath):
             yield n
 
     def add(self, target, arcname=""):
-        target = self.create_inferred(target)
+        target = self.create(target)
 
         # !!! This works but it overwrites the zip file on every call, a
         # solution would be to make this a context manager so you could do
@@ -1423,40 +1451,47 @@ class Archivepath(Dirpath):
         target = self.create_dir(target)
 
 
-
-
-
-
-
-
 # !!! Ripped from herd.path
 class TempDirpath(Dirpath):
+    """Create a temporary directory
+
+    :Example:
+        d = TempDirpath("foo", "bar")
+        print(d) # $TMPDIR/foo/bar
+    """
+
     def __new__(cls, *parts, **kwargs):
-        basedir = kwargs.pop("dir") if "dir" in kwargs else tempfile.gettempdir()
+        path = tempfile.mkdtemp(
+            suffix=kwargs.pop("suffix", ""),
+            prefix=kwargs.pop("prefix", ""),
+            dir=kwargs.pop("dir", tempfile.gettempdir()),
+        )
 
-        prefix = ""
-        if parts:
-            prefix = cls.join(*parts)
-        if prefix:
-            prefix += "-"
-
-        path = tempfile.mkdtemp(prefix=prefix, dir=basedir)
-        return super(TempDirpath, cls).__new__(cls, path, **kwargs)
+        instance = super(TempDirpath, cls).__new__(cls, path, *parts, **kwargs)
+        instance.touch()
+        return instance
+Dirtemp = TempDirpath
 
 
-# class TempFilepath(Filepath):
-#     def __new__(cls, *parts, **kwargs):
-#         basedir = kwargs.pop("dir") if "dir" in kwargs else tempfile.gettempdir()
-# 
-#         prefix = ""
-#         if parts:
-#             prefix = cls.join(*parts)
-#         if prefix:
-#             prefix += "-"
-# 
-#         path = tempfile.mkdtemp(prefix=prefix, dir=basedir)
-#         return super(TempDirpath, cls).__new__(cls, path, **kwargs)
+class TempFilepath(Filepath):
+    """Create a temporary file
 
+    :Example:
+        f = TempFilepath("foo", "bar.ext")
+        print(f) # $TMPDIR/foo/bar.ext
+    """
+    def __new__(cls, *parts, **kwargs):
+        parts = cls.split(*parts)
+        basedir = TempDirpath(*parts[:-1], **kwargs)
+
+        basename = parts[-1:]
+        if not basename:
+            basename = "".join(random.sample(string.ascii_letters, random.randint(3, 11)))
+
+        instance = super(TempFilepath, cls).__new__(cls, basedir, basename, **kwargs)
+        instance.touch()
+        return instance
+Filetemp = TempFilepath
 
 
 # !!! Ripped from pyt.path which was ripped from pout.path

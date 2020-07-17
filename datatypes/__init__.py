@@ -3,8 +3,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 import logging
 
 from .string import (
-    String,
-    Unicode, # alias for String
+    String, Unicode,
     ByteString,
     Base64,
     HTMLCleaner,
@@ -29,9 +28,16 @@ from .csv import (
 from .enum import (
     Enum,
 )
+from .path import (
+    Filepath,
+    Dirpath,
+    TempFilepath, Filetemp,
+    TempDirpath, Dirtemp,
+    SitePackagesDirpath,
+)
 
 
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
