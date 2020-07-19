@@ -33,11 +33,13 @@ from .path import (
     Dirpath,
     TempFilepath, Filetemp,
     TempDirpath, Dirtemp,
+    Cachepath,
+    Sentinal,
     SitePackagesDirpath,
 )
 
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

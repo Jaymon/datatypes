@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
 import os
+import time
 
 from datatypes.compat import *
 from datatypes.path import (
@@ -10,6 +11,8 @@ from datatypes.path import (
     Archivepath,
     TempDirpath,
     TempFilepath,
+    Cachepath,
+    Sentinal,
 )
 
 from . import TestCase, testdata
@@ -610,6 +613,19 @@ class FilepathTest(_PathTestCase):
             fp.write(contents)
         self.assertEqual(contents, p.read_text())
 
+    def test_empty(self):
+        p = self.create()
+
+        self.assertTrue(p.exists())
+        self.assertTrue(p.empty())
+
+        p.write_text(testdata.get_words())
+        self.assertFalse(p.empty())
+
+        p.delete()
+        self.assertFalse(p.exists())
+        self.assertTrue(p.empty())
+
 
 class ArchivepathTest(TestCase):
     path_class = Archivepath
@@ -658,4 +674,48 @@ class TempFilepathTest(TestCase):
         self.assertTrue(f.exists())
         self.assertTrue(f.is_file())
         self.assertTrue("/foo/bar" in f)
+
+
+class CachepathTest(TestCase):
+    def test_create_key(self):
+        k = Cachepath.create_key("foo", "ba%$?/r")
+        self.assertEqual("foo.bar", k)
+
+        k = Cachepath.create_key("foo", "ba%$?/r", prefix="che")
+        self.assertEqual("che.foo.bar", k)
+
+    def test_cache(self):
+        data = {
+            "foo": testdata.get_words(),
+            "bar": testdata.get_words(),
+        }
+        c = Cachepath("foo", "ba%$?/r", ttl=1)
+
+        cache_hit = False
+        if c:
+            cache_hit = True
+        else:
+            c.write(data)
+        self.assertFalse(cache_hit)
+
+        if c:
+            cache_data = c.read()
+        else:
+            c.write(data)
+        self.assertEqual(cache_data, data)
+
+        time.sleep(1)
+        self.assertFalse(bool(c))
+
+
+class SentinalTest(TestCase):
+    def test_fail_pass(self):
+        s = Sentinal(testdata.get_filename(), monthly=True)
+
+        count = 0
+        if not s:
+            count += 1
+        if not s:
+            count += 1
+        self.assertEqual(1, count)
 

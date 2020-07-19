@@ -13,8 +13,8 @@ class CSVTest(TestCase):
     def test_read(self):
         """make sure we can read a utf encoded csv file"""
         csvfile = testdata.create_csv({
-            "foo": testdata.get_name,
-            "bar": testdata.get_words,
+            "foo": testdata.get_unicode_name,
+            "bar": testdata.get_unicode_words,
             "che": testdata.get_int,
         })
 

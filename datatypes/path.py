@@ -15,7 +15,7 @@ import tarfile
 import site
 import logging
 import tempfile
-#import itertools
+import itertools
 import glob
 import datetime
 import re
@@ -26,6 +26,11 @@ try:
     from pathlib import Path as Pathlib
 except ImportError:
     Pathlib = None
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 from .compat import *
 from . import environ
@@ -1103,8 +1108,11 @@ class Filepath(Path):
     """Represents a file so extends Path with file reading/writing methods"""
     def empty(self):
         """Return True if file is empty"""
-        st = self.stat()
-        return True if st.st_size else False
+        ret = True
+        if self.exists():
+            st = self.stat()
+            ret = False if st.st_size else True
+        return ret
 
     def open(self, mode='r', buffering=-1, encoding=None, errors=None, newline=None):
         """Open the file pointed to by the path, like the built-in open() function does
@@ -1182,7 +1190,8 @@ class Filepath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.read_bytes
         """
-        with self.open() as fp:
+        # https://stackoverflow.com/a/32957860/5006
+        with self.open(mode="rb") as fp:
             return fp.read()
 
     def read_text(self, encoding=None, errors=None):
@@ -1455,12 +1464,15 @@ class Archivepath(Dirpath):
 class TempDirpath(Dirpath):
     """Create a temporary directory
 
+    https://docs.python.org/3/library/tempfile.html
+
     :Example:
         d = TempDirpath("foo", "bar")
         print(d) # $TMPDIR/foo/bar
     """
 
     def __new__(cls, *parts, **kwargs):
+        # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
         path = tempfile.mkdtemp(
             suffix=kwargs.pop("suffix", ""),
             prefix=kwargs.pop("prefix", ""),
@@ -1468,7 +1480,8 @@ class TempDirpath(Dirpath):
         )
 
         instance = super(TempDirpath, cls).__new__(cls, path, *parts, **kwargs)
-        instance.touch()
+        if kwargs.get("create", kwargs.get("touch", True)):
+            instance.touch()
         return instance
 Dirtemp = TempDirpath
 
@@ -1489,9 +1502,162 @@ class TempFilepath(Filepath):
             basename = "".join(random.sample(string.ascii_letters, random.randint(3, 11)))
 
         instance = super(TempFilepath, cls).__new__(cls, basedir, basename, **kwargs)
-        instance.touch()
+        if kwargs.get("create", kwargs.get("touch", True)):
+            instance.touch()
         return instance
 Filetemp = TempFilepath
+
+
+class Cachepath(Filepath):
+    """A file that can contain cached data
+
+    :Example:
+        c = Cachepath("key")
+        if c:
+            data = c.read()
+        else:
+            data = do_something_long()
+            c.write(data)
+    """
+    prefix = ''
+    """set the key prefix"""
+
+    ttl = 0
+    """how long to cache the result in seconds, 0 for unlimited"""
+
+    def __new__(cls, *keys, **kwargs):
+        ttl = kwargs.pop("ttl", cls.ttl)
+        prefix = kwargs.pop("prefix", cls.prefix)
+
+        basedir = kwargs.get("dir", "")
+        if not basedir:
+            basedir = environ.CACHE_DIR
+            if basedir:
+                kwargs["dir"] = basedir
+
+        kwargs.setdefault("create", False)
+
+        key = cls.create_key(*keys, prefix=prefix)
+        filepath = TempFilepath(key, **kwargs)
+
+        instance = super(Cachepath, cls).__new__(cls, filepath)
+
+        instance.ttl = ttl
+        instance.prefix = prefix
+        return instance
+
+    @classmethod
+    def create_key(cls, *keys, **kwargs):
+        parts = []
+        prefix = kwargs.pop("prefix", cls.prefix)
+        if prefix:
+            parts.append(prefix)
+        parts.extend(keys)
+
+        keys = map(lambda s: String(s).stripall(string.punctuation), parts)
+        return '.'.join(keys)
+
+    def __nonzero__(self):
+        ret = True
+        if self.empty():
+            ret = False
+
+        else:
+            if self.ttl:
+                ret = self.modified_within(seconds=self.ttl)
+
+        return ret
+
+    def __bool__(self):
+        return self.__nonzero__()
+
+    def write(self, data):
+        b = pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
+        self.write_bytes(b)
+
+    def read(self):
+        return pickle.loads(self.read_bytes())
+
+    def modified_within(self, seconds=0, **timedelta_kwargs):
+        """returns true if the file has been modified within the last seconds
+
+        :param seconds: integer, how many seconds
+        :param **timedelta_kwargs: dict, can be thing like days, must be passed
+            as a named keyword
+        :returns: boolean, True if file has been modified after the seconds back
+        """
+        now = datetime.datetime.now()
+        then = self.modified()
+        timedelta_kwargs["seconds"] = seconds
+        td_check = datetime.timedelta(**timedelta_kwargs)
+        #pout.v(now, td_check, then)
+        return (now - td_check) < then
+
+
+class Sentinal(Cachepath):
+    """Creates a file after the first failed boolean check, handy when you only want
+    to check things at certain intervals
+
+    :Example:
+        s = Sentinal("foo")
+        if not s:
+            # do something you don't want to do all the time
+        if not s:
+            # this won't ever be ran because the last `if not s` check will have
+            # created the sentinal file
+    """
+    def __new__(cls, *keys, **kwargs):
+        """Create the sentinal file
+
+        :param *keys: same arguments as Cachepath
+        :param **kwargs:
+            yearly: bool, create the file once per year
+            monthly: bool, create the file once per month
+            weekly: bool, create the file once per week
+            daily: bool, create the file once per day
+            hourly: bool, create the file once per hour
+            ttl: bool, create the file every ttl seconds
+        """
+        now = datetime.datetime.utcnow()
+        year = now.strftime("%Y")
+        month = now.strftime("%m")
+        day = now.strftime("%d")
+        week = now.strftime("%W")
+        hour = now.strftime("%H")
+
+        dates = []
+        if kwargs.pop("yearly", False):
+            dates = [year]
+
+        elif kwargs.pop("monthly", False):
+            dates = [year, month]
+
+        elif kwargs.pop("weekly", False):
+            dates = [year, week]
+
+        elif kwargs.pop("daily", False):
+            dates = [year, month, day]
+
+        elif kwargs.pop("hourly", False):
+            dates = [year, month, day, hour]
+
+        keys = list(keys) + dates
+
+        instance = super(Sentinal, cls).__new__(cls, *keys, **kwargs)
+        return instance
+
+    def __nonzero__(self):
+        ret = False
+        if self.exists():
+            ret = True
+            if self.ttl:
+                ret = not self.modified_with(seconds=self.ttl)
+
+        else:
+            # we create the file after the first failed exists check
+            self.touch()
+
+        return ret
 
 
 # !!! Ripped from pyt.path which was ripped from pout.path

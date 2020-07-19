@@ -202,6 +202,18 @@ class String(Str):
         s = (indent + line for line in self.splitlines(False))
         s = "\n".join(s)
         return type(self)(s)
+
+    def stripall(self, chars):
+        """Similar to the builtin .strip() but will strip chars from anywhere in the
+        string"""
+        ret = ""
+        for ch in self:
+            if ch not in chars:
+                ret += ch
+        return ret
+
+    def astrip(self, chars):
+        return self.stripall(chars)
 Unicode = String
 
 

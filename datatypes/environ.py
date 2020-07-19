@@ -8,3 +8,5 @@ ENCODING = "UTF-8"
 
 ENCODING_ERRORS = "replace"
 
+CACHE_DIR = ""
+
