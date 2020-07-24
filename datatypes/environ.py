@@ -29,6 +29,28 @@ class Environ(object):
         k = self.key(key)
         os.environ[k] = value
 
+    def nset(self, key, values):
+        """Given a list of values, this will set key_* where * is 1 -> len(values)
+
+        :param key: string, the key that will be added to the environment as key_*
+        :param values: list, a list of values
+        """
+        self.ndelete(key)
+
+        for i, v in enumerate(values, 1):
+            k = "{}_{}".format(key, i)
+            self.set(k, v)
+
+    def delete(self, key):
+        """remove key from the environment"""
+        k = self.key(key)
+        os.environ.pop(k)
+
+    def ndelete(self, key):
+        """remove all key_* from the environment"""
+        for k in self.nkeys(key):
+            os.environ.pop(k)
+
     def get(self, key, default=None):
         """get a value for key from the environment
 
@@ -41,6 +63,20 @@ class Environ(object):
 
         r = os.environ.get(key, default)
         return r
+
+    def nget(self, key):
+        """this will look for key, and kkey_N (where
+        N is 1 to infinity) in the environment
+
+        The num checks (eg *_1, *_2) go in order, so you can't do *_1, *_3, because it
+        will fail on missing *_2 and move on, so make sure your nums are in order 
+        (eg, 1, 2, 3, ...)
+
+        :param key: string, the name of the environment variables
+        :returns: generator, the found values for key and key_* variants
+        """
+        for nkey in self.nkeys(key):
+            yield os.environ[nkey]
 
     def keys(self):
         """yields all the keys of the given namespace currently in the environment"""
@@ -95,24 +131,10 @@ class Environ(object):
             finally:
                 n += 1
 
-    def all(self, key):
-        """this will look for key, and kkey_N (where
-        N is 1 to infinity) in the environment
-
-        The num checks (eg *_1, *_2) go in order, so you can't do *_1, *_3, because it
-        will fail on missing *_2 and move on, so make sure your nums are in order 
-        (eg, 1, 2, 3, ...)
-
-        :param key: string, the name of the environment variables
-        :returns: generator, the found values for key and key_* variants
-        """
-        for nkey in self.nkeys(key):
-            yield os.environ[nkey]
-
     def paths(self, key):
         """Similar to .all() but splits each value using the path separator"""
         sep = os.pathsep
-        for paths in self.all(key):
+        for paths in self.nget(key):
             for p in paths.split(sep):
                 yield p
 
