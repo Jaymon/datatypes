@@ -75,6 +75,12 @@ class Path(String):
     https://en.wikipedia.org/wiki/Fully_qualified_name#Filenames_and_paths
     https://docs.python.org/3/library/pathlib.html
     https://github.com/python/cpython/blob/3.8/Lib/pathlib.py
+    https://docs.python.org/3/library/os.path.html
+
+    Path takes advantage of these semi-standard python modules:
+        * https://docs.python.org/3/library/shutil.html
+        * https://github.com/python/cpython/blob/2.7/Lib/distutils/dir_util.py)
+        * https://github.com/python/cpython/blob/2.7/Lib/distutils/file_util.py
     """
     @property
     def permissions(self):
@@ -1057,6 +1063,17 @@ class Dirpath(Path):
         """return how many files and directories in directory"""
         return self.filecount(recursive=recursive) + self.dircount(recursive=recursive)
 
+    def scandir(self):
+        """
+        https://docs.python.org/3.5/library/os.html#os.scandir
+
+        https://github.com/benhoyt/scandir
+        https://bugs.python.org/issue11406
+        """
+        # TODO -- make this work similarly for py2
+        for entry in os.scandir(self.path):
+            yield entry
+
     def iterdir(self):
         """When the path points to a directory, yield path objects of the directory contents
 
@@ -1360,7 +1377,15 @@ class Filepath(Path):
 class Archivepath(Dirpath):
     """This was based off of code from herd.path but as I was expanding it I realized
     it was going to be more work than my needs currently warranted so I'm leaving
-    this here and I'll get back to it another time"""
+    this here and I'll get back to it another time
+
+
+    https://docs.python.org/3/library/tarfile.html 
+    https://docs.python.org/2/library/tarfile.html#tarfile-objects
+
+    https://docs.python.org/3/library/zipfile.html
+    https://docs.python.org/2/library/zipfile.html#zipfile-objects
+    """
     def __new__(cls, *parts, **kwargs):
         instance = super(Archivepath, cls).__new__(cls, *parts, **kwargs)
 

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
 import base64
+import hashlib
+import re
 
 from . import environ
 from .compat import *
@@ -80,11 +82,13 @@ class ByteString(Bytes):
         return b"" + self
 
     def md5(self):
+        """32 character md5 hash of string"""
         # http://stackoverflow.com/a/5297483/5006
         return hashlib.md5(self).hexdigest()
 
     def sha256(self):
-        return hashlib.sha256(self).digest()
+        """64 character sh256 hash of the string"""
+        return hashlib.sha256(self).hexdigest()
 
 
 class String(Str):
@@ -150,11 +154,13 @@ class String(Str):
         return "" + self
 
     def md5(self):
+        """32 character md5 hash of string"""
         # http://stackoverflow.com/a/5297483/5006
         return hashlib.md5(self.bytes()).hexdigest()
 
     def sha256(self):
-        return hashlib.sha256(self.bytes()).digest()
+        """64 character sh256 hash of the string"""
+        return hashlib.sha256(self.bytes()).hexdigest()
 
     def truncate(self, size, postfix='...'):
         """similar to a normal string split but it actually will split on a word boundary
@@ -205,7 +211,13 @@ class String(Str):
 
     def stripall(self, chars):
         """Similar to the builtin .strip() but will strip chars from anywhere in the
-        string"""
+        string
+
+        :Example:
+            s = "foo bar che.  "
+            s2 = s.stripall(" .")
+            print(s2) # "foobarche"
+        """
         ret = ""
         for ch in self:
             if ch not in chars:
@@ -214,7 +226,64 @@ class String(Str):
 
     def astrip(self, chars):
         return self.stripall(chars)
+
+    def re(self, pattern, flags=0):
+        """Provides a fluid regex interface
+
+        :Example:
+            s = "foo bar che"
+            parts = s.re(r"\s+").split()
+            print(parts) # ["foo", "bar", "che"]
+        """
+        return Regex(pattern, self, flags)
+
+    def regex(self, pattern, flags=0):
+        return self.re(pattern, flags)
+
 Unicode = String
+
+
+class Regex(object):
+    """Provides a passthrough interface to the re module to run pattern against s
+
+    https://docs.python.org/3/library/re.html
+    """
+    def __init__(self, pattern, s, flags=0):
+        self.pattern = pattern
+        self.s = s
+        self.flags = flags
+
+    def search(self, flags=0):
+        flags |= self.flags
+        return re.search(self.pattern, self.s, flags)
+
+    def match(self, flags=0):
+        flags |= self.flags
+        return re.match(self.pattern, self.s, flags)
+
+    def fullmatch(self, flags=0):
+        flags |= self.flags
+        return re.fullmatch(self.pattern, self.s, flags)
+
+    def split(self, maxsplit=0, flags=0):
+        flags |= self.flags
+        return re.split(self.pattern, self.s, maxsplit=maxsplit, flags=flags)
+
+    def findall(self, flags=0):
+        flags |= self.flags
+        return re.findall(self.pattern, self.s, flags=flags)
+
+    def finditer(self, flags=0):
+        flags |= self.flags
+        return re.finditer(self.pattern, self.s, flags=flags)
+
+    def sub(self, repl, count=0, flags=0):
+        flags |= self.flags
+        return re.sub(self.pattern, repl, self.s, count=count, flags=flags)
+
+    def subn(self, repl, count=0, flags=0):
+        flags |= self.flags
+        return re.subn(self.pattern, repl, self.s, count=count, flags=flags)
 
 
 class Base64(String):

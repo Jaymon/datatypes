@@ -37,9 +37,12 @@ from .path import (
     Sentinal,
     SitePackagesDirpath,
 )
+from .environ import (
+    Environ,
+)
 
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

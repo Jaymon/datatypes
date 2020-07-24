@@ -18,6 +18,7 @@ if is_py2:
     unicode = unicode
     range = xrange # range is now always an iterator
     input = raw_input
+    cmp = cmp
 
     import Queue as queue
     import thread as _thread
@@ -27,12 +28,22 @@ if is_py2:
         from StringIO import StringIO
 
     from SimpleHTTPServer import SimpleHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
+    from BaseHTTPServer import (
+        BaseHTTPRequestHandler,
+        HTTPServer,
+    )
+    import SocketServer as socketserver
     import Cookie as cookies
     import __builtin__ as builtins
 
     from HTMLParser import HTMLParser
     from urllib import urlencode
+    from urllib2 import (
+        Request,
+        urlopen,
+        URLError,
+        HTTPError,
+    )
     unescape = HTMLParser().unescape
     import urlparse as parse
 
@@ -64,14 +75,20 @@ else:
     import queue
     import _thread
     from io import StringIO
-    from http.server import HTTPServer, SimpleHTTPRequestHandler
+    from http.server import (
+        HTTPServer,
+        SimpleHTTPRequestHandler,
+        BaseHTTPRequestHandler,
+    )
+    import socketserver
     from http import cookies
-    from urllib import parse as urlparse
     import builtins
 
     from html.parser import HTMLParser
     from urllib import parse
     from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+    from urllib.error import URLError, HTTPError
     try:
         from html import unescape
     except ImportError:
@@ -103,6 +120,39 @@ else:
             traceback = None
 
 
+    # py3 has no cmp function for some strange reason
+    # https://codegolf.stackexchange.com/a/49779
+    def cmp(a, b):
+        return (a > b) - (a < b)
+
+
 Str = unicode if is_py2 else str
 Bytes = str if is_py2 else bytes
+
+
+# TODO using reraise
+
+#             if py_2:
+#                 #raise error_info[0].__class__, error_info[0], error_info[1][2]
+#                 reraise(*error_info)
+#                 #raise error_info[0].__class__, error_info[1], error_info[2]
+# 
+#             elif py_3:
+#                 #e, exc_info = error_info
+#                 #et, ei, tb = exc_info
+# 
+#                 reraise(*error_info)
+#                 #et, ei, tb = error_info
+#                 #raise ei.with_traceback(tb)
+
+
+# if not error_info:
+#                     exc_info = sys.exc_info()
+#                     #raise e.__class__, e, exc_info[2]
+#                     #self.error_info = (e, exc_info)
+#                     self.error_info = exc_info
+# 
+# if error_info:
+# 
+#             reraise(*error_info)
 
