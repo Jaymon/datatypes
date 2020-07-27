@@ -29,6 +29,7 @@ from .enum import (
     Enum,
 )
 from .path import (
+    Path,
     Filepath,
     Dirpath,
     TempFilepath, Filetemp,

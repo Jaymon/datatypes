@@ -75,14 +75,6 @@ class Url(String):
 
         return uristring
 
-    def __new__(cls, urlstring=None, **kwargs):
-        parts = cls.merge(urlstring, **kwargs)
-        urlstring = parts.pop("urlstring")
-        instance = super(Url, cls).__new__(cls, urlstring)
-        for k, v in parts.items():
-            setattr(instance, k, v)
-        return instance
-
     @classmethod
     def keys(cls):
         # we need to ignore property objects also
@@ -276,22 +268,6 @@ class Url(String):
                     args.extend(cls.normalize_paths(p))
         return args
 
-    def _normalize_params(self, *paths, **query_kwargs):
-        """a lot of the helper methods are very similar, this handles their arguments"""
-        kwargs = {}
-
-        if paths:
-            fragment = paths[-1]
-            if fragment:
-                if fragment.startswith("#"):
-                    kwargs["fragment"] = fragment
-                    paths.pop(-1)
-
-            kwargs["path"] = "/".join(self.normalize_paths(*paths))
-
-        kwargs["query_kwargs"] = query_kwargs
-        return kwargs
-
     @classmethod
     def split_hostname_from_port(cls, hostname, default_port=None):
         """given a hostname:port return a tuple (hostname, port)"""
@@ -301,6 +277,14 @@ class Url(String):
         if len(bits) == 2:
             p = int(bits[1])
         return d, p
+
+    def __new__(cls, urlstring=None, **kwargs):
+        parts = cls.merge(urlstring, **kwargs)
+        urlstring = parts.pop("urlstring")
+        instance = super(Url, cls).__new__(cls, urlstring)
+        for k, v in parts.items():
+            setattr(instance, k, v)
+        return instance
 
     def create(self, *args, **kwargs):
         return type(self)(*args, **kwargs)
@@ -344,6 +328,22 @@ class Url(String):
                     sub_kwargs.pop(k)
 
         return self.create(**sub_kwargs)
+
+    def _normalize_params(self, *paths, **query_kwargs):
+        """a lot of the helper methods are very similar, this handles their arguments"""
+        kwargs = {}
+
+        if paths:
+            fragment = paths[-1]
+            if fragment:
+                if fragment.startswith("#"):
+                    kwargs["fragment"] = fragment
+                    paths.pop(-1)
+
+            kwargs["path"] = "/".join(self.normalize_paths(*paths))
+
+        kwargs["query_kwargs"] = query_kwargs
+        return kwargs
 
     def parent(self, *paths, **query_kwargs):
         """create a new Url instance one level up from the current Url instance
