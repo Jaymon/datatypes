@@ -51,7 +51,13 @@ if is_py2:
     zip = itertools.izip
     zip_longest = itertools.izip_longest
 
-    from collections import Iterable, Mapping, Callable
+    from collections import (
+        Iterable,
+        Mapping,
+        Callable,
+        MutableSequence,
+        Sequence,
+    )
 
 
     # NOTE -- getargspace isn't a full mapping of getfullargspec
@@ -97,7 +103,13 @@ else:
     from inspect import getfullargspec
     from itertools import zip_longest
 
-    from collections.abc import Iterable, Mapping, Callable
+    from collections.abc import (
+        Iterable,
+        Mapping,
+        Callable,
+        MutableSequence,
+        Sequence,
+    )
 
 
     # ripped from six https://github.com/benjaminp/six

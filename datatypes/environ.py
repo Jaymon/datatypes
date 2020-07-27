@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
 import os
+import tempfile
 
 from .compat import *
 
@@ -148,6 +149,6 @@ is passed in"""
 ENCODING_ERRORS = environ.get("ENCODING_ERRORS", "replace")
 """For things that need encoding, this will handle any errors"""
 
-CACHE_DIR = environ.get("CACHE_DIR", "")
+CACHE_DIR = environ.get("CACHE_DIR", tempfile.gettempdir())
 """the default caching directory for things that need a cache folder"""
 

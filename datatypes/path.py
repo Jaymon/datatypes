@@ -267,43 +267,70 @@ class Path(String):
         return suffixes
 
     @classmethod
+    def path_class(self):
+        return Path
+
+    @classmethod
+    def dir_class(self):
+        return Dirpath
+
+    @classmethod
+    def file_class(self):
+        return Filepath
+
+    @classmethod
     def create_file(cls, *parts, **kwargs):
-        path_class = kwargs.pop("path_class", Filepath)
-        return path_class(*parts, **kwargs)
+        kwargs["path_class"] = cls.file_class()
+        return kwargs["path_class"](*parts, **kwargs)
 
     @classmethod
     def create_dir(cls, *parts, **kwargs):
-        path_class = kwargs.pop("path_class", Dirpath)
-        return path_class(*parts, **kwargs)
+        kwargs["path_class"] = cls.dir_class()
+        return kwargs["path_class"](*parts, **kwargs)
 
     @classmethod
     def create_path(cls, *parts, **kwargs):
-        path_class = kwargs.pop("path_class", Path)
-        return path_class(*parts, **kwargs)
+        kwargs["path_class"] = cls.path_class()
+        return kwargs["path_class"](*parts, **kwargs)
 
     @classmethod
     def create(cls, *parts, **kwargs):
-        if "path_class" in kwargs:
-            path_class = kwargs.pop("path_class")
-            p = path_class(*parts, **kwargs)
+        """Create a path instance using the full inferrencing (guessing code) of
+        cls.path_class().__new__()"""
+        # we want inference to work so we don't want any path_class being passed
+        # to the __new__ method but we will use it to create the instance if
+        # passed in
+        path_class = kwargs.pop("path_class", cls.path_class())
+        return path_class(*parts, **kwargs)
+
+    @classmethod
+    def create_as(cls, instance, path_class, **kwargs):
+        """Used by .__new__() to convert a Path to one of the children. This is 
+        a separate method so it could be augmented by children classes if desired
+
+        take note that this has a different signature than all the other create_*
+        methods
+
+        :param instance: Path, a Path instance created by __new__()
+        :param path_class: type, the path class that was passed in to __new__()
+        :param **kwargs: the keywords passed into __new__()
+        :returns: Path, either the same instance or a different one
+        """
+        if path_class or (cls is not cls.path_class()):
+            return instance
+
+        if instance.is_file():
+            instance = instance.as_file()
+
+        elif instance.is_dir():
+            instance = instance.as_dir()
 
         else:
-            p = cls.create_path(*parts, path_class=Path)
-            if p.is_file():
-                p = p.as_file(**kwargs)
+            # let's assume a file if it has an extension
+            if instance.ext:
+                instance = instance.as_file()
 
-            elif p.is_dir():
-                p = p.as_dir(**kwargs)
-
-            else:
-                # let's assume a file if it has an extension
-                if p.ext:
-                    p = p.as_file(**kwargs)
-
-                else:
-                    p = cls(p, **kwargs)
-
-        return p
+        return instance
 
     @classmethod
     def split(cls, *parts):
@@ -383,36 +410,51 @@ class Path(String):
         '''normalize a path, accounting for things like windows dir seps'''
         path = cls.join(*parts)
         path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
-        return path
-
-    def __new__(cls, *parts, **kwargs):
-        path = cls.normpath(*parts, **kwargs)
 
         suffix = kwargs.pop("suffix", kwargs.pop("ext", ""))
         if suffix:
             if not path.endswith(suffix):
                 path = "{}.{}".format(path, suffix.lstrip("."))
 
+        return path
+
+    def __new__(cls, *parts, **kwargs):
+        path = cls.normpath(*parts, **kwargs)
+        path_class = kwargs.pop("path_class", None)
+
         instance = super(Path, cls).__new__(
-            cls,
+            path_class if path_class else cls,
             path,
             encoding=kwargs.pop("encoding", environ.ENCODING),
             errors=kwargs.pop("errors", environ.ENCODING_ERRORS),
         )
         instance.path = path
+
+        instance = cls.create_as(instance, path_class, **kwargs)
         return instance
+
+    def as_class(self, **kwargs):
+        kwargs.setdefault("encoding", self.encoding)
+        kwargs.setdefault("errors", self.errors)
+        return kwargs["path_class"](self.path, **kwargs)
 
     def as_file(self, **kwargs):
         """return a new instance of this path as a Filepath"""
-        return self.create_file(self, **kwargs)
+        kwargs["path_class"] = self.file_class()
+        return self.as_class(**kwargs)
+        #return self.create_file(self.path, **kwargs)
 
     def as_dir(self, **kwargs):
         """return a new instance of this path as a Dirpath"""
-        return self.create_dir(self, **kwargs)
+        kwargs["path_class"] = self.dir_class()
+        return self.as_class(**kwargs)
+        #return self.create_dir(self.path, **kwargs)
 
     def as_path(self):
         """return a new instance of this path as a Path"""
-        return self.create_path(self, **kwargs)
+        kwargs["path_class"] = self.path_class()
+        return self.as_class(**kwargs)
+        #return self.create_path(self.path, **kwargs)
 
     def as_uri(self):
         """Represent the path as a file URI
@@ -1088,8 +1130,12 @@ class Dirpath(Path):
                 yield self.create(p)
 
     def iterdirs(self, recursive=True):
-        """iterate through all the directories in this directory only"""
-        """iterate through all the directories in this directory only"""
+        """iterate through all the directories similar to .iterdir() but only
+        returns directories
+
+        :param recursive: boolean, if True then iterate through directories in
+            self and 
+        """
         for basedir, directories, files in os.walk(self.path, topdown=True):
             basedir = self.create_dir(basedir)
             for basename in directories:
@@ -1497,6 +1543,7 @@ class TempDirpath(Dirpath):
     """
 
     def __new__(cls, *parts, **kwargs):
+
         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
         path = tempfile.mkdtemp(
             suffix=kwargs.pop("suffix", ""),
@@ -1551,21 +1598,18 @@ class Cachepath(Filepath):
     """how long to cache the result in seconds, 0 for unlimited"""
 
     def __new__(cls, *keys, **kwargs):
+        if not keys:
+            raise ValueError("*keys was empty")
+
         ttl = kwargs.pop("ttl", cls.ttl)
         prefix = kwargs.pop("prefix", cls.prefix)
 
         basedir = kwargs.get("dir", "")
         if not basedir:
             basedir = environ.CACHE_DIR
-            if basedir:
-                kwargs["dir"] = basedir
-
-        kwargs.setdefault("create", False)
 
         key = cls.create_key(*keys, prefix=prefix)
-        filepath = TempFilepath(key, **kwargs)
-
-        instance = super(Cachepath, cls).__new__(cls, filepath)
+        instance = super(Cachepath, cls).__new__(cls, basedir, key)
 
         instance.ttl = ttl
         instance.prefix = prefix
@@ -1579,7 +1623,9 @@ class Cachepath(Filepath):
             parts.append(prefix)
         parts.extend(keys)
 
-        keys = map(lambda s: String(s).stripall(string.punctuation), parts)
+        badchars = String(string.punctuation).stripall(".-_")
+
+        keys = map(lambda s: String(s).stripall(badchars), parts)
         return '.'.join(keys)
 
     def __nonzero__(self):

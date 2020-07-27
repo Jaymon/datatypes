@@ -40,9 +40,13 @@ from .path import (
 from .environ import (
     Environ,
 )
+from .url import (
+    Url,
+    Host,
+)
 
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

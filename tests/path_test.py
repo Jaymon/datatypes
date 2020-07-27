@@ -73,6 +73,27 @@ class PathTest(TestCase):
         kwargs.setdefault("path_class", Filepath)
         return self.create(*parts, **kwargs)
 
+    def test_inferrence(self):
+        dp = testdata.create_dir()
+        p = Path(dp)
+        self.assertTrue(isinstance(p, p.dir_class()))
+
+        fp = testdata.create_file()
+        p = Path(fp)
+        self.assertTrue(isinstance(p, p.file_class()))
+
+        fp = "/some/non/existant/random/path.ext"
+        p = Path(fp)
+        self.assertTrue(isinstance(p, p.file_class()))
+
+        pp = "/some/non/existant/path"
+        p = Path(pp)
+        self.assertTrue(isinstance(p, p.path_class()))
+
+        fp = "/some/non/existant/random/path.ext"
+        p = Path(fp, path_class=p.path_class())
+        self.assertTrue(isinstance(p, p.path_class()))
+
     def test_join(self):
         r = Path.join("", "foo", "bar")
         self.assertEqual('/foo/bar', r)
