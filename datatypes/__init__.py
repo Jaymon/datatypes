@@ -45,6 +45,9 @@ from .url import (
     Url,
     Host,
 )
+from .copy import (
+    Deepcopy,
+)
 
 
 __version__ = "0.0.11"

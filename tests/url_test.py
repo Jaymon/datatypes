@@ -453,6 +453,16 @@ class HostTest(TestCase):
         self.assertFalse("0.0.0.0:" in h.client())
         self.assertTrue("0.0.0.0:22" in h.hostloc)
 
+    def test_port(self):
+        h = Host("localhost:8080")
+        self.assertEqual(8080, h.port)
+
+        h = Host("localhost")
+        self.assertEqual(0, h.port)
+
+        h = Host("localhost:")
+        self.assertEqual(0, h.port)
+
 
 class UrlpathTest(TestCase):
     def test_path_set(self):

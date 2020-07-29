@@ -90,6 +90,7 @@ class StringTest(TestCase):
         for line in s2.splitlines():
             self.assertTrue(line.startswith("  "))
 
+
 class ByteStringTest(TestCase):
     def test_unicode(self):
         s = ByteString(testdata.get_unicode())

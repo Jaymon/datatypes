@@ -231,9 +231,9 @@ class String(Str):
         """Provides a fluid regex interface
 
         :Example:
-            s = "foo bar che"
-            parts = s.re(r"\s+").split()
-            print(parts) # ["foo", "bar", "che"]
+            s = 'foo##bar##che'
+            parts = s.re(r'#+').split()
+            print(parts) # ['foo', 'bar', 'che']
         """
         return Regex(pattern, self, flags)
 
