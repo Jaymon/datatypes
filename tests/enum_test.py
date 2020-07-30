@@ -67,3 +67,18 @@ class EnumTest(TestCase):
 
         self.assertTrue(isinstance(Foo.BAR, StdEnum))
 
+    def test_equality(self):
+        class Foo(Enum):
+            BAR = 1
+            CHE = 2
+
+        self.assertFalse([] == Foo.CHE)
+
+        self.assertTrue(1 == Foo.BAR)
+        self.assertTrue("BAR" == Foo.BAR)
+        self.assertTrue(Foo.BAR == Foo.BAR)
+
+        self.assertFalse(100 == Foo.BAR)
+        self.assertFalse("ADFKLSDAKLJDL" == Foo.BAR)
+        self.assertFalse(Foo.CHE == Foo.BAR)
+

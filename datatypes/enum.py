@@ -85,11 +85,20 @@ class EnumMixin(object):
         return self.value
 
     def __eq__(self, other):
-        if isinstance(other, int):
-            return other == self.value
+        try:
+            if isinstance(other, int):
+                ret = other == self.value
 
-        else:
-            return other == self
+            elif isinstance(other, basestring):
+                ret = other == self.name
+
+            else:
+                ret = other.value == self.value
+
+        except (AttributeError, TypeError):
+            ret = False
+
+        return ret
 
 
 if is_py2:

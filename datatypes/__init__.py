@@ -50,7 +50,7 @@ from .copy import (
 )
 
 
-__version__ = "0.0.11"
+__version__ = "0.0.12"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
