@@ -13,17 +13,125 @@ from datatypes.collections import (
 from . import TestCase, testdata
 
 
+class PriorityQueueTest(TestCase):
+    def test_priority(self):
+        q = PriorityQueue(5)
+
+        q.put(5, priority=10)
+        q.put(4, priority=1)
+        self.assertEqual(4, q.get())
+        return
+
+    def test_order(self):
+        class Val(object):
+            def __init__(self, priority, val):
+                self.priority = priority
+                self.val = val
+
+        pq = PriorityQueue(priority=lambda x: x.priority)
+
+        pq.put(Val(30, "che"))
+        pq.put(Val(1, "foo"))
+        pq.put(Val(4, "bar"))
+
+        self.assertTrue(bool(pq))
+        self.assertEqual("foo", pq.get().val)
+        self.assertEqual("bar", pq.get().val)
+        self.assertEqual("che", pq.get().val)
+        self.assertFalse(bool(pq))
+
+    def test_maxqueue(self):
+        class MaxQueue(PriorityQueue):
+            def priority(self, x):
+                return -x[0]
+
+        q = MaxQueue()
+
+        q.put((50, "foo"))
+        q.put((5, "bar"))
+        q.put((100, "che"))
+
+        self.assertEqual((100, "che"), q.get())
+        self.assertEqual((50, "foo"), q.get())
+        self.assertEqual((5, "bar"), q.get())
+
+    def test_minqueue(self):
+        class MinQueue(PriorityQueue):
+            def priority(self, x):
+                return x[0]
+
+        q = MinQueue()
+
+        q.put((50, "foo"))
+        q.put((5, "bar"))
+        q.put((100, "che"))
+
+        self.assertEqual((5, "bar"), q.get())
+        self.assertEqual((50, "foo"), q.get())
+        self.assertEqual((100, "che"), q.get())
+
+    def test_key(self):
+        q = PriorityQueue(5)
+
+        q.put(5, key=1)
+        q.put(4, key=1)
+        self.assertEqual(1, len(q))
+        self.assertEqual(4, q.get())
+
+    def test_push(self):
+        q = PriorityQueue(5)
+
+        for x in range(11):
+            q.push(x)
+
+        self.assertEqual([6, 7, 8, 9, 10], list(q.values()))
+
+
 class PoolTest(TestCase):
+    def test_setdefault(self):
+        p = Pool()
+        p.setdefault("foo", 1)
+        p.setdefault("foo", 2)
+        self.assertEqual(p["foo"], 1)
+
+    def test_get(self):
+        p = Pool(2)
+
+        p[1] = 1
+        p[2] = 2
+
+        v = p.get(1)
+        self.assertEqual(1, v)
+
+        p[3] = 3
+        self.assertFalse(2 in p)
+        self.assertTrue(1 in p)
+        self.assertTrue(3 in p)
+
+    def test_pop(self):
+        p = Pool(2)
+
+        p[1] = 1
+        p[2] = 2
+
+        v = p.pop(2)
+        self.assertEqual(2, v)
+        self.assertEqual(1, len(p))
+
+    def test_size(self):
+        p = Pool(5)
+
+        for x in range(11):
+            p[x] = x
+
+        self.assertEqual([6, 7, 8, 9, 10], list(p.values()))
+
     def test_lifecycle(self):
+        pool = Pool()
 
-        class TestPool(Pool):
-            def create_value(self, key):
-                return key
+        self.assertEqual([], list(pool.pq.keys()))
 
-        pool = TestPool()
-
-        self.assertEqual([], pool.pq.keys())
-
+        pool[1] = 1
         r = pool[1]
         self.assertEqual(1, r)
 
@@ -33,15 +141,36 @@ class PoolTest(TestCase):
         r = pool[1]
         self.assertEqual(1, r)
 
-        self.assertEqual([1], pool.pq.keys())
+        self.assertEqual([1], list(pool.pq.keys()))
 
+        pool[2] = 2
         r = pool[2]
         self.assertEqual(2, r)
-        self.assertEqual([1, 2], pool.pq.keys())
+        self.assertEqual([1, 2], list(pool.pq.keys()))
 
         r = pool[1]
         self.assertEqual(1, r)
-        self.assertEqual([2, 1], pool.pq.keys())
+        self.assertEqual([2, 1], list(pool.pq.keys()))
+
+    def test___missing__(self):
+        class MissingPool(Pool):
+            def __missing__(self, k):
+                self[k] = k
+                return k
+
+        p = MissingPool(2)
+
+        v = p[1]
+        self.assertEqual(1, v)
+        self.assertEqual(1, len(p))
+
+        v = p[2]
+        self.assertEqual(2, v)
+        self.assertEqual(2, len(p))
+
+        v = p[3]
+        self.assertEqual(3, v)
+        self.assertEqual(2, len(p))
 
 
 class IdictTest(TestCase):
@@ -142,40 +271,4 @@ class OrderedListTest(TestCase):
         self.assertEqual("foo", h.pop(0)[1])
         self.assertEqual("boo", h.pop(-1)[1])
         self.assertEqual("che", h.pop()[1])
-
-
-class PriorityQueueTest(TestCase):
-    def test_order(self):
-        class Val(object):
-            def __init__(self, priority, val):
-                self.priority = priority
-                self.val = val
-
-        pq = PriorityQueue(lambda x: x.priority)
-
-        pq.put(Val(30, "che"))
-        pq.put(Val(1, "foo"))
-        pq.put(Val(4, "bar"))
-
-        self.assertTrue(bool(pq))
-        self.assertEqual("foo", pq.get().val)
-        self.assertEqual("bar", pq.get().val)
-        self.assertEqual("che", pq.get().val)
-        self.assertFalse(bool(pq))
-
-    def test_maxqueue(self):
-        class MaxQueue(PriorityQueue):
-            def key(self, x):
-                return -x[0]
-
-        q = MaxQueue()
-
-        q.put((50, "foo"))
-        q.put((5, "bar"))
-        q.put((100, "che"))
-
-        self.assertEqual((100, "che"), q.get())
-        self.assertEqual((50, "foo"), q.get())
-        self.assertEqual((5, "bar"), q.get())
-
 

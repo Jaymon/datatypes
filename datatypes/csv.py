@@ -35,6 +35,18 @@ class CSV(object):
     rows_class = list
     """the class used in .rows()"""
 
+    reader_row_class = None
+    """You can set this to a class and rows returned from the default .normalize_reader_row()
+    will be this type"""
+
+    writer_row_class = None
+    """You can set this to a class and rows returned from the default .normalize_writer_row()
+    will be this type, this class should act like a dict unless you also change .writer_class"""
+
+    class ContinueError(Exception):
+        """Can be thrown to have CSV skip the current row"""
+        pass
+
     def __init__(self, path, fieldnames=None, encoding=""):
         """Create the csv instance
         :param path: string, the path to the csv file that will be read/written
@@ -52,17 +64,18 @@ class CSV(object):
         self.encoding = encoding
 
     def __iter__(self):
-        # from docs: There is an additional mode character permitted, 'U', which no
-        # longer has any effect, and is considered deprecated. It previously enabled
-        # universal newlines in text mode, which became the default behaviour in Python 3.0
-        # https://docs.python.org/3/library/functions.html#open
-
         logger.debug("Reading csv file: {}".format(self.path))
 
         with self.open() as f:
             self.reader = self.create_reader(f)
             for row in self.reader:
-                yield self.normalize_reader_row(row)
+                try:
+                    row = self.normalize_reader_row(row)
+                    if row:
+                        yield row
+
+                except self.ContinueError:
+                    pass
 
     def open(self, mode=""):
         """Mainly an internal method used for opening the file pointers needed for
@@ -150,11 +163,20 @@ class CSV(object):
         """prepare row for reading, meant to be overridden in child classes if needed"""
         if is_py2:
             row = {String(k): String(v) for k, v in row.items()}
+
+        if self.reader_row_class:
+            row = self.reader_row_class(row)
+
         return row
 
     def normalize_writer_row(self, row):
         """prepare row for writing, meant to be overridden in child classes if needed"""
-        row = {ByteString(r[0]): ByteString(r[1]) for r in row.items()}
+
+        row = {String(k): ByteString(v) for k, v in row.items()}
+
+        if self.writer_row_class:
+            row = self.writer_row_class(row)
+
         return row
 
     def add(self, row):
@@ -169,11 +191,17 @@ class CSV(object):
             writer.writeheader()
             writer.has_header = True
 
-        writer.writerow(self.normalize_writer_row(row))
-        data = writer.queue.getvalue()
-        writer.f.write(data)
-        writer.queue.truncate(0)
-        writer.queue.seek(0)
+        try:
+            row = self.normalize_writer_row(row)
+            if row:
+                writer.writerow(row)
+                data = writer.queue.getvalue()
+                writer.f.write(data)
+                writer.queue.truncate(0)
+                writer.queue.seek(0)
+
+        except self.ContinueError:
+            pass
 
     def normalize_fieldnames(self, fieldnames):
         return fieldnames

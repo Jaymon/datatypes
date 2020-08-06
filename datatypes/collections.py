@@ -11,116 +11,154 @@ class Pool(dict):
     """Generic pool of some values bounded by size, this means when size is reached
     then the least used item will be silently dropped from the pool.
 
-    In order to use this class you must extend it and implement the create_value
-    method 
+    This class gets interesting when you extend it and add __missing__() so you
+    can use this as kind of a hotcache of the maxsize most used items in the Pool
+
+    :Example:
+        class HotPool(Pool):
+            def __missing__(self, key):
+                value = get_some_value_here(key)
+                self[key] = value # save the found value at key so it will cache
+                return value
     """
-    def __init__(self, size=0):
+    def __init__(self, maxsize=0):
         super(Pool, self).__init__()
-        self.pq = KeyQueue(size)
+        self.pq = PriorityQueue(maxsize, key=lambda value: value)
 
     def __getitem__(self, key):
         shuffle = key in self
-        val = super(Pool, self).__getitem__(key)
+        value = super(Pool, self).__getitem__(key)
 
         # since this is being accessed again, we move it to the end
         if shuffle:
-            self.pq.put(key, val)
+            self.pq.put(key)
 
-        return val
+        return value
 
-    def __setitem__(self, key, val):
-        super(Pool, self).__setitem__(key, val)
+    def __setitem__(self, key, value):
+        super(Pool, self).__setitem__(key, value)
         try:
-            self.pq.put(key, val)
+            self.pq.put(key)
+
         except OverflowError:
-            self.get()
-            self.pq.put(key, val)
+            self.popitem()
+            self.pq.put(key)
 
     def popitem(self):
-        dead_key, dead_val, dead_priority = self.pq.popitem()
+        dead_val, dead_key, dead_priority = self.pq.popitem()
         del self[dead_key]
         return dead_key, dead_val
 
-    def __missing__(self, key):
-        val = self.create_value(key)
-        self[key] = val
-        return val
+    def pop(self, key, *args):
+        if key in self:
+            self.pq.remove(key)
+        return super(Pool, self).pop(key, *args)
 
-    def create_value(self, key):
-        raise NotImplementedError()
+    def setdefault(self, key, value):
+        if key not in self:
+            self[key] = value
+
+    def get(self, key, default=None):
+        value = default
+        if key in self:
+            value = self[key]
+        return value
+
+    def update(self, d):
+        for k, v in d.items():
+            self[k] = v
 
 
 class PriorityQueue(object):
-    """A simple priority queue
+    """A generic priority queue
 
     if passing in a tuple (priority, value) then...
 
-        * MinQueue: lambda x: x[0]
-        * MaxQueue: lambda x: -x[0]
+        * MinQueue: priority=lambda x: x[0]
+        * MaxQueue: priority=lambda x: -x[0]
 
-    based off of https://stackoverflow.com/a/3311765/5006
+    Inspiration:
+
+        * https://stackoverflow.com/a/3311765/5006
+        * https://docs.python.org/2/library/heapq.html#priority-queue-implementation-notes
 
     https://en.wikipedia.org/wiki/Priority_queue
 
     :Example:
-        pq = PriorityQueue(lambda x: x[0])
+        # MinQueue example
+        pq = PriorityQueue(priority=lambda x: x[0])
         pq.put((30, "che"))
         pq.put((1, "foo"))
         pq.put((4, "bar"))
         pq.get() # (1, "foo")
+
+    This uses .put() and .get() because that is the same interface as Python's built-in
+    queue class.
+
+    If you never pass in priorities it defaults to a FIFO queue, this allows you
+    to pass in keys to .put() to set uniqueness and move items back to the top of
+    the queue if they have the same key, another name for this might be RefreshQueue
+    since a value with the same key will move to the bottom of the queue
     """
-    def __init__(self, key=None):
+    def __init__(self, maxsize=0, key=None, priority=None):
+        """create an instance
+
+        :param maxsize: int, the size you want the key to be, 0 for unlimited
+        :param key: callable, a callback that will be passed value on every
+            call to .put() that doesn't have a key passed in
+        :param priority: callable, a callback that will be passed value on every
+            call to .put() that doesn't have a priority passed in
+        """
         self.pq = []
+        self.item_finder = {}
+        self.key_counter = itertools.count()
+        self.priority_counter = itertools.count()
+        self.maxsize = maxsize
+        self.removed_count = 0
+
         if key:
             self.key = key
 
-    def key(self, x):
-        return x
+        if priority:
+            self.priority = priority
 
-    def __len__(self):
-        return len(self.pq)
+    def key(self, value):
+        """If key isn't passed into the constructor then this method will be called"""
+        return next(self.key_counter)
 
-    def __bool__(self):
-        return bool(len(self))
-    __nonzero__ = __bool__
+    def priority(self, value):
+        """If priority isn't passed into the constructor then this method will be called"""
+        return next(self.priority_counter)
 
-    def put(self, x):
-        heapq.heappush(self.pq, (self.key(x), x))
+    def push(self, value, key=None, priority=None):
+        """Same interface as .put() but will remove the next element if the queue
+        is full so value can be placed into the queue"""
+        try:
+            self.put(value, key=key, priority=priority)
 
-    def get(self):
-        return heapq.heappop(self.pq)[-1]
+        except OverflowError:
+            self.popitem()
+            self.put(value, key=key, priority=priority)
 
-
-class KeyQueue(object):
-    """A semi-generic priority queue, if you never pass in priorities it defaults to
-    a FIFO queue, this allows you to pass in keys to add() to set uniqueness and move
-    items back to the top of the queue if they have the same key, another name for this
-    might be RefreshQueue since a value with the same key will move to the top of the
-    list
-
-    This is basically an implementation of the example on this page:
-    https://docs.python.org/2/library/heapq.html#priority-queue-implementation-notes
-    """
-    def __init__(self, size=0):
-        """create an instance
-
-        :param size: int, 0 means the queue is unbounded, otherwise it will raise an
-            OverflowError when you try and add more than size values"""
-        self.pq = []
-        self.item_finder = {}
-        self.counter = itertools.count()
-        self.size = size
-        self.removed_count = 0
-
-    def put(self, key, val, priority=None):
+    def put(self, value, key=None, priority=None):
         """add a value to the queue with priority, using the key to know uniqueness
 
-        :param val: mixed, the value to add to the queue
-        :param key: string, this is used to determine if val already exists in the queue,
+        :param value: mixed, the value to add to the queue
+        :param key: string|int, this is used to determine uniqueness in the queue,
             if key is already in the queue, then the val will be replaced in the
-            queue with the new priority
-        :param priority: int, the priority of val
+            queue with the new priority, if key is None then .key(value) will be
+            called to determine a key for value
+        :param priority: int, the priority of value, if None then .priority(value)
+            will be called to determine a priority for the value, defaults to FIFO
         """
+        deleted = False
+
+        if key is None:
+            key = self.key(value)
+
+        if priority is None:
+            priority = self.priority(value)
+
         if key in self.item_finder:
             self.remove(key)
 
@@ -129,53 +167,62 @@ class KeyQueue(object):
             if self.full():
                 raise OverflowError("Queue is full")
 
-        if priority is None:
-            priority = next(self.counter)
-
-        item = [priority, key, val]
+        item = [priority, key, value, deleted]
         self.item_finder[key] = item
         heapq.heappush(self.pq, item)
 
     def remove(self, key):
         """remove the value found at key from the queue"""
         item = self.item_finder.pop(key)
-        item[-1] = None
+        item[-1] = True
         self.removed_count += 1
 
     def popitem(self):
-        """remove the next prioritized [key, val, priority] and return it"""
+        """remove the next prioritized (value, key, priority) and return it"""
         pq = self.pq
         while pq:
-            priority, key, val = heapq.heappop(pq)
-            if val is None:
+            priority, key, value, deleted = heapq.heappop(pq)
+            if deleted:
                 self.removed_count -= 1
 
             else:
                 del self.item_finder[key]
-                return key, val, priority
+                return value, key, priority
 
         raise KeyError("Pop from an empty queue")
 
     def get(self):
-        """remove the next prioritized val and return it"""
-        key, val, priority = self.popitem()
-        return val
+        """Remove the next prioritized val and return it"""
+        value, key, priority = self.popitem()
+        return value
 
     def full(self):
         """Return True if the queue is full"""
-        if not self.size: return False
-        return len(self.pq) == (self.size + self.removed_count)
+        if not self.maxsize: return False
+        return len(self.pq) >= (self.maxsize + self.removed_count)
 
     def keys(self):
         """return the keys in the order they are in the queue"""
-        return [x[1] for x in self.pq if x[2] is not None]
+        for x in self.pq:
+            if not x[3]:
+                yield x[1]
 
     def values(self):
-        """return the vals in the order they are in the queue"""
-        return [x[2] for x in self.pq if x[2] is not None]
+        """return the values in the order they are in the queue"""
+        for x in self.pq:
+            if not x[3]:
+                yield x[2]
 
-    def __contains__(self, key):
-        return key in self.item_finder
+    def qsize(self):
+        """for similarity to python's queue interface"""
+        return self.maxsize
+
+    def __len__(self):
+        return len(self.item_finder)
+
+    def __bool__(self):
+        return bool(len(self))
+    __nonzero__ = __bool__
 
 
 class NormalizeDict(dict):
@@ -293,6 +340,8 @@ class Trie(object):
     def normalize_value(self, value):
         return value.lower()
 
+
+# class FrozenList(list): # a read only list that can only be set via constructor
 
 class AppendList(list):
     """A READ ONLY list that does all adding of items through the append method

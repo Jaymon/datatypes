@@ -22,6 +22,7 @@ class CSVTest(TestCase):
         for count, row in enumerate(c):
             for k in ["foo", "bar", "che"]:
                 self.assertTrue(k in row)
+                self.assertTrue(row[k])
         self.assertLess(0, count)
 
     def test_write(self):
@@ -38,7 +39,8 @@ class CSVTest(TestCase):
         for count, row in enumerate(c):
             for k in ["foo", "bar"]:
                 self.assertTrue(k in row)
-                self.assertEqual(2, len(row))
+                self.assertTrue(row[k])
+            self.assertEqual(2, len(row))
         self.assertLess(0, count)
 
     def test_find_fieldnames(self):
@@ -49,4 +51,37 @@ class CSVTest(TestCase):
         })
         c = CSV(csvfile)
         self.assertEqual(["foo", "bar", "che"], c.find_fieldnames())
+
+    def test_continue_error(self):
+        counter = testdata.get_counter()
+        csvfile = testdata.create_csv({
+            "foo": counter,
+            "bar": testdata.get_words,
+        })
+
+        class ContinueCSV(CSV):
+            def normalize_reader_row(self, row):
+                if int(row["foo"]) % 2 == 0:
+                    raise self.ContinueError()
+                return row
+
+        c = ContinueCSV(csvfile)
+        r1 = c.rows()
+        r2 = CSV(csvfile).rows()
+        self.assertLess(len(r1), len(r2))
+
+    def test_reader_row_class(self):
+        counter = testdata.get_counter()
+        csvfile = testdata.create_csv({
+            "foo": counter,
+            "bar": testdata.get_words,
+        })
+
+        class Row(dict):
+            pass
+
+        c = CSV(csvfile)
+        c.reader_row_class = Row
+        for row in c:
+            self.assertTrue(isinstance(row, Row))
 
