@@ -47,7 +47,7 @@ class CSV(object):
         """Can be thrown to have CSV skip the current row"""
         pass
 
-    def __init__(self, path, fieldnames=None, encoding=""):
+    def __init__(self, path, fieldnames=None, encoding="", **kwargs):
         """Create the csv instance
         :param path: string, the path to the csv file that will be read/written
         :param fieldnames: list, the fieldnames, when writing, if this is omitted
@@ -62,6 +62,11 @@ class CSV(object):
         if not encoding:
             encoding = environ.ENCODING
         self.encoding = encoding
+
+        cls = type(self)
+        for k, v in kwargs.items():
+            if hasattr(cls, k):
+                setattr(self, k, v)
 
     def __iter__(self):
         logger.debug("Reading csv file: {}".format(self.path))

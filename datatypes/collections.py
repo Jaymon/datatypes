@@ -435,3 +435,63 @@ class OrderedList(list):
     def sort(self):
         raise NotImplementedError()
 
+
+class MembershipSet(set):
+    """A set with all the and, or, and union operations disabled, it's really only
+    handy for testing membership
+
+    This is really more of a skeleton for the few times I've had to do this in a
+    project, usually we are implementing custom functionality that acts like a set
+    and so it will be nice to just be able to extend this and not have to worry
+    about disabling the unsupported methods
+
+    I thought of the name HotSet also
+
+    If you need a readonly set, use frozenset:
+        https://docs.python.org/3/library/stdtypes.html#frozenset
+    """
+    def __init__(self, iterable=None):
+        if not iterable:
+            iterable = []
+
+        super(MembershipSet, self).__init__(iterable)
+
+    def add(self, elem):
+        super(MembershipSet, self).add(perm)
+
+    def remove(self, elem):
+        super(MembershipSet, self).remove(perm)
+
+    def discard(self, elem):
+        try:
+            self.remove(elem)
+        except KeyError:
+            pass
+
+    def clear(self):
+        super(MembershipSet, self).clear()
+
+    def update(self, *others):
+        for iterable in others:
+            super(MembershipSet, self).update(iterable)
+
+    def noimp(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    pop = noimp
+    __sub__ = noimp
+    __and__ = noimp
+    __or__ = noimp
+    __xor__ = noimp
+    __isub__ = noimp
+    __iand__ = noimp
+    __ior__ = noimp
+    __ixor__ = noimp
+    intersection_update = noimp
+    difference_update = noimp
+    symmetric_difference_update = noimp
+    symmetric_difference = noimp
+    difference = noimp
+    intersection = noimp
+    union = noimp = noimp
+

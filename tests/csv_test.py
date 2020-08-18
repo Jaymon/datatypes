@@ -71,6 +71,7 @@ class CSVTest(TestCase):
         self.assertLess(len(r1), len(r2))
 
     def test_reader_row_class(self):
+        count = 0
         counter = testdata.get_counter()
         csvfile = testdata.create_csv({
             "foo": counter,
@@ -84,4 +85,22 @@ class CSVTest(TestCase):
         c.reader_row_class = Row
         for row in c:
             self.assertTrue(isinstance(row, Row))
+        self.assertLess(0, count)
+
+    def test___init___kwargs(self):
+        count = 0
+        counter = testdata.get_counter()
+        csvfile = testdata.create_csv({
+            "foo": counter,
+            "bar": testdata.get_words,
+        })
+
+        class Row(dict):
+            pass
+
+        c = CSV(csvfile, reader_row_class=Row)
+        for row in c:
+            self.assertTrue(isinstance(row, Row))
+            count += 1
+        self.assertLess(0, count)
 
