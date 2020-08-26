@@ -47,9 +47,12 @@ from .url import (
 from .copy import (
     Deepcopy,
 )
+from .datetime import (
+    Datetime,
+)
 
 
-__version__ = "0.0.15"
+__version__ = "0.0.16"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
