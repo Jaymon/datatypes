@@ -52,7 +52,7 @@ from .datetime import (
 )
 
 
-__version__ = "0.0.16"
+__version__ = "0.0.17"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

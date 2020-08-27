@@ -90,6 +90,23 @@ class StringTest(TestCase):
         for line in s2.splitlines():
             self.assertTrue(line.startswith("  "))
 
+    def test_ispunc(self):
+        s = String("{.}")
+        self.assertTrue(s.ispunc())
+
+        s = String(".A.")
+        self.assertFalse(s.ispunc())
+
+    def test_hash(self):
+        h1 = String("4356").hash("YYYY-MM-DD")
+        h2 = String("4356").hash("YYYY-MM-DD")
+        h3 = String("4356").hash("YYYZ-MM-DD")
+        h4 = String("4356").hash("YYYY-MM-DD", nonce="foobar")
+        self.assertEqual(h1, h2)
+        self.assertNotEqual(h1, h3)
+        self.assertNotEqual(h1, h4)
+        self.assertNotEqual(h3, h4)
+
 
 class ByteStringTest(TestCase):
     def test_unicode(self):
