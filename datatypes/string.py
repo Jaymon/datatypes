@@ -164,7 +164,7 @@ class String(Str):
         """64 character sh256 hash of the string"""
         return hashlib.sha256(self.bytes()).hexdigest()
 
-    def hash(self, key, name="sha256", nonce=""):
+    def hash(self, key, name="sha256", nonce="", rounds=100000):
         """hash self with key and return the 64 byte hash
 
         This will produce the same hash if given the same key, it is designed to
@@ -178,10 +178,10 @@ class String(Str):
         :param key: string, the key/salt/password for the hash
         :param name: string, the hash to use, not required
         :param nonce: string, the nonce to use for the value, not required
+        :param rounds: int, the number of rounds to hash
         :returns: string, 64 byte hex string
         """
         nonce = ByteString(nonce) if nonce else b""
-        rounds = 100000
 
         # do the actual hashing
         h = hashlib.pbkdf2_hmac(
