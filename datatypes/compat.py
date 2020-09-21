@@ -36,7 +36,6 @@ if is_py2:
     import Cookie as cookies
     import __builtin__ as builtins
 
-    from HTMLParser import HTMLParser
     from urllib import urlencode
     from urllib2 import (
         Request,
@@ -44,7 +43,6 @@ if is_py2:
         URLError,
         HTTPError,
     )
-    unescape = HTMLParser().unescape
     import urlparse as parse
 
     import itertools
@@ -59,6 +57,19 @@ if is_py2:
         Sequence,
     )
 
+
+    from HTMLParser import HTMLParser
+    #unescape = HTMLParser().unescape
+
+    import cgi
+    class html(object):
+        @classmethod
+        def escape(cls, *args, **kwargs):
+            return cgi.escape(*args, **kwargs)
+
+        @classmethod
+        def unescape(cls, *args, **kwargs):
+            return HTMLParser().unescape(*args, **kwargs)
 
     # NOTE -- getargspace isn't a full mapping of getfullargspec
     from inspect import getargspec as getfullargspec
@@ -96,9 +107,19 @@ else:
     from urllib.request import Request, urlopen
     from urllib.error import URLError, HTTPError
     try:
-        from html import unescape
+        import html
+        #from html import unescape
     except ImportError:
-        unescape = HTMLParser.unescape
+        import cgi
+        class html(object):
+            @classmethod
+            def escape(cls, *args, **kwargs):
+                return cgi.escape(*args, **kwargs)
+
+            @classmethod
+            def unescape(cls, *args, **kwargs):
+                return HTMLParser().unescape(*args, **kwargs)
+        #unescape = HTMLParser.unescape
 
     from inspect import getfullargspec
     from itertools import zip_longest

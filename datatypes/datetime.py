@@ -6,6 +6,7 @@ import logging
 import re
 
 from .compat import *
+from .string import String
 
 
 logger = logging.getLogger(__name__)
@@ -310,7 +311,8 @@ class Datetime(datetime.datetime):
                 ret = super(Datetime, self).isoformat(sep, timespec)
 
         if add_tz and not self.tzinfo:
-            ret += "Z"
+            if not ret.endswith("Z"):
+                ret += "Z"
 
         return ret
 
@@ -335,4 +337,8 @@ class Datetime(datetime.datetime):
         stop = type(self)(stop)
 
         return start <= self <= stop
+
+    def strftime(self, *args, **kwargs):
+        """Make sure strftime always returns a unicode object"""
+        return String(super(Datetime, self).strftime(*args, **kwargs))
 

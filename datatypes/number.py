@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
+import re
 
 from .compat import *
 from .string import String
@@ -16,10 +17,10 @@ class Shorten(object):
     any ambiguous characters were removed from BASE_LIST (notice no I, 1, or l) to
     make it easier for humans to copy the url by hand
 
-    this is a version of base68 that takes strings:
+    this is a version of base58 that takes strings:
         https://github.com/keis/base58
     """
-    BASE_LIST = '23456789' + 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ' + '_'
+    BASE_LIST = '23456789' + 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ' + '_-'
     BASE_DICT = dict((c, i) for i, c in enumerate(BASE_LIST))
 
     def __new__(cls, val):
@@ -55,17 +56,51 @@ class Shorten(object):
 
 
 class Integer(int):
-    def __iter__(self):
+    def hex(self, length=0, prefix=""):
+        format_str = "{}{{:0>{}X}}".format(prefix, length) if length else "{}{:X}".format(prefix)
+        return format_str.format(self)
+
+    def binary(self, length=0, prefix=""):
+        format_str = "{}{{:0>{}b}}".format(prefix, length) if length else "{}{:b}".format(prefix)
+        return format_str.format(self)
+
+    def range(self, start=0):
         """iterate from 0 to self, if self is negative it goes from self to 0
 
         I honestly have no idea why this is useful but it was in my notes for this
         module, so here it is
         """
-        if self > 0:
+        if self > start:
             r = range(0, self)
         else:
-            r = range(self, 0)
+            r = range(self, start)
 
         for i in r:
             yield i
+
+    def __new__(cls, v, base=None):
+        if not isinstance(v, int):
+            if base is None and isinstance(v, basestring):
+                # NOTE: if you have an ambiguous value like "0001" or "0010" this
+                # will assume it is binary
+                if re.match(r"^[-+]?0b", v) or re.search(r"[01]+$", v):
+                    # https://stackoverflow.com/questions/8928240/convert-base-2-binary-number-string-to-int
+                    base = 2
+
+                elif re.match(r"^[-+]?0x", v) or re.search(r"[a-fA-F0-9]+$", v):
+                    base = 16
+
+            v = int(v, base)
+
+        return super(Integer, cls).__new__(cls, v)
+
+
+class Hex(Integer):
+    def __new__(cls, v):
+        return super(Hex, cls).__new__(cls, v, 16)
+
+
+class Binary(Integer):
+    def __new__(cls, v):
+        return super(Binary, cls).__new__(cls, v, 2)
 

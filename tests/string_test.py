@@ -7,6 +7,8 @@ from datatypes.string import (
     ByteString,
     Base64,
     HTMLCleaner,
+    Character,
+    Codepoint,
 )
 
 from . import TestCase, testdata
@@ -164,4 +166,125 @@ class HTMLCleanerTest(TestCase):
 
         s = HTMLCleaner.unescape(s)
         self.assertEqual("<:‑|>:)", s)
+
+
+class CharacterTest(TestCase):
+    """
+    NOTE: some tests will fail with narrow unicode: `sys.maxunicode == 65535`
+    """
+    def test_repr(self):
+        # http://www.fileformat.info/info/unicode/char/267cc/index.htm
+        ch = Character("\uD859\uDFCC")
+        self.assertEqual("\\uD859\\uDFCC", ch.repr_string())
+        self.assertEqual("\\xf0\\xa6\\x9f\\x8c", ch.repr_bytes())
+
+    def test_width(self):
+        ch = Character("\uD859\uDFCC")
+        self.assertEqual(2, ch.width())
+
+        ch = Character("\uD83D\uDC68\uFE0F")
+        self.assertEqual(2, ch.width())
+
+        # wide characters:
+        # https://www.reddit.com/r/Unicode/comments/5qa7e7/widestlongest_unicode_characters_list/ 
+
+        # it feels like this one should be 2 characters wide
+        # https://unicode-table.com/en/102A/
+        # https://www.fileformat.info/info/unicode/char/102a/index.htm
+        ch = Character("\u102A")
+        self.assertEqual(1, ch.width())
+
+        # it feels like this one should be 3 characters wide
+        ch = Character("\uFDFD")
+        self.assertEqual(1, ch.width())
+
+    def test_integers(self):
+        s = "\U0001F441\u200D\U0001F5E8"
+        u = Character(s)
+        self.assertEqual([128065, 8205, 128488], u.integers())
+
+        u = Character([128065, 8205, 128488])
+        self.assertEqual([128065, 8205, 128488], u.integers())
+
+    def test_create(self):
+        s = "\U0001F441\u200D\U0001F5E8"
+        codepoints = ["1F441", "200D", "1F5E8"]
+
+        u = Character(s)
+        self.assertEqual(s, u)
+        self.assertEqual(codepoints, u.hexes)
+
+        u = Character(codepoints)
+        self.assertEqual(s, u)
+        self.assertEqual(codepoints, u.hexes)
+
+        codepoints = "1F468 1F3FB 200D 1F9B0"
+        u = Character(codepoints)
+        self.assertEqual(codepoints.split(" "), u.hexes)
+
+        codepoints = "1F468"
+        u = Character(codepoints)
+        self.assertEqual([codepoints], u.hexes)
+
+        codepoints = "1F468-1F3FB-200D-1F9B0"
+        u = Character(codepoints)
+        self.assertEqual(codepoints.split("-"), u.hexes)
+
+    def test_names_1(self):
+        codepoints = ["200D"]
+        u = Character(codepoints)
+        self.assertEqual("ZERO WIDTH JOINER", u.names()[0])
+
+    def test_lowercase(self):
+        codepoints = '1f44f-1f3ff'
+        u = Character(codepoints)
+        self.assertEqual(['1F44F', '1F3FF'], u.hexes)
+
+        codepoints = "1F468-1F3FB-200D-1F9B0"
+        u = Character(codepoints)
+        self.assertEqual(["1F468", "1F3FB", "200D", "1F9B0"], u.hexes)
+
+    def test_html_chars(self):
+        u = Character(b'\xf0\x9f\xa4\xa6&zwj;\xe2\x99\x80\xef\xb8\x8f')
+        self.assertEqual(["1F926", "200D", "2640", "FE0F"], u.hexes)
+
+
+class CodepointTest(TestCase):
+    def test_character(self):
+        c = Codepoint("\U0001F441")
+        self.assertEqual("1F441", c.hex)
+        self.assertEqual("\U0001F441", c)
+
+        c = Codepoint("\u200D")
+        self.assertEqual("200D", c.hex)
+        self.assertEqual("\u200D", c)
+
+    def test_int(self):
+        c = Codepoint("\U0001F441")
+        self.assertEqual(128065, int(c))
+
+        c = Codepoint("\u200D")
+        self.assertEqual(8205, int(c))
+
+    def test_create(self):
+        c = Codepoint(128065)
+        self.assertEqual("1F441", c.hex)
+
+        c = Codepoint(0x1F441)
+        self.assertEqual("1F441", c.hex)
+
+        c = Codepoint(b"1F441")
+        self.assertEqual("1F441", c.hex)
+
+        c = Codepoint("&zwj;")
+        self.assertEqual("200D", c.hex)
+
+        c = Codepoint("U+1F468")
+        self.assertEqual("1F468", c.hex)
+
+        c = Codepoint("u+200D")
+        self.assertEqual("200D", c.hex)
+
+        c = Codepoint("\u200D")
+        self.assertEqual("200D", c.hex)
 

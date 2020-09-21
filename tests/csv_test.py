@@ -81,10 +81,10 @@ class CSVTest(TestCase):
         class Row(dict):
             pass
 
-        c = CSV(csvfile)
-        c.reader_row_class = Row
+        c = CSV(csvfile, reader_row_class=Row)
         for row in c:
             self.assertTrue(isinstance(row, Row))
+            count = int(row["foo"])
         self.assertLess(0, count)
 
     def test___init___kwargs(self):

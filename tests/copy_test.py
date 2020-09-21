@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
+from wsgiref.headers import Headers
 
 from datatypes.compat import *
 from datatypes.copy import (
@@ -64,4 +65,19 @@ class DeepcopyTest(TestCase):
         d2["foo"].che["che"] *= 2
         self.assertNotEqual(d["foo"].che["che"], d2["foo"].che["che"])
 
+    def test_dict_proxy(self):
+        dc = Deepcopy()
+        class Foo(object):
+            def __init__(self):
+                self.headers = Headers([])
+
+        f = Foo()
+        f.headers["foo"] = "1"
+
+        f2 = dc.copy(f)
+        f2.headers["bar"] = "2"
+        self.assertTrue("foo" in f.headers)
+        self.assertFalse("bar" in f.headers)
+        self.assertTrue("foo" in f2.headers)
+        self.assertTrue("bar" in f2.headers)
 

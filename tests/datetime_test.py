@@ -13,6 +13,11 @@ from . import TestCase, testdata
 
 
 class DatetimeTest(TestCase):
+    def test_strftime(self):
+        dt = Datetime()
+        s = dt.strftime("%m/%d/%Y")
+        self.assertTrue(isinstance(s, Str))
+
     def test_empty(self):
         d1 = Datetime()
         d2 = Datetime(None)
@@ -126,6 +131,9 @@ class DatetimeTest(TestCase):
         self.assertFalse(dt.has_time())
 
     def test_isoformat(self):
+        dt = Datetime()
+        self.assertFalse(dt.isoformat().endswith("ZZ"))
+
         dt = Datetime("2020-03-19")
         self.assertEqual("2020-03-19", dt.isoformat())
         self.assertTrue(dt.isoformat(timespec="hours").endswith("Z"))
