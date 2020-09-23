@@ -248,7 +248,7 @@ class NormalizeDict(dict):
         k = self.normalize_key(k)
         return super(NormalizeDict, self).__contains__(k)
 
-    def setdefault(self, key, default=None):
+    def setdefault(self, k, default=None):
         k = self.normalize_key(k)
         v = self.normalize_value(default)
         return super(NormalizeDict, self).setdefault(k, v)
@@ -259,12 +259,12 @@ class NormalizeDict(dict):
         for k, v in d.items():
             self[k] = v
 
-    def pop(self, key, default=None):
+    def pop(self, k, default=None):
         k = self.normalize_key(k)
         v = self.normalize_value(default)
         return super(NormalizeDict, self).pop(k, v)
 
-    def get(self, key, default=None):
+    def get(self, k, default=None):
         k = self.normalize_key(k)
         v = self.normalize_value(default)
         return super(NormalizeDict, self).get(k, v)
