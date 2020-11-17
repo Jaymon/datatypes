@@ -342,3 +342,10 @@ class Datetime(datetime.datetime):
         """Make sure strftime always returns a unicode object"""
         return String(super(Datetime, self).strftime(*args, **kwargs))
 
+    def __pout__(self):
+        """This just makes the object easier to digest in pout.v() calls
+
+        more information on what pout is: https://github.com/Jaymon/pout
+        """
+        return self.__str__()
+
