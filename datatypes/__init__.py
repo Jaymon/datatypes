@@ -52,9 +52,13 @@ from .copy import (
 from .datetime import (
     Datetime,
 )
+from .headers import (
+    Headers,
+    Environ,
+)
 
 
-__version__ = "0.0.23"
+__version__ = "0.0.24"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
