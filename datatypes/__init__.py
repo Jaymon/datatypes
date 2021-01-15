@@ -36,7 +36,7 @@ from .path import (
     TempFilepath, Filetemp,
     TempDirpath, Dirtemp,
     Cachepath,
-    Sentinal,
+    Sentinel,
     SitePackagesDirpath,
 )
 from .environ import (
@@ -54,7 +54,7 @@ from .datetime import (
 )
 
 
-__version__ = "0.0.22"
+__version__ = "0.0.23"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

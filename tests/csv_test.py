@@ -10,7 +10,7 @@ from . import TestCase, testdata
 
 
 class CSVTest(TestCase):
-    def test_read(self):
+    def test_read_unicode(self):
         """make sure we can read a utf encoded csv file"""
         csvfile = testdata.create_csv({
             "foo": testdata.get_unicode_name,
@@ -22,7 +22,7 @@ class CSVTest(TestCase):
         for count, row in enumerate(c):
             for k in ["foo", "bar", "che"]:
                 self.assertTrue(k in row)
-                self.assertTrue(row[k])
+                self.assertTrue(bool(row[k]))
         self.assertLess(0, count)
 
     def test_write(self):

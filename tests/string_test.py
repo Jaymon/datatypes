@@ -84,13 +84,18 @@ class StringTest(TestCase):
         self.assertEqual("foop", s.truncate(5, "p"))
         self.assertEqual(s, s.truncate(len(s) + 100, "..."))
 
-    def test_indent(self):
+    def test_indent_simple(self):
         s = String("foo\nbar\nche")
 
         s2 = s.indent("  ")
         self.assertNotEqual(s, s2)
         for line in s2.splitlines():
             self.assertTrue(line.startswith("  "))
+
+    def test_indent_count(self):
+        s = String("foo")
+        self.assertTrue(s.indent(".", 3).startswith("..."))
+        self.assertFalse(s.indent(".", 2).startswith("..."))
 
     def test_ispunc(self):
         s = String("{.}")
@@ -175,8 +180,8 @@ class CharacterTest(TestCase):
     def test_repr(self):
         # http://www.fileformat.info/info/unicode/char/267cc/index.htm
         ch = Character("\uD859\uDFCC")
-        self.assertEqual("\\uD859\\uDFCC", ch.repr_string())
         self.assertEqual("\\xf0\\xa6\\x9f\\x8c", ch.repr_bytes())
+        self.assertEqual("\\uD859\\uDFCC", ch.repr_string())
 
     def test_width(self):
         ch = Character("\uD859\uDFCC")

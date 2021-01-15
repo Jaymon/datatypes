@@ -1665,20 +1665,20 @@ class Cachepath(Filepath):
         return (now - td_check) < then
 
 
-class Sentinal(Cachepath):
+class Sentinel(Cachepath):
     """Creates a file after the first failed boolean check, handy when you only want
     to check things at certain intervals
 
     :Example:
-        s = Sentinal("foo")
+        s = Sentinel("foo")
         if not s:
             # do something you don't want to do all the time
         if not s:
             # this won't ever be ran because the last `if not s` check will have
-            # created the sentinal file
+            # created the sentinel file
     """
     def __new__(cls, *keys, **kwargs):
-        """Create the sentinal file
+        """Create the sentinel file
 
         :param *keys: same arguments as Cachepath
         :param **kwargs:
@@ -1714,7 +1714,7 @@ class Sentinal(Cachepath):
 
         keys = list(keys) + dates
 
-        instance = super(Sentinal, cls).__new__(cls, *keys, **kwargs)
+        instance = super(Sentinel, cls).__new__(cls, *keys, **kwargs)
         return instance
 
     def __nonzero__(self):
@@ -1722,7 +1722,7 @@ class Sentinal(Cachepath):
         if self.exists():
             ret = True
             if self.ttl:
-                ret = not self.modified_with(seconds=self.ttl)
+                ret = not self.modified_within(seconds=self.ttl)
 
         else:
             # we create the file after the first failed exists check

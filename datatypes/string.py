@@ -239,17 +239,18 @@ class String(Str):
         ret = ret[:-1].rsplit(None, 1)[0].rstrip()
         return type(self)(ret + postfix)
 
-    def indent(self, indent):
+    def indent(self, indent, count=1):
         """add whitespace to the beginning of each line of val
 
         http://code.activestate.com/recipes/66055-changing-the-indentation-of-a-multi-line-string/
 
         :param indent: string, what you want the prefix of each line to be
+        :param count: int, how many times to apply indent to each line
         :returns: string, string with prefix at the beginning of each line
         """
         if not indent: return self
 
-        s = (indent + line for line in self.splitlines(False))
+        s = ((indent * count) + line for line in self.splitlines(False))
         s = "\n".join(s)
         return type(self)(s)
 
@@ -423,8 +424,17 @@ class Character(String):
 
     def repr_bytes(self):
         ret = ""
-        for cp in self.encode(self.encoding):
-            ret += "\\x{:0>2x}".format(ord(cp))
+        if is_py2:
+            for cp in self.encode(self.encoding):
+                ret += "\\x{:0>2x}".format(ord(cp))
+
+        else:
+            # and to think I thought I was starting to understand unicode!
+            # https://stackoverflow.com/a/54549874/5006
+            s = self.encode("utf-16", "surrogatepass").decode("utf-16")
+            for cp in s.encode(self.encoding):
+                ret += "\\x{:0>2x}".format(cp)
+
         return ret
 
     def width(self):

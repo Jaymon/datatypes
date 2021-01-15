@@ -437,8 +437,8 @@ class OrderedList(list):
 
 
 class MembershipSet(set):
-    """A set with all the and, or, and union operations disabled, it's really only
-    handy for testing membership
+    """A set with all the AND, OR, and UNION operations disabled, making it really
+    only handy for testing membership
 
     This is really more of a skeleton for the few times I've had to do this in a
     project, usually we are implementing custom functionality that acts like a set
@@ -494,4 +494,100 @@ class MembershipSet(set):
     difference = noimp
     intersection = noimp
     union = noimp = noimp
+
+
+class ListIterator(list):
+    """A base interface for iterators that should quack like a builtin list
+
+    it defines the list interface as much as possible
+
+    Taken from prom.query.BaseIterator on 12-15-2020
+
+    list interface methods:
+        https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
+
+    http://docs.python.org/2/library/stdtypes.html#iterator-types
+    """
+    def __init__(self, *args, **kwargs):
+        super(Iterator, self).__init__(*args, **kwargs)
+
+    def next(self):
+        raise NotImplementedError()
+
+    def __next__(self):
+        """needed for py3 api compatibility"""
+        return self.next()
+
+    def __iter__(self):
+        return self
+
+    def __nonzero__(self):
+        return True if self.count() else False
+
+    def __len__(self):
+        return self.count()
+
+    def count(self):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def __getslice__(self, i, j):
+        """required for slicing in python 2 when extending built-in types like list
+
+        https://docs.python.org/2/reference/datamodel.html#object.__getslice__
+        https://stackoverflow.com/questions/2936863/implementing-slicing-in-getitem#comment39878974_2936876
+        """
+        return self.__getitem__(slice(i, j))
+
+    def __getitem__(self, k):
+        raise NotImplementedError()
+
+    def reverse(self):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def __reversed__(self):
+        it = self.copy()
+        it.reverse()
+        return it
+
+    def sort(self, *args, **kwargs):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def __getattr__(self, k):
+        """
+        this allows you to focus in on certain fields of results
+
+        It's just an easier way of doing: (getattr(x, k, None) for x in self)
+        """
+        raise NotImplementedError()
+
+    def append(self, x):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def extend(self, iterable):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def remove(self, x):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def pop(self, i=-1):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def clear(self):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def index(self, x, start=None, end=None):
+        """list interface compatibility"""
+        raise NotImplementedError()
+
+    def copy(self):
+        """list interface compatibility"""
+        raise NotImplementedError()
 

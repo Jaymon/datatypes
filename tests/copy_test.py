@@ -15,15 +15,13 @@ class DeepcopyTest(TestCase):
 
         class Foo(object):
             bar = 1
-
         f = Foo()
         f.che = list(range(5))
-
         f.baz = {"foo": 10, "bar": 20}
-
         f.fp = testdata.create_file().open()
 
         dc = Deepcopy()
+
         f2 = dc.copy(f)
         self.assertEqual(f.baz, f2.baz)
         self.assertEqual(f.che, f2.che)
@@ -36,7 +34,7 @@ class DeepcopyTest(TestCase):
             f2.baz
 
         f.fp.close()
-        f2.fp.close()
+        #f2.fp.close()
 
     def test_copy_dict(self):
 
@@ -80,4 +78,19 @@ class DeepcopyTest(TestCase):
         self.assertFalse("bar" in f.headers)
         self.assertTrue("foo" in f2.headers)
         self.assertTrue("bar" in f2.headers)
+
+    def test_memodict(self):
+        dc = Deepcopy()
+
+        class Foo(object): pass
+
+        f = Foo()
+
+        f.bar = Foo()
+        f.che = {"bam": 1}
+
+        md = {"bar": f.bar}
+
+        f2 = dc.copy(f, md)
+        self.assertEqual(id(f.bar), id(f2.bar))
 

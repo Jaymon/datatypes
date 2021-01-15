@@ -43,8 +43,12 @@ class Deepcopy(object):
         self.ignore_private = kwargs.pop("ignore_private", False)
 
     def copy(self, val, memodict=None, **kwargs):
-        memodict = dict(self.memodict)
-        memodict.update(memodict or {})
+        if memodict:
+            memo = dict(self.memodict)
+            memo.update(memodict or {})
+        else:
+            memo = self.memodict
+
         ignore_keys = kwargs.get("ignore_keys", self.ignore_keys)
         ignore_private = kwargs.get("ignore_keys", self.ignore_private)
 
@@ -60,12 +64,16 @@ class Deepcopy(object):
                 if ignore_private and k.startswith("_"):
                     continue
 
-                instance_d[k] = self._copy(d[k], memodict)
+                if k in memo:
+                    instance_d[k] = memo[k]
+
+                else:
+                    instance_d[k] = self._copy(d[k], memo)
 
             self.set_state(instance, instance_d)
 
         else:
-            instance = self._copy(val, memodict)
+            instance = self._copy(val, memo)
 
         return instance
 
@@ -75,13 +83,15 @@ class Deepcopy(object):
         try:
             ret = copy.deepcopy(val, memodict)
 
-        except (AttributeError, TypeError):
+        except (AttributeError, TypeError) as e:
             # if the deepcopy failed a shallow copy is better than nothing
             try:
                 ret = copy.copy(val)
 
-            except TypeError:
+            except (TypeError, RuntimeError):
                 # we can do nothing so just pass it straight through
+                # RuntimeError is because py3 can throw a RecursionError, py2
+                # will throw a TypeError
                 pass
 
         return ret

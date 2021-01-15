@@ -57,11 +57,11 @@ class Shorten(object):
 
 class Integer(int):
     def hex(self, length=0, prefix=""):
-        format_str = "{}{{:0>{}X}}".format(prefix, length) if length else "{}{:X}".format(prefix)
+        format_str = "{}{{:0>{}X}}".format(prefix, length) if length else "{}{{:X}}".format(prefix)
         return format_str.format(self)
 
     def binary(self, length=0, prefix=""):
-        format_str = "{}{{:0>{}b}}".format(prefix, length) if length else "{}{:b}".format(prefix)
+        format_str = "{}{{:0>{}b}}".format(prefix, length) if length else "{}{{:b}}".format(prefix)
         return format_str.format(self)
 
     def range(self, start=0):

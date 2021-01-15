@@ -149,6 +149,9 @@ is passed in"""
 ENCODING_ERRORS = environ.get("ENCODING_ERRORS", "replace")
 """For things that need encoding, this will handle any errors"""
 
-CACHE_DIR = environ.get("CACHE_DIR", tempfile.gettempdir())
+# 2021-1-15 - we place our cache by default into another directory because I have problems
+# running some commands like touch on the base temp directory on MacOS on
+# Python3, no idea why but I couldn't get around it
+CACHE_DIR = environ.get("CACHE_DIR", os.path.join(tempfile.gettempdir(), environ.namespace.lower().rstrip("_")))
 """the default caching directory for things that need a cache folder"""
 

@@ -12,7 +12,7 @@ from datatypes.path import (
     TempDirpath,
     TempFilepath,
     Cachepath,
-    Sentinal,
+    Sentinel,
 )
 
 from . import TestCase, testdata
@@ -729,14 +729,14 @@ class CachepathTest(TestCase):
         self.assertFalse(bool(c))
 
 
-class SentinalTest(TestCase):
+class SentinelTest(TestCase):
     def test_fail_pass(self):
-        s = Sentinal(testdata.get_filename(), monthly=True)
+        s = Sentinel(testdata.get_modulename(), testdata.get_filename(), monthly=True)
 
         count = 0
-        if not s:
+        if s:
             count += 1
-        if not s:
+        if s:
             count += 1
         self.assertEqual(1, count)
 

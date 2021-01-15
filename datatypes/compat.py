@@ -21,7 +21,18 @@ if is_py2:
     cmp = cmp
 
     import Queue as queue
+
+    # using _* makes __all__ not export this automatically, so you have to
+    # explicitly import htis (from datatypes.compat import _thread), the reason
+    # is because the thread module is lowkey deprecated in favor of the
+    # threading module
+    #
+    # https://stackoverflow.com/questions/1141047/why-was-the-thread-module-renamed-to-thread-in-python-3-x
+    #
+    # I've chosen to keep the _thread syntax to prod me into finding a better
+    # way to do something, but I still have access to it explicitely if I need it
     import thread as _thread
+
     try:
         from cStringIO import StringIO
     except ImportError:
