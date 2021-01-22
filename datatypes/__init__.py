@@ -56,9 +56,15 @@ from .headers import (
     Headers,
     Environ,
 )
+from .token import (
+    # we don't import Token and SubToken because their names are too generic for
+    # toplevel, if you need them import them directly from the submodule
+    StreamTokenizer,
+    Tokenizer,
+)
 
 
-__version__ = "0.0.24"
+__version__ = "0.0.25"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

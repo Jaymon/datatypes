@@ -323,8 +323,33 @@ class String(Str):
 
         return ret
 
+    def tokenize(self, delims=None, tokenizer_class=None):
+        """Wraps the tokenizer functionality to easily tokenize a string
+
+        :param delims: same as token.Tokenizer delims argument
+        :param tokenizer_class: Tokenizer, custom class for customized functionality
+        :returns: generator of String instance, each token that will also have a 
+            .token that contains the raw token
+        """
+        if not tokenizer_class:
+            from .token import Tokenizer # avoid circular dep
+            tokenizer_class = Tokenizer
+
+        tokenizer = tokenizer_class(self, delims)
+        for t in tokenizer:
+            st = String(t.token.text)
+            st.token = t
+            yield st
+
 
 class Character(String):
+    """Represents a unicode character, a unicode character is a set of unicode
+    codepoints
+
+    :Example:
+        ch = Character("A")
+        ch.hex # "0041"
+    """
     @property
     def hexes(self):
         return [cp.hex for cp in self.codepoints]
