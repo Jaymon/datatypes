@@ -14,7 +14,6 @@ class TokenizerTest(TestCase):
         return tokenizer
 
     def test_tell_ldelim(self):
-        #t = self.create_instance(" foo bar che")
         t = self.create_instance(" 123 567  ABC")
 
         t.stream.seek(6)
@@ -48,7 +47,6 @@ class TokenizerTest(TestCase):
         t.stream.seek(0)
         with self.assertRaises(StopIteration):
             t.tell_ldelim()
-            #self.assertEqual(-1, t.tell_ldelim())
 
         t = self.create_instance("0123456789")
 
@@ -132,7 +130,6 @@ class TokenizerTest(TestCase):
         self.assertEqual(None, token.ldelim)
         self.assertEqual("0123456789", String(token))
         self.assertEqual(None, token.rdelim)
-
 
         t = self.create_instance("0123456789   ")
 
@@ -305,12 +302,4 @@ class TokenizerTest(TestCase):
         s = String("foo bar che")
         tokens = [t for t in s.tokenize()]
         self.assertEqual(["foo", "bar", "che"], tokens)
-
-# class XTokenizerTest(TestCase):
-#     def create_instance(self, s, callback=None):
-#         tokenizer = Tokenizer(s)
-#         if callback:
-#             tokenizer = testdata.patch(tokenizer, is_token_character=callback)
-#         return tokenizer
-
 
