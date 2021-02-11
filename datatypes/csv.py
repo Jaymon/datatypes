@@ -8,6 +8,7 @@ import logging
 from .compat import *
 from . import environ
 from .string import String, ByteString
+from .utils import cbany
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,10 @@ class CSV(object):
         :param encoding: string, what character encoing to use
         """
         self.path = path
-        self.fieldnames = fieldnames or []
+        self.fieldnames = self.normalize_fieldnames(fieldnames or [])
+        self.writer = None
+        self.reader = None
+        self.context_depth = 0
 
         if not encoding:
             encoding = environ.ENCODING
@@ -72,15 +76,31 @@ class CSV(object):
         logger.debug("Reading csv file: {}".format(self.path))
 
         with self.open() as f:
+            first_row = True
             self.reader = self.create_reader(f)
             for row in self.reader:
                 try:
                     row = self.normalize_reader_row(row)
                     if row:
-                        yield row
+                        if self.fieldnames and first_row:
+                            # if you've passed in fieldnames then it will return
+                            # fieldnames mapped to fieldnames as the first row,
+                            # this will catch that and ignore it
+                            #
+                            # if we pass in fieldnames then DictReader won't use the first
+                            # row as fieldnames, so we need to check to make sure the first
+                            # row isn't a field_name: field_name mapping
+                            if cbany(lambda r: r[0] != r[1], row.items()):
+                                yield row
+
+                        else:
+                            yield row
 
                 except self.ContinueError:
                     pass
+
+                finally:
+                    first_row = False
 
     def open(self, mode=""):
         """Mainly an internal method used for opening the file pointers needed for
@@ -100,13 +120,19 @@ class CSV(object):
 
     def __enter__(self):
         """Enables with context manager for writing"""
-        logger.debug("Writing csv file: {}".format(self.path))
-        f = self.open("ab+")
-        self.writer = self.create_writer(f)
+        self.context_depth += 1
+        logger.debug("Writing ({}) csv file: {}".format(self.context_depth, self.path))
+        if not self.writer:
+            f = self.open("ab+")
+            self.writer = self.create_writer(f)
         return self
 
     def __exit__(self, exception_type, exception_val, trace):
-        self.writer.f.close()
+        self.context_depth -= 1
+        if self.context_depth <= 0:
+            self.writer.f.close()
+            self.writer = None
+            self.context_depth = 0
 
     def create_writer(self, f, **kwargs):
         kwargs.setdefault("dialect", csv.excel)
@@ -185,28 +211,37 @@ class CSV(object):
         return row
 
     def add(self, row):
-        writer = self.writer
+        with self:
+            writer = self.writer
 
-        if not writer.has_header:
-            if not self.fieldnames:
-                self.fieldnames = list(row.keys())
-            self.fieldnames = self.normalize_fieldnames(self.fieldnames)
-            writer.fieldnames = self.fieldnames
-            logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
-            writer.writeheader()
-            writer.has_header = True
+            if not writer.has_header:
+                if not self.fieldnames:
+                    self.fieldnames = self.normalize_fieldnames(list(row.keys()))
+                writer.fieldnames = self.fieldnames
+                logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
+                writer.writeheader()
+                writer.has_header = True
 
-        try:
-            row = self.normalize_writer_row(row)
-            if row:
-                writer.writerow(row)
-                data = writer.queue.getvalue()
-                writer.f.write(data)
-                writer.queue.truncate(0)
-                writer.queue.seek(0)
+            try:
+                row = self.normalize_writer_row(row)
+                if row:
+                    writer.writerow(row)
+                    data = writer.queue.getvalue()
+                    writer.f.write(data)
+                    writer.queue.truncate(0)
+                    writer.queue.seek(0)
 
-        except self.ContinueError:
-            pass
+            except self.ContinueError:
+                pass
+
+    def append(self, rows):
+        """Add all the rows to the end of the csv file
+
+        :param rows: list, all the rows
+        """
+        with self:
+            for row in rows:
+                self.add(row)
 
     def normalize_fieldnames(self, fieldnames):
         return fieldnames
@@ -225,4 +260,12 @@ class CSV(object):
         """clear the csv file"""
         with self.open("wb") as f:
             f.truncate(0)
+
+    def __len__(self):
+        """Returns how many rows are in this csv, this actually goes through all the
+        rows, so this is not a resource light method"""
+        count = 0
+        for r in self:
+            count += 1
+        return count
 

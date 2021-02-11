@@ -74,11 +74,11 @@ class PathTest(TestCase):
         return self.create(*parts, **kwargs)
 
     def test_inferrence(self):
-        dp = testdata.create_dir()
-        p = Path(dp)
+        dp = TempDirpath()
+        p = Path(dp.path)
         self.assertTrue(isinstance(p, p.dir_class()))
 
-        fp = testdata.create_file()
+        fp = TempFilepath()
         p = Path(fp)
         self.assertTrue(isinstance(p, p.file_class()))
 
@@ -93,19 +93,6 @@ class PathTest(TestCase):
         fp = "/some/non/existant/random/path.ext"
         p = Path(fp, path_class=p.path_class())
         self.assertTrue(isinstance(p, p.path_class()))
-
-    def test_join(self):
-        r = Path.join("", "foo", "bar")
-        self.assertEqual('/foo/bar', r)
-
-        r = Path.join(["foo", "bar"])
-        self.assertEqual('foo/bar', r)
-
-        r = Path.join("/foo", "/bar/", "/che")
-        self.assertEqual('/foo/bar/che', r)
-
-        r = Path.join(["foo", "bar"], "che")
-        self.assertEqual('foo/bar/che', r)
 
     def test_root(self):
         p = self.create("/foo/bar")
@@ -219,10 +206,37 @@ class PathTest(TestCase):
         self.assertEqual("bar", parts[-2])
         self.assertEqual("foo", parts[-3])
 
+    def test_join(self):
+        r = Path.join("", "foo", "bar")
+        self.assertEqual('/foo/bar', r)
+
+        r = Path.join(["foo", "bar"])
+        self.assertEqual('foo/bar', r)
+
+        r = Path.join("/foo", "/bar/", "/che")
+        self.assertEqual('/foo/bar/che', r)
+
+        r = Path.join(["foo", "bar"], "che")
+        self.assertEqual('foo/bar/che', r)
+
     def test_split(self):
+        ps = Path.split("\\foo\\bar", "\\che\\")
+        self.assertEqual(["/", "foo", "bar", "che"], ps)
 
         ps = Path.split("foo", None)
         self.assertEqual(["foo", "None"], ps)
+
+        ps = Path.split(["/foo", "bar"], "che", ["/baz", "boom"])
+        self.assertEqual(["/", "foo", "bar", "che", "baz", "boom"], ps)
+
+        ps = Path.split("/foo", "/bar/", "/che")
+        self.assertEqual(["/", "foo", "bar", "che"], ps)
+
+        ps = Path.split("", "foo", "bar")
+        self.assertEqual(["/", "foo", "bar"], ps)
+
+        ps = Path.split("/che/baz", "foo", "bar")
+        self.assertEqual(["/", "che", "baz", "foo", "bar"], ps)
 
         ps = Path.split("foo", self.create_file("/", "bar", "che"), "baz")
         self.assertEqual(["foo", "bar", "che", "baz"], ps)
@@ -232,6 +246,18 @@ class PathTest(TestCase):
 
         ps = Path.split("/foo/bar", "che")
         self.assertEqual(["/", "foo", "bar", "che"], ps)
+
+        ps = Path.split("/")
+        self.assertEqual(["/"], ps)
+
+        ps = Path.split("")
+        self.assertEqual(["/"], ps)
+
+        ps = Path.split()
+        self.assertEqual([], ps)
+
+        ps = Path.split([])
+        self.assertEqual([], ps)
 
 
 class _PathTestCase(PathTest):
@@ -265,6 +291,43 @@ class _PathTestCase(PathTest):
 
 class DirpathTest(_PathTestCase):
     path_class = Dirpath
+
+    def test__normalize_add_paths(self):
+        ds = self.path_class._normalize_add_paths({"foo": ["bar", "che"]}, parts=["prefix"])
+        self.assertEqual(2, len(ds))
+        self.assertEqual(["prefix", "foo", "bar"], ds[0][0])
+        self.assertEqual(None, ds[1][1])
+
+        ds = self.path_class._normalize_add_paths(["foo", "bar"], parts=["prefix"])
+        self.assertEqual(2, len(ds))
+        self.assertEqual(["prefix", "foo"], ds[0][0])
+        self.assertEqual(None, ds[1][1])
+
+        ds = self.path_class._normalize_add_paths({"foo": None}, parts=["prefix"])
+        self.assertEqual(["prefix", "foo"], ds[0][0])
+        self.assertEqual(None, ds[0][1])
+
+        ds = self.path_class._normalize_add_paths({
+            "foo": {
+                "bar": {}
+            }
+        }, parts=["prefix"])
+        s = set(["prefix.foo.bar"])
+        for parts, contents in ds:
+            self.assertTrue(".".join(parts) in s)
+            self.assertIsNone(contents)
+
+        ds = self.path_class._normalize_add_paths({
+            "foo": {
+                "bar": "def ident(): return 'foo.bar'",
+                "che": {
+                    "baz": "def ident(): return 'foo.che'",
+                }
+            }
+        }, parts=["prefix"])
+        s = set(["prefix.foo.bar", "prefix.foo.che.baz"])
+        for parts, contents in ds:
+            self.assertTrue(".".join(parts) in s)
 
     def test_joinpath(self):
         p = self.create("/foo/bar")
@@ -382,6 +445,22 @@ class DirpathTest(_PathTestCase):
         p.clear()
         self.assertTrue(p.exists())
         self.assertEqual(0, p.count())
+
+    def test_dirpath_clear(self):
+        d = testdata.create_dir()
+        foo_f = d.create_file("foo.txt", "foo")
+        bar_f = d.create_file("bar/bar.txt", "bar")
+        che_d = d.create_dir("che")
+
+        self.assertTrue(foo_f.exists())
+        self.assertTrue(bar_f.exists())
+        self.assertTrue(che_d.exists())
+
+        d.clear()
+        self.assertFalse(foo_f.exists())
+        self.assertFalse(bar_f.exists())
+        self.assertFalse(che_d.exists())
+        self.assertEqual(0, len(list(d.files())))
 
     def test_rmdir(self):
         p = self.create_dir(contents={
@@ -517,9 +596,49 @@ class DirpathTest(_PathTestCase):
         self.assertEqual(1, p.count(recursive=True))
         self.assertEqual(2, dest.count(recursive=True))
 
+    def test_copy_to(self):
+        """https://github.com/Jaymon/testdata/issues/30"""
+        source_d = testdata.create_files({
+            "foo.txt": testdata.get_words(),
+            "bar/che.txt": testdata.get_words(),
+        })
+        dest_d = testdata.create_dir()
+
+        source_d.copy_to(dest_d)
+        self.assertTrue("foo.txt" in dest_d)
+        self.assertTrue("bar/che.txt" in dest_d)
+
+        source_f = testdata.create_file("foo.txt", testdata.get_words())
+        dest_f = testdata.get_file()
+        self.assertFalse(dest_f.exists())
+        source_f.copy_to(dest_f)
+        self.assertEqual(source_f.contents(), dest_f.contents())
+
 
 class FilepathTest(_PathTestCase):
     path_class = Filepath
+
+    def test_permissions(self):
+        f = testdata.create_file("permissions.txt")
+        if is_py2:
+            self.assertRegexpMatches(f.permissions, r"0[0-7]{3}")
+        else:
+            self.assertRegex(f.permissions, r"0[0-7]{3}")
+
+        f.chmod("0755")
+        self.assertEqual("0755", f.permissions)
+
+        f.chmod(644)
+        self.assertEqual("0644", f.permissions)
+
+        f.chmod("655")
+        self.assertEqual("0655", f.permissions)
+
+        f.chmod(655)
+        self.assertEqual("0655", f.permissions)
+
+        f.chmod(500)
+        self.assertEqual("0500", f.permissions)
 
     def test_unlink(self):
 
@@ -674,6 +793,122 @@ class ArchivepathTest(TestCase):
 
 
 class TempDirpathTest(TestCase):
+    def test_children(self):
+        d = TempDirpath()
+        ds = d.add({
+            "bar/che.txt": "che.txt data",
+            "foo.txt": "foo.txt data",
+        })
+        self.assertEqual(3, len(list(d.children())))
+        self.assertEqual(2, len(list(d.children("*.txt"))))
+        self.assertEqual(1, len(list(d.children("che.txt"))))
+        self.assertEqual(1, len(list(d.children("bar/che.txt"))))
+        self.assertEqual(1, len(list(d.children("bar"))))
+
+    def test_has(self):
+        d = TempDirpath()
+        self.assertFalse(d.has())
+
+        ds = d.add({
+            "bar/che.txt": "che.txt data",
+            "foo.txt": "foo.txt data",
+        })
+        self.assertTrue(d.has("che.txt"))
+        self.assertTrue(d.has("bar"))
+        self.assertTrue(d.has("bar/che.txt"))
+        self.assertFalse(d.has("bar/che"))
+        self.assertTrue(d.has("che.*"))
+        self.assertTrue(d.has(lambda p: p.endswith(".txt")))
+        self.assertTrue(d.has())
+
+    def test_division(self):
+        d = TempDirpath()
+        d2 = d.child("foo/bar")
+        d3 = d / "foo/bar"
+        self.assertEqual(d2, d3)
+
+    def test_child_1(self):
+        d = TempDirpath()
+        d2 = d.child("foo", "bar")
+        self.assertTrue(isinstance(d2, Path))
+
+        d.add_dir(["foo", "bar"])
+        d2 = d.child("foo", "bar")
+        self.assertTrue(isinstance(d2, Dirpath))
+
+        f = d.add_file("foo/bar.txt")
+        f2 = d.child("foo/bar.txt")
+        self.assertTrue(isinstance(f2, Filepath))
+
+        f2 = d.child("foobar.txt")
+        self.assertTrue(isinstance(f2, Path))
+
+        d2 = d.child("barfoo.txt/")
+        self.assertTrue(isinstance(d2, Path))
+
+    def test_add_1(self):
+        """Test the add directories functionality"""
+        d = TempDirpath()
+        ts = [
+            "\\foo\\bar",
+            "/foo1/bar1",
+            "/foo2/bar2/",
+            "foo3/bar3",
+            "foo4/bar4/",
+            "",
+            "~",
+            None
+        ]
+        ds = d.add(ts)
+        for path in ds:
+            self.assertTrue(os.path.isdir(path))
+
+    def test_add_2(self):
+        """Test the add files functionality"""
+        d = TempDirpath()
+        ts = {
+            "foo/1.txt": testdata.get_words(),
+            "foo/2.txt": testdata.get_words(),
+            "/bar/3.txt": testdata.get_words(),
+            "/bar/che/4.txt": testdata.get_words(),
+        }
+        ds = d.add(ts)
+        count = 0
+        for path in ds:
+            self.assertTrue(os.path.isfile(path))
+            self.assertTrue(path.read_text())
+            count += 1
+        self.assertLess(0, count)
+
+    def test_add_file(self):
+        d = TempDirpath()
+
+        f = d.add_file("foo.txt")
+        self.assertTrue(f.exists())
+        self.assertFalse(f.read_text())
+
+        f = d.add_file("bar.txt", "foobar")
+        self.assertTrue(f.exists())
+        self.assertTrue(f.read_text())
+
+    def test_add_dir(self):
+        d = TempDirpath()
+        f = d.add_dir("foo")
+        self.assertTrue(f.isdir())
+
+    def test_add_child(self):
+        d = TempDirpath()
+
+        f = d.add_child("foo.txt", "foobar")
+        self.assertTrue(f.exists())
+        self.assertTrue(f.read_text())
+
+        f = d.add_child("bar.txt", "")
+        self.assertTrue(f.isfile())
+
+        f = d.add_child("che")
+        self.assertTrue(f.isdir())
+
     def test_new(self):
         d = TempDirpath()
         self.assertTrue(d.exists())
@@ -686,7 +921,64 @@ class TempDirpathTest(TestCase):
 
 
 class TempFilepathTest(TestCase):
+    def test_relpath(self):
+        f = TempFilepath("foo", "bar", "che.txt")
+        self.assertEqual("foo/bar/che.txt", f.relpath)
+
+    def test_relparts(self):
+        f = TempFilepath("foo", "bar", "che.txt")
+        self.assertEqual(["foo", "bar", "che.txt"], f.relparts)
+
+    def test_has(self):
+        f = TempFilepath(data="foo bar che")
+        self.assertTrue(f.has())
+        self.assertTrue(f.has("bar"))
+        self.assertTrue(lambda line: "bar" in line)
+
+        f = TempFilepath()
+        self.assertFalse(f.has())
+
+    def test_get_basename(self):
+        n = TempFilepath.get_basename(ext="csv", prefix="bar", postfix="che")
+        self.assertRegex(n, r"bar\w+che\.csv")
+
+        n = TempFilepath.get_basename(ext="csv", prefix="bar", name="")
+        self.assertRegex(n, r"bar\w+\.csv")
+
+        n = TempFilepath.get_basename(ext="csv", name="")
+        self.assertRegex(n, r"\w+\.csv")
+
+        n = TempFilepath.get_basename(ext="py", name="foo")
+        self.assertEqual("foo.py", n)
+
+        n = TempFilepath.get_basename(ext="py", name="foo.py")
+        self.assertEqual("foo.py", n)
+
+        n = TempFilepath.get_basename(ext="py", prefix="bar", name="foo.py")
+        self.assertEqual("barfoo.py", n)
+
+        n = TempFilepath.get_basename()
+        self.assertTrue(n)
+
+        n = TempFilepath.get_basename(ext="ext")
+        self.assertRegex(n, r"\w+\.ext")
+
     def test_new(self):
+        f = TempFilepath([""], ext="csv")
+        self.assertFalse(f.endswith("/.csv"))
+
+        f = TempFilepath(["/"], ext="csv")
+        self.assertFalse(f.endswith("/.csv"))
+
+        f = TempFilepath([], ext="csv")
+        self.assertFalse(f.endswith("/.csv"))
+
+        f = TempFilepath("/", ext="csv")
+        self.assertFalse(f.endswith("/.csv"))
+
+        f = TempFilepath("", ext="csv")
+        self.assertFalse(f.endswith("/.csv"))
+
         f = TempFilepath()
         self.assertTrue(f.exists())
         self.assertTrue(f.is_file())

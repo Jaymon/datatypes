@@ -268,14 +268,19 @@ class Path(String):
 
     @classmethod
     def path_class(self):
+        """Return the Path class this class will use, this is a method because 
+        we couldn't make them all Path class properties because they are defined
+        after Path"""
         return Path
 
     @classmethod
     def dir_class(self):
+        """Return the Dirpath class to use"""
         return Dirpath
 
     @classmethod
     def file_class(self):
+        """Return the Filepath class to use"""
         return Filepath
 
     @classmethod
@@ -316,6 +321,8 @@ class Path(String):
         :param **kwargs: the keywords passed into __new__()
         :returns: Path, either the same instance or a different one
         """
+        # makes sure if you've passed in any class explicitely, even the Path
+        # class, then don't try and infer anything
         if path_class or (cls is not cls.path_class()):
             return instance
 
@@ -337,7 +344,7 @@ class Path(String):
         """Does the opposite of .join()"""
         ps = []
         for p in parts:
-            if isinstance(p, Path):
+            if isinstance(p, cls.path_class()):
                 for pb in p.parts:
                     if pb == "/":
                         if not ps:
@@ -356,13 +363,22 @@ class Path(String):
                         ps.append(pb)
 
             else:
-                for pb in String(p).split("/"):
-                    if pb:
-                        ps.append(pb.rstrip("\\/"))
+                s = String(p)
 
-                    else:
-                        if not ps:
-                            ps.append("/")
+                #if s and p is not None: # if you want to filter None
+                if s:
+                    for index, pb in enumerate(re.split(r"[\\/]+", s)):
+                    #for index, pb in enumerate(s.split("/")):
+                        if pb:
+                            ps.append(pb.rstrip("\\/"))
+
+                        else:
+                            if not ps and index == 0:
+                                ps.append("/")
+
+                else:
+                    if not ps:
+                        ps.append("/")
 
         return ps
 
@@ -378,53 +394,113 @@ class Path(String):
             >>> Path.join("/foo", "/bar/", "/che")
             '/foo/bar/che'
         """
-        ps = []
-        for p in parts:
-            if isinstance(p, Path):
-                p = p.path
-
-            elif not isinstance(p, basestring) and isinstance(p, Iterable):
-                p = cls.join(*p)
-
-            else:
-                if p:
-                    p = String(p)
-
-                else:
-                    p = "/"
-
-            if ps:
-                ps.append(p.strip("\\/"))
-
-            else:
-                if p == "/":
-                    ps.append(p)
-
-                else:
-                    ps.append(p.rstrip("\\/"))
-
+        ps = cls.split(*parts)
         return os.path.join(*ps)
+#         ps = []
+#         for p in parts:
+#             if isinstance(p, cls.path_class()):
+#                 p = p.path
+# 
+#             elif not isinstance(p, basestring) and isinstance(p, Iterable):
+#                 p = cls.join(*p)
+# 
+#             else:
+#                 if p:
+#                     p = String(p)
+# 
+#                 else:
+#                     p = "/"
+# 
+#             # normalize all separators and collapse to just one unix separator
+#             p = re.sub(r"[\\/]+", "/", p)
+# 
+#             if ps:
+#                 ps.append(p.strip("/"))
+# 
+#             else:
+#                 if p == "/":
+#                     ps.append(p)
+# 
+#                 else:
+#                     ps.append(p.rstrip("/"))
+# 
+#         return os.path.join(*ps)
+
+
+    @classmethod
+    def get_basename(cls, ext="", prefix="", name="", postfix="", **kwargs):
+        """return just a valid file name
+
+        :param ext: string, the extension you want the file to have
+        :param prefix: string, this will be the first part of the file's name
+        :param name: string, the name you want to use (prefix will be added to the front
+            of the name and ext will be added to the end of the name)
+        :returns: string, the random filename
+        """
+        if name:
+            basename = name
+
+        if prefix:
+            basename = prefix + basename
+
+        if ext:
+            if not ext.startswith("."):
+                ext = "." + ext
+
+            if basename.endswith(ext):
+                basename, ext = os.path.splitext(basename)
+
+        if postfix:
+            basename += postfix
+
+        if ext:
+            basename += ext
+
+        if not basename:
+            raise ValueError("basename is empty")
+
+        return basename
 
     @classmethod
     def normpath(cls, *parts, **kwargs):
         '''normalize a path, accounting for things like windows dir seps'''
-        path = cls.join(*parts)
-        path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+        parts = cls.split(*parts)
+        path = ""
+        if parts:
+            ext = kwargs.pop("ext", "")
+            prefix = kwargs.pop("prefix", "")
+            postfix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+            name = parts[-1]
+            parts[-1] = cls.get_basename(
+                ext=ext,
+                prefix=prefix,
+                name=name,
+                postfix=postfix,
+                **kwargs
+            )
 
-        suffix = kwargs.pop("suffix", kwargs.pop("ext", ""))
-        if suffix:
-            if not path.endswith(suffix):
-                path = "{}.{}".format(path, suffix.lstrip("."))
+            path = cls.join(*parts)
+            path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
-        return path
+        return path, parts
+
+    @classmethod
+    def normvalue(cls, *parts, **kwargs):
+        return kwargs["path"]
+
+    @classmethod
+    def norm(cls, *parts, **kwargs):
+        path, parts = cls.normpath(*parts, **kwargs)
+        value = cls.normvalue(path, path=path, **kwargs)
+        return path, value
 
     def __new__(cls, *parts, **kwargs):
-        path = cls.normpath(*parts, **kwargs)
-        path_class = kwargs.pop("path_class", None)
+        path, value = cls.norm(*parts, **kwargs)
+        path_class = kwargs.pop("path_class", None) # has to be None so create_as works
 
         instance = super(Path, cls).__new__(
             path_class if path_class else cls,
-            path,
+            value,
             encoding=kwargs.pop("encoding", environ.ENCODING),
             errors=kwargs.pop("errors", environ.ENCODING_ERRORS),
         )
@@ -633,6 +709,7 @@ class Path(String):
 
         else:
             ret = self.create(self.pathlib.joinpath(*other))
+
         return ret
 
     def child(self, *other):
@@ -919,7 +996,7 @@ class Dirpath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.cwd
         """
-        return os.getcwd()
+        return cls.create_dir(os.getcwd())
 
     @classmethod
     def home(cls):
@@ -928,7 +1005,122 @@ class Dirpath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.home
         """
-        return os.path.expanduser("~")
+        return cls.create_dir(os.path.expanduser("~"))
+
+    @classmethod
+    def _normalize_add_paths(cls, paths, parts=None):
+        """normalizes the paths from methods like .add_paths() and .add()
+
+        :param paths: see .add_paths() for description
+        :param parts: list, the parts that could be passed to a Path constructor
+        :returns list of tuples, each tuple will be in the form of (parts, data)
+        """
+        ret = []
+
+        if not parts:
+            parts = []
+
+        if paths:
+            if isinstance(paths, Mapping):
+                for k, v in paths.items():
+                    p = parts + [k]
+                    if isinstance(v, (Mapping, Sequence)) and not isinstance(v, basestring):
+                        ret.extend(cls._normalize_add_paths(v, p))
+
+                    else:
+                        ret.append((p, v))
+
+            elif isinstance(paths, Sequence):
+                for k in paths:
+                    ret.append((parts + [k], None))
+
+            else:
+                raise ValueError("Unrecognized value for paths")
+
+        else:
+            ret.append((parts, None))
+
+        return ret
+
+    @classmethod
+    def add_paths(cls, paths):
+        """create a whole bunch of files/directories all at once
+
+        :Example:
+            Dirpath.add_paths({
+                "foo": {
+                    "bar": {
+                        "baz.txt": "/foo/bar/baz.txt data",
+                    },
+                    "che": {}, # /foo/che/ directory
+                    "bam": None, # /foo/bam/ directory
+                }
+            })
+
+        :param paths: dict|list
+            dict - if paths is a dict, then the keys will be the path part and the
+                value will be the data/contents of the file at the full path. If value
+                is None or empty dict then that path will be considered a directory. 
+            list - if paths is a list then it will be a list of directories to create
+        :returns: list, all the created Path instances
+        """
+        ret = []
+        ps = cls._normalize_add_paths(paths)
+        for parts, data in ps:
+            if data is None:
+                dp = cls.create_dir(*parts)
+                dp.touch()
+                ret.append(dp)
+
+            else:
+                fp = cls.create_file(parts)
+                if data:
+                    if isinstance(data, cls.path_class()):
+                        data.copy_to(fp)
+
+                    elif isinstance(data, Bytes):
+                        fp.write_bytes(data)
+
+                    elif isinstance(data, Str):
+                        fp.write_text(data)
+
+                else:
+                    fp.touch()
+
+                ret.append(fp)
+
+        return ret
+
+    @classmethod
+    def add_files(cls, paths):
+        return cls.add_paths(paths)
+
+    @classmethod
+    def add_dirs(cls, paths):
+        return cls.add_paths(paths)
+
+    def add(self, paths):
+        """add paths to this directory
+
+        :param paths: dict|list, see @add_paths() for description of paths structure
+        :returns: list, all the created Path instances
+        """
+        return self.add_paths({self.path: paths})
+
+    def add_children(self, paths):
+        return self.add(paths)
+
+    def add_file(self, target, data=""):
+        ps = self.add({self.join(target): data})
+        return ps[0]
+
+    def add_dir(self, target):
+        ps = self.add({self.join(target): None})
+        return ps[0]
+
+    def add_child(self, target, data=None):
+        ps = self.add({self.join(target): data})
+        return ps[0]
 
     def empty(self):
         """Return True if directory is empty"""
@@ -1050,12 +1242,28 @@ class Dirpath(Path):
         else:
             dir_util.mkpath(self.path)
 
+    def filecount(self, recursive=True):
+        """return how many files in directory"""
+        return len(list(self.iterfiles(recursive=recursive)))
+
+    def dircount(self, recursive=True):
+        """return how many directories in directory"""
+        return len(list(self.iterdirs(recursive=recursive)))
+
+    def count(self, recursive=True):
+        """return how many files and directories in directory"""
+        return self.filecount(recursive=recursive) + self.dircount(recursive=recursive)
+
     def glob(self, pattern):
         """Glob the given relative pattern in the directory represented by this path,
         yielding all matching files (of any kind)
 
         The “**” pattern means "this directory and all subdirectories, recursively".
         In other words, it enables recursive globbing
+
+        globs are endswith matches, so if you passed in "*.txt" it would match any
+        filepath that ended with ".txt", likewise, if you pass in "bar" it would match
+        any files/folders that ended with "bar"
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
         """
@@ -1069,7 +1277,9 @@ class Dirpath(Path):
                 yield self.create(fp)
 
     def rglob(self, pattern):
-        """This is like calling Path.glob() with “**/” added in front of the given
+        """recursive glob
+
+        This is like calling Path.glob() with “**/” added in front of the given
         relative pattern, meaning it will match files in this directory and all
         subdirectories
 
@@ -1088,22 +1298,31 @@ class Dirpath(Path):
                 yield self.create(fp)
 
     def reglob(self, pattern, recursive=True):
-        """A glob but uses a regex instead of the common glob syntax"""
-        for fp in self.iterfiles(recursive=recursive):
-            if re.search(pattern, fp):
-                yield fp
+        """A glob but uses a regex instead of the common glob syntax
 
-    def filecount(self, recursive=True):
-        """return how many files in directory"""
-        return len(list(self.iterfiles(recursive=recursive)))
+        :param pattern: regex, the pattern to check for
+        :param recursive: boolean, True if you would like to check this directory
+            and all subdirectories, False if just self directory
+        :returns: generator, yields all found Path instances that match
+        """
+        it = self.rglob("*") if recursive else self.glob("*")
+        for p in it:
+            if re.search(pattern, p):
+                yield p
 
-    def dircount(self, recursive=True):
-        """return how many directories in directory"""
-        return len(list(self.iterdirs(recursive=recursive)))
+    def cbglob(self, callback, recursive=True):
+        """A glob but uses a callback instead of the common glob syntax
 
-    def count(self, recursive=True):
-        """return how many files and directories in directory"""
-        return self.filecount(recursive=recursive) + self.dircount(recursive=recursive)
+        :param callback: callable, a callback with signature callback(path) that
+            returns a boolean
+        :param recursive: boolean, True if you would like to check this directory
+            and all subdirectories, False if just self directory
+        :returns: generator, yields all found Path instances that match
+        """
+        it = self.rglob("*") if recursive else self.glob("*")
+        for p in it:
+            if callback(p):
+                yield p
 
     def scandir(self):
         """
@@ -1119,7 +1338,12 @@ class Dirpath(Path):
     def iterdir(self):
         """When the path points to a directory, yield path objects of the directory contents
 
+        This will only yield files/folders found in this directory, it is not recursive
+
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.iterdir
+
+        :returns: generator, yields children Filepath and Dirpath instances found
+            only in this directory
         """
         if is_py2:
             for basename in os.listdir(self.path):
@@ -1134,7 +1358,7 @@ class Dirpath(Path):
         returns directories
 
         :param recursive: boolean, if True then iterate through directories in
-            self and 
+            self and all subdirectories
         """
         for basedir, directories, files in os.walk(self.path, topdown=True):
             basedir = self.create_dir(basedir)
@@ -1155,8 +1379,51 @@ class Dirpath(Path):
             if not recursive:
                 break
 
+    def children(self, pattern="", recursive=True):
+        """Syntactic sugar around the other directory iteration methods
+
+        :param pattern: callable|string
+        :param recursive: boolean, if True go through all files/folders, if false
+            then just go through self directory
+        :returns: generator, yields all matching Path instances, or every Path
+            instance if pattern is empty
+        """
+        if pattern:
+            if callable(pattern):
+                for p in self.cbglob(pattern, recursive=recursive):
+                    yield p
+
+            else:
+                if recursive:
+                    for p in self.rglob(pattern):
+                        yield p
+
+                else:
+                    for p in self.glob(pattern):
+                        yield p
+
+        else:
+            it = self.rglob if recursive else self.glob
+            for p in it("*"):
+                yield p
+
+    def walk(self, *args, **kwargs):
+        """passthrough for os.walk
+
+        https://docs.python.org/3/library/os.html#os.walk
+        :returns: yields (basedir, dirs, files) in the exact way os.walk does, these
+            are not Path instances
+        """
+        for basedir, dirs, files in os.walk(self.path, *args, **kwargs):
+            yield basedir, dirs, files
+
     def __iter__(self):
-        for basedir, dirs, files in os.walk(self.path, topdown=True):
+        """Like os.walk but will return full Path instances in each tuple
+
+        :returns: tuple, (basedir, dirs, files) where the dirs and files lists have
+            full Dirpath and Filepath instances
+        """
+        for basedir, dirs, files in self.walk(topdown=True):
             basedir = self.create_dir(basedir)
             for i in range(len(dirs)):
                 dirs[i] = self.create_dir(basedir, dirs[i])
@@ -1165,6 +1432,27 @@ class Dirpath(Path):
                 files[i] = self.create_file(basedir, files[i])
 
             yield basedir, dirs, files
+
+    def has(self, pattern="", recursive=True):
+        """Check for pattern in directory
+
+        :Example:
+            d = Dirpath("foo")
+            d.add_file("bar/che.txt", "che.txt data")
+
+            d.has("che.txt") # True
+            d.has("bar") # True
+            d.has("bar/che.txt") # True
+            d.has("bar/che") # False
+            d.has("bar/che.*") # True
+
+        :param pattern: string, the subpath or pattern. If pattern is empty then
+            it will return True if directory has any file/folder
+        :returns: boolean, True if the pattern is in the directory
+        """
+        for p in self.children(pattern, recursive=recursive):
+            return True
+        return False
 
 
 class Filepath(Path):
@@ -1185,32 +1473,41 @@ class Filepath(Path):
         if not mode:
             mode = "r" if encoding else "rb"
 
-        if is_py2:
-            if encoding:
-                fp = codecs.open(
-                    self.path,
-                    mode=mode,
-                    encoding=encoding,
-                    errors=errors,
-                    buffering=buffering,
-                )
+        try:
+            if is_py2:
+                if encoding:
+                    fp = codecs.open(
+                        self.path,
+                        mode=mode,
+                        encoding=encoding,
+                        errors=errors,
+                        buffering=buffering,
+                    )
+
+                else:
+                    fp = open(
+                        self.path,
+                        mode=mode,
+                        buffering=buffering,
+                    )
 
             else:
                 fp = open(
                     self.path,
                     mode=mode,
+                    encoding=encoding,
+                    errors=errors,
                     buffering=buffering,
+                    newline=newline,
                 )
 
-        else:
-            fp = open(
-                self.path,
-                mode=mode,
-                encoding=encoding,
-                errors=errors,
-                buffering=buffering,
-                newline=newline,
-            )
+        except IOError:
+            if self.exists():
+                raise
+
+            else:
+                self.touch()
+                fp = self.open(mode, buffering, encoding, errors, newline)
 
         return fp
 
@@ -1276,18 +1573,41 @@ class Filepath(Path):
         with self.open(mode="wb+") as fp:
             return fp.write(data)
 
+    def prepare_text(self, data):
+        """Internal method used to prepare the data to be written
+
+        :param data: str, the text that will be written
+        :returns: tuple, (data, encoding, errors)
+        """
+        encoding = getattr(data, "encoding", self.encoding)
+        errors = getattr(data, "errors", self.errors)
+        data = String(data, encoding=encoding, errors=errors)
+        return data, encoding, errors
+
     def write_text(self, data):
         """Open the file pointed to in text mode, write data to it, and close the file
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text
         """
-        data = String(data, encoding=self.encoding)
-        with self.open(mode="w+", encoding=self.encoding, errors=self.errors) as fp:
+        data, encoding, errors = self.prepare_text(data)
+        with self.open(mode="w+", encoding=encoding, errors=errors) as fp:
             return fp.write(data)
 
+    def write(self, data):
+        """Write data as either bytes or text
+
+        :param data: bytes|string
+        :return: the amount written
+        """
+        if isinstance(data, (Bytes, bytearray)):
+            return self.write_bytes(data)
+
+        else:
+            return self.write_text(data)
+
     def append_text(self, data):
-        data = String(data, encoding=self.encoding)
-        with self.open(mode="a+", encoding=self.encoding, errors=self.errors) as fp:
+        data, encoding, errors = self.prepare_text(data)
+        with self.open(mode="a+", encoding=encoding, errors=errors) as fp:
             return fp.write(data)
 
     def joinpath(self, *other):
@@ -1419,6 +1739,34 @@ class Filepath(Path):
         for line in self.splitlines():
             yield line
 
+    def has(self, pattern=""):
+        """Check for pattern in the body of the file
+
+        :Example:
+            d = Filepath("foo.txt")
+
+            d.has("<TEXT>") # True
+
+        :param pattern: string|callable, the contents in the file. If callable then
+            it will do pattern(line) for each line in the file
+        :returns: boolean, True if the pattern is in the file
+        """
+        with self.open("r", encoding=self.encoding, errors=self.errors) as f:
+            if pattern:
+                if callable(pattern):
+                    for line in f:
+                        if pattern(line):
+                            return True
+
+                else:
+                    return pattern in f.read()
+
+            else:
+                data = f.read(1)
+                return True if data else False
+
+        return False
+
 
 class Archivepath(Dirpath):
     """This was based off of code from herd.path but as I was expanding it I realized
@@ -1531,8 +1879,21 @@ class Archivepath(Dirpath):
         target = self.create_dir(target)
 
 
+class TempPath(object):
+    basedir = None
+
+    @property
+    def relpath(self):
+        return self.relative_to(self.basedir)
+
+    @property
+    def relparts(self):
+        parts = self.split(self.relpath)
+        return parts
+
+
 # !!! Ripped from herd.path
-class TempDirpath(Dirpath):
+class TempDirpath(TempPath, Dirpath):
     """Create a temporary directory
 
     https://docs.python.org/3/library/tempfile.html
@@ -1541,43 +1902,120 @@ class TempDirpath(Dirpath):
         d = TempDirpath("foo", "bar")
         print(d) # $TMPDIR/foo/bar
     """
+    @classmethod
+    def gettempdir(cls):
+        return tempfile.gettempdir()
 
     def __new__(cls, *parts, **kwargs):
-
         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
-        path = tempfile.mkdtemp(
-            suffix=kwargs.pop("suffix", ""),
+        basedir = tempfile.mkdtemp(
+            suffix=kwargs.get("suffix", kwargs.get("postfix", "")),
             prefix=kwargs.pop("prefix", ""),
-            dir=kwargs.pop("dir", tempfile.gettempdir()),
+            dir=kwargs.pop("dir", cls.gettempdir()),
         )
 
-        instance = super(TempDirpath, cls).__new__(cls, path, *parts, **kwargs)
+        instance = super(TempDirpath, cls).__new__(cls, basedir, *parts, **kwargs)
+        instance.basedir = basedir
+
         if kwargs.get("create", kwargs.get("touch", True)):
             instance.touch()
+
         return instance
 Dirtemp = TempDirpath
+Tempdir = TempDirpath
 
 
-class TempFilepath(Filepath):
+class TempFilepath(TempPath, Filepath):
     """Create a temporary file
 
     :Example:
         f = TempFilepath("foo", "bar.ext")
         print(f) # $TMPDIR/foo/bar.ext
     """
-    def __new__(cls, *parts, **kwargs):
-        parts = cls.split(*parts)
-        basedir = TempDirpath(*parts[:-1], **kwargs)
+    @classmethod
+    def get_parts(cls, count=1, prefix="", name="", postfix="", ext="", **kwargs):
+        """Returns count parts
 
-        basename = parts[-1:]
-        if not basename:
-            basename = "".join(random.sample(string.ascii_letters, random.randint(3, 11)))
+        :param count: int, how many parts you want in your module path (1 is foo, 2 is foo, bar, etc)
+        :param prefix: string, if you want the last bit to be prefixed with something
+        :param postfix: string, if you want the last bit to be posfixed with something (eg, ".py")
+        :param name: string, the name you want to use for the last bit
+            (prefix will be added to the front of the name and postfix will be added to
+            the end of the name)
+        :returns: list
+        """
+        parts = []
+        count = max(count, 1)
+
+        for x in range(count - 1):
+            parts.append(cls.get_basename())
+
+        parts.append(cls.get_basename(prefix=prefix, name=name, postfix=postfix, ext=ext, **kwargs))
+        return parts
+
+    @classmethod
+    def get_basename(cls, ext="", prefix="", name="", postfix="", **kwargs):
+        """return just a valid file name
+
+        :param ext: string, the extension you want the file to have
+        :param prefix: string, this will be the first part of the file's name
+        :param name: string, the name you want to use (prefix will be added to the front
+            of the name and ext will be added to the end of the name)
+        :returns: string, the random filename
+        """
+        if name:
+            basename = name
+
+        else:
+            basename = "".join(random.sample(string.ascii_letters, random.randint(3, 11))).lower()
+
+        if prefix:
+            basename = prefix + basename
+
+        if ext:
+            if not ext.startswith("."):
+                ext = "." + ext
+
+            if basename.endswith(ext):
+                basename, ext = os.path.splitext(basename)
+
+        if postfix:
+            basename += postfix
+
+        if ext:
+            basename += ext
+
+        return basename
+
+    def __new__(cls, *parts, **kwargs):
+        parts = list(filter(lambda p: p != "/", cls.split(*parts)))
+
+        postfix = kwargs.get("suffix", kwargs.get("postfix", ""))
+        ext = kwargs.pop("ext", "")
+        prefix = kwargs.pop("prefix", "")
+        data = kwargs.pop("data", kwargs.pop("contents", None))
+
+        basedir = TempDirpath(*parts[:-1], **kwargs)
+        basename = cls.get_basename(
+            ext=ext,
+            prefix=prefix,
+            name="".join(parts[-1:]),
+            postfix=postfix,
+        )
 
         instance = super(TempFilepath, cls).__new__(cls, basedir, basename, **kwargs)
-        if kwargs.get("create", kwargs.get("touch", True)):
-            instance.touch()
+        instance.basedir = basedir.basedir
+
+        if data:
+            instance.write(data)
+
+        else:
+            if kwargs.get("create", kwargs.get("touch", True)):
+                instance.touch()
+
         return instance
 Filetemp = TempFilepath
+Tempfile = TempFilepath
 
 
 class Cachepath(Filepath):

@@ -10,6 +10,34 @@ from . import TestCase, testdata
 
 
 class CSVTest(TestCase):
+    def test_header(self):
+        path = testdata.create_file()
+        csv = CSV(path)
+        with csv:
+            for index in range(2):
+                csv.add({"foo": index, "bar": testdata.get_words()})
+
+        self.assertEqual(2, len(csv.fieldnames))
+
+        count = 0
+        for row in csv:
+            count += 1
+        self.assertEqual(2, count)
+
+        csv2 = CSV(path, fieldnames=csv.fieldnames)
+        self.assertEqual(2, len(csv.fieldnames))
+        count = 0
+        for row in csv2:
+            count += 1
+        self.assertEqual(2, count)
+
+        csv2 = CSV(path)
+        self.assertEqual(2, len(csv.fieldnames))
+        count = 0
+        for row in csv2:
+            count += 1
+        self.assertEqual(2, count)
+
     def test_read_unicode(self):
         """make sure we can read a utf encoded csv file"""
         csvfile = testdata.create_csv({

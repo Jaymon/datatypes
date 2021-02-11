@@ -23,7 +23,7 @@ if is_py2:
     import Queue as queue
 
     # using _* makes __all__ not export this automatically, so you have to
-    # explicitly import htis (from datatypes.compat import _thread), the reason
+    # explicitly import this (from datatypes.compat import _thread), the reason
     # is because the thread module is lowkey deprecated in favor of the
     # threading module
     #
