@@ -206,57 +206,57 @@ class PathTest(TestCase):
         self.assertEqual("bar", parts[-2])
         self.assertEqual("foo", parts[-3])
 
-    def test_join(self):
-        r = Path.join("", "foo", "bar")
+    def test_joinparts(self):
+        r = Path.joinparts("", "foo", "bar")
         self.assertEqual('/foo/bar', r)
 
-        r = Path.join(["foo", "bar"])
+        r = Path.joinparts(["foo", "bar"])
         self.assertEqual('foo/bar', r)
 
-        r = Path.join("/foo", "/bar/", "/che")
+        r = Path.joinparts("/foo", "/bar/", "/che")
         self.assertEqual('/foo/bar/che', r)
 
-        r = Path.join(["foo", "bar"], "che")
+        r = Path.joinparts(["foo", "bar"], "che")
         self.assertEqual('foo/bar/che', r)
 
     def test_split(self):
-        ps = Path.split("\\foo\\bar", "\\che\\")
+        ps = Path.splitparts("\\foo\\bar", "\\che\\")
         self.assertEqual(["/", "foo", "bar", "che"], ps)
 
-        ps = Path.split("foo", None)
+        ps = Path.splitparts("foo", None)
         self.assertEqual(["foo", "None"], ps)
 
-        ps = Path.split(["/foo", "bar"], "che", ["/baz", "boom"])
+        ps = Path.splitparts(["/foo", "bar"], "che", ["/baz", "boom"])
         self.assertEqual(["/", "foo", "bar", "che", "baz", "boom"], ps)
 
-        ps = Path.split("/foo", "/bar/", "/che")
+        ps = Path.splitparts("/foo", "/bar/", "/che")
         self.assertEqual(["/", "foo", "bar", "che"], ps)
 
-        ps = Path.split("", "foo", "bar")
+        ps = Path.splitparts("", "foo", "bar")
         self.assertEqual(["/", "foo", "bar"], ps)
 
-        ps = Path.split("/che/baz", "foo", "bar")
+        ps = Path.splitparts("/che/baz", "foo", "bar")
         self.assertEqual(["/", "che", "baz", "foo", "bar"], ps)
 
-        ps = Path.split("foo", self.create_file("/", "bar", "che"), "baz")
+        ps = Path.splitparts("foo", self.create_file("/", "bar", "che"), "baz")
         self.assertEqual(["foo", "bar", "che", "baz"], ps)
 
-        ps = Path.split(["foo/bar", "che"], "baz")
+        ps = Path.splitparts(["foo/bar", "che"], "baz")
         self.assertEqual(["foo", "bar", "che", "baz"], ps)
 
-        ps = Path.split("/foo/bar", "che")
+        ps = Path.splitparts("/foo/bar", "che")
         self.assertEqual(["/", "foo", "bar", "che"], ps)
 
-        ps = Path.split("/")
+        ps = Path.splitparts("/")
         self.assertEqual(["/"], ps)
 
-        ps = Path.split("")
+        ps = Path.splitparts("")
         self.assertEqual(["/"], ps)
 
-        ps = Path.split()
+        ps = Path.splitparts()
         self.assertEqual([], ps)
 
-        ps = Path.split([])
+        ps = Path.splitparts([])
         self.assertEqual([], ps)
 
 
@@ -966,6 +966,7 @@ class TempFilepathTest(TestCase):
     def test_new(self):
         f = TempFilepath([""], ext="csv")
         self.assertFalse(f.endswith("/.csv"))
+        self.assertTrue(f.startswith(TempFilepath.gettempdir()))
 
         f = TempFilepath(["/"], ext="csv")
         self.assertFalse(f.endswith("/.csv"))
