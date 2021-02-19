@@ -219,7 +219,7 @@ class PathTest(TestCase):
         r = Path.joinparts(["foo", "bar"], "che")
         self.assertEqual('foo/bar/che', r)
 
-    def test_split(self):
+    def test_splitparts_1(self):
         ps = Path.splitparts("\\foo\\bar", "\\che\\")
         self.assertEqual(["/", "foo", "bar", "che"], ps)
 
@@ -293,17 +293,17 @@ class DirpathTest(_PathTestCase):
     path_class = Dirpath
 
     def test__normalize_add_paths(self):
-        ds = self.path_class._normalize_add_paths({"foo": ["bar", "che"]}, parts=["prefix"])
+        ds = self.path_class._normalize_add_paths({"foo": ["bar", "che"]}, baseparts=["prefix"])
         self.assertEqual(2, len(ds))
         self.assertEqual(["prefix", "foo", "bar"], ds[0][0])
         self.assertEqual(None, ds[1][1])
 
-        ds = self.path_class._normalize_add_paths(["foo", "bar"], parts=["prefix"])
+        ds = self.path_class._normalize_add_paths(["foo", "bar"], baseparts=["prefix"])
         self.assertEqual(2, len(ds))
         self.assertEqual(["prefix", "foo"], ds[0][0])
         self.assertEqual(None, ds[1][1])
 
-        ds = self.path_class._normalize_add_paths({"foo": None}, parts=["prefix"])
+        ds = self.path_class._normalize_add_paths({"foo": None}, baseparts=["prefix"])
         self.assertEqual(["prefix", "foo"], ds[0][0])
         self.assertEqual(None, ds[0][1])
 
@@ -311,7 +311,7 @@ class DirpathTest(_PathTestCase):
             "foo": {
                 "bar": {}
             }
-        }, parts=["prefix"])
+        }, baseparts=["prefix"])
         s = set(["prefix.foo.bar"])
         for parts, contents in ds:
             self.assertTrue(".".join(parts) in s)
@@ -324,7 +324,7 @@ class DirpathTest(_PathTestCase):
                     "baz": "def ident(): return 'foo.che'",
                 }
             }
-        }, parts=["prefix"])
+        }, baseparts=["prefix"])
         s = set(["prefix.foo.bar", "prefix.foo.che.baz"])
         for parts, contents in ds:
             self.assertTrue(".".join(parts) in s)
@@ -793,6 +793,18 @@ class ArchivepathTest(TestCase):
 
 
 class TempDirpathTest(TestCase):
+    def test_dir_param(self):
+        d = TempDirpath()
+        d2 = TempDirpath(dir=d)
+        self.assertEqual(d, d2)
+
+    def test_empty_string(self):
+        d = TempDirpath("")
+        d2 = d.relative_to(d.gettempdir())
+        d3 = TempDirpath()
+        d4 = d3.relative_to(d.gettempdir())
+        self.assertEqual(len(d.splitparts(d2)), len(d.splitparts(d4)))
+
     def test_children(self):
         d = TempDirpath()
         ds = d.add({
@@ -832,7 +844,7 @@ class TempDirpathTest(TestCase):
         d2 = d.child("foo", "bar")
         self.assertTrue(isinstance(d2, Path))
 
-        d.add_dir(["foo", "bar"])
+        _d = d.add_dir(["foo", "bar"])
         d2 = d.child("foo", "bar")
         self.assertTrue(isinstance(d2, Dirpath))
 
@@ -919,8 +931,23 @@ class TempDirpathTest(TestCase):
         self.assertTrue(d.is_dir())
         self.assertTrue("/foo/bar" in d)
 
+    def test_add_paths(self):
+        ps = TempDirpath.add_paths({
+            "foo.txt": "foo.txt data",
+            "bar": None,
+            "che/baz.txt": "che/baz.txt data",
+        })
+
+        for p in ps:
+            self.assertTrue(p.startswith(TempDirpath.gettempdir()))
+
 
 class TempFilepathTest(TestCase):
+    def test_dir_param(self):
+        f = TempFilepath()
+        f2 = TempFilepath(dir=f.directory)
+        self.assertEqual(f.directory, f2.directory)
+
     def test_relpath(self):
         f = TempFilepath("foo", "bar", "che.txt")
         self.assertEqual("foo/bar/che.txt", f.relpath)
@@ -939,7 +966,7 @@ class TempFilepathTest(TestCase):
         self.assertFalse(f.has())
 
     def test_get_basename(self):
-        n = TempFilepath.get_basename(ext="csv", prefix="bar", postfix="che")
+        n = TempFilepath.get_basename(ext="csv", prefix="bar", suffix="che")
         self.assertRegex(n, r"bar\w+che\.csv")
 
         n = TempFilepath.get_basename(ext="csv", prefix="bar", name="")

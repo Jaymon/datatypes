@@ -321,21 +321,27 @@ class Path(String):
         :param **kwargs: the keywords passed into __new__()
         :returns: Path, either the same instance or a different one
         """
-        # makes sure if you've passed in any class explicitely, even the Path
-        # class, then don't try and infer anything
+        instance.path = kwargs["path"]
+
         if path_class or (cls is not cls.path_class()):
-            return instance
-
-        if instance.is_file():
-            instance = instance.as_file()
-
-        elif instance.is_dir():
-            instance = instance.as_dir()
+            # makes sure if you've passed in any class explicitely, even the Path
+            # class, then don't try and infer anything
+            pass
 
         else:
-            # let's assume a file if it has an extension
-            if instance.ext:
+            if instance.is_file():
                 instance = instance.as_file()
+
+            elif instance.is_dir():
+                instance = instance.as_dir()
+
+            else:
+                # let's assume a file if it has an extension
+                if instance.ext:
+                    instance = instance.as_file()
+
+        if kwargs.get("touch", kwargs.get("create", False)):
+            instance.touch()
 
         return instance
 
@@ -398,13 +404,14 @@ class Path(String):
         return os.path.join(*ps)
 
     @classmethod
-    def get_basename(cls, ext="", prefix="", name="", postfix="", **kwargs):
+    def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
         """return just a valid file name
 
         :param ext: string, the extension you want the file to have
         :param prefix: string, this will be the first part of the file's name
         :param name: string, the name you want to use (prefix will be added to the front
-            of the name and ext will be added to the end of the name)
+            of the name and suffix and ext will be added to the end of the name)
+        :param suffix: string, if you want the last bit to be posfixed with something
         :returns: string, the random filename
         """
         if name:
@@ -420,8 +427,8 @@ class Path(String):
             if basename.endswith(ext):
                 basename, ext = os.path.splitext(basename)
 
-        if postfix:
-            basename += postfix
+        if suffix:
+            basename += suffix
 
         if ext:
             basename += ext
@@ -433,15 +440,21 @@ class Path(String):
 
     @classmethod
     def normparts(cls, *parts, **kwargs):
+        """Normalize the parts and prepare them to generate the path and value
+
+        :param *parts: list, the parts of the path
+        :param **kwargs: anything else needed to generate the parts
+        :return: list, a the parts ready to generate path and value
+        """
         parts = cls.splitparts(*parts)
         ext = kwargs.pop("ext", "")
         prefix = kwargs.pop("prefix", "")
-        postfix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+        suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
         name = cls.get_basename(
             ext=ext,
             prefix=prefix,
             name=parts[-1] if parts else "",
-            postfix=postfix,
+            suffix=suffix,
             **kwargs
         )
 
@@ -455,7 +468,14 @@ class Path(String):
 
     @classmethod
     def normpath(cls, *parts, **kwargs):
-        '''normalize a path, accounting for things like windows dir seps'''
+        """normalize a path, accounting for things like windows dir seps
+
+        the path is the actual file path located in .path
+
+        :param *parts: list, the already normalized parts of the path
+        :param **kwargs: anything else
+        :return: str, the full path ready to be placed in .path
+        """
         path = ""
         if parts:
             path = cls.joinparts(*parts)
@@ -465,24 +485,20 @@ class Path(String):
 
     @classmethod
     def normvalue(cls, *parts, **kwargs):
+        """normalize a value 
+
+        the value is the actual string value
+
+        :param *parts: list, the already normalized parts of the path
+        :param **kwargs: anything else
+        :return: str, the string value
+        """
         return kwargs["path"]
 
-    @classmethod
-    def norm(cls, *parts, **kwargs):
+    def __new__(cls, *parts, **kwargs):
         parts = cls.normparts(*parts, **kwargs)
         path = cls.normpath(*parts, **kwargs)
-        value = cls.normvalue(path, path=path, **kwargs)
-        return path, parts, value, kwargs
-
-    @classmethod
-    def normpost(cls, instance, path, parts, **kwargs):
-        instance.path = path
-
-        instance = cls.create_as(instance, **kwargs)
-        return instance
-
-    def __new__(cls, *parts, **kwargs):
-        path, parts, value, kw = cls.norm(*parts, **kwargs)
+        value = cls.normvalue(*parts, path=path, **kwargs)
         path_class = kwargs.pop("path_class", None) # has to be None so create_as works
 
         instance = super(Path, cls).__new__(
@@ -491,10 +507,10 @@ class Path(String):
             encoding=kwargs.pop("encoding", environ.ENCODING),
             errors=kwargs.pop("errors", environ.ENCODING_ERRORS),
         )
-        return cls.normpost(
+        return cls.create_as(
             instance, 
-            path,
-            parts,
+            path=path,
+            parts=parts,
             path_class=path_class,
             **kwargs
         )
@@ -998,22 +1014,20 @@ class Dirpath(Path):
         return cls.create_dir(os.path.expanduser("~"))
 
     @classmethod
-    def _normalize_add_paths(cls, paths, parts=None):
+    def _normalize_add_paths(cls, paths, baseparts=""):
         """normalizes the paths from methods like .add_paths() and .add()
 
         :param paths: see .add_paths() for description
-        :param parts: list, the parts that could be passed to a Path constructor
+        :param baseparts: list, will be merged with the paths keys to create the full path
         :returns list of tuples, each tuple will be in the form of (parts, data)
         """
         ret = []
-
-        if not parts:
-            parts = []
+        baseparts = cls.splitparts(baseparts or [])
 
         if paths:
             if isinstance(paths, Mapping):
                 for k, v in paths.items():
-                    p = parts + [k]
+                    p = baseparts + [k]
                     if isinstance(v, (Mapping, Sequence)) and not isinstance(v, basestring):
                         ret.extend(cls._normalize_add_paths(v, p))
 
@@ -1022,18 +1036,18 @@ class Dirpath(Path):
 
             elif isinstance(paths, Sequence):
                 for k in paths:
-                    ret.append((parts + [k], None))
+                    ret.append((baseparts + [k], None))
 
             else:
                 raise ValueError("Unrecognized value for paths")
 
         else:
-            ret.append((parts, None))
+            ret.append((baseparts, None))
 
         return ret
 
     @classmethod
-    def add_paths(cls, paths):
+    def add_paths(cls, paths, baseparts=""):
         """create a whole bunch of files/directories all at once
 
         :Example:
@@ -1055,7 +1069,7 @@ class Dirpath(Path):
         :returns: list, all the created Path instances
         """
         ret = []
-        ps = cls._normalize_add_paths(paths)
+        ps = cls._normalize_add_paths(paths, baseparts)
         for parts, data in ps:
             if data is None:
                 dp = cls.create_dir(*parts)
@@ -1082,12 +1096,12 @@ class Dirpath(Path):
         return ret
 
     @classmethod
-    def add_files(cls, paths):
-        return cls.add_paths(paths)
+    def add_files(cls, paths, baseparts=""):
+        return cls.add_paths(paths, baseparts)
 
     @classmethod
-    def add_dirs(cls, paths):
-        return cls.add_paths(paths)
+    def add_dirs(cls, paths, baseparts=""):
+        return cls.add_paths(paths, baseparts)
 
     def add(self, paths):
         """add paths to this directory
@@ -1886,11 +1900,12 @@ class TempPath(object):
         return tempfile.gettempdir()
 
     @classmethod
-    def get_basename(cls, ext="", prefix="", name="", postfix="", **kwargs):
+    def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
         """return just a valid file name
 
         :param ext: string, the extension you want the file to have
         :param prefix: string, this will be the first part of the file's name
+        :param suffix: string, if you want the last bit to be posfixed with something
         :param name: string, the name you want to use (prefix will be added to the front
             of the name and ext will be added to the end of the name)
         :returns: string, the random filename
@@ -1902,17 +1917,17 @@ class TempPath(object):
             ext=ext,
             prefix=prefix,
             name=name,
-            postfix=postfix,
+            suffix=suffix,
             **kwargs
         )
 
     @classmethod
-    def get_parts(cls, count=1, prefix="", name="", postfix="", ext="", **kwargs):
+    def get_parts(cls, count=1, prefix="", name="", suffix="", ext="", **kwargs):
         """Returns count parts
 
         :param count: int, how many parts you want in your module path (1 is foo, 2 is foo, bar, etc)
         :param prefix: string, if you want the last bit to be prefixed with something
-        :param postfix: string, if you want the last bit to be posfixed with something (eg, ".py")
+        :param suffix: string, if you want the last bit to be posfixed with something
         :param name: string, the name you want to use for the last bit
             (prefix will be added to the front of the name and postfix will be added to
             the end of the name)
@@ -1924,7 +1939,7 @@ class TempPath(object):
         for x in range(count - 1):
             parts.append(cls.get_basename())
 
-        parts.append(cls.get_basename(prefix=prefix, name=name, postfix=postfix, ext=ext, **kwargs))
+        parts.append(cls.get_basename(prefix=prefix, name=name, suffix=suffix, ext=ext, **kwargs))
         return parts
 
 
@@ -1938,42 +1953,53 @@ class TempDirpath(TempPath, Dirpath):
         d = TempDirpath("foo", "bar")
         print(d) # $TMPDIR/foo/bar
     """
+
+    @classmethod
+    def add_paths(cls, paths, baseparts=""):
+        # this check is to normalize the base path to use a temporary dirpath if
+        # it doesn't already have one
+        if baseparts:
+            baseparts = [TempDirpath(), baseparts]
+
+        else:
+            if isinstance(paths, Mapping):
+                full_path = False
+                tp = cls.gettempdir()
+                for k in paths.keys():
+                    if k.startswith(tp):
+                        full_path = True
+                        break
+
+                if not full_path:
+                    baseparts = TempDirpath()
+
+        return super(TempDirpath, cls).add_paths(paths, baseparts)
+
     @classmethod
     def normparts(cls, *parts, **kwargs):
         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
-        basedir = tempfile.mkdtemp(
-            suffix=kwargs.pop("suffix", kwargs.pop("postfix", "")),
-            prefix=kwargs.pop("prefix", ""),
-            dir=kwargs.pop("dir", cls.gettempdir()),
-        )
-        parts = super(TempDirpath, cls).normparts(*parts, **kwargs)
-        return [basedir] + parts
+        suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+        prefix = kwargs.pop("prefix", "")
+        basedir = kwargs.pop("dir", "")
+        if not basedir:
+            basedir = tempfile.mkdtemp(
+                suffix=suffix,
+                prefix=prefix,
+                #dir=tmpdir, # cls.gettempdir()
+            )
+
+        parts = list(filter(None, parts))
+        if parts:
+            parts = super(TempDirpath, cls).normparts(*parts, **kwargs)
+
+        return [basedir] + list(parts)
 
     @classmethod
-    def normpost(cls, instance, path, parts, **kwargs):
-        instance = super(TempDirpath, cls).normpost(instance, path, parts, **kwargs)
-        instance.basedir = parts[0]
-
-        if kwargs.get("create", kwargs.get("touch", True)):
-            instance.touch()
-
+    def create_as(cls, instance, **kwargs):
+        kwargs.setdefault("touch", True)
+        instance.basedir = kwargs["parts"][0]
+        instance = super(TempDirpath, cls).create_as(instance, **kwargs)
         return instance
-
-#     def __new__(cls, *parts, **kwargs):
-#         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
-#         basedir = tempfile.mkdtemp(
-#             suffix=kwargs.get("suffix", kwargs.get("postfix", "")),
-#             prefix=kwargs.pop("prefix", ""),
-#             dir=kwargs.pop("dir", cls.gettempdir()),
-#         )
-# 
-#         instance = super(TempDirpath, cls).__new__(cls, basedir, *parts, **kwargs)
-#         instance.basedir = basedir
-# 
-#         if kwargs.get("create", kwargs.get("touch", True)):
-#             instance.touch()
-# 
-#         return instance
 Dirtemp = TempDirpath
 Tempdir = TempDirpath
 
@@ -1985,67 +2011,23 @@ class TempFilepath(TempPath, Filepath):
         f = TempFilepath("foo", "bar.ext")
         print(f) # $TMPDIR/foo/bar.ext
     """
-
-#     @classmethod
-#     def normpath(cls, *parts, **kwargs):
-#         '''normalize a path, accounting for things like windows dir seps'''
-#         path, parts = super(TempFilepath, cls).normpath(*parts, **Kwargs)
-#         return 
-
     @classmethod
     def normparts(cls, *parts, **kwargs):
         parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
-        basedir = TempDirpath(dir=kwargs["dir"]) if "dir" in kwargs else TempDirpath()
+        basedir = TempDirpath(dir=kwargs.pop("dir", ""))
         return [basedir] + parts
 
-#     @classmethod
-#     def norm(cls, *parts, **kwargs):
-#         path, parts, value, kw = super(TempFilepath, cls).norm(*parts, **kwargs)
-# 
-#         basedir = TempDirpath(*parts[:-1], **kwargs)
-#         parts = 
-# 
-# 
-# 
-#         parts = cls.normparts(*parts, **kwargs)
-#         path = cls.normpath(*parts, **kwargs)
-#         value = cls.normvalue(path, path=path, **kwargs)
-#         return path, parts, value, kwargs
-
-
     @classmethod
-    def normpost(cls, instance, path, parts, **kwargs):
-        instance = super(TempFilepath, cls).normpost(instance, path, parts, **kwargs)
-        instance.basedir = parts[0]
+    def create_as(cls, instance, **kwargs):
+        kwargs.setdefault("touch", True)
+        instance.basedir = kwargs["parts"][0]
+        instance = super(TempFilepath, cls).create_as(instance, **kwargs)
 
         data = kwargs.pop("data", kwargs.pop("contents", None))
         if data:
             instance.write(data)
 
-        else:
-            if kwargs.get("create", kwargs.get("touch", True)):
-                instance.touch()
-
         return instance
-
-
-
-#     def __new__(cls, *parts, **kwargs):
-#         data = kwargs.pop("data", kwargs.pop("contents", None))
-#         parts = list(filter(lambda p: p != "/", cls.splitparts(*parts, **kwargs)))
-# 
-#         basedir = TempDirpath(*parts[:-1], **kwargs)
-#         instance = super(TempFilepath, cls).__new__(cls, basedir, parts[-1], **kwargs)
-#         instance.basedir = basedir.basedir
-# 
-#         if data:
-#             instance.write(data)
-# 
-#         else:
-#             if kwargs.get("create", kwargs.get("touch", True)):
-#                 instance.touch()
-# 
-#         return instance
 Filetemp = TempFilepath
 Tempfile = TempFilepath
 
