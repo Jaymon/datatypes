@@ -216,7 +216,7 @@ class CSV(object):
 
             if not writer.has_header:
                 if not self.fieldnames:
-                    self.fieldnames = self.normalize_fieldnames(list(row.keys()))
+                    self.fieldnames = self.normalize_fieldnames(row.keys())
                 writer.fieldnames = self.fieldnames
                 logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
                 writer.writeheader()
@@ -244,7 +244,7 @@ class CSV(object):
                 self.add(row)
 
     def normalize_fieldnames(self, fieldnames):
-        return fieldnames
+        return list(map(String, fieldnames))
 
     def find_fieldnames(self):
         """attempt to get the field names from the first line in the csv file"""
@@ -254,7 +254,7 @@ class CSV(object):
 
     def rows(self):
         """Return all the rows as a list"""
-        return self.rows_class(self)
+        return self.rows_class(self.__iter__())
 
     def clear(self):
         """clear the csv file"""

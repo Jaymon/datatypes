@@ -10,7 +10,7 @@ from . import TestCase, testdata
 
 
 class CSVTest(TestCase):
-    def test_header(self):
+    def test_header_1(self):
         path = testdata.create_file()
         csv = CSV(path)
         with csv:
@@ -37,6 +37,21 @@ class CSVTest(TestCase):
         for row in csv2:
             count += 1
         self.assertEqual(2, count)
+
+    def test_header_unicode(self):
+        row = {
+            testdata.get_unicode_word(): testdata.get_words(),
+            testdata.get_unicode_word(): testdata.get_words(),
+        }
+        path = testdata.create_file()
+        csv = CSV(path, fieldnames=row.keys())
+        with csv:
+            csv.add(row)
+
+        csv2 = CSV(path)
+        row2 = csv2.rows()[0]
+        return
+        self.assertEqual(row, row2)
 
     def test_read_unicode(self):
         """make sure we can read a utf encoded csv file"""
