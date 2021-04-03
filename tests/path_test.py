@@ -259,6 +259,19 @@ class PathTest(TestCase):
         ps = Path.splitparts([])
         self.assertEqual([], ps)
 
+    def test_splitparts_2(self):
+        regex = r"\.+"
+        root = ""
+
+        ps = Path.splitparts(
+            "foo.bar", "che.baz.bar", "bam/boom",
+            regex=regex,
+            root=root
+        )
+        self.assertEqual(6, len(ps))
+
+        ps = Path.splitparts("", root="")
+        self.assertEqual([], ps)
 
 class _PathTestCase(PathTest):
     def test_stat(self):
@@ -292,22 +305,22 @@ class _PathTestCase(PathTest):
 class DirpathTest(_PathTestCase):
     path_class = Dirpath
 
-    def test__normalize_add_paths(self):
-        ds = self.path_class._normalize_add_paths({"foo": ["bar", "che"]}, baseparts=["prefix"])
-        self.assertEqual(2, len(ds))
-        self.assertEqual(["prefix", "foo", "bar"], ds[0][0])
-        self.assertEqual(None, ds[1][1])
+    def test_normpaths_1(self):
+        ds = self.path_class.normpaths({"foo": ["bar", "che"]}, baseparts=["prefix"])
+        self.assertEqual(1, len(ds))
+        self.assertEqual(["prefix", "foo"], ds[0][0])
+        self.assertEqual(["bar", "che"], ds[0][1])
 
-        ds = self.path_class._normalize_add_paths(["foo", "bar"], baseparts=["prefix"])
+        ds = self.path_class.normpaths(["foo", "bar"], baseparts=["prefix"])
         self.assertEqual(2, len(ds))
         self.assertEqual(["prefix", "foo"], ds[0][0])
         self.assertEqual(None, ds[1][1])
 
-        ds = self.path_class._normalize_add_paths({"foo": None}, baseparts=["prefix"])
+        ds = self.path_class.normpaths({"foo": None}, baseparts=["prefix"])
         self.assertEqual(["prefix", "foo"], ds[0][0])
         self.assertEqual(None, ds[0][1])
 
-        ds = self.path_class._normalize_add_paths({
+        ds = self.path_class.normpaths({
             "foo": {
                 "bar": {}
             }
@@ -317,7 +330,7 @@ class DirpathTest(_PathTestCase):
             self.assertTrue(".".join(parts) in s)
             self.assertIsNone(contents)
 
-        ds = self.path_class._normalize_add_paths({
+        ds = self.path_class.normpaths({
             "foo": {
                 "bar": "def ident(): return 'foo.bar'",
                 "che": {
@@ -328,6 +341,38 @@ class DirpathTest(_PathTestCase):
         s = set(["prefix.foo.bar", "prefix.foo.che.baz"])
         for parts, contents in ds:
             self.assertTrue(".".join(parts) in s)
+
+    def test_normpaths_2(self):
+        d = {
+            "prefix": {
+                "": [
+                    "class Default(object):",
+                    "    def GET(*args, **kwargs): pass",
+                ],
+                "default": [
+                    "class Default(object):",
+                    "    def GET(*args, **kwargs): pass",
+                ],
+                "foo": [
+                    "class Default(object):",
+                    "    def GET(*args, **kwargs): pass",
+                    "",
+                    "class Bar(object):",
+                    "    def GET(*args, **kwargs): pass",
+                    "    def POST(*args, **kwargs): pass",
+                ],
+                "foo.baz": [
+                    "class Default(object):",
+                    "    def GET(*args, **kwargs): pass",
+                    "",
+                    "class Che(object):",
+                    "    def GET(*args, **kwargs): pass",
+                ],
+            }
+        }
+        ds = self.path_class.normpaths(d, regex=r"[\.\\/]+", root="")
+        self.assertEqual(3, len(ds[3][0]))
+        self.assertEqual(1, len(ds[0][0]))
 
     def test_joinpath(self):
         p = self.create("/foo/bar")
@@ -617,6 +662,13 @@ class DirpathTest(_PathTestCase):
 
 class FilepathTest(_PathTestCase):
     path_class = Filepath
+
+    def test_file(self):
+        f = testdata.create_file("foo.txt", "this is the text")
+        self.assertEqual("foo", f.fileroot)
+        self.assertEqual("txt", f.ext)
+        self.assertEqual("foo.txt", f.name)
+        self.assertEqual(f.directory, f.parent)
 
     def test_permissions(self):
         f = testdata.create_file("permissions.txt")
@@ -941,8 +993,21 @@ class TempDirpathTest(TestCase):
         for p in ps:
             self.assertTrue(p.startswith(TempDirpath.gettempdir()))
 
+    def test_existing_init(self):
+        path = TempDirpath()
+        d2 = TempDirpath(path)
+        self.assertEqual(path, d2)
+
 
 class TempFilepathTest(TestCase):
+    def test_existing_init(self):
+        relpath = "/foo1/bar1/test.txt"
+        s = "happy"
+        f = TempFilepath(relpath)
+        f.write_text(s)
+        f2 = TempFilepath(f)
+        self.assertEqual(f, f2)
+
     def test_dir_param(self):
         f = TempFilepath()
         f2 = TempFilepath(dir=f.directory)
@@ -1015,6 +1080,14 @@ class TempFilepathTest(TestCase):
         self.assertTrue(f.exists())
         self.assertTrue(f.is_file())
         self.assertTrue("/foo/bar" in f)
+
+    def test_existing(self):
+        f = TempFilepath(ext="txt")
+        f2 = TempFilepath(f.basename, dir=f.basedir)
+        self.assertEqual(f, f2)
+
+        f3 = TempFilepath(f.basename, dir=f.directory)
+        self.assertEqual(f, f3)
 
 
 class CachepathTest(TestCase):

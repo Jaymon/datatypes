@@ -267,36 +267,39 @@ class Path(String):
         return suffixes
 
     @classmethod
-    def path_class(self):
+    def path_class(cls):
         """Return the Path class this class will use, this is a method because 
         we couldn't make them all Path class properties because they are defined
         after Path"""
         return Path
 
     @classmethod
-    def dir_class(self):
+    def dir_class(cls):
         """Return the Dirpath class to use"""
         return Dirpath
 
     @classmethod
-    def file_class(self):
+    def file_class(cls):
         """Return the Filepath class to use"""
         return Filepath
 
     @classmethod
     def create_file(cls, *parts, **kwargs):
         kwargs["path_class"] = cls.file_class()
-        return kwargs["path_class"](*parts, **kwargs)
+        return cls.create(*parts, **kwargs)
+        #return kwargs["path_class"](*parts, **kwargs)
 
     @classmethod
     def create_dir(cls, *parts, **kwargs):
         kwargs["path_class"] = cls.dir_class()
-        return kwargs["path_class"](*parts, **kwargs)
+        return cls.create(*parts, **kwargs)
+        #return kwargs["path_class"](*parts, **kwargs)
 
     @classmethod
     def create_path(cls, *parts, **kwargs):
         kwargs["path_class"] = cls.path_class()
-        return kwargs["path_class"](*parts, **kwargs)
+        return cls.create(*parts, **kwargs)
+        #return kwargs["path_class"](*parts, **kwargs)
 
     @classmethod
     def create(cls, *parts, **kwargs):
@@ -346,50 +349,92 @@ class Path(String):
         return instance
 
     @classmethod
-    def splitparts(cls, *parts):
-        """Does the opposite of .join()"""
+    def splitparts(cls, *parts, **kwargs):
+        """Does the opposite of .join()
+
+
+        :param *parts: mixed, as many parts as you pass in as arguments
+        :param **kwargs:
+            regex - the regex used to split the parts up
+            root - if a root is needed this will be used
+        :returns: list, all the normalized parts
+        """
         ps = []
+        regex = kwargs.get("regex", r"[\\/]+")
+        root = kwargs.get("root", "/")
+        path_class = cls.path_class()
+
         for p in parts:
-            if isinstance(p, cls.path_class()):
-                for pb in p.parts:
-                    if pb == "/":
-                        if not ps:
-                            ps.append(pb)
-
-                    else:
-                        ps.append(pb)
-
-            elif not isinstance(p, basestring) and isinstance(p, Iterable):
-                for pb in cls.splitparts(*p):
-                    if pb == "/":
-                        if not ps:
-                            ps.append(pb)
-
-                    else:
-                        ps.append(pb)
-
-            else:
+            if isinstance(p, (basestring, path_class)) or not isinstance(p, Iterable):
                 s = String(p)
 
                 #if s and p is not None: # if you want to filter None
                 if s:
-                    for index, pb in enumerate(re.split(r"[\\/]+", s)):
+                    for index, pb in enumerate(re.split(regex, s)):
                     #for index, pb in enumerate(s.split("/")):
                         if pb:
-                            ps.append(pb.rstrip("\\/"))
+                            ps.append(re.sub(regex, "", pb))
 
                         else:
-                            if not ps and index == 0:
-                                ps.append("/")
+                            if root and not ps and index == 0:
+                                ps.append(root)
 
                 else:
-                    if not ps:
-                        ps.append("/")
+                    if not ps and root:
+                        ps.append(root)
+
+            else:
+                for pb in cls.splitparts(*p, **kwargs):
+                    if root and pb == root:
+                        if not ps:
+                            ps.append(pb)
+
+                    else:
+                        ps.append(pb)
+
+#             if isinstance(p, path_class):
+#                 p = String(p)
+
+#             if isinstance(p, path_class):
+#                 for pb in p.parts:
+#                     if pb == root:
+#                         if not ps:
+#                             ps.append(pb)
+# 
+#                     else:
+#                         ps.append(pb)
+
+#             if not isinstance(p, basestring) and isinstance(p, Iterable):
+#                 for pb in cls.splitparts(*p, **kwargs):
+#                     if root and pb == root:
+#                         if not ps:
+#                             ps.append(pb)
+# 
+#                     else:
+#                         ps.append(pb)
+# 
+#             else:
+#                 s = String(p)
+# 
+#                 #if s and p is not None: # if you want to filter None
+#                 if s:
+#                     for index, pb in enumerate(re.split(regex, s)):
+#                     #for index, pb in enumerate(s.split("/")):
+#                         if pb:
+#                             ps.append(re.sub(regex, "", pb))
+# 
+#                         else:
+#                             if root and not ps and index == 0:
+#                                 ps.append(root)
+# 
+#                 else:
+#                     if not ps and root:
+#                         ps.append(root)
 
         return ps
 
     @classmethod
-    def joinparts(cls, *parts):
+    def joinparts(cls, *parts, **kwargs):
         """like os.path.join but normalizes for directory separators
 
         Differences from the standard os.path.join:
@@ -399,9 +444,18 @@ class Path(String):
 
             >>> Path.join("/foo", "/bar/", "/che")
             '/foo/bar/che'
+
+            >>> Path.join("", "bar")
+            '/bar'
+
+        :param *parts: mixed, as many parts as you pass in as arguments
+        :param **kwargs:
+            sep - if you want to join with a different separator than os.sep
+        :returns: str, all the parts joined together
         """
-        ps = cls.splitparts(*parts)
-        return os.path.join(*ps)
+        ps = cls.splitparts(*parts, **kwargs)
+        sep = kwargs.get("sep", "")
+        return sep.join(ps) if sep else os.path.join(*ps)
 
     @classmethod
     def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
@@ -414,8 +468,7 @@ class Path(String):
         :param suffix: string, if you want the last bit to be posfixed with something
         :returns: string, the random filename
         """
-        if name:
-            basename = name
+        basename = name or ""
 
         if prefix:
             basename = prefix + basename
@@ -446,7 +499,7 @@ class Path(String):
         :param **kwargs: anything else needed to generate the parts
         :return: list, a the parts ready to generate path and value
         """
-        parts = cls.splitparts(*parts)
+        parts = cls.splitparts(*parts, **kwargs)
         ext = kwargs.pop("ext", "")
         prefix = kwargs.pop("prefix", "")
         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
@@ -478,7 +531,7 @@ class Path(String):
         """
         path = ""
         if parts:
-            path = cls.joinparts(*parts)
+            path = cls.joinparts(*parts, **kwargs)
             path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
         return path
@@ -672,7 +725,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_mount
         """
-        return os.path.ismount(self)
+        return os.path.ismount(self.path)
 
     def is_symlink(self):
         """Return True if the path points to a symbolic link, False otherwise.
@@ -682,15 +735,19 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_symlink
         """
-        return os.path.islink(self)
+        return os.path.islink(self.path)
 
     def is_absolute(self):
         """Return whether the path is absolute or not. A path is considered absolute
         if it has both a root and (if the flavour allows) a drive
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.is_absolute
+        https://docs.python.org/3/library/os.path.html#os.path.isabs
         """
-        return True
+        return os.path.isabs(self.path)
+
+    def isabs(self):
+        return self.is_absolute()
 
     def is_reserved(self):
         """With PureWindowsPath, return True if the path is considered reserved
@@ -1014,7 +1071,7 @@ class Dirpath(Path):
         return cls.create_dir(os.path.expanduser("~"))
 
     @classmethod
-    def _normalize_add_paths(cls, paths, baseparts=""):
+    def normpaths(cls, paths, baseparts="", **kwargs):
         """normalizes the paths from methods like .add_paths() and .add()
 
         :param paths: see .add_paths() for description
@@ -1022,21 +1079,21 @@ class Dirpath(Path):
         :returns list of tuples, each tuple will be in the form of (parts, data)
         """
         ret = []
-        baseparts = cls.splitparts(baseparts or [])
+        baseparts = cls.splitparts(baseparts or [], **kwargs)
 
         if paths:
             if isinstance(paths, Mapping):
                 for k, v in paths.items():
-                    p = baseparts + [k]
-                    if isinstance(v, (Mapping, Sequence)) and not isinstance(v, basestring):
-                        ret.extend(cls._normalize_add_paths(v, p))
+                    p = cls.splitparts(baseparts, k, **kwargs)
+                    if isinstance(v, Mapping):
+                        ret.extend(cls.normpaths(v, p, **kwargs))
 
                     else:
                         ret.append((p, v))
 
             elif isinstance(paths, Sequence):
                 for k in paths:
-                    ret.append((baseparts + [k], None))
+                    ret.append((cls.splitparts(baseparts, k, **kwargs), None))
 
             else:
                 raise ValueError("Unrecognized value for paths")
@@ -1069,7 +1126,7 @@ class Dirpath(Path):
         :returns: list, all the created Path instances
         """
         ret = []
-        ps = cls._normalize_add_paths(paths, baseparts)
+        ps = cls.normpaths(paths, baseparts)
         for parts, data in ps:
             if data is None:
                 dp = cls.create_dir(*parts)
@@ -1515,6 +1572,13 @@ class Filepath(Path):
 
         return fp
 
+    def open_text(self, mode='r', encoding=None, errors=None, **kwargs):
+        """Just like .open but will set encoding and errors to class values
+        if they aren't passed in"""
+        encoding = encoding or self.encoding
+        errors = errors or self.errors
+        return self.open(mode, encoding=encoding, errors=errors, **kwargs)
+
     def __call__(self, mode="w+", **kwargs):
         """Allow an easier interface for opening a writing file descriptor
 
@@ -1897,7 +1961,21 @@ class TempPath(object):
 
     @classmethod
     def gettempdir(cls):
+        """return the system temp directory"""
         return tempfile.gettempdir()
+
+    @classmethod
+    def mktempdir(cls, **kwargs):
+        """pass through for tempfile.mkdtemp, this is here so it can be overridden
+        in child classes and customized
+
+        :param **kwargs:
+            - prefix
+            - suffix
+            - dir
+        :returns: string, the directory path
+        """
+        return tempfile.mkdtemp(**kwargs)
 
     @classmethod
     def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
@@ -1942,6 +2020,24 @@ class TempPath(object):
         parts.append(cls.get_basename(prefix=prefix, name=name, suffix=suffix, ext=ext, **kwargs))
         return parts
 
+    @classmethod
+    def tempdir_class(cls):
+        return TempDirpath
+
+    @classmethod
+    def tempfile_class(cls):
+        return TempFilepath
+
+    @classmethod
+    def create_tempfile(cls, *parts, **kwargs):
+        kwargs["path_class"] = cls.tempfile_class()
+        return cls.create(*parts, **kwargs)
+
+    @classmethod
+    def create_tempdir(cls, *parts, **kwargs):
+        kwargs["path_class"] = cls.tempdir_class()
+        return cls.create(*parts, **kwargs)
+
 
 # !!! Ripped from herd.path
 class TempDirpath(TempPath, Dirpath):
@@ -1959,7 +2055,7 @@ class TempDirpath(TempPath, Dirpath):
         # this check is to normalize the base path to use a temporary dirpath if
         # it doesn't already have one
         if baseparts:
-            baseparts = [TempDirpath(), baseparts]
+            baseparts = [cls.create_tempdir(), baseparts]
 
         else:
             if isinstance(paths, Mapping):
@@ -1971,9 +2067,10 @@ class TempDirpath(TempPath, Dirpath):
                         break
 
                 if not full_path:
-                    baseparts = TempDirpath()
+                    baseparts = cls.create_tempdir()
 
         return super(TempDirpath, cls).add_paths(paths, baseparts)
+
 
     @classmethod
     def normparts(cls, *parts, **kwargs):
@@ -1981,18 +2078,53 @@ class TempDirpath(TempPath, Dirpath):
         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
         prefix = kwargs.pop("prefix", "")
         basedir = kwargs.pop("dir", "")
-        if not basedir:
-            basedir = tempfile.mkdtemp(
-                suffix=suffix,
-                prefix=prefix,
-                #dir=tmpdir, # cls.gettempdir()
-            )
 
         parts = list(filter(None, parts))
         if parts:
             parts = super(TempDirpath, cls).normparts(*parts, **kwargs)
 
-        return [basedir] + list(parts)
+        if basedir:
+            parts = [basedir] + list(parts)
+
+        else:
+            create_dir = True
+            if parts:
+                path = cls.joinparts(*parts)
+                if os.path.isabs(path) and os.path.isdir(path):
+                    create_dir = False
+
+            if create_dir:
+                basedir = cls.mktempdir(
+                    suffix=suffix,
+                    prefix=prefix,
+                )
+                parts = [basedir] + list(parts)
+
+
+        return parts
+
+
+
+
+
+#     @classmethod
+#     def normparts(cls, *parts, **kwargs):
+#         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
+#         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+#         prefix = kwargs.pop("prefix", "")
+#         basedir = kwargs.pop("dir", "")
+#         if not basedir:
+#             basedir = tempfile.mkdtemp(
+#                 suffix=suffix,
+#                 prefix=prefix,
+#                 #dir=tmpdir, # cls.gettempdir()
+#             )
+# 
+#         parts = list(filter(None, parts))
+#         if parts:
+#             parts = super(TempDirpath, cls).normparts(*parts, **kwargs)
+# 
+#         return [basedir] + list(parts)
 
     @classmethod
     def create_as(cls, instance, **kwargs):
@@ -2011,11 +2143,40 @@ class TempFilepath(TempPath, Filepath):
         f = TempFilepath("foo", "bar.ext")
         print(f) # $TMPDIR/foo/bar.ext
     """
+#     @classmethod
+#     def normparts(cls, *parts, **kwargs):
+#         parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
+#         basedir = TempDirpath(dir=kwargs.pop("dir", ""))
+#         return [basedir] + parts
+
+
     @classmethod
     def normparts(cls, *parts, **kwargs):
         parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
-        basedir = TempDirpath(dir=kwargs.pop("dir", ""))
-        return [basedir] + parts
+
+        basedir = kwargs.pop("dir", "")
+        if basedir:
+            parts = [cls.create_tempdir(dir=basedir)] + parts
+
+        else:
+            # check to see if parts is a complete path
+            path = cls.joinparts(*parts)
+            if not os.path.isabs(path) or not os.path.isfile(path):
+                parts = [cls.create_tempdir()] + parts
+
+        return parts
+
+
+
+#     @classmethod
+#     def normparts(cls, *parts, **kwargs):
+#         parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
+#         basedir = kwargs.pop("dir", "")
+#         if basedir:
+#             basedir = TempDirpath(dir=basedir)
+#             parts = [basedir] + parts
+#         return parts
+#         #return [basedir] + parts
 
     @classmethod
     def create_as(cls, instance, **kwargs):
