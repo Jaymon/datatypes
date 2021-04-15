@@ -154,7 +154,7 @@ class Systemd(BaseService):
             for path in dirs:
                 d = Dirpath(path)
                 if d.exists():
-                    for f in d.files():
+                    for f in d.iterfiles():
                         if f.basename.startswith(name):
                             ret = f.path
                             self._path = ret
