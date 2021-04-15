@@ -24,9 +24,9 @@ class PathTest(TestCase):
     def create(self, *parts, **kwargs):
         kwargs.setdefault("path_class", self.path_class)
 
-        path = os.path.join(*parts) if parts else ""
+        path = Path.joinparts(*parts) if parts else ""
 
-        contents = kwargs.pop("contents", {})
+        contents = kwargs.pop("contents", kwargs.pop("data", {}))
         exists = kwargs.pop("exists", True if contents else False if path else True)
         if issubclass(kwargs["path_class"], Dirpath):
             if contents:
@@ -47,7 +47,7 @@ class PathTest(TestCase):
 
         else:
             if contents:
-                parts = [testdata.create_file(path, contents=contents)]
+                parts = [testdata.create_file(contents, path)]
 
             else:
                 if path.startswith("/"):
@@ -273,6 +273,7 @@ class PathTest(TestCase):
         ps = Path.splitparts("", root="")
         self.assertEqual([], ps)
 
+
 class _PathTestCase(PathTest):
     def test_stat(self):
         p = self.create()
@@ -493,9 +494,9 @@ class DirpathTest(_PathTestCase):
 
     def test_dirpath_clear(self):
         d = testdata.create_dir()
-        foo_f = d.create_file("foo.txt", "foo")
-        bar_f = d.create_file("bar/bar.txt", "bar")
-        che_d = d.create_dir("che")
+        foo_f = d.add_file("foo.txt", "foo")
+        bar_f = d.add_file("bar/bar.txt", "bar")
+        che_d = d.add_dir("che")
 
         self.assertTrue(foo_f.exists())
         self.assertTrue(bar_f.exists())
@@ -505,7 +506,7 @@ class DirpathTest(_PathTestCase):
         self.assertFalse(foo_f.exists())
         self.assertFalse(bar_f.exists())
         self.assertFalse(che_d.exists())
-        self.assertEqual(0, len(list(d.files())))
+        self.assertEqual(0, len(list(d.iterfiles())))
 
     def test_rmdir(self):
         p = self.create_dir(contents={
@@ -657,14 +658,14 @@ class DirpathTest(_PathTestCase):
         dest_f = testdata.get_file()
         self.assertFalse(dest_f.exists())
         source_f.copy_to(dest_f)
-        self.assertEqual(source_f.contents(), dest_f.contents())
+        self.assertEqual(source_f.read_text(), dest_f.read_text())
 
 
 class FilepathTest(_PathTestCase):
     path_class = Filepath
 
     def test_file(self):
-        f = testdata.create_file("foo.txt", "this is the text")
+        f = testdata.create_file("this is the text", "foo.txt")
         self.assertEqual("foo", f.fileroot)
         self.assertEqual("txt", f.ext)
         self.assertEqual("foo.txt", f.name)
@@ -939,10 +940,21 @@ class TempDirpathTest(TestCase):
         ds = d.add(ts)
         count = 0
         for path in ds:
-            self.assertTrue(os.path.isfile(path))
+            self.assertTrue(os.path.isfile(path), "{} does not exist".format(path))
             self.assertTrue(path.read_text())
             count += 1
         self.assertLess(0, count)
+
+    def test_add_paths(self):
+        d = TempDirpath()
+        ps = d.add_paths({
+            "foo.txt": "foo.txt data",
+            "bar": None,
+            "che/baz.txt": "che/baz.txt data",
+        })
+
+        for p in ps:
+            self.assertTrue(p.startswith(TempDirpath.gettempdir()))
 
     def test_add_file(self):
         d = TempDirpath()
@@ -982,16 +994,6 @@ class TempDirpathTest(TestCase):
         self.assertTrue(d.exists())
         self.assertTrue(d.is_dir())
         self.assertTrue("/foo/bar" in d)
-
-    def test_add_paths(self):
-        ps = TempDirpath.add_paths({
-            "foo.txt": "foo.txt data",
-            "bar": None,
-            "che/baz.txt": "che/baz.txt data",
-        })
-
-        for p in ps:
-            self.assertTrue(p.startswith(TempDirpath.gettempdir()))
 
     def test_existing_init(self):
         path = TempDirpath()

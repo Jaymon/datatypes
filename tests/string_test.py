@@ -29,6 +29,11 @@ class Base64Test(TestCase):
 
 
 class StringTest(TestCase):
+    def test_string_int(self):
+        i = testdata.get_int(0, 1000)
+        s = String(i)
+        self.assertEqual(str(i), String(i))
+
     def test_unicode_1(self):
         s = String(testdata.get_unicode())
         s2 = ByteString(s)
@@ -116,6 +121,17 @@ class StringTest(TestCase):
 
 
 class ByteStringTest(TestCase):
+    def test_conversion(self):
+        s = testdata.get_unicode()
+        bs = ByteString(s)
+        bs2 = ByteString(bs)
+
+        self.assertEqual(bs, bs2)
+        self.assertEqual(s, bs.unicode())
+        self.assertEqual(s, bs2.unicode())
+        self.assertEqual(s, unicode(bs2))
+        # self.assertNotEqual(s, bytes(bs2)) # this prints a UnicodeWarning
+
     def test_unicode(self):
         s = ByteString(testdata.get_unicode())
         s2 = String(s)

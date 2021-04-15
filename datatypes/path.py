@@ -392,45 +392,6 @@ class Path(String):
                     else:
                         ps.append(pb)
 
-#             if isinstance(p, path_class):
-#                 p = String(p)
-
-#             if isinstance(p, path_class):
-#                 for pb in p.parts:
-#                     if pb == root:
-#                         if not ps:
-#                             ps.append(pb)
-# 
-#                     else:
-#                         ps.append(pb)
-
-#             if not isinstance(p, basestring) and isinstance(p, Iterable):
-#                 for pb in cls.splitparts(*p, **kwargs):
-#                     if root and pb == root:
-#                         if not ps:
-#                             ps.append(pb)
-# 
-#                     else:
-#                         ps.append(pb)
-# 
-#             else:
-#                 s = String(p)
-# 
-#                 #if s and p is not None: # if you want to filter None
-#                 if s:
-#                     for index, pb in enumerate(re.split(regex, s)):
-#                     #for index, pb in enumerate(s.split("/")):
-#                         if pb:
-#                             ps.append(re.sub(regex, "", pb))
-# 
-#                         else:
-#                             if root and not ps and index == 0:
-#                                 ps.append(root)
-# 
-#                 else:
-#                     if not ps and root:
-#                         ps.append(root)
-
         return ps
 
     @classmethod
@@ -1103,8 +1064,13 @@ class Dirpath(Path):
 
         return ret
 
-    @classmethod
-    def add_paths(cls, paths, baseparts=""):
+    def add_files(self, paths, **kwargs):
+        return self.add_paths(paths, **kwargs)
+
+    def add_dirs(self, paths, **kwargs):
+        return self.add_paths(paths, **kwargs)
+
+    def add_paths(self, paths, **kwargs):
         """create a whole bunch of files/directories all at once
 
         :Example:
@@ -1121,29 +1087,41 @@ class Dirpath(Path):
         :param paths: dict|list
             dict - if paths is a dict, then the keys will be the path part and the
                 value will be the data/contents of the file at the full path. If value
-                is None or empty dict then that path will be considered a directory. 
+                is None or empty dict then that path will be considered a directory.
             list - if paths is a list then it will be a list of directories to create
         :returns: list, all the created Path instances
         """
         ret = []
-        ps = cls.normpaths(paths, baseparts)
+
+        ps = self.normpaths(paths, self.path)
         for parts, data in ps:
             if data is None:
-                dp = cls.create_dir(*parts)
+                dp = self.create_dir(*parts, **kwargs)
                 dp.touch()
                 ret.append(dp)
 
             else:
-                fp = cls.create_file(parts)
+                fp = self.create_file(parts, **kwargs)
                 if data:
-                    if isinstance(data, cls.path_class()):
+                    if isinstance(data, self.path_class()):
                         data.copy_to(fp)
 
-                    elif isinstance(data, Bytes):
-                        fp.write_bytes(data)
+                    elif isinstance(data, (Bytes, bytearray)):
+                        fp.write_bytes(data, **kwargs)
 
                     elif isinstance(data, Str):
-                        fp.write_text(data)
+                        fp.write_text(data, **kwargs)
+
+                    else:
+                        # unknown data is assumed to be something that can be
+                        # normalized in .prepare_text()
+                        fp.write_text(data, **kwargs)
+
+#                     elif isinstance(data, Sequence):
+#                         fp.write_text("\n".join(data), **kwargs)
+# 
+#                     else:
+#                         raise ValueError("Unknown data for {}".format(fp))
 
                 else:
                     fp.touch()
@@ -1152,35 +1130,27 @@ class Dirpath(Path):
 
         return ret
 
-    @classmethod
-    def add_files(cls, paths, baseparts=""):
-        return cls.add_paths(paths, baseparts)
-
-    @classmethod
-    def add_dirs(cls, paths, baseparts=""):
-        return cls.add_paths(paths, baseparts)
-
-    def add(self, paths):
+    def add(self, paths, **kwargs):
         """add paths to this directory
 
         :param paths: dict|list, see @add_paths() for description of paths structure
         :returns: list, all the created Path instances
         """
-        return self.add_paths({self.path: paths})
+        return self.add_paths(paths, **kwargs)
 
-    def add_children(self, paths):
-        return self.add(paths)
+    def add_children(self, paths, **kwargs):
+        return self.add_paths(paths, **kwargs)
 
-    def add_file(self, target, data=""):
-        ps = self.add({self.joinparts(target): data})
+    def add_file(self, target, data="", **kwargs):
+        ps = self.add({self.joinparts(target): data}, **kwargs)
         return ps[0]
 
     def add_dir(self, target):
         ps = self.add({self.joinparts(target): None})
         return ps[0]
 
-    def add_child(self, target, data=None):
-        ps = self.add({self.joinparts(target): data})
+    def add_child(self, target, data=None, **kwargs):
+        ps = self.add({self.joinparts(target): data}, **kwargs)
         return ps[0]
 
     def empty(self):
@@ -1632,32 +1602,55 @@ class Filepath(Path):
         with self.open(encoding=encoding, errors=errors) as fp:
             return fp.read()
 
-    def write_bytes(self, data):
-        """Open the file pointed to in bytes mode, write data to it, and close the file
-
-        https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_bytes
-        """
-        data = ByteString(data)
-        with self.open(mode="wb+") as fp:
-            return fp.write(data)
-
-    def prepare_text(self, data):
+    def prepare_bytes(self, data, **kwargs):
         """Internal method used to prepare the data to be written
 
         :param data: str, the text that will be written
+        :param **kwargs: keywords, you can pass in encoding here
         :returns: tuple, (data, encoding, errors)
         """
-        encoding = getattr(data, "encoding", self.encoding)
-        errors = getattr(data, "errors", self.errors)
+        encoding = kwargs.get("encoding", None) or getattr(data, "encoding", self.encoding)
+        errors = kwargs.get("errors", None) or getattr(data, "errors", self.errors)
+        data = ByteString(data, encoding=encoding, errors=errors)
+        return data, encoding, errors
+
+    def prepare_text(self, data, **kwargs):
+        """Internal method used to prepare the data to be written
+
+        :param data: str, the text that will be written
+        :param **kwargs: keywords, you can pass in encoding here
+        :returns: tuple, (data, encoding, errors)
+        """
+        encoding = kwargs.get("encoding", None) or getattr(data, "encoding", self.encoding)
+        errors = kwargs.get("errors", None) or getattr(data, "errors", self.errors)
         data = String(data, encoding=encoding, errors=errors)
         return data, encoding, errors
 
-    def write_text(self, data):
+    def write_bytes(self, data, **kwargs):
+        """Open the file pointed to in bytes mode, write data to it, and close the file
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_bytes
+
+        NOTE -- having **kwargs means the interface is different than Pathlib.write_bytes
+
+        :param data: bytes
+        :param **kwargs: supports errors and encoding keywords to convert data to
+            bytes
+        """
+        data, encoding, errors = self.prepare_bytes(data, **kwargs)
+        with self.open(mode="wb+") as fp:
+            return fp.write(data)
+
+    def write_text(self, data, **kwargs):
         """Open the file pointed to in text mode, write data to it, and close the file
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text
+
+        :param data: str
+        :param **kwargs: supports errors and encoding keywords to convert data to
+            str/unicode
         """
-        data, encoding, errors = self.prepare_text(data)
+        data, encoding, errors = self.prepare_text(data, **kwargs)
         with self.open(mode="w+", encoding=encoding, errors=errors) as fp:
             return fp.write(data)
 
@@ -2050,26 +2043,26 @@ class TempDirpath(TempPath, Dirpath):
         print(d) # $TMPDIR/foo/bar
     """
 
-    @classmethod
-    def add_paths(cls, paths, baseparts=""):
-        # this check is to normalize the base path to use a temporary dirpath if
-        # it doesn't already have one
-        if baseparts:
-            baseparts = [cls.create_tempdir(), baseparts]
-
-        else:
-            if isinstance(paths, Mapping):
-                full_path = False
-                tp = cls.gettempdir()
-                for k in paths.keys():
-                    if k.startswith(tp):
-                        full_path = True
-                        break
-
-                if not full_path:
-                    baseparts = cls.create_tempdir()
-
-        return super(TempDirpath, cls).add_paths(paths, baseparts)
+#     @classmethod
+#     def add_paths(cls, paths, baseparts="", **kwargs):
+#         # this check is to normalize the base path to use a temporary dirpath if
+#         # it doesn't already have one
+#         if baseparts:
+#             baseparts = [cls.create_tempdir(), baseparts]
+# 
+#         else:
+#             if isinstance(paths, Mapping):
+#                 full_path = False
+#                 tp = cls.gettempdir()
+#                 for k in paths.keys():
+#                     if k.startswith(tp):
+#                         full_path = True
+#                         break
+# 
+#                 if not full_path:
+#                     baseparts = cls.create_tempdir()
+# 
+#         return super(TempDirpath, cls).add_paths(paths, baseparts, **kwargs)
 
 
     @classmethod
