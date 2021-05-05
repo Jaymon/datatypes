@@ -13,10 +13,19 @@ from . import TestCase, testdata
 
 
 class DatetimeTest(TestCase):
-    def test_strftime(self):
+    def test_strftime_str(self):
         dt = Datetime()
         s = dt.strftime("%m/%d/%Y")
         self.assertTrue(isinstance(s, Str))
+
+    def test_strftime_old_date(self):
+        fmt = "%Y-%m-%dT%H:%M:%S.%fZ"
+        dt = Datetime(1800, 1, 1)
+
+        s1 = Datetime.strftime(dt, fmt)
+        s2 = dt.strftime(fmt)
+        self.assertEqual(s1, s2)
+        self.assertEqual("1800-01-01T00:00:00.000000Z", s1)
 
     def test_empty(self):
         d1 = Datetime()

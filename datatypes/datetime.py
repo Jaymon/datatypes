@@ -340,7 +340,48 @@ class Datetime(datetime.datetime):
 
     def strftime(self, *args, **kwargs):
         """Make sure strftime always returns a unicode object"""
-        return String(super(Datetime, self).strftime(*args, **kwargs))
+
+        # this was moved here on 2021-5-5 from prom.config.Field.jsonable
+        try:
+            val = super(Datetime, self).strftime(*args, **kwargs)
+
+        except ValueError as e:
+            # strftime can fail on dates <1900
+            # Note that Python 2.7, 3.0 and 3.1 have errors before the year 1900,
+            # Python 3.2 has errors before the year 1000. Additionally, pre-3.2
+            # versions interpret years between 0 and 99 as between 1969 and 2068.
+            # Python versions from 3.3 onward support all positive years in
+            # datetime (and negative years in time.strftime), and time.strftime
+            # doesn't do any mapping of years between 0 and 99.
+            # https://stackoverflow.com/a/32206673/5006
+            logger.warning(e, exc_info=True)
+
+            # we correct this issue by just giving it a dumb year,
+            # creating the timestamp and then replacing the year, we can
+            # do this semi-confidently because our format_str doesn't have
+            # day of the week (eg, Monday), we account for leap years
+            # just in case
+            orig_year = self.year
+            if (orig_year % 4) == 0:
+                if (orig_year % 100) == 0:
+                    if (orig_year % 400) == 0:
+                        placeholder_year = 2000
+
+                    else:
+                        placeholder_year = 1900
+
+                else:
+                    placeholder_year = 2012
+
+            else:
+                placeholder_year = 1997
+
+            dt = self.replace(year=placeholder_year)
+            val = dt.strftime(*args, **kwargs)
+            val = re.sub(r"^{}".format(placeholder_year), String(orig_year), val)
+
+        return String(val)
+        #return String(super(Datetime, self).strftime(*args, **kwargs))
 
     def __pout__(self):
         """This just makes the object easier to digest in pout.v() calls
