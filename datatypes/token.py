@@ -373,7 +373,9 @@ class Tokenizer(StreamTokenizer):
     """Extends stream tokenizer to accept strings or IO streams"""
     def __init__(self, mixed, delims=None):
         if isinstance(mixed, basestring):
-            mixed = StringIO(String(mixed))
+            # you can't use the compat imported StringIO because it uses
+            # cStringIO and that fails with unicode strings on python 2.7
+            mixed = io.StringIO(String(mixed))
 
         super(Tokenizer, self).__init__(mixed, delims)
 

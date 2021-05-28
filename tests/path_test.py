@@ -664,6 +664,14 @@ class DirpathTest(_PathTestCase):
 class FilepathTest(_PathTestCase):
     path_class = Filepath
 
+    def test_dir_init(self):
+        dp = TempDirpath()
+        fp = Filepath("foobar.ext", dir=dp)
+        self.assertEqual(dp.path, fp.directory.path)
+
+        fp2 = Filepath(dp, "foobar.ext")
+        self.assertEqual(fp.path, fp2.path)
+
     def test_file(self):
         f = testdata.create_file("this is the text", "foo.txt")
         self.assertEqual("foo", f.fileroot)

@@ -303,3 +303,8 @@ class TokenizerTest(TestCase):
         tokens = [t for t in s.tokenize()]
         self.assertEqual(["foo", "bar", "che"], tokens)
 
+    def test_unicode(self):
+        text = testdata.get_unicode_words(100)
+        t = self.create_instance(text)
+        # really, we just need .readall() not to raise an error and we know it worked
+        self.assertGreaterEqual(100, len(t.readall()))

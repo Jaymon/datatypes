@@ -464,6 +464,8 @@ class Path(String):
         ext = kwargs.pop("ext", "")
         prefix = kwargs.pop("prefix", "")
         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+        basedir = kwargs.pop("dir", "")
+
         name = cls.get_basename(
             ext=ext,
             prefix=prefix,
@@ -477,6 +479,9 @@ class Path(String):
                 parts[-1] = name
             else:
                 parts.append(name)
+
+        if basedir:
+            parts = cls.splitparts(basedir, **kwargs) + list(parts)
 
         return parts
 
