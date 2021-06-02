@@ -4,6 +4,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 from datatypes.compat import *
 from datatypes.csv import (
     CSV,
+    TempCSV,
 )
 
 from . import TestCase, testdata
@@ -145,4 +146,20 @@ class CSVTest(TestCase):
             self.assertTrue(isinstance(row, Row))
             count += 1
         self.assertLess(0, count)
+
+    def test_strict(self):
+        csv = TempCSV(["foo", "bar"], strict=True)
+
+        with csv:
+            with self.assertRaises(ValueError):
+                csv.add({"foo": 1})
+
+            with self.assertRaises(ValueError):
+                csv.add({"foo": 1, "che": 3})
+
+        csv = TempCSV(["foo", "bar"], strict=False)
+        with csv:
+            csv.add({"foo": 1})
+            csv.add({"foo": 1, "che": 3})
+
 

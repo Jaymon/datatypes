@@ -9,6 +9,7 @@ from .compat import *
 from . import environ
 from .string import String, ByteString
 from .utils import cbany
+from .path import TempFilepath
 
 
 logger = logging.getLogger(__name__)
@@ -56,12 +57,18 @@ class CSV(object):
             for the fieldnames. If omitted when reading then the first line of the
             csv file will be used for the fieldnames
         :param encoding: string, what character encoing to use
+        :param **kwargs:
+            strict -- bool, pass in True (default False) to have the class check
+                fieldnames when writing
+            extrasaction -- str, "ignore" (default when strict is False) to ignore extra
+                fields, "raise" (default when strict is True) to raise an error
         """
         self.path = path
         self.fieldnames = self.normalize_fieldnames(fieldnames or [])
         self.writer = None
         self.reader = None
-        self.context_depth = 0
+        self.context_depth = 0 # protection against multiple context managers
+        self.strict = kwargs.pop("strict", False)
 
         if not encoding:
             encoding = environ.ENCODING
@@ -121,8 +128,8 @@ class CSV(object):
     def __enter__(self):
         """Enables with context manager for writing"""
         self.context_depth += 1
-        logger.debug("Writing ({}) csv file: {}".format(self.context_depth, self.path))
         if not self.writer:
+            logger.debug("Writing csv file: {}".format(self.path))
             f = self.open("ab+")
             self.writer = self.create_writer(f)
         return self
@@ -137,10 +144,14 @@ class CSV(object):
     def create_writer(self, f, **kwargs):
         kwargs.setdefault("dialect", csv.excel)
         kwargs.setdefault("restval", "")
-        kwargs.setdefault("extrasaction", "ignore")
+        if self.strict:
+            kwargs.setdefault("strict", True)
+            kwargs.setdefault("extrasaction", "raise")
+        else:
+            kwargs.setdefault("strict", False)
+            kwargs.setdefault("extrasaction", "ignore")
         kwargs.setdefault("quoting", csv.QUOTE_MINIMAL)
         kwargs.setdefault("fieldnames", self.fieldnames)
-        #kwargs.setdefault("fieldnames", ["foo", "bar"])
 
         # from testdata CSVpath code:
         # in order to make unicode csvs work we are going to do a round about
@@ -205,6 +216,12 @@ class CSV(object):
 
         row = {String(k): ByteString(v) for k, v in row.items()}
 
+        if self.strict:
+            rowcount = len(row)
+            fncount = len(self.fieldnames)
+            if rowcount != fncount:
+                raise ValueError("mismatch {} row(s) to {} fieldname(s)".format(rowcount, fncount))
+
         if self.writer_row_class:
             row = self.writer_row_class(row)
 
@@ -268,4 +285,12 @@ class CSV(object):
         for r in self:
             count += 1
         return count
+
+
+class TempCSV(CSV):
+    def __init__(self, fieldnames=None, **kwargs):
+        path = TempFilepath(kwargs.pop("path", ""), dir=kwargs.pop("dir", ""))
+        kwargs["fieldnames"] = fieldnames
+        super(TempCSV, self).__init__(path, **kwargs)
+
 

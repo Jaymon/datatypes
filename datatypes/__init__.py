@@ -25,6 +25,7 @@ from .collections import (
 )
 from .csv import (
     CSV,
+    TempCSV,
 )
 from .enum import (
     Enum,
@@ -64,7 +65,7 @@ from .token import (
 )
 
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
