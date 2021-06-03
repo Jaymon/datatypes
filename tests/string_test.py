@@ -29,6 +29,18 @@ class Base64Test(TestCase):
 
 
 class StringTest(TestCase):
+    def test_xmlescape(self):
+        s = String("<&")
+        se = s.xmlescape()
+        self.assertEqual("&lt;&amp;", se)
+
+    def test_regex(self):
+        s = String("foo bar foo")
+        r = s.regex(r"foo").count()
+        self.assertEqual(2, r)
+        self.assertEqual(2, len(s.regex(r"foo")))
+        self.assertEqual(1, len(s.regex(r"bar")))
+
     def test_string_int(self):
         i = testdata.get_int(0, 1000)
         s = String(i)

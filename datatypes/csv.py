@@ -27,6 +27,8 @@ class CSV(object):
         with c:
             for row in rows:
                 c.add(row)
+
+    https://docs.python.org/3/library/csv.html
     """
     reader_class = csv.DictReader
     """the class that will be used by .create_reader()"""
@@ -59,7 +61,8 @@ class CSV(object):
         :param encoding: string, what character encoing to use
         :param **kwargs:
             strict -- bool, pass in True (default False) to have the class check
-                fieldnames when writing
+                fieldnames when writing.
+                https://docs.python.org/3/library/csv.html#csv.Dialect.strict
             extrasaction -- str, "ignore" (default when strict is False) to ignore extra
                 fields, "raise" (default when strict is True) to raise an error
         """

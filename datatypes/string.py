@@ -341,6 +341,13 @@ class String(Str):
             st.token = t
             yield st
 
+    def xmlescape(self):
+        from xml.sax.saxutils import escape
+        return escape(self, entities={
+            "'": "&apos;",
+            "\"": "&quot;"
+        })
+
 
 class Character(String):
     """Represents a unicode character, a unicode character is a set of unicode
@@ -665,6 +672,14 @@ class Codepoint(String):
 class Regex(object):
     """Provides a passthrough interface to the re module to run pattern against s
 
+    :Example:
+        r = Regex(r"foo", "foo bar foo")
+        r.count() # 2
+
+        # use through strings
+        s = String("foo bar foo")
+        s.regex(r"foo").count() # 2
+
     https://docs.python.org/3/library/re.html
     """
     def __init__(self, pattern, s, flags=0):
@@ -703,6 +718,12 @@ class Regex(object):
     def subn(self, repl, count=0, flags=0):
         flags |= self.flags
         return re.subn(self.pattern, repl, self.s, count=count, flags=flags)
+
+    def count(self, flags=0):
+        return len(self.findall(flags))
+
+    def __len__(self):
+        return self.count()
 
 
 class Base64(String):
