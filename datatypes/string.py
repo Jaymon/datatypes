@@ -9,6 +9,8 @@ import unicodedata
 
 from . import environ
 from .compat import *
+from .compat import HTMLParser as BaseHTMLParser
+from .utils import make_list
 
 
 class ByteString(Bytes):
@@ -337,16 +339,33 @@ class String(Str):
 
         tokenizer = tokenizer_class(self, delims)
         for t in tokenizer:
-            st = String(t.token.text)
+            st = String(t.text)
             st.token = t
             yield st
 
     def xmlescape(self):
+        """Perform xml/html escaping (eg, & becomes &amp;) of the current string
+
+        :returns: string, the same string but XML escaped
+        """
         from xml.sax.saxutils import escape
         return escape(self, entities={
             "'": "&apos;",
             "\"": "&quot;"
         })
+
+
+class HTML(String):
+    """Adds HTML specific methods on top of the String class"""
+    def plain(self, *args, **kwargs):
+        return HTMLCleaner.strip_tags(self, *args, **kwargs)
+
+    def tags(self, tagnames=None):
+        from .token import HTMLTokenizer # avoid circular dep
+
+        tokenizer = HTMLTokenizer(self, tagnames)
+        for t in tokenizer:
+            yield t
 
 
 class Character(String):
@@ -752,7 +771,7 @@ class Base64(String):
         return String(bd, encoding=encoding)
 
 
-class HTMLCleaner(HTMLParser):
+class HTMLCleaner(BaseHTMLParser):
     """strip html tags from a string
 
     :example:
@@ -863,6 +882,154 @@ class HTMLCleaner(HTMLParser):
         """unescapes html entities (eg, &gt;) to plain text (eg, &gt; becomes >)"""
         # https://stackoverflow.com/a/2087433/5006
         return html.unescape(s)
+
+
+class HTMLParser(BaseHTMLParser):
+    """Parses HTML
+
+    This is a very simple html parser, if you need something more full featured
+    you should use BeautifulSoup or the like
+
+    This can act like a stream/IO object
+
+    :Example:
+        # get all <a> tags from a block of html
+        p = HTMLParser(html, "a")
+        for atag in p:
+            print(atag)
+
+    https://docs.python.org/3/library/html.parser.html
+    """
+    def __init__(self, data, tagnames=None):
+        """create an instance
+
+        :param data: string, the html
+        :param tagnames: list|string, the tags you want to parse out of data
+        """
+        self.rawdata = data
+        self.stack = []
+        self.tags = []
+
+        if is_py2:
+            BaseHTMLParser.__init__(self)
+        else:
+            super(HTMLParser, self).__init__()
+
+        self.handle_tagnames(tagnames)
+        self.feed()
+
+    def handle_tagnames(self, tagnames):
+        if tagnames:
+            tagnames = set(map(lambda s: s.lower(), make_list(tagnames)))
+
+        self.tagnames = tagnames
+
+    def is_tagname(self, tagname):
+        """Returns True if tagname is one of the tags that should be parsed
+
+        :param tagname: str, lowercase tagname
+        :returns: bool, True if tagname should be parsed, False otherwise
+        """
+        return not self.tagnames or tagname in self.tagnames
+
+    def feed(self):
+        if is_py2:
+            BaseHTMLParser.feed(self, "")
+        else:
+            super(HTMLParser, self).feed("")
+
+        # clean up any stragglers, we now know the HTML was invalid
+        if self.stack:
+            self.tags.append(self.stack.pop(-1))
+        self.seek(0)
+
+    def handle_starttag(self, tagname, attrs):
+        if not self.is_tagname(tagname) and not self.stack:
+            return
+
+        start_line, start_ch = self.getpos()
+        self.stack.append({
+            "tagname": tagname,
+            "attrs": attrs,
+            "body": [],
+            "start": start_ch,
+            "start_line": start_line,
+        })
+
+    def handle_data(self, data):
+        if not self.stack:
+            return
+
+        start_line, start_ch = self.getpos()
+        self.stack[-1]["body"].append({
+            "body": [data],
+            "start": start_ch,
+            "start_line": start_line,
+            "stop": start_ch + len(data),
+        })
+
+    def handle_endtag(self, tagname):
+        if not self.stack or (self.stack[-1]["tagname"] != tagname):
+            return
+
+        stop_line, stop_ch = self.getpos()
+        tag = self.stack.pop(-1)
+        tag["stop"] = stop_ch
+        tag["stop_line"] = stop_line
+
+        if self.stack:
+            self.stack[-1]["body"].append(tag)
+
+        else:
+            self.tags.append(tag)
+
+    def seekable(self):
+        return True
+
+    def seek(self, offset):
+        self.offset = offset
+
+    def fileno(self):
+        return 0
+
+    def readable(self):
+        return True
+
+    def writeable(self):
+        """https://docs.python.org/3/library/io.html#io.IOBase.writable"""
+        return False
+
+    def tell(self):
+        """Return the current stream position"""
+        return self.offset
+
+    def next(self):
+        if self.offset >= len(self.tags):
+            raise StopIteration()
+
+        tag = self.tags[self.offset]
+        self.offset += 1
+        return tag
+
+    def reset(self):
+        rawdata = self.rawdata
+        if is_py2:
+            BaseHTMLParser.reset(self)
+        else:
+            super(HTMLParser, self).reset()
+
+        self.rawdata = rawdata
+        self.seek(0)
+
+    def __next__(self):
+        return self.next()
+
+    def __iter__(self):
+        self.reset()
+        return self
+
+    def __len__(self):
+        return len(self.tags)
 
 
 class Ascii(String):

@@ -9,22 +9,15 @@ from string import whitespace as WHITESPACE, punctuation as PUNCTUATION
 import io
 
 from .compat import *
-from .string import String, ByteString
+from .string import String, ByteString, HTMLParser
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseToken(object):
+class Token(object):
     """The base for the Token and SubToken containing shared functionality"""
-    def __str__(self):
-        return ByteString(self.__unicode__()) if is_py2 else self.__unicode__()
-
-
-class SubToken(BaseToken):
-    """The subtoken is one of: left-delim, token, right-delim, these are created
-    and added to a Token which is returned from the Tokenizer"""
-    def __init__(self, tokenizer, text, start, stop):
+    def __init__(self, tokenizer, text, start=-1, stop=-1):
         """
         :param tokenizer: StreamTokenizer, the tokenizer creating this subtoken
         :param text: string, the text of this subtoken
@@ -36,22 +29,25 @@ class SubToken(BaseToken):
         self.stop = stop
         self.tokenizer = tokenizer
 
+    def __str__(self):
+        return ByteString(self.__unicode__()) if is_py2 else self.__unicode__()
+
     def __unicode__(self):
         return self.text
 
 
-class Token(BaseToken):
-    """This is what is returned from the Tokenizer and contains 3 subtokens:
+class StreamToken(Token):
+    """This is what is returned from the Tokenizer and contains pointers to the
+    left deliminator and the right deliminator, and also the actual token
 
         .ldelim - the deliminators to the left of the token
-        .token - the actual token that was found
+        .text - the actual token value that was found
         .rdelim - the deliminators to the right of the token
     """
-    def __init__(self, tokenizer, ldelim, token, rdelim):
+    def __init__(self, tokenizer, text, start, stop, ldelim=None, rdelim=None):
+        super(StreamToken, self).__init__(tokenizer, text, start, stop)
         self.ldelim = ldelim
-        self.token = token
         self.rdelim = rdelim
-        self.tokenizer = tokenizer
 
     def __pout__(self):
         """used by pout python external library
@@ -60,14 +56,11 @@ class Token(BaseToken):
         """
         tokens = (
             '"{}"'.format(self.ldelim.text) if self.ldelim else None,
-            '"{}"'.format(self.token.text),
+            '"{}"'.format(self.text),
             '"{}"'.format(self.rdelim.text) if self.rdelim else None,
         )
 
         return "{}, {}, {}".format(tokens[0], tokens[1], tokens[2])
-
-    def __unicode__(self):
-        return self.token.__unicode__()
 
 
 class StreamTokenizer(io.IOBase):
@@ -81,33 +74,34 @@ class StreamTokenizer(io.IOBase):
     token_class = Token
     """The token class this class will use to create Token instances"""
 
-    subtoken_class = SubToken
-    """The subtoken class this class will use to create SubToken instances"""
-
     def __init__(self, stream, delims=None):
         """
         :param stream: io.IOBase, this is the input that will be tokenized, the stream
             has to be seekable
-        :param delims: callback|string, if a callback, it should have the signature:
+        :param delims: callback|string|set, if a callback, it should have the signature:
             callback(char) and return True if the char is a delim, False otherwise.
             If a string then it is a string of chars that will be considered delims
         """
-        if not is_py2:
-            # python 2 will just raise an error when we try and seek
-            if not stream.seekable():
-                raise ValueError("Unseekable streams are not supported")
-
+        self.delims = delims
         self.stream = stream
 
-        if callable(delims):
-            self.is_delim = delims
+        if not is_py2:
+            # python 2 will just raise an error when we try and seek
+            if not self.seekable():
+                raise ValueError("Unseekable streams are not supported")
 
-        else:
-            if not delims:
-                delims = self.DEFAULT_DELIMS
+        self.reset()
 
-            delims = set(delims)
-            self.is_delim = lambda ch: ch in delims
+    def is_delim(self, ch):
+        ret = False
+        delims = self.delims
+        if delims:
+            if callable(delims):
+                ret = delims(ch)
+
+            else:
+                ret = ch in delims
+        return ret
 
     def tell_ldelim(self):
         """Tell the current ldelim start position, this is mainly used internally
@@ -157,16 +151,26 @@ class StreamTokenizer(io.IOBase):
 
         return pos
 
-    def __iter__(self):
+    def reset(self):
+        delims = self.delims
+        if not delims:
+            delims = self.DEFAULT_DELIMS
+        if delims and not callable(delims):
+            delims = set(delims)
+        self.delims = delims
+
         self.stream.seek(0)
+
+    def __iter__(self):
+        self.reset()
         return self
 
     def peek(self):
         """Return the next token but don't increment the cursor offset"""
         ret = None
-        with self.temporary() as t:
+        with self.temporary() as it:
             try:
-                ret = t.next()
+                ret = it.next()
             except StopIteration:
                 pass
         return ret
@@ -190,7 +194,7 @@ class StreamTokenizer(io.IOBase):
                 ch = self.stream.read(1)
 
             stop = self.stream.tell() - 1
-            ldelim = self.subtoken_class(self, text, start, stop)
+            ldelim = self.token_class(self, text, start, stop)
             start = stop
 
         else:
@@ -205,7 +209,7 @@ class StreamTokenizer(io.IOBase):
                 ch = self.stream.read(1)
 
             stop = self.stream.tell() - 1
-            token = self.subtoken_class(self, text, start, stop)
+            token = self.token_class(self, text, start, stop)
             start = stop
 
         if ch:
@@ -215,13 +219,15 @@ class StreamTokenizer(io.IOBase):
                 ch = self.stream.read(1)
 
             stop = self.stream.tell() - 1
-            rdelim = self.subtoken_class(self, text, start, stop)
+            rdelim = self.token_class(self, text, start, stop)
 
         #if not ldelim and not token and not rdelim:
         if not token:
             raise StopIteration()
 
-        return self.token_class(self, ldelim, token, rdelim)
+        token.ldelim = ldelim
+        token.rdelim = rdelim
+        return token
 
     def __next__(self):
         return self.next()
@@ -247,7 +253,7 @@ class StreamTokenizer(io.IOBase):
                 token = self.next()
 
         if token:
-            start = token.ldelim.start if token.ldelim else token.token.start
+            start = token.ldelim.start if token.ldelim else token.start
             self.seek(start)
         return token
 
@@ -316,9 +322,8 @@ class StreamTokenizer(io.IOBase):
         elif whence == SEEK_CUR:
             self.stream.seek(max(0, self.tell() + offset))
 
-#         elif whence == SEEK_END:
-#             raise NotImplemented()
-#             #self.offset = max(0, len(self) - offset)
+        elif whence == SEEK_END:
+            self.offset = max(0, self.total() - offset)
 
         else:
             raise ValueError("Unknown or unsupported whence value: {}".format(whence))
@@ -353,6 +358,36 @@ class StreamTokenizer(io.IOBase):
         finally:
             self.seek(start)
 
+    def count(self):
+        """This is a terrible way to do this, but sometimes you just want to know
+        how many tokens you have left
+
+        :returns: int, how many tokens you have left
+        """
+        count = 0
+        with self.temporary() as it:
+            try:
+                while it.next():
+                    count += 1
+            except StopIteration:
+                pass
+
+        return count
+
+    def total(self):
+        """Returns the total number of tokens no matter where offset is positioned
+
+        :returns: int, the total tokens, irrespective of .offset
+        """
+        with self.temporary() as it:
+            it.seek(0)
+            total = it.count()
+        return total
+
+    def __len__(self):
+        """WARNING -- don't use this if you can, at all, avoid it"""
+        return self.total()
+
     def close(self, *args, **kwargs):
         raise NotImplementedError()
 
@@ -378,4 +413,102 @@ class Tokenizer(StreamTokenizer):
             mixed = io.StringIO(String(mixed))
 
         super(Tokenizer, self).__init__(mixed, delims)
+
+
+class HTMLToken(Token):
+    """This is what is returned from the HTMLTokenizer
+
+        .tagname - the name of the tag
+        .text - the body of the tag
+    """
+    @property
+    def text(self):
+        text = []
+        for d in self.taginfo.get("body", []):
+            if "tagname" in d:
+                t = type(self)(self.tokenizer, d)
+                text.append(t.__unicode__())
+
+            else:
+                text.extend(d["body"])
+
+        return "".join(text)
+
+    def __init__(self, tokenizer, taginfo):
+        self.tagname = taginfo.get("tagname", "")
+        self.start = taginfo.get("start", -1)
+        self.stop = taginfo.get("stop", -1)
+        self.taginfo = taginfo
+        self.tokenizer = tokenizer
+
+    def __getattr__(self, k):
+        if k in self.taginfo:
+            return self.taginfo[k]
+
+        else:
+            ret = None
+            for attr_name, attr_val in self.taginfo.get("attrs", []):
+                if attr_name == k:
+                    return attr_val
+
+        raise AttributeError(k)
+        #return super(HTMLToken, self).__getattr__(k)
+
+    def attrs(self):
+        ret = {}
+        for attr_name, attr_val in self.taginfo.get("attrs", []):
+            ret[attr_name] = attr_val
+        return ret
+
+    def __pout__(self):
+        """used by pout python external library
+
+        https://github.com/Jaymon/pout
+        """
+        return self.__unicode__()
+
+    def __unicode__(self):
+        attrs = ""
+        for ak, av in self.attrs().items():
+            attrs += ' {}="{}"'.format(ak, av)
+
+        s = "<{}{}>{}</{}>".format(
+            self.tagname,
+            attrs,
+            self.text,
+            self.tagname
+        )
+        return s
+
+
+class HTMLTokenizer(Tokenizer):
+    DEFAULT_DELIMS = None
+    token_class = HTMLToken
+
+    def __init__(self, html, tagnames=None):
+        """
+        :param stream: io.IOBase, this is the input that will be tokenized, the stream
+            has to be seekable
+        :param delims: callback|string, if a callback, it should have the signature:
+            callback(char) and return True if the char is a delim, False otherwise.
+            If a string then it is a string of chars that will be considered delims
+        """
+        stream = HTMLParser(html, tagnames)
+        super(HTMLTokenizer, self).__init__(stream)
+
+    def next(self):
+        taginfo = self.stream.next()
+        return self.token_class(self, taginfo)
+
+    def prev(self):
+        ret = None
+        pos = self.tell()
+        if pos > 0:
+            self.seek(pos - 1)
+            ret = self.next()
+        return ret
+
+    def tell_ldelim(self):
+        raise NotImplementedError()
+
 

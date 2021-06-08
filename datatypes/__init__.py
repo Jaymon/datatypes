@@ -7,6 +7,8 @@ from .string import (
     ByteString,
     Base64,
     HTMLCleaner,
+    HTMLParser,
+    HTML,
 )
 from .number import (
     Shorten,
@@ -55,17 +57,18 @@ from .datetime import (
 )
 from .headers import (
     Headers,
-    Environ,
+    Environ as HTTPEnviron,
 )
 from .token import (
-    # we don't import Token and SubToken because their names are too generic for
-    # toplevel, if you need them import them directly from the submodule
+    # we don't import Token because it's too generic for toplevel, if you need it
+    # then import it directly from the submodule
     StreamTokenizer,
     Tokenizer,
+    HTMLTokenizer,
 )
 
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

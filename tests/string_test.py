@@ -7,6 +7,7 @@ from datatypes.string import (
     ByteString,
     Base64,
     HTMLCleaner,
+    HTMLParser,
     Character,
     Codepoint,
 )
@@ -199,6 +200,39 @@ class HTMLCleanerTest(TestCase):
 
         s = HTMLCleaner.unescape(s)
         self.assertEqual("<:‑|>:)", s)
+
+
+class HTMLParserTest(TestCase):
+    def test_no_end_tag(self):
+        html = '<div><h1 class="foo">h1 full</h1><p>this is somethign <b>bold</b> and stuff</p>'
+        #html = '<body>body data before <h1 class="foo">h1 data</h1> body data after</body>'
+        t = HTMLParser(html)
+        self.assertEqual(1, len(t))
+        self.assertEqual("div", t.next()["tagname"])
+
+    def test_tagnames(self):
+        html = "\n".join([
+            '<div>',
+            '<p>one</p>'
+            '<p>two with <a href="#">link</a></p>'
+            '<p>three with <img src="foobar.jpg" /></p>'
+            '<p>four with <img src="foobar.jpg" /> and <a href="#2">link</a></p>'
+            '<p>five</p>'
+            '</div>',
+        ])
+        t = HTMLParser(html, "p")
+        self.assertEqual(5, len(t))
+        self.assertEqual(2, len(t.tags[1]["body"]))
+        self.assertEqual(2, len(t.tags[2]["body"]))
+        self.assertEqual(4, len(t.tags[3]["body"]))
+        self.assertEqual(1, len(t.tags[4]["body"]))
+
+    def test_notagnames(self):
+        html = '<div><h1 class="foo">h1 full</h1><p>this is something <b>bold</b> and stuff</p></div>'
+        #html = '<body>body data before <h1 class="foo">h1 data</h1> body data after</body>'
+        t = HTMLParser(html)
+        self.assertEqual(1, len(t))
+        self.assertEqual(2, len(t.tags[0]["body"]))
 
 
 class CharacterTest(TestCase):
