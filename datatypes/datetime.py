@@ -230,10 +230,6 @@ class Datetime(datetime.datetime):
         else:
             return super(Datetime, self).__sub__(other)
 
-#     def __coerce__(self, other):
-#         pout.v(other)
-#         return None
-
     def __gt__(self, other):
         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
             return self.date() > other

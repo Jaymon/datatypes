@@ -139,6 +139,15 @@ class Environ(object):
             for p in paths.split(sep):
                 yield p
 
+    def has(self, key):
+        """Return True if key is in the environment
+
+        :param k: str
+        :returns: bool
+        """
+        k = self.key(key)
+        return k in os.environ
+
 
 environ = Environ(modname=__name__)
 
