@@ -13,6 +13,89 @@ from . import TestCase, testdata
 
 
 class DatetimeTest(TestCase):
+    def test_years(self):
+        dt = Datetime(2021, 11, 30, years=-2)
+        self.assertEqual(Datetime(2019, 11, 30), dt)
+
+        dt = Datetime(2021, 11, 30, years=2)
+        self.assertEqual(Datetime(2023, 11, 30), dt)
+
+    def test_months(self):
+        dt = Datetime(2021, 11, 30, months=-24)
+        self.assertEqual(Datetime(2019, 11, 30), dt)
+
+        dt = Datetime(2021, 11, 30, months=24)
+        self.assertEqual(Datetime(2023, 11, 30), dt)
+
+        dt = Datetime(2021, 12, 30, months=12)
+        self.assertEqual(Datetime(2022, 12, 30), dt)
+
+        dt = Datetime(2021, 8, 30, months=-6)
+        self.assertEqual(Datetime(2021, 3, 2), dt)
+
+        dt = Datetime(2021, 5, 23, months=-6)
+        self.assertEqual(Datetime(2020, 11, 23), dt)
+
+        dt = Datetime(2021, 6, 23, months=-6)
+        self.assertEqual(Datetime(2020, 12, 23), dt)
+
+        dt = Datetime(2021, 6, 5, months=6)
+        self.assertEqual(Datetime(2021, 12, 5), dt)
+
+        dt = Datetime(2020, 8, 30, months=-6)
+        self.assertEqual(Datetime(2020, 3, 1), dt)
+
+    def test_weeks(self):
+        dt = Datetime(2021, 8, 30, weeks=-2)
+        self.assertEqual(Datetime(2021, 8, 16), dt)
+
+        dt = Datetime(2021, 8, 2, weeks=2)
+        self.assertEqual(Datetime(2021, 8, 16), dt)
+
+    def test_days(self):
+        dt = Datetime(2021, 8, 30, days=-2)
+        self.assertEqual(Datetime(2021, 8, 28), dt)
+
+        dt = Datetime(2021, 8, 2, days=2)
+        self.assertEqual(Datetime(2021, 8, 4), dt)
+
+    def test_hours(self):
+        dt = Datetime(2021, 8, 30, 20, hours=-2)
+        self.assertEqual(Datetime(2021, 8, 30, 18), dt)
+
+        dt = Datetime(2021, 8, 30, 20, hours=2)
+        self.assertEqual(Datetime(2021, 8, 30, 22), dt)
+
+    def test_seconds(self):
+        dt = Datetime(2021, 8, 30, 20, seconds=-7200)
+        self.assertEqual(Datetime(2021, 8, 30, 18), dt)
+
+        dt = Datetime(2021, 8, 30, 20, seconds=7200)
+        self.assertEqual(Datetime(2021, 8, 30, 22), dt)
+
+    def test_replace_timedelta_kwargs(self):
+        dt = Datetime(2021, 11, 30)
+        rdt = dt.replace(months=-2)
+        self.assertEqual(Datetime(2021, 9, 30), rdt)
+
+    def test_date_compare(self):
+        dt = Datetime()
+        d = datetime.date(dt.year, dt.month, dt.day)
+
+        self.assertFalse(d < dt)
+        self.assertFalse(d > dt)
+        self.assertTrue(d <= dt)
+        self.assertTrue(d >= dt)
+        self.assertTrue(d == dt)
+        self.assertFalse(d != dt)
+
+        self.assertFalse(dt < d)
+        self.assertFalse(dt > d)
+        self.assertTrue(dt <= d)
+        self.assertTrue(dt >= d)
+        self.assertTrue(dt == d)
+        self.assertFalse(dt != d)
+
     def test_strftime_str(self):
         dt = Datetime()
         s = dt.strftime("%m/%d/%Y")

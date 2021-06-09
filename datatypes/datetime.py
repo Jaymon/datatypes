@@ -131,13 +131,36 @@ class Datetime(datetime.datetime):
 
         return dt
 
+    @classmethod
+    def parse_args(self, args, kwargs):
+        """Parse out custom arguments so you can pass *args, **kwargs to the standard
+        datetime class initializer
+
+        :param args: tuple, the *args passed to a function
+        :param kwargs: dict, the **kwargs passed to a function
+        :returns: tuple, (args, kwargs, custom)
+        """
+        kw = {}
+        for k in ["years", "months", "weeks", "days", "hours", "seconds"]:
+            if k in kwargs:
+                kw[k] = kwargs.pop(k)
+
+        if args and isinstance(args[0], datetime.timedelta):
+            kw["timedelta"] = args[0]
+            args = args[1:]
+
+        return args, kwargs, kw
+
     def __new__(cls, *args, **kwargs):
+        # remove any custom keywords
+        args, kwargs, kw = cls.parse_args(args, kwargs)
+
         if not args and not kwargs:
-            return cls.utcnow()
+            instance = cls.utcnow()
 
         elif len(args) == 1 and not kwargs:
             if isinstance(args[0], datetime.datetime):
-                return super(Datetime, cls).__new__(
+                instance = super(Datetime, cls).__new__(
                     cls,
                     args[0].year,
                     args[0].month,
@@ -149,7 +172,7 @@ class Datetime(datetime.datetime):
                 )
 
             elif isinstance(args[0], datetime.date):
-                return super(Datetime, cls).__new__(
+                instance = super(Datetime, cls).__new__(
                     cls,
                     args[0].year,
                     args[0].month,
@@ -160,18 +183,15 @@ class Datetime(datetime.datetime):
                     0,
                 )
 
-            elif isinstance(args[0], datetime.timedelta):
-                return cls.utcnow() + args[0]
-
             elif isinstance(args[0], (int, float)):
-                return cls.utcfromtimestamp(args[0])
+                instance = cls.utcfromtimestamp(args[0])
 
             else:
                 if args[0]:
                     try:
                         # if the object is pickled we would get the pickled string
                         # as our one passed in value
-                        return super(Datetime, cls).__new__(cls, *args, **kwargs)
+                        instance = super(Datetime, cls).__new__(cls, *args, **kwargs)
 
                     except TypeError:
                         fs = cls.parse(args[0])
@@ -179,13 +199,16 @@ class Datetime(datetime.datetime):
                             raise
 
                         else:
-                            return fs
+                            instance = fs
 
                 else:
-                    return cls.utcnow()
+                    instance = cls.utcnow()
 
         else:
-            return super(Datetime, cls).__new__(cls, *args, **kwargs)
+            instance = super(Datetime, cls).__new__(cls, *args, **kwargs)
+
+        instance = instance.replace_timedelta(**kw)
+        return instance
 
     def __str__(self):
         if self.has_time():
@@ -206,6 +229,46 @@ class Datetime(datetime.datetime):
             return type(self)(super(Datetime, self).__sub__(other))
         else:
             return super(Datetime, self).__sub__(other)
+
+#     def __coerce__(self, other):
+#         pout.v(other)
+#         return None
+
+    def __gt__(self, other):
+        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+            return self.date() > other
+        else:
+            return super(Datetime, self).__gt__(other)
+
+    def __lt__(self, other):
+        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+            return self.date() < other
+        else:
+            return super(Datetime, self).__lt__(other)
+
+    def __ge__(self, other):
+        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+            return self.date() >= other
+        else:
+            return super(Datetime, self).__ge__(other)
+
+    def __le__(self, other):
+        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+            return self.date() <= other
+        else:
+            return super(Datetime, self).__le__(other)
+
+    def __ne__(self, other):
+        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+            return self.date() != other
+        else:
+            return super(Datetime, self).__ne__(other)
+
+    def __eq__(self, other):
+        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+            return self.date() == other
+        else:
+            return super(Datetime, self).__eq__(other)
 
     def has_time(self):
         return not (
@@ -381,7 +444,59 @@ class Datetime(datetime.datetime):
             val = re.sub(r"^{}".format(placeholder_year), String(orig_year), val)
 
         return String(val)
-        #return String(super(Datetime, self).strftime(*args, **kwargs))
+
+    def replace_timedelta(self, timedelta=None, **kwargs):
+        """Returns a new datetime instance with any time deltas applied
+
+        :param timedelta: datetime.timedelta
+        :param **kwargs:
+            can have keyword values for months, weeks, days, hours, seconds that
+            will be applied to self
+        :returns: Datetime
+        """
+        dt = self
+        if timedelta:
+            dt = self + timedelta
+
+        if "years" in kwargs:
+            year = int(kwargs.pop("years"))
+            dt = self.replace(self.year + year)
+
+        if "months" in kwargs:
+            months = int(kwargs.pop("months"))
+            # https://stackoverflow.com/a/546354/5006
+            year = self.year + (((self.month + (months - 1 if months else months)) or -1) // 12)
+            month = ((self.month + months) % 12) or 12
+            day = self.day - 1
+            dt = self.replace(year, month, 1) + datetime.timedelta(days=day)
+
+        if "weeks" in kwargs:
+            weeks = int(kwargs.pop("weeks"))
+            dt = self + datetime.timedelta(days=weeks * 7)
+
+        if "days" in kwargs:
+            days = int(kwargs.pop("days"))
+            dt = self + datetime.timedelta(days=days)
+
+        if "hours" in kwargs:
+            hours = int(kwargs.pop("hours"))
+            dt = self + datetime.timedelta(hours=hours)
+
+        if "seconds" in kwargs:
+            seconds = int(kwargs.pop("seconds"))
+            dt = self + datetime.timedelta(seconds=seconds)
+
+        return dt
+
+    def replace(self, *args, **kwargs):
+        """Overrides default behavior to account for custom behavior
+
+        https://docs.python.org/3/library/datetime.html#datetime.datetime.replace
+        """
+        # remove any custom keywords
+        args, kwargs, kw = self.parse_args(args, kwargs)
+        dt = super(Datetime, self).replace(*args, **kwargs)
+        return dt.replace_timedelta(**kw) if kw else dt
 
     def __pout__(self):
         """This just makes the object easier to digest in pout.v() calls
