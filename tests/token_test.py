@@ -303,6 +303,17 @@ class TokenizerTest(TestCase):
         tokens = [t for t in s.tokenize()]
         self.assertEqual(["foo", "bar", "che"], tokens)
 
+    def test_ldelim_failure(self):
+        text = "1 2345678"
+        t = self.create_instance(text)
+
+        t.seek(3)
+        r = t.next()
+        self.assertEqual("2345678", r.text)
+
+        t.reset()
+        self.assertEqual(2, len(t.readall()))
+
     def test_unicode(self):
         text = testdata.get_unicode_words(100)
         t = self.create_instance(text)

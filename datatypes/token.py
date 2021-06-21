@@ -124,11 +124,12 @@ class StreamTokenizer(io.IOBase):
                     ch = self.stream.read(1)
 
                 else:
-                    p = 0
                     break
 
-            if p > 0:
+            if p >= 0:
                 p += 1
+            else:
+                p = 0
             pos = p
 
         else:
@@ -279,7 +280,8 @@ class StreamTokenizer(io.IOBase):
             else:
                 while True:
                     try:
-                        ret.append(self.next())
+                        token = self.next()
+                        ret.append(token)
                     except StopIteration:
                         break
 

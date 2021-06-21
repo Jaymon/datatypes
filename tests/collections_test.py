@@ -8,6 +8,7 @@ from datatypes.collections import (
     idict,
     Trie,
     OrderedList,
+    Dict,
 )
 
 from . import TestCase, testdata
@@ -173,7 +174,75 @@ class PoolTest(TestCase):
         self.assertEqual(2, len(p))
 
 
+class DictTest(TestCase):
+    def test_rmethods(self):
+        d = Dict({
+            "bar": {
+                "foo": [1, 2, 3],
+            },
+            "che": {
+                "bar": {
+                    "foo": [4, 5, 6, 7],
+                }
+            },
+            "boo": {
+                "one": 1,
+                "two": 2,
+                "three": 3,
+                "four": {
+                    "foo": [8, 9],
+                },
+            },
+        })
+
+        count = 0
+        for kp, v in d.ritems():
+            count += 1
+        self.assertEqual(11, count)
+
+        vs = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        kps = [
+            ["bar", "foo"],
+            ["che", "bar", "foo"],
+            ["boo", "four", "foo"],
+        ]
+
+        foos = []
+        for kp, v in d.ritems("foo"):
+            self.assertTrue(kp in kps)
+            foos.extend(v)
+        self.assertEqual(vs, foos)
+
+        for kp in d.rkeys("foo"):
+            self.assertTrue(kp in kps)
+
+        foos = []
+        for v in d.rvalues("foo"):
+            self.assertTrue(kp in kps)
+            foos.extend(v)
+        self.assertEqual(vs, foos)
+
+
 class IdictTest(TestCase):
+    def test_ritems(self):
+        d = idict({
+            "bar": {
+                "foo": [1, 2, 3],
+            },
+            "che": {
+                "bar": {
+                    "foo": [4, 5, 6, 7],
+                }
+            },
+            "boo": 1,
+        })
+
+        items = list(d.ritems("BAR"))
+        self.assertEqual(2, len(items))
+
+        items = list(d.ritems())
+        self.assertEqual(6, len(items))
+
     def test_create(self):
         d = idict({
             "foo": 1,

@@ -369,7 +369,7 @@ class HTML(String):
 
 
 class Character(String):
-    """Represents a unicode character, a unicode character is a set of unicode
+    """Represents a unicode (UTF-8) character, a unicode character is a set of unicode
     codepoints
 
     :Example:
@@ -460,6 +460,13 @@ class Character(String):
         """Return the codepoints as integers"""
         return list(map(int, self.codepoints))
 
+    def binary(self):
+        from .number import Integer # avoid circular dependency
+        ret = ""
+        for i in self.integers():
+            ret += Integer(i).binary(length=8)
+        return ret
+
     def __iter__(self):
         for cp in self.codepoints:
             yield cp
@@ -507,6 +514,45 @@ class Character(String):
         """
         # https://docs.python.org/3/library/unicodedata.html#unicodedata.east_asian_width
         return unicodedata.east_asian_width(self)
+
+    def is_complete(self):
+        """Return True if this character is complete
+
+        I got the unique prefixes from here:
+            * https://andysalerno.com/posts/weird-emojis/
+            * https://www.reddit.com/r/programming/comments/o0il4b/unicode_weirdness_bear_plus_snowflake_equals/
+
+        :returns: bool, True if this is a complete UTF-8 character, False otherwise
+        """
+        from .number import Integer # avoid circular dependency
+
+        try:
+            bts = self.bytes()
+            fb = Integer(bts[0]).binary()
+
+            # first byte should have one of these prefixes:
+            # 0xxxxxxx | one byte
+            # 110xxxxx | two bytes
+            # 1110xxxx | three bytes
+            # 11110xxx | four bytes
+            #
+            # subsequent bytes should start with 10xxxxxx
+            if fb.startswith("10"):
+                ret = False
+
+            else:
+                if fb.startswith("0"):
+                    ret = len(bts) == 1
+
+                else:
+                    m = String(fb).regex(r"^1+0").match()
+                    if m:
+                        ret = len(bts) == len(m.group(0)) - 1
+
+        except UnicodeError:
+            ret = False
+
+        return ret
 
 
 class Codepoint(String):
@@ -848,7 +894,7 @@ class HTMLCleaner(BaseHTMLParser):
         self.keep_img_src = keep_img_src
 
         if is_py2:
-            HTMLParser.__init__(self)
+            BaseHTMLParser.__init__(self)
         else:
             #self.reset()
             super(HTMLCleaner, self).__init__()

@@ -225,7 +225,53 @@ class PriorityQueue(object):
     __nonzero__ = __bool__
 
 
-class NormalizeDict(dict):
+class Dict(dict):
+    def ritems(self, *keys):
+        """Iterate through the dict and all sub dicts
+
+        :param *keys: str, if you only want to find and iterate certain keys
+        :yields: tuple, (list, mixed), the list is the key path, all the keys
+            it would take to get to this key (eg, ["foo", "bar"]) and mixed is
+            the value found at the end of the key path
+        """
+        def iterdict(d, keypath, keys):
+            for k, v in d.items():
+                kp = keypath + [k]
+                if k in keys:
+                    yield kp, v
+
+                else:
+                    if not keys:
+                        yield kp, v
+
+                    if isinstance(v, Mapping):
+                        for kp, d in iterdict(v, kp, keys):
+                            yield kp, d
+
+        keys = set(keys)
+        for kp, d in iterdict(self, [], keys):
+            yield kp, d
+
+    def rkeys(self, *keys):
+        """Iterate through all key paths
+
+        :param *keys: str, if you only want to find and iterate certain keys
+        :yields: list, the key paths
+        """
+        for kp, _ in self.ritems(*keys):
+            yield kp
+
+    def rvalues(self, *keys):
+        """Iterate through all values
+
+        :param *keys: str, if you only want to find and iterate certain keys
+        :yields: mixed, the found values
+        """
+        for _, v in self.ritems(*keys):
+            yield v
+
+
+class NormalizeDict(Dict):
     """A normalizing dictionary, taken from herd.utils.NormalizeDict"""
     def __init__(self, *args, **kwargs):
         super(NormalizeDict, self).__init__()
@@ -274,6 +320,10 @@ class NormalizeDict(dict):
 
     def normalize_value(self, v):
         return v
+
+    def ritems(self, *keys):
+        keys = map(self.normalize_key, keys)
+        return super(NormalizeDict, self).ritems(*keys)
 
 
 class idict(NormalizeDict):

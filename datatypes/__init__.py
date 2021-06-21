@@ -19,8 +19,9 @@ from .number import (
 from .collections import (
     Pool,
     PriorityQueue,
+    Dict,
     NormalizeDict,
-    idict,
+    idict, IDict, Idict, iDict,
     AppendList,
     OrderedList,
     Trie,
@@ -68,7 +69,7 @@ from .token import (
 )
 
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

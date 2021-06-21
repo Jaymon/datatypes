@@ -2101,29 +2101,6 @@ class TempDirpath(TempPath, Dirpath):
 
         return parts
 
-
-
-
-
-#     @classmethod
-#     def normparts(cls, *parts, **kwargs):
-#         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
-#         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
-#         prefix = kwargs.pop("prefix", "")
-#         basedir = kwargs.pop("dir", "")
-#         if not basedir:
-#             basedir = tempfile.mkdtemp(
-#                 suffix=suffix,
-#                 prefix=prefix,
-#                 #dir=tmpdir, # cls.gettempdir()
-#             )
-# 
-#         parts = list(filter(None, parts))
-#         if parts:
-#             parts = super(TempDirpath, cls).normparts(*parts, **kwargs)
-# 
-#         return [basedir] + list(parts)
-
     @classmethod
     def create_as(cls, instance, **kwargs):
         kwargs.setdefault("touch", True)
@@ -2141,40 +2118,20 @@ class TempFilepath(TempPath, Filepath):
         f = TempFilepath("foo", "bar.ext")
         print(f) # $TMPDIR/foo/bar.ext
     """
-#     @classmethod
-#     def normparts(cls, *parts, **kwargs):
-#         parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
-#         basedir = TempDirpath(dir=kwargs.pop("dir", ""))
-#         return [basedir] + parts
-
-
     @classmethod
     def normparts(cls, *parts, **kwargs):
-        parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
-
         basedir = kwargs.pop("dir", "")
+        parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
         if basedir:
             parts = [cls.create_tempdir(dir=basedir)] + parts
 
         else:
             # check to see if parts is a complete path
             path = cls.joinparts(*parts)
-            if not os.path.isabs(path) or not os.path.isfile(path):
+            if not os.path.isfile(path):
                 parts = [cls.create_tempdir()] + parts
 
         return parts
-
-
-
-#     @classmethod
-#     def normparts(cls, *parts, **kwargs):
-#         parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
-#         basedir = kwargs.pop("dir", "")
-#         if basedir:
-#             basedir = TempDirpath(dir=basedir)
-#             parts = [basedir] + parts
-#         return parts
-#         #return [basedir] + parts
 
     @classmethod
     def create_as(cls, instance, **kwargs):
