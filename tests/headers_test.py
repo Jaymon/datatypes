@@ -2,15 +2,15 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
-from datatypes.headers import Headers, Environ
+from datatypes.headers import HTTPHeaders, HTTPEnviron
 from datatypes.string import String, ByteString
 
 from . import TestCase, testdata
 
 
-class EnvironTest(TestCase):
+class HTTPEnvironTest(TestCase):
     def test_values(self):
-        d = Environ()
+        d = HTTPEnviron()
 
         d["foo"] = None
         self.assertEqual(None, d["foo"])
@@ -19,11 +19,11 @@ class EnvironTest(TestCase):
         self.assertEqual(1, d["bar"])
 
 
-class HeadersTest(TestCase):
+class HTTPHeadersTest(TestCase):
     def test_midbody_capital_letter(self):
         """Previously, before June 2019, our headers didn't handle WebSocket correctly
         instead lowercasing the S to Websocket"""
-        d = Headers()
+        d = HTTPHeaders()
         d["Sec-WebSocket-Key"] = "foobar"
         self.assertTrue("Sec-Websocket-Key" in d)
         d2 = dict(d)
@@ -31,7 +31,7 @@ class HeadersTest(TestCase):
         self.assertTrue("Sec-WebSocket-Key" in d2)
 
     def test_bytes(self):
-        d = Headers()
+        d = HTTPHeaders()
         name = testdata.get_unicode()
         val = ByteString(testdata.get_unicode())
         d[name] = val
@@ -39,21 +39,21 @@ class HeadersTest(TestCase):
 
     def test_different_original_keys(self):
         """when setting headers using 2 different original keys it wouldn't be uniqued"""
-        d = Headers()
+        d = HTTPHeaders()
         d['Content-Type'] = "application/json"
         d['content-type'] = "text/plain"
         self.assertEqual(1, len(d))
         self.assertEqual("text/plain", d["CONTENT-TYPE"])
 
     def test_lifecycle(self):
-        d = Headers()
+        d = HTTPHeaders()
         d["foo-bar"] = 1
         self.assertEqual("1", d["Foo-Bar"])
         self.assertEqual("1", d["fOO-bAr"])
         self.assertEqual("1", d["fOO_bAr"])
 
     def test_pop(self):
-        d = Headers()
+        d = HTTPHeaders()
         d['FOO'] = 1
         r = d.pop('foo')
         self.assertEqual("1", r)
@@ -78,12 +78,12 @@ class HeadersTest(TestCase):
             "CONTENT_TYPE": v,
             "CONTENT_LENGTH": 1234
         }
-        headers = Headers(d)
+        headers = HTTPHeaders(d)
 
         for k in keys:
             self.assertEqual(v, headers["Content-Type"])
 
-        headers = Headers()
+        headers = HTTPHeaders()
         headers["CONTENT_TYPE"] = v
 
         for k in keys:
@@ -96,7 +96,7 @@ class HeadersTest(TestCase):
             self.assertTrue(k in headers)
 
     def test_iteration(self):
-        hs = Headers()
+        hs = HTTPHeaders()
         hs['CONTENT_TYPE'] = "application/json"
         hs['CONTENT-LENGTH'] = "1234"
         hs['FOO-bAR'] = "che"
@@ -114,23 +114,23 @@ class HeadersTest(TestCase):
 
     def test___init__(self):
         d = {"foo-bar": "1"}
-        hs = Headers(d)
+        hs = HTTPHeaders(d)
         self.assertEqual("1", hs["foo-bar"])
         self.assertEqual(1, len(hs))
 
         d = [("foo-bar", "1")]
-        hs = Headers(d)
+        hs = HTTPHeaders(d)
         self.assertEqual("1", hs["foo-bar"])
         self.assertEqual(1, len(hs))
 
         d = [("foo-bar", "1")]
-        hs = Headers(d, bar_foo="2")
+        hs = HTTPHeaders(d, bar_foo="2")
         self.assertEqual("1", hs["foo-bar"])
         self.assertEqual("2", hs["bar-foo"])
         self.assertEqual(2, len(hs))
 
     def test_update(self):
-        h = Headers()
+        h = HTTPHeaders()
         h["foo"] = "1"
         self.assertEqual("1", h["foo"])
         h.update({"foo": "2"})

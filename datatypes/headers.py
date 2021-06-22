@@ -8,7 +8,7 @@ from .copy import Deepcopy
 from .string import String, ByteString
 
 
-class Headers(BaseHeaders, Mapping):
+class HTTPHeaders(BaseHeaders, Mapping):
     """handles headers, see wsgiref.Headers link for method and use information
 
     Handles normalizing of header names, the problem with headers is they can
@@ -22,7 +22,6 @@ class Headers(BaseHeaders, Mapping):
 
     http headers spec:
         https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-
 
     wsgiref class docs:
         https://docs.python.org/2/library/wsgiref.html#module-wsgiref.headers
@@ -39,7 +38,7 @@ class Headers(BaseHeaders, Mapping):
         warn-text using the method described in RFC 2047"""
 
     def __init__(self, headers=None, **kwargs):
-        super(Headers, self).__init__([])
+        super(HTTPHeaders, self).__init__([])
         self.update(headers, **kwargs)
 
     def _convert_string_part(self, bit):
@@ -76,33 +75,33 @@ class Headers(BaseHeaders, Mapping):
 
     def get_all(self, name):
         name = self._convert_string_name(name)
-        return super(Headers, self).get_all(name)
+        return super(HTTPHeaders, self).get_all(name)
 
     def get(self, name, default=None):
         name = self._convert_string_name(name)
-        return super(Headers, self).get(name, default)
+        return super(HTTPHeaders, self).get(name, default)
 
     def __delitem__(self, name):
         name = self._convert_string_name(name)
-        return super(Headers, self).__delitem__(name)
+        return super(HTTPHeaders, self).__delitem__(name)
 
     def __setitem__(self, name, val):
         name = self._convert_string_name(name)
         if is_py2:
             val = self._convert_string_type(val)
-        return super(Headers, self).__setitem__(name, val)
+        return super(HTTPHeaders, self).__setitem__(name, val)
 
     def setdefault(self, name, val):
         name = self._convert_string_name(name)
         if is_py2:
             val = self._convert_string_type(val)
-        return super(Headers, self).setdefault(name, val)
+        return super(HTTPHeaders, self).setdefault(name, val)
 
     def add_header(self, name, val, **params):
         name = self._convert_string_name(name)
         if is_py2:
             val = self._convert_string_type(val)
-        return super(Headers, self).add_header(name, val, **params)
+        return super(HTTPHeaders, self).add_header(name, val, **params)
 
     def keys(self):
         return [k for k, v in self._headers]
@@ -173,7 +172,7 @@ class Headers(BaseHeaders, Mapping):
         return [": ".join(h) for h in self.items() if h[1]]
 
 
-class Environ(Headers):
+class HTTPEnviron(HTTPHeaders):
     """just like Headers but allows any values (headers converts everything to unicode
     string)"""
     def _convert_string_type(self, v):

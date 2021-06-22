@@ -57,8 +57,8 @@ from .datetime import (
     Datetime,
 )
 from .headers import (
-    Headers,
-    Environ as HTTPEnviron,
+    HTTPHeaders,
+    HTTPEnviron,
 )
 from .token import (
     # we don't import Token because it's too generic for toplevel, if you need it
@@ -69,7 +69,7 @@ from .token import (
 )
 
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
