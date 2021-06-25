@@ -266,6 +266,10 @@ class Datetime(datetime.datetime):
         else:
             return super(Datetime, self).__eq__(other)
 
+    def __hash__(self):
+        # https://stackoverflow.com/questions/10254594/what-makes-a-user-defined-class-unhashable
+        return super(Datetime, self).__hash__()
+
     def has_time(self):
         return not (
             self.hour == 0 and

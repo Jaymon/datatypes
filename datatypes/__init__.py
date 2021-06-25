@@ -69,7 +69,7 @@ from .token import (
 )
 
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
