@@ -234,17 +234,17 @@ class CSV(object):
         with self:
             writer = self.writer
 
-            if not writer.has_header:
-                if not self.fieldnames:
-                    self.fieldnames = self.normalize_fieldnames(row.keys())
-                writer.fieldnames = self.fieldnames
-                logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
-                writer.writeheader()
-                writer.has_header = True
-
             try:
                 row = self.normalize_writer_row(row)
                 if row:
+                    if not writer.has_header:
+                        if not self.fieldnames:
+                            self.fieldnames = self.normalize_fieldnames(row.keys())
+                        writer.fieldnames = self.fieldnames
+                        logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
+                        writer.writeheader()
+                        writer.has_header = True
+
                     writer.writerow(row)
                     data = writer.queue.getvalue()
                     writer.f.write(data)
