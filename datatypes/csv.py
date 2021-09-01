@@ -175,7 +175,7 @@ class CSV(object):
         :returns: csv.Reader instance or something that acts like a built-in csv.Reader
             instance
         """
-        kwargs.setdefault("fieldnames", self.fieldnames or None)
+        kwargs.setdefault("fieldnames", self.normalize_reader_fieldnames(self.fieldnames or None))
         kwargs.setdefault("dialect", csv.excel)
 
         f = self.normalize_reader_file(f)
@@ -240,7 +240,7 @@ class CSV(object):
                     if not writer.has_header:
                         if not self.fieldnames:
                             self.fieldnames = self.normalize_fieldnames(row.keys())
-                        writer.fieldnames = self.fieldnames
+                        writer.fieldnames = self.normalize_writer_fieldnames(self.fieldnames)
                         logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
                         writer.writeheader()
                         writer.has_header = True
@@ -264,7 +264,16 @@ class CSV(object):
                 self.add(row)
 
     def normalize_fieldnames(self, fieldnames):
+        """run this anytime fields are going to be set on this instance"""
         return list(map(String, fieldnames))
+
+    def normalize_writer_fieldnames(self, fieldnames):
+        """run this right before setting fieldnames onto the writer instance"""
+        return fieldnames
+
+    def normalize_reader_fieldnames(self, fieldnames):
+        """run this right before setting fieldnames onto the reader instance"""
+        return fieldnames
 
     def find_fieldnames(self):
         """attempt to get the field names from the first line in the csv file"""

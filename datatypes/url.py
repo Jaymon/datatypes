@@ -231,8 +231,23 @@ class Url(String):
         if isinstance(query, bytes):
             query = String(query)
 
-        # https://docs.python.org/2/library/urlparse.html
-        query_kwargs = parse.parse_qs(query, True, strict_parsing=True)
+        try:
+            # https://docs.python.org/2/library/urlparse.html
+            query_kwargs = parse.parse_qs(query, True, strict_parsing=True)
+
+        except ValueError:
+            # try and parse the query manually, this will allow boolean values
+            # (arguments with no value)
+            query_kwargs = {}
+            for part in query.split("&"):
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                else:
+                    k = part
+                    v = "True"
+                query_kwargs.setdefault(k, [])
+                query_kwargs[k].append(v)
+
         return cls.normalize_query_kwargs(query_kwargs)
 
     @classmethod

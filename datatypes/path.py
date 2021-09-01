@@ -1489,6 +1489,7 @@ class Dirpath(Path):
         for p in self.children(pattern, recursive=recursive):
             return True
         return False
+DirPath = Dirpath
 
 
 class Filepath(Path):
@@ -1832,6 +1833,7 @@ class Filepath(Path):
                 return True if data else False
 
         return False
+FilePath = Filepath
 
 
 class Archivepath(Dirpath):
@@ -2047,29 +2049,6 @@ class TempDirpath(TempPath, Dirpath):
         d = TempDirpath("foo", "bar")
         print(d) # $TMPDIR/foo/bar
     """
-
-#     @classmethod
-#     def add_paths(cls, paths, baseparts="", **kwargs):
-#         # this check is to normalize the base path to use a temporary dirpath if
-#         # it doesn't already have one
-#         if baseparts:
-#             baseparts = [cls.create_tempdir(), baseparts]
-# 
-#         else:
-#             if isinstance(paths, Mapping):
-#                 full_path = False
-#                 tp = cls.gettempdir()
-#                 for k in paths.keys():
-#                     if k.startswith(tp):
-#                         full_path = True
-#                         break
-# 
-#                 if not full_path:
-#                     baseparts = cls.create_tempdir()
-# 
-#         return super(TempDirpath, cls).add_paths(paths, baseparts, **kwargs)
-
-
     @classmethod
     def normparts(cls, *parts, **kwargs):
         # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
@@ -2109,6 +2088,7 @@ class TempDirpath(TempPath, Dirpath):
         return instance
 Dirtemp = TempDirpath
 Tempdir = TempDirpath
+TempDirPath = TempDirpath
 
 
 class TempFilepath(TempPath, Filepath):
@@ -2146,6 +2126,7 @@ class TempFilepath(TempPath, Filepath):
         return instance
 Filetemp = TempFilepath
 Tempfile = TempFilepath
+TempFilePath = TempFilepath
 
 
 class Cachepath(Filepath):
@@ -2231,6 +2212,7 @@ class Cachepath(Filepath):
         td_check = datetime.timedelta(**timedelta_kwargs)
         #pout.v(now, td_check, then)
         return (now - td_check) < then
+CachePath = Cachepath
 
 
 class Sentinel(Cachepath):

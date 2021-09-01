@@ -222,6 +222,9 @@ class DictTest(TestCase):
             foos.extend(v)
         self.assertEqual(vs, foos)
 
+        v = d.rget("foo")
+        self.assertEqual([1, 2, 3], v)
+
 
 class IdictTest(TestCase):
     def test_ritems(self):

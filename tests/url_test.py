@@ -12,6 +12,15 @@ from . import TestCase, testdata
 
 
 class UrlTest(TestCase):
+    def test_query_parsing_bool(self):
+        qkw = Url.parse_query("che&foo&bar=1")
+        self.assertEqual("True", qkw["che"])
+        self.assertEqual("True", qkw["foo"])
+        self.assertEqual("1", qkw["bar"])
+
+        qkw = Url.parse_query("che/")
+        self.assertEqual("True", qkw["che/"])
+
     def test_scheme_with_path(self):
         u = Url("scheme:///foo/bar?query=val")
         self.assertEqual("", u.hostloc)

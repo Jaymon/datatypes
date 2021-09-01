@@ -270,9 +270,27 @@ class Dict(dict):
         for _, v in self.ritems(*keys):
             yield v
 
+    def rget(self, key, default=None):
+        """Return the first matching value found at key anywhere in the dict or
+        sub dicts
+
+        :param key: string, the key to find in this or any sub dicts
+        :param default: mixed, if key isn't found, return this value
+        :returns: mixed, the value found at the first key/subkey
+        """
+        v = default
+        for v in self.rvalues(key):
+            break
+        return v
+
 
 class NormalizeDict(Dict):
-    """A normalizing dictionary, taken from herd.utils.NormalizeDict"""
+    """A normalizing dictionary, taken from herd.utils.NormalizeDict
+
+    You can override the .normalize_key and .normalize_value methods, which get 
+    called anytime you set/get a value. You can check out the idict class for an
+    implementation that uses those methods to allow case-insensitive keys
+    """
     def __init__(self, *args, **kwargs):
         super(NormalizeDict, self).__init__()
         self.update(*args, **kwargs)
