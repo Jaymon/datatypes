@@ -526,31 +526,47 @@ class Character(String):
         """
         from .number import Integer # avoid circular dependency
 
-        try:
-            bts = self.bytes()
-            fb = Integer(bts[0]).binary()
+        i = self.integers()[0]
+        # https://unicodebook.readthedocs.io/unicode_encodings.html#utf-16-surrogate-pairs
+        # U+D800—U+DBFF (1,024 code points): high surrogates
+        # U+DC00—U+DFFF (1,024 code points): low surrogates
+        # U+10FFFF is the highest code point encodable to UTF-16
+        min_surrogate = 0xD800
+        max_surrogate = 0xDFFF
+        max_rune = 0x10FFFF
 
-            # first byte should have one of these prefixes:
-            # 0xxxxxxx | one byte
-            # 110xxxxx | two bytes
-            # 1110xxxx | three bytes
-            # 11110xxx | four bytes
-            #
-            # subsequent bytes should start with 10xxxxxx
-            if fb.startswith("10"):
-                ret = False
+        #pout.v(min_surrogate, max_surrogate, max_rune, i)
 
-            else:
-                if fb.startswith("0"):
-                    ret = len(bts) == 1
+        # first check is to make sure we are not in an invalid first byte range
+        if (min_surrogate <= i <= max_surrogate) or (i > max_rune):
+            ret = False
+
+        else:
+            try:
+                bts = self.bytes()
+                fb = Integer(bts[0]).binary()
+
+                # first byte should have one of these prefixes:
+                # 0xxxxxxx | one byte
+                # 110xxxxx | two bytes
+                # 1110xxxx | three bytes
+                # 11110xxx | four bytes
+                #
+                # subsequent bytes should start with 10xxxxxx
+                if fb.startswith("10"):
+                    ret = False
 
                 else:
-                    m = String(fb).regex(r"^1+0").match()
-                    if m:
-                        ret = len(bts) == len(m.group(0)) - 1
+                    if fb.startswith("0"):
+                        ret = len(bts) == 1
 
-        except UnicodeError:
-            ret = False
+                    else:
+                        m = String(fb).regex(r"^1+0").match()
+                        if m:
+                            ret = len(bts) == len(m.group(0)) - 1
+
+            except UnicodeError as e:
+                ret = False
 
         return ret
 

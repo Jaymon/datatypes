@@ -266,14 +266,22 @@ class CharacterTest(TestCase):
         self.assertEqual(1, ch.width())
 
     def test_is_complete(self):
+        # https://www.fileformat.info/info/unicode/char/fffd/index.htm
+        ch = Character("\uFFFD")
+        self.assertTrue(ch.is_complete())
+
+        ch = Character("\uDFCC")
+        self.assertFalse(ch.is_complete())
+
+        ch = Character("\U0001F642")
+        self.assertTrue(ch.is_complete())
+
+        # d859 and dfcc are surrogates
         ch = Character("\uD859\uDFCC")
         self.assertFalse(ch.is_complete())
 
         ch = Character("\U0001F441\u200D\U0001F5E8")
         self.assertFalse(ch.is_complete())
-
-        ch = Character("\U0001F642")
-        self.assertTrue(ch.is_complete())
 
         ch = Character("\u102A")
         self.assertTrue(ch.is_complete())

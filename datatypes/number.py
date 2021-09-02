@@ -80,17 +80,30 @@ class Integer(int):
 
     def __new__(cls, v, base=None):
         if not isinstance(v, int):
-            if base is None and isinstance(v, basestring):
-                # NOTE: if you have an ambiguous value like "0001" or "0010" this
-                # will assume it is binary
-                if re.match(r"^[-+]?0b", v) or re.search(r"[01]+$", v):
-                    # https://stackoverflow.com/questions/8928240/convert-base-2-binary-number-string-to-int
-                    base = 2
+            if not is_py2 and isinstance(v, bytes):
+                # !!! this is a terrible way to make both py2 and py3 work, but 
+                # I'm trying to get all the tests to pass and I've got no better
+                # ideas right now (2021-9-1)
+                pass
 
-                elif re.match(r"^[-+]?0x", v) or re.search(r"[a-fA-F0-9]+$", v):
-                    base = 16
+            else:
+                if base is None and isinstance(v, basestring):
+                    # NOTE: if you have an ambiguous value like "0001" or "0010" this
+                    # will assume it is binary
+                    if re.match(r"^[-+]?0b", v) or re.search(r"[01]+$", v):
+                        # https://stackoverflow.com/questions/8928240/convert-base-2-binary-number-string-to-int
+                        base = 2
 
-            v = int(v, base)
+                    elif re.match(r"^[-+]?0x", v) or re.search(r"[a-fA-F0-9]+$", v):
+                        base = 16
+
+            try:
+                v = int(v, base)
+            except TypeError:
+                if len(v) == 1:
+                    v = ord(v)
+                else:
+                    raise
 
         return super(Integer, cls).__new__(cls, v)
 

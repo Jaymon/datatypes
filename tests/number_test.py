@@ -24,6 +24,10 @@ class ShortenTest(TestCase):
 
 
 class IntegerTest(TestCase):
+    def test_conversion(self):
+        i = Integer(b'\xf0')
+        self.assertEqual(240, i)
+
     def test_range(self):
         i = Integer(-5)
         count = 0
