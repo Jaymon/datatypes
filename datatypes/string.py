@@ -539,6 +539,7 @@ class Character(String):
 
         # first check is to make sure we are not in an invalid first byte range
         if (min_surrogate <= i <= max_surrogate) or (i > max_rune):
+            # https://stackoverflow.com/a/64628756/5006
             ret = False
 
         else:
@@ -546,6 +547,7 @@ class Character(String):
                 bts = self.bytes()
                 fb = Integer(bts[0]).binary()
 
+                # https://en.wikipedia.org/wiki/UTF-8#Encoding
                 # first byte should have one of these prefixes:
                 # 0xxxxxxx | one byte
                 # 110xxxxx | two bytes
