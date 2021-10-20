@@ -13,6 +13,11 @@ from . import TestCase, testdata
 
 
 class DatetimeTest(TestCase):
+    def test_datetime(self):
+        d = Datetime()
+        d2 = d.datetime()
+        self.assertEqual(d, d2)
+
     def test_hash(self):
         dt = Datetime()
         hash(dt) # if there isn't an error then the test passes

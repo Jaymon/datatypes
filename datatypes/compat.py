@@ -112,6 +112,7 @@ else:
     from http import cookies
     import builtins
 
+    from functools import reduce # removed from common functions 
     from html.parser import HTMLParser
     from urllib import parse
     from urllib.parse import urlencode

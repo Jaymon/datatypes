@@ -505,3 +505,14 @@ class Datetime(datetime.datetime):
         """
         return self.__str__()
 
+    def datetime(self):
+        """Similar to .date() but returns vanilla datetime instance"""
+        return datetime.datetime(
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.microsecond,
+        )
