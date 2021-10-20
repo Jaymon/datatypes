@@ -8,12 +8,6 @@ import codecs
 import shutil
 import hashlib
 from collections import deque
-# try:
-#     # https://stackoverflow.com/a/64340026/5006
-#     from setuptools._distutils import dir_util
-# except ImportError:
-#     from distutils import dir_util
-#from zipfile import ZipFile
 import zipfile
 import tarfile
 import site
@@ -83,7 +77,6 @@ class Path(String):
 
     Path takes advantage of these semi-standard python modules:
         * https://docs.python.org/3/library/shutil.html
-        * https://github.com/python/cpython/blob/2.7/Lib/distutils/dir_util.py)
     """
     @property
     def permissions(self):
@@ -1239,11 +1232,6 @@ class Dirpath(Path):
                 # this will error out if target is not empty
                 raise OSError("Directory not empty: {}".format(target))
 
-        # dir_util says it creates all the parent directories but for some
-        # reason it wasn't working, this makes sure the target exist before
-        # trying to copy everything over from src (self.path)
-        #target.touch()
-        #dir_util.copy_tree(self.path, target, update=1) # https://stackoverflow.com/a/64340026/5006
         # https://docs.python.org/3/library/shutil.html#shutil.copytree
         shutil.copytree(self.path, target, dirs_exist_ok=True)
 
@@ -1265,8 +1253,6 @@ class Dirpath(Path):
         if target.is_dir():
             target = self.create_dir(target, self.basename)
 
-        #target.touch()
-        #dir_util.copy_tree(self.path, target, update=1)
         shutil.copytree(self.path, target, dirs_exist_ok=True)
 
         return target
@@ -1282,7 +1268,6 @@ class Dirpath(Path):
             os.utime(self.path, None)
 
         else:
-            #dir_util.mkpath(self.path)
             # https://docs.python.org/3/library/os.html#os.makedirs
             os.makedirs(self.path, exist_ok=True)
 
