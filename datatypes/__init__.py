@@ -68,8 +68,12 @@ from .token import (
     HTMLTokenizer,
 )
 
+from .email import (
+    Email,
+)
 
-__version__ = "0.3.0"
+
+__version__ = "0.4.0"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

@@ -1,0 +1,10 @@
+MIME-Version: 1.0
+Date: Thu, 7 Jun 2018 01:05:27 -0600
+Message-ID: <CAEoHzfpezw_gH0=suLwcSZctJdhi+vHLL6k7t7Sw2vSEVshpoQ@mail.gmail.com>
+Subject: simple email just text 2
+From: Foo Foooo <foo@example.com>
+To: Bar Barrrr <bar@example.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+this is a body of just plain text =C2=AF\_(=E3=83=84)_/=C2=AF

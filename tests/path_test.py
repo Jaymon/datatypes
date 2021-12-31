@@ -273,6 +273,39 @@ class PathTest(TestCase):
         ps = Path.splitparts("", root="")
         self.assertEqual([], ps)
 
+    def test_sanitize_chars(self):
+        r = Path("/", "foo?^", "bar*", "che:baz", "<bam>.ext")
+        r2 = r.sanitize()
+        self.assertEqual("/foo/bar/chebaz/bam.ext", r2)
+
+        r3 = Filepath("/hi?.ext").sanitize()
+        self.assertEqual("/hi.ext", r3)
+        self.assertTrue(isinstance(r3, Filepath))
+
+        r3 = Dirpath("/hi?*^").sanitize()
+        self.assertEqual("/hi", r3)
+        self.assertTrue(isinstance(r3, Dirpath))
+
+    def test_sanitize_len(self):
+        basedir = TempDirpath()
+        maxpath = 100
+        p = Path(basedir, testdata.get_words(20), f"{testdata.get_words(20)}.ext")
+        sp = p.sanitize(maxpart=20, maxpath=maxpath)
+        pout.v(len(sp))
+        self.assertGreaterEqual(maxpath, len(sp))
+        self.assertTrue(sp.endswith(".ext"))
+
+        with self.assertRaises(ValueError):
+            p = Path(basedir, testdata.get_words(20), f"{testdata.get_words(20)}.ext")
+            sp = p.sanitize(maxpart=20, maxpath=40)
+
+        for x in range(10):
+            r = Path(testdata.get_words(20), testdata.get_words(20), testdata.get_words(20), "basename.ext")
+            r2 = r.sanitize()
+            self.assertGreaterEqual(260, len(r2))
+            self.assertEqual(len(r.parts), len(r2.parts))
+            self.assertTrue(r2.endswith(".ext"))
+
 
 class _PathTestCase(PathTest):
     def test_stat(self):

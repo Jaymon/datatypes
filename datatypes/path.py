@@ -174,6 +174,18 @@ class Path(String):
         return self.create_dir(os.path.dirname(self.path))
 
     @property
+    def paths(self):
+        """Return all the paths in this path
+
+        :returns: list, if we had a path /foo/bar/che.ext then this would return
+            /foo, /foo/bar, /foo/bar/che.ext
+        """
+        paths = self.parents
+        paths.reverse()
+        paths.append(self)
+        return paths
+
+    @property
     def directory(self):
         """return the directory portion of a directory/fileroot.ext path"""
         return self.parent
@@ -230,6 +242,10 @@ class Path(String):
         :returns: String, the full path and fileroot without suffix (ext)
         """
         return os.path.splitext(self.path)[0]
+
+    @property
+    def pathroot(self):
+        return self.stempath
 
     @property
     def suffix(self):
@@ -418,11 +434,17 @@ class Path(String):
     def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
         """return just a valid file name
 
+        This method has a strange signature (ext and prefix come before name to make
+        it easier for TempPath since this method is more user facing when used with
+        temp paths)
+
         :param ext: string, the extension you want the file to have
         :param prefix: string, this will be the first part of the file's name
         :param name: string, the name you want to use (prefix will be added to the front
             of the name and suffix and ext will be added to the end of the name)
         :param suffix: string, if you want the last bit to be posfixed with something
+        :param **kwargs:
+            safe -- bool -- if true then remove potentially unsafe characters (default: False)
         :returns: string, the random filename
         """
         basename = name or ""
@@ -443,6 +465,11 @@ class Path(String):
         if ext:
             basename += ext
 
+#         https://kb.acronis.com/content/39790
+#         if kwargs.get("safe", kwargs.get("sanitize", False)):
+#             https://gitlab.com/jplusplus/sanitize-filename
+#             basename = String(basename).stripall("\\/:*?\"<>|\^\0")
+
         if not basename:
             raise ValueError("basename is empty")
 
@@ -462,19 +489,20 @@ class Path(String):
         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
         basedir = kwargs.pop("dir", "")
 
+        name = kwargs.pop("name", kwargs.pop("basename", ""))
+        if not name:
+            name = parts.pop(-1) if parts else ""
+
         name = cls.get_basename(
             ext=ext,
             prefix=prefix,
-            name=parts[-1] if parts else "",
+            name=name,
             suffix=suffix,
             **kwargs
         )
 
         if name:
-            if parts:
-                parts[-1] = name
-            else:
-                parts.append(name)
+            parts.append(name)
 
         if basedir:
             parts = cls.splitparts(basedir, **kwargs) + list(parts)
@@ -808,6 +836,72 @@ class Path(String):
 
         return self.create(parent, basename)
 
+    def slug(self):
+        """Return this path as a URI slug
+
+        :returns: str, this path with spaces removed and lowercase
+        """
+        path = re.sub(r"\s+", "-", self.path)
+        return path.lower()
+
+    def sanitize(self, chars="\\/:*?\"<>|^\0", maxpart=255, maxpath=260):
+        """Sanitize each part of self.path to make sure all the characters are safe
+
+        macos has a 1023 character path limit, with each part limited to 255 chars:
+            https://discussions.apple.com/thread/250275651
+
+        :param chars: string, the characters you want to remove from each part
+        :param maxpart: int, the maximum length of each part of the path
+        :param maxpath: int, the maximum length of the total path
+        :returns: Path, the path with bad characters stripped and within maxpath length
+        """
+        sparts = []
+        rempath = maxpath
+        paths = self.paths
+        remparts = len(paths)
+
+        logger.debug(f"Sanitizing {remparts} part(s) with {maxpart} chars each and a total path of {maxpath} chars")
+
+        for p in paths:
+            sp = p.basename
+            if p.is_root():
+                # we can't modify root in any way
+                logger.debug(f"Path.sanitize {p} is root")
+                sp = p.path
+
+            elif p.exists():
+                # if the folder already exists then it makes no sense to try and
+                # modify it
+                logger.debug(f"Path.sanitize {p} already exists")
+                sp = p.basename
+
+            else:
+                if remparts > 1:
+                    # since we have more parts still this must be a directory so
+                    # no point in splitting it
+                    fileroot = p.basename
+                    ext = ""
+                else:
+                    # we are at the basename so let's split the ext so we make
+                    # sure to include it
+                    fileroot, ext = p.splitbase()
+
+                logger.debug(f"Path.sanitize part {fileroot}{ext} is being sanitized")
+                rempart = min(maxpart, rempath // remparts) - len(ext)
+                # https://kb.acronis.com/content/39790
+                # https://gitlab.com/jplusplus/sanitize-filename
+                sp = String(fileroot).truncate(size=rempart, postfix="").stripall(chars) + ext
+
+            remparts -= 1
+            if sp:
+                rempath -= (len(sp) + 1)
+                if rempath < 0:
+                    raise ValueError("maxpath is too short to effectively sanitize this path")
+
+                sparts.append(sp)
+
+        return self.create(*sparts, path_class=type(self))
+
     def backup(self, suffix=".bak", ignore_existing=True):
         """backup the file to the same directory with given suffix
 
@@ -1010,6 +1104,28 @@ class Path(String):
 
     def __div__(self, other): # 2.x
         return self.__truediv__(other)
+
+    def splitext(self):
+        """Splits pathroot from ext, wrapper around os.path.splitext()
+
+        :Example:
+            p = Path("/foo/bar/che.ext")
+            pathroot, ext = p.slitext() # ("/foo/bar/che", ".ext")
+
+        :returns: tuple, (pathroot, suffix)
+        """
+        return os.path.splitext(self.path)
+
+    def splitbase(self):
+        """Splits fileroot from ext, wrapper around os.path.splitext()
+
+        :Example:
+            p = Path("/foo/bar/che.ext")
+            fileroot, ext = p.slitbase() # ("che", ".ext")
+
+        :returns: tuple, (fileroot, suffix)
+        """
+        return os.path.splitext(self.name)
 
 
 class Dirpath(Path):
@@ -1735,7 +1851,7 @@ class Filepath(Path):
             self.parent.touch(mode, exist_ok)
 
             # http://stackoverflow.com/a/1160227/5006
-            with self.open("a") as f:
+            with open(self.path, "a"):
                 os.utime(self.path, None)
 
     def linecount(self):

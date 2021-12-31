@@ -1,0 +1,2099 @@
+Delivered-To: jay@example.com
+Received: by 10.182.134.202 with SMTP id pm10csp28390obb;
+        Fri, 14 Mar 2014 05:43:05 -0700 (PDT)
+X-Received: by 10.60.54.202 with SMTP id l10mr6315727oep.29.1394800984820;
+        Fri, 14 Mar 2014 05:43:04 -0700 (PDT)
+Return-Path: <news@pitchbook.com>
+Received: from pitchbook27.pitchbook.com (pitchbook27.pitchbook.com. [67.192.51.27])
+        by mx.google.com with ESMTP id j8si1846701oey.161.2014.03.14.05.43.04
+        for <jay@example.com>;
+        Fri, 14 Mar 2014 05:43:04 -0700 (PDT)
+Received-SPF: pass (google.com: domain of news@pitchbook.com designates 67.192.51.27 as permitted sender) client-ip=67.192.51.27;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of news@pitchbook.com designates 67.192.51.27 as permitted sender) smtp.mail=news@pitchbook.com
+Received: from PITCHBOOK27 ([127.0.0.1]) by pitchbook27.pitchbook.com with Microsoft SMTPSVC(7.0.6002.18264);
+	 Fri, 14 Mar 2014 07:43:04 -0500
+Date: Fri, 14 Mar 2014 07:43:04 -0500 (CDT)
+From: PitchBook News <news@pitchbook.com>
+To: jay@example.com
+Message-ID: <81929719.11246121394800984252.JavaMail.PITCHBOOK27$@PITCHBOOK27>
+Subject: =?utf-8?Q?PitchBook_PE_&_VC_News:_Changing_Course_=E2=80=94_P?=
+ =?utf-8?Q?E_Pivots_Away_from_B2C_Education,_Toward_B2B?=
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Return-Path: news@pitchbook.com
+X-OriginalArrivalTime: 14 Mar 2014 12:43:04.0255 (UTC) FILETIME=[F13BA4F0:01CF3F82]
+
+ <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html><head=
+><META http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8"><=
+title>PitchBook Newsletters</title><style>#a{width:187px;} #b{color:#476690=
+;text-decoration:none;} #c{margin-right:2px;} #d{border:none;width:16px;hei=
+ght:15px;} #e{outline:medium none;border:none;} #f{border-top:2px solid whi=
+te;border-bottom:2px solid white;} #g{font-size:14px;font-family:tahoma, ar=
+ial;text-decoration:none;color:#476690;} #h{line-height:16px;margin-bottom:=
+3px;} #i{color:#476690;text-decoration:none;width:187px;} #j{line-height:19=
+px;} #k{padding-bottom:15px;color:#333;line-height:19px;} #l{color:#c60;tex=
+t-decoration:none;} #m{color:#f60;line-height:19px;} #n{font:14px tahoma, a=
+rial;color:#666;} #o{color:#333;} #p{width:400px;font-size:20px;font-family=
+:tahoma, arial;font-weight:bold;color:#333;} #q{font-size:14px;font-family:=
+tahoma, arial;color:#333333;} #r{color:#466b8c;margin-right:5px;font:12px t=
+ahoma;} #s{margin:0px 0px 15px 0;} #t{width:100%;} #u{margin:4px 0px 4px 0;=
+} #v{margin:15px 0px 15px 0;} #w{font-size:14px;font-family:tahoma, arial;c=
+olor:#333;} #x{font-family:verdana;font-size:13px;} #y{margin-left:7px;} #z=
+{line-height:20px;} #aa{padding-top:3px;} #ab{font-size:11px;font-family:ar=
+ial;font-weight:bold;white-space:nowrap;overflow:hidden;} #ac{height:30px;}=
+ #ad{color:white;font-size:11px;font-family:arial;font-weight:bold;} #ae{co=
+lor:#476990;font-size:14px;font-family:tahoma, arial;text-decoration:none;}=
+ #af{text-decoration:none;white-space:nowrap;overflow:hidden;} #ag{line-hei=
+ght:16px;margin-bottom:3px;border-bottom:1px solid #ccc;padding-bottom:5px;=
+} #ah{font-size:14px;font-family:tahoma, arial;color:#666;} #ai{color:#4769=
+90;font-weight:bold;font-size:16px;font-family:tahoma, arial;text-decoratio=
+n:none;width:187px;} #aj{font-size:16px;line-height:20px;font-family:tahoma=
+, arial;margin-bottom:3px;padding-bottom:5px;border-bottom:1px solid #ccc;w=
+idth:187px;} #ak{border-bottom:1px solid #ccc;height:0px;font-size:1px;} #a=
+l{margin:0px 15px 18px 0px;} #am{margin:0px 0px 8px 0;} #an{border:none;} #=
+ao{width:402px;} #ap{text-align:right;font-size:9px;color:gray;} #aq{text-a=
+lign:left;font-size:10px;color:gray;text-align:justify;padding-top:2px;} #a=
+r{font-family:tahoma, arial;float:none;} #as{font-family:tahoma, arial;floa=
+t:right;color:#666;} #at{color:#fff;margin-left:5px;} #au{background-color:=
+#476990;border:solid 11px #476990;font-size:20px;font-family:tahoma, arial;=
+font-weight:bold;color:white;} #av{width:420px;} #aw{padding:0px;margin:0px=
+;border:0px;} #ax{font-size:16px;line-height:20px;font-family:tahoma, arial=
+;margin-bottom:3px;padding-bottom:5px;border-bottom:1px solid #ccc;margin-t=
+op:10px;width:187px;} #ay{margin-bottom:10px;text-align:center;overflow:hid=
+den;} #az{margin:0px 0px 8px 0;margin-bottom:15px;} #ba{font:bold 14px taho=
+ma, arial;text-transform:uppercase;color:#333;text-decoration:none;} #bb{ma=
+rgin-bottom:8px;} #bc{color:white;} #bd{font-size:12px;font-family:arial;co=
+lor:rgb (255, 255, 255);text-decoration:none;cursor:pointer;} #be{margin-to=
+p:8px;font:12px/20px tahoma, arial;color:#666;text-decoration:none;border-b=
+ottom:4px solid white;} #bf{font-weight:bold;font-size:14px;line-height:20p=
+x;font-family:tahoma, arial;color:#666;} #bg{border-bottom:1px solid #ccc;o=
+verflow:hidden;} #bh{font-weight:bold;} #bi{margin-top:3px;font:12px/17px t=
+ahoma, arial;} #bj{border-collapse:collapse;text-align:left;} #bk{text-alig=
+n:left;} #bl{font-size:12px;font-family:arial;font-weight:bold;} #bm{backgr=
+ound-color:#e1e1e1;} #bn{width:420px;text-align:center;margin:6px 6px 6px 0=
+;} #bo{border-collapse:collapse;background-color:white;} #bp{color:#476990;=
+font-weight:bold;font-size:16px;font-family:tahoma, arial;text-decoration:n=
+one;} #bq{color:#476990;font-weight:bold;font-size:16px;font-family:tahoma,=
+ arial;} #br{display:inline;vertical-align:baseline;} #bs{font-size:14px;li=
+ne-height:20px;font-family:tahoma, arial;color:#476690;text-decoration:none=
+;} #bt{font:12px arial;color:#466890;text-decoration:none;} #bu{height:78px=
+;} #bv{text-decoration:none;} #bw{height:5px;background-color:#476990;width=
+:100%;} #bx{font-size:11px;font-family:arial;color:#476690;white-space:nowr=
+ap;} #by{line-height:5px;} #bz{font-size:12px;font-family:arial;color:#3333=
+33;} #ca{background-color:white;line-height:10px;height:10px;max-height:10p=
+x;} #cb{font-size:12px;font-family:arial;color:#466890;text-decoration:none=
+;} #cc{color:#476990;font-weight:bold;font-size:16px;font-family:tahoma, ar=
+ial;text-decoration:none;width:402px;} #cd{font-family:tahoma, arial;float:=
+center;color:#666;} #ce{border-collapse:collapse;} #cf{color:#476690;} #cg{=
+height:10px;} #ch{color:#476690;text-decoration:none;width:402px;} #uca{bac=
+kground:white;} #ucb{cursor:pointer;color:white;font-size:11px;line-height:=
+35px;font-family:arial;white-space:nowrap;text-decoration:none;text-transfo=
+rm:uppercase;} #ucc{background-color:#496990;width:13px;} #ucd{background-c=
+olor:#496990;} #uce{text-align:left;} </style></head><body style=3D"padding=
+: 0; margin: 0px;"><table cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" id=3D"bo"><tr><td align=3D"center"><table cellspacing=3D"0" width=3D"100%=
+" cellpadding=3D"0" style=3D"font-size: 12px; font-family: Lucida Sans; bor=
+der-bottom: solid 1px #ccc;"><tr><td colspan=3D"4" height=3D"10"><tr><td>&n=
+bsp; <td align=3D"left" width=3D"300"><a href=3D"https://my.pitchbook.com/n=
+/9759.1253351.345909" style=3D"font-size: 12px; font-family: Arial; color: =
+#333; text-decoration: none;">View Online</a><td width=3D"340" style=3D"fon=
+t-size: 12px; font-family: Arial; text-align: right; color: #333;">Connect:=
+&nbsp;&nbsp; <a href=3D"https://my.pitchbook.com/n/9759.1253352.345909" tar=
+get=3D"_blank"><img width=3D"16" height=3D"15" id=3D"an" src=3D"http://mark=
+eto.pitchbook.com/rs/pitchbook/images/b_tw.png"></a>&nbsp;&nbsp; <a href=3D=
+"https://my.pitchbook.com/n/9759.1253353.345909" target=3D"_blank"><img wid=
+th=3D"16" height=3D"15" id=3D"an" src=3D"http://marketo.pitchbook.com/rs/pi=
+tchbook/images/b_in.png"></a><td>&nbsp; <tr><td colspan=3D"4" height=3D"10"=
+></table><table cellspacing=3D"0" width=3D"640" cellpadding=3D"0" align=3D"=
+center" id=3D"bj"><tr><td height=3D"20"><td rowspan=3D"2" width=3D"160" val=
+ign=3D"middle"><tr valign=3D"top"><td width=3D"480" height=3D"95"><table ce=
+llspacing=3D"0" cellpadding=3D"0" width=3D"480" id=3D"ce"><tr><td valign=3D=
+"top" align=3D"right" rowspan=3D"2" width=3D"37"><img width=3D"37" height=
+=3D"38" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/nl.png" sty=
+le=3D"font: 0px/0px; border: none;" /><td width=3D"443" align=3D"left" styl=
+e=3D"font: bold 36px Arial; color: #476990;"><span style=3D"font-size: 36px=
+; font-weight: bold; font-family: Arial; color: #476990;">PitchBook Newslet=
+ter</span><tr valign=3D"top"><td align=3D"left" width=3D"250" height=3D"24"=
+ style=3D"text-indent: 2px;"><span style=3D"font-size: 18px; font-weight: b=
+old; font-family: Arial; color: #666; margin-bottom: 10px;"> PE &amp; VC Ed=
+ition </span></table></table><table cellspacing=3D"0" cellpadding=3D"0" wid=
+th=3D"100%" id=3D"bj"><tr><td valign=3D"top"><table cellpadding=3D"0" cells=
+pacing=3D"0" width=3D"100%" height=3D"78" bgcolor=3D"#e1e1e1"><tr><td heigh=
+t=3D"78" id=3D"bu">&nbsp; </table><td width=3D"440" valign=3D"top"><table c=
+ellspacing=3D"0" cellpadding=3D"0" border=3D"0" width=3D"100%" bgcolor=3D"#=
+e1e1e1" id=3D"bj"><tr bgcolor=3D"#e1e1e1" style=3D"height: 8px;"><td height=
+=3D"8" width=3D"420" style=3D"height: 8px; min-height: 8px; background-colo=
+r: #e1e1e1;"><td width=3D"20" id=3D"bm"><tr bgcolor=3D"#e1e1e1" style=3D"he=
+ight: 40px; min-height: 40px; background-color: #e1e1e1;"><td width=3D"420"=
+ height=3D"40" style=3D"height: 40px; min-height: 40px;"><span style=3D"fon=
+t-family: Arial; font-size: 18px; color: #484848; margin-top: 15px;">Powere=
+d by the PitchBook Platform. <a href=3D"https://my.pitchbook.com/n/9759.125=
+3354.345909" style=3D"color: #466890; text-decoration: none;" target=3D"_bl=
+ank">Learn more&raquo;</a></span><td width=3D"20" id=3D"bm"><tr bgcolor=3D"=
+#e1e1e1" style=3D"height: 30px; overflow: hidden; min-height: 30px; -webkit=
+-text-size-adjust: none; background-color: #e1e1e1;"><td valign=3D"top" hei=
+ght=3D"30" style=3D"font-size: 12px; font-family: Arial; color: #484848; wh=
+ite-space: nowrap; height: 30px; max-height: 30px;"><span id=3D"bh">179,132=
+</span>&nbsp;Deals&nbsp;|&nbsp; <span id=3D"bh">25,399</span>&nbsp;Funds&nb=
+sp;|&nbsp; <span id=3D"bh">10,738</span>&nbsp;Limited Partners&nbsp;|&nbsp;=
+ <span id=3D"bh">13,972</span>&nbsp;Advisors <td width=3D"20" id=3D"bm">&nb=
+sp; </table><table cellspacing=3D"0" cellpadding=3D"0" border=3D"0" width=
+=3D"100%" bgcolor=3D"#ffffff" id=3D"bj"><tr style=3D"height: 10px; overflow=
+: hidden; min-height: 10px;"><td height=3D"10" id=3D"ca"><td width=3D"20" i=
+d=3D"ca"><tr><td valign=3D"middle" height=3D"35" style=3D"background-color:=
+ white; overflow: hidden; height: 35px;"><div style=3D"font-size: 12px; fon=
+t-family: Arial; color: #666;">FRIDAY, MARCH 14, 2014 <img width=3D'1' heig=
+ht=3D'1' src=3D'https://my.pitchbook.com/n/9759.345909.gif'/></div><td widt=
+h=3D"20" style=3D"background-color: white;">&nbsp; </table><td valign=3D"to=
+p" width=3D"200" height=3D"120"><img width=3D"200" height=3D"120" style=3D"=
+border: none; outline: 0; top: 0;" src=3D"https://img.pitchbook.com/banners=
+/chart.png" ><td valign=3D"top"><table cellpadding=3D"0" cellspacing=3D"0" =
+width=3D"100%" height=3D"78" bgcolor=3D"#e1e1e1"><tr><td height=3D"78" id=
+=3D"bu">&nbsp; </table></table><style type=3D"text/css"> /* For PitchBook v=
+iew */ .newsletter-content .news-mid-table { margin-left: 0; margin-right: =
+0; } @media screen and (max-width: 640px) { /* For iPhone view */ .news-mid=
+-table { margin-left: 20px; margin-right: 20px; } .mobile-image { border: 1=
+px solid red; } .mobile-image img { display: none; } } </style><table class=
+=3D"news-mid-table" align=3D"center" cellpadding=3D"0" cellspacing=3D"0" wi=
+dth=3D"640" id=3D"ce"><tr><td height=3D"10" colspan=3D"2" id=3D"bk"><tr val=
+ign=3D"top"><td width=3D"420" id=3D"bk"><table style=3D"border-collapse: co=
+llapse; -webkit-text-size-adjust: none;" cellpadding=3D"0" cellspacing=3D"0=
+" width=3D"420"><tr><td style=3D"padding: 0pt 0pt 7.5pt 0pt" width=3D"100%"=
+><table width=3D"420" cellspacing=3D"0" cellpadding=3D"0" id=3D"av"><tr><td=
+><div id=3D"au"><a name=3D"" id=3D"at">PitchBook's Featured Profile</a></di=
+v></table><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113035"></a>Gold=
+en Gate Capital PitchBook Profile </div></div><div id=3D"s"><div id=3D"t"><=
+input type=3D"hidden" value=3D"H4JPZHASU45ME"/><table cellpadding=3D"0" cel=
+lspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=
+=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253355.345909" target=3D"_b=
+lank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images=
+/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitch=
+book.com/n/9759.1253356.345909" target=3D"_blank"><img id=3D"d" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253357.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253358.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></a></d=
+iv></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" width=3D"=
+395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0' cellpadding=3D'0'><=
+tr><td id=3D"k"><span id=3D"n"><table width=3D'100%' cellpadding=3D'0' cell=
+spacing=3D'0'><tr><td align=3D'center'><table cellpadding=3D"4" cellspacing=
+=3D"4" align=3D"center" id=3D"cd"><tr><td align=3D"center"><table align=3D"=
+center" cellpadding=3D"0" cellspacing=3D"0" width=3D"1" id=3D"ar"><tr><td><=
+a href=3D"https://my.pitchbook.com/n/9759.1253359.345909"><img src=3D"https=
+://img.pitchbook.com/news/8624.jpg" align=3D"center" id=3D"an" width=3D"400=
+" /></a><tr><td align=3D"right" id=3D"ap"><tr><td align=3D"left" id=3D"aq">=
+</table></table></table>Golden Gate Capital invests through a wide range of=
+ transaction structures, from conventional buyouts to complicated corporate=
+ carveouts, bankruptcy restructurings, refinancings and take-privates.<br><=
+br><center><b><a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253359.3=
+45909' target=3D'blank'><font size=3D"3">View Free Profile</a></font></b></=
+center></span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><=
+tr><td width=3D"402" id=3D"w"><div id=3D"ao"><div id=3D"f"><div id=3D"ag"><=
+a href=3D"https://my.pitchbook.com/n/9759.1253359.345909" id=3D"cc">Golden =
+Gate Capital</a></div></div></div><div id=3D"ao"><span id=3D"j">AUM:</span>=
+<span id=3D"j"><a href=3D"https://my.pitchbook.com/n/9759.1253359.345909" i=
+d=3D"b"> $12 billion </a></span></div><table cellspacing=3D"0" cellpadding=
+=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z"><tr><td valign=3D"bottom"><t=
+able cellspacing=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D=
+"#476990" cellpadding=3D"0" cellspacing=3D"0"><tr valign=3D"middle" height=
+=3D"28"><td valign=3D"middle" align=3D"center" width=3D"30" id=3D"aa"> &nbs=
+p;<img src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white_small_=
+logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18"><td valign=3D"m=
+iddle" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759.1253359.345909"=
+ id=3D"af"><span id=3D"ad">View Featured Profile</span>&nbsp;&nbsp;&nbsp;&n=
+bsp; </a></table><tr><td colspan=3D"3" height=3D"5" id=3D"by"><tr><td id=3D=
+"bx"><a href=3D"https://my.pitchbook.com/n/9759.1253360.345909" id=3D"bv" t=
+arget=3D"_blank"><span id=3D"cf"> &nbsp;VIEW <span>171</span> INVESTMENTS&n=
+bsp;&raquo; </span></a></table></table></table></table><table width=3D"420"=
+ cellspacing=3D"0" cellpadding=3D"0" id=3D"av"><tr><td><div id=3D"au"><a na=
+me=3D"" id=3D"at">Today's Top Stories</a></div></table><div id=3D"v"><div i=
+d=3D"p"><a id=3D"o" name=3D"n112993"></a>Changing Course: PE Pivots Away fr=
+om B2C Education, Toward B2B </div></div><div id=3D"s"><div id=3D"t"><input=
+ type=3D"hidden" value=3D"WZPAW7R7MSKWA"/><table cellpadding=3D"0" cellspac=
+ing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e"=
+ href=3D"https://my.pitchbook.com/n/9759.1253361.345909" target=3D"_blank">=
+<img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smem.=
+gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.c=
+om/n/9759.1253362.345909" target=3D"_blank"><img id=3D"d" src=3D"http://mar=
+keto.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><div id=3D"c=
+"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253363.345909" targe=
+t=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook=
+/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://m=
+y.pitchbook.com/n/9759.1253364.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></a></div></=
+table></div></div><table cellspacing=3D"0" cellpadding=3D"0" width=3D"395" =
+id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0' cellpadding=3D'0'><tr><t=
+d id=3D"k"><span id=3D"n">Private equity firms have been shying away from B=
+2C-focused educational services companies recently, according to the PitchB=
+ook Platform, and instead have concentrated on educational services compani=
+es in the B2B market.<br><br> Since the start of 2007, <a id=3D"g" href=3D'=
+https://my.pitchbook.com/n/9759.1253365.345909' target=3D'blank'>300 U.S.- =
+or Canada-based companies in the education industry</a> have brought in PE =
+capital. Between 2009 and 2013, investors pivoted away significantly from t=
+he B2C services corner of the industry; in 2009, B2C investments accounted =
+for 72% of the year's overall education-focused activity, but that percenta=
+ge was pared down every year until 2013, when B2C accounted for only 29%. P=
+ut another way, activity whittled down from the 34 deals that were recorded=
+ in B2C companies in 2009 to only 11 deals last year, a 68% decrease in fiv=
+e years.<br><br>Compare that to B2B-focused educational services deals, whi=
+ch accounted for only 17% of the year's education-focused activity in 2009,=
+ but their share increased every year until 2013, when they accounted for 6=
+1%. The deal count also grew incrementally every year from 2009 (eight deal=
+s) until 2013, almost tripling at 23. There's been a noticeable increase in=
+ the attention paid to training services providers, perhaps due to increase=
+s in government regulations and stricter standards for business practices.<=
+table width=3D'100%' cellpadding=3D'0' cellspacing=3D'0'><tr><td align=3D'c=
+enter'><table cellpadding=3D"4" cellspacing=3D"4" align=3D"center" id=3D"cd=
+"><tr><td align=3D"center"><table align=3D"center" cellpadding=3D"0" cellsp=
+acing=3D"0" width=3D"1" id=3D"ar"><tr><td><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253365.345909"><img src=3D"https://img.pitchbook.com/news/8621.g=
+if" align=3D"center" id=3D"an" width=3D"376" /></a><tr><td align=3D"right" =
+id=3D"ap"><tr><td align=3D"left" id=3D"aq"></table><tr><td style=3D"font-fa=
+mily: Tahoma, Arial; font-size: 14px;"><font size=3D"1"><i>PitchBook Platfo=
+rm users can click on the chart to customize it.</i></font></table></table>=
+</span></table></table><div id=3D"al"><div id=3D"ak">&nbsp;</div></div><div=
+ id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n112979"></a>A $1.1B Renaissanc=
+e </div></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"Z=
+62ILC76ST3WO"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=
+=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitch=
+book.com/n/9759.1253366.345909" target=3D"_blank"><img id=3D"d" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253367.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253368.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></d=
+iv><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.12=
+53369.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbo=
+ok.com/rs/pitchbook/images/smfb.png"></a></div></table></div></div><table c=
+ellspacing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q">=
+<table cellspacing=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n">=
+<table cellpadding=3D"4" cellspacing=3D"4" align=3D"right" id=3D"as"><tr><t=
+d align=3D"center"><table align=3D"center" cellpadding=3D"0" cellspacing=3D=
+"0" width=3D"1" id=3D"ar"><tr><td><a href=3D"https://my.pitchbook.com/n/975=
+9.1253370.345909"><img src=3D"https://img.pitchbook.com/news/8617.gif" alig=
+n=3D"center" id=3D"an" width=3D"180" /></a><tr><td align=3D"right" id=3D"ap=
+"><tr><td align=3D"left" id=3D"aq"></table></table><a id=3D"g" href=3D'http=
+s://my.pitchbook.com/n/9759.1253371.345909'>Hellman & Friedman</a> is buyin=
+g <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253372.345909'>Renai=
+ssance Learning</a>, an educational assessment and learning analytics compa=
+ny, from <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253373.345909=
+'>Permira</a> for $1.1 billion. Renaissance provides a variety of education=
+al tools and products, ranging from cloud-based assessment software to acce=
+lerated reading programs. It also provides training to teachers and adminis=
+trators, among other services.<br><br>Permira, which took Renaissance priva=
+te in 2011 for about $455 million, could reportedly reap a 4x return on its=
+ original investment. The agreement comes less than a month after <a id=3D"=
+g" href=3D'https://my.pitchbook.com/n/9759.1253374.345909'>Google Capital</=
+a> invested $40 million in the company at a $1 billion valuation. Google Ca=
+pital is expected to remain an investor in the company.</span><tr><td id=3D=
+"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"187" valign=
+=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253372.345909" id=3D"ai">Renaissance Learning=
+</a></div></div></div><div id=3D"a"><span id=3D"j"> Educational Software </=
+span></div><div id=3D"a"><span id=3D"j"><span>SaaS</span><br></span></div><=
+div id=3D"a"><span id=3D"j"> Wisconsin Rapids, WI </span></div><div id=3D"a=
+"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253372.345909"=
+ id=3D"l"> $1.1 billion </a></span></div><div id=3D"a"><span id=3D"m"><a hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253372.345909" id=3D"l"> Secondary B=
+uyout </a></span></div><div id=3D"a"><div id=3D"ax">Legal Advisors</div><di=
+v id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253375=
+.345909" id=3D"i">Simpson Thacher & Bartlett</a></div></div><div id=3D"f"><=
+div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253376.345909" id=
+=3D"i">Skadden, Arps, Slate, Meagher & Flom</a></div></div></div><table cel=
+lspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z"><t=
+r><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" height=
+=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" cellspacing=3D"0"><=
+tr valign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center" w=
+idth=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pi=
+tchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" he=
+ight=3D"18"><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook=
+.com/n/9759.1253372.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&n=
+bsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28"><td width=3D"18=
+7" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investor</div><div=
+ id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253371.=
+345909" id=3D"i">Hellman & Friedman</a></div></div></div><div id=3D"a"><div=
+ id=3D"ax">Seller</div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pi=
+tchbook.com/n/9759.1253373.345909" id=3D"i">Permira</a></div></div></div><d=
+iv id=3D"a"><div id=3D"ax">Financial Advisors</div><div id=3D"f"><div id=3D=
+"h"><a href=3D"https://my.pitchbook.com/n/9759.1253377.345909" id=3D"i">RBC=
+ Capital Markets</a></div></div><div id=3D"f"><div id=3D"h"><a href=3D"http=
+s://my.pitchbook.com/n/9759.1253378.345909" id=3D"i">BofA Merrill Lynch</a>=
+</div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com=
+/n/9759.1253379.345909" id=3D"i">Credit Suisse</a></div></div></div></table=
+></table></table><div id=3D"bn"><a target=3D"_blank" href=3D"https://my.pit=
+chbook.com/n/9759.1253380.345909"><img width=3D"420" src=3D"https://img.pit=
+chbook.com/ads/ad466/MD-Track-420x150-PitchBook-award-MARCH.jpg" id=3D"aw" =
+/></a></div><table width=3D"420" cellspasing=3D"0" cellpadding=3D"0"><tr><t=
+d><div id=3D"au"><a name=3D"$body.backTo" id=3D"$body.backTo" id=3D"at">Tod=
+ay's Headlines</a></div></table><div style=3D"margin: 20px 20px 15px 0;"><d=
+iv id=3D"bb"><a class=3D"headline-link" data-id=3D"c0" href=3D"#c0" id=3D"b=
+a">The Daily Benchmark</a><br></div><div id=3D"az"><a class=3D"headline-lin=
+k" data-id=3D"n112994" href=3D"#n112994" id=3D"ae">2009 Vintage U.S. Funds-=
+of-Funds</a><br></div><div id=3D"bb"><a class=3D"headline-link" data-id=3D"=
+c1" href=3D"#c1" id=3D"ba">Deals in Play & Announcements</a><br></div><div =
+id=3D"az"><a class=3D"headline-link" data-id=3D"n113004" href=3D"#n113004" =
+id=3D"ae">Millard Joining Bay Grove's Lineage</a><br></div><div id=3D"bb"><=
+a class=3D"headline-link" data-id=3D"c2" href=3D"#c2" id=3D"ba">Completed P=
+E Deals</a><br></div><div id=3D"am"><a class=3D"headline-link" data-id=3D"n=
+112980" href=3D"#n112980" id=3D"ae">Riverstone Backs Rock Oil</a><br></div>=
+<div id=3D"am"><a class=3D"headline-link" data-id=3D"n113020" href=3D"#n113=
+020" id=3D"ae">Genstar Forms Palomar Specialty Insurance</a><br></div><div =
+id=3D"am"><a class=3D"headline-link" data-id=3D"n112528" href=3D"#n112528" =
+id=3D"ae">SCPE Invests $57M in Copperbelt Energy</a><br></div><div id=3D"am=
+"><a class=3D"headline-link" data-id=3D"n112965" href=3D"#n112965" id=3D"ae=
+">Taglich and Gladstone on Fire with Lignetics Deal</a><br></div><div id=3D=
+"am"><a class=3D"headline-link" data-id=3D"n112978" href=3D"#n112978" id=3D=
+"ae">Duet Group Acquires Ghana-Based GNFoods and Shop N Save</a><br></div><=
+div id=3D"am"><a class=3D"headline-link" data-id=3D"n112983" href=3D"#n1129=
+83" id=3D"ae">Audax Gets CURT</a><br></div><div id=3D"az"><a class=3D"headl=
+ine-link" data-id=3D"n112982" href=3D"#n112982" id=3D"ae">Riverstone Gets N=
+ext Generation Up and Running</a><br></div><div id=3D"bb"><a class=3D"headl=
+ine-link" data-id=3D"c3" href=3D"#c3" id=3D"ba">Completed VC Financings</a>=
+<br></div><div id=3D"am"><a class=3D"headline-link" data-id=3D"n113016" hre=
+f=3D"#n113016" id=3D"ae">Eventbrite Receives $60M in Funding, $1B Valuation=
+</a><br></div><div id=3D"am"><a class=3D"headline-link" data-id=3D"n113008"=
+ href=3D"#n113008" id=3D"ae">MuleSoft Scores $50M Round</a><br></div><div i=
+d=3D"am"><a class=3D"headline-link" data-id=3D"n113031" href=3D"#n113031" i=
+d=3D"ae">Balderton Capital Leads $16M Series B for Banjo</a><br></div><div =
+id=3D"am"><a class=3D"headline-link" data-id=3D"n112992" href=3D"#n112992" =
+id=3D"ae">Rover.com Fetches $12M Series C</a><br></div><div id=3D"am"><a cl=
+ass=3D"headline-link" data-id=3D"n113024" href=3D"#n113024" id=3D"ae">SAGE =
+Therapeutics Seals $38M Series C Financing</a><br></div><div id=3D"am"><a c=
+lass=3D"headline-link" data-id=3D"n113028" href=3D"#n113028" id=3D"ae">Econ=
+omic Data Tracking Platform Premise Snares $11M</a><br></div><div id=3D"am"=
+><a class=3D"headline-link" data-id=3D"n113027" href=3D"#n113027" id=3D"ae"=
+>Ed-Tech Startup Smart Sparrow Raises $10M in Funding</a><br></div><div id=
+=3D"am"><a class=3D"headline-link" data-id=3D"n113029" href=3D"#n113029" id=
+=3D"ae">Money Transfer Service Azimo Pockets $10M in Series A Funds</a><br>=
+</div><div id=3D"am"><a class=3D"headline-link" data-id=3D"n113009" href=3D=
+"#n113009" id=3D"ae">Acorns Grow Harvests $5.5M in Series B Funds</a><br></=
+div><div id=3D"az"><a class=3D"headline-link" data-id=3D"n112981" href=3D"#=
+n112981" id=3D"ae">Mobile Email App Tipbit Gets $4M</a><br></div><div id=3D=
+"bb"><a class=3D"headline-link" data-id=3D"c4" href=3D"#c4" id=3D"ba">Exit =
+& Liquidity News</a><br></div><div id=3D"am"><a class=3D"headline-link" dat=
+a-id=3D"n112966" href=3D"#n112966" id=3D"ae">Poundland Shares Rise in Publi=
+c Debut</a><br></div><div id=3D"am"><a class=3D"headline-link" data-id=3D"n=
+113025" href=3D"#n113025" id=3D"ae">Applied Genetic Technologies Issues IPO=
+ Details</a><br></div><div id=3D"az"><a class=3D"headline-link" data-id=3D"=
+n113032" href=3D"#n113032" id=3D"ae">Dipexium Goes Public</a><br></div><div=
+ id=3D"bb"><a class=3D"headline-link" data-id=3D"c5" href=3D"#c5" id=3D"ba"=
+>Service Provider News</a><br></div><div id=3D"az"><a class=3D"headline-lin=
+k" data-id=3D"n113036" href=3D"#n113036" id=3D"ae">Lincoln Advises on Hartl=
+and Controls Recapitalization</a><br></div><div id=3D"bb"><a class=3D"headl=
+ine-link" data-id=3D"c6" href=3D"#c6" id=3D"ba">Management News</a><br></di=
+v><div id=3D"am"><a class=3D"headline-link" data-id=3D"n113015" href=3D"#n1=
+13015" id=3D"ae">Tatum Adds Two</a><br></div><div id=3D"az"><a class=3D"hea=
+dline-link" data-id=3D"n113007" href=3D"#n113007" id=3D"ae">Fresh Face on L=
+inden Care Board</a><br></div></div><div id=3D"bn"><a target=3D"_blank" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253381.345909"><img width=3D"420" src=
+=3D"https://img.pitchbook.com/ads/ad509/VRC-420x120_black.jpg" id=3D"aw" />=
+</a></div><table width=3D"420" cellspacing=3D"0" cellpadding=3D"0" id=3D"av=
+"><tr><td><div id=3D"au"><a name=3D"" id=3D"at">The Daily Benchmark</a></di=
+v></table><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n112994"></a>2009=
+ Vintage U.S. Funds-of-Funds </div></div><div id=3D"s"><div id=3D"t"><input=
+ type=3D"hidden" value=3D"252GBXEH7ELNY"/><table cellpadding=3D"0" cellspac=
+ing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e"=
+ href=3D"https://my.pitchbook.com/n/9759.1253382.345909" target=3D"_blank">=
+<img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smem.=
+gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.c=
+om/n/9759.1253383.345909" target=3D"_blank"><img id=3D"d" src=3D"http://mar=
+keto.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><div id=3D"c=
+"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253384.345909" targe=
+t=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook=
+/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://m=
+y.pitchbook.com/n/9759.1253385.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></a></div></=
+table></div></div><table cellspacing=3D"0" cellpadding=3D"0" width=3D"395" =
+id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpadding=3D"0"><tr><t=
+d id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0" id=3D"ah"><tr height=
+=3D"20"><td>$250 million - $500 million <tr height=3D"20"><td><div style=3D=
+"border-bottom: 1px solid #ccc; width: 300px; padding-bottom: 5px;"><a href=
+=3D"https://my.pitchbook.com/n/9759.1253386.345909" style=3D"color: #466890=
+; font-weight: bold; font-size: 16px; font-family: Tahoma, Arial; text-deco=
+ration: none;">12 Funds in Benchmark</a></div><tr><td><table cellpadding=3D=
+"0" cellspacing=3D"0" id=3D"ah"><tr height=3D"20"><td width=3D"190">Median =
+IRR: <td align=3D"left" id=3D"bf">7<span>.08%</span><tr height=3D"20"><td>T=
+op Quartile IRR Hurdle Rate: <td align=3D"left" id=3D"bf">10<span>.81%</spa=
+n><tr height=3D"20"><td>Median TVPI: <td align=3D"left" id=3D"bf">1<span>.1=
+4x</span><tr height=3D"20"><td>Median RVPI: <td align=3D"left" id=3D"bf">0<=
+span>.96x</span></table><tr height=3D"18"><td>&nbsp; <tr height=3D"20"><td>=
+<div style=3D"font-size: 16px; line-height: 20px; font-family: Tahoma, Aria=
+l; color: #666; border-bottom: 1px solid #ccc; width: 320px; padding-bottom=
+: 5px;">Select Top Performers (based on net IRR)</div><tr><td><table cellpa=
+dding=3D"0" cellspacing=3D"0" id=3D"w"><tr height=3D"20"><td><a href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253387.345909" id=3D"bs">Mesirow Private Equi=
+ty Partnership V</a><tr height=3D"20"><td><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253388.345909" id=3D"bs">Northgate Fund IV</a><tr height=3D"20">=
+<td><a href=3D"https://my.pitchbook.com/n/9759.1253389.345909" id=3D"bs">To=
+p Tier Venture Capital IV</a></table><tr><td width=3D"400"><div style=3D"bo=
+rder-bottom: solid 1px #ccc; margin: 12px 0px 0px 0px; height: 0px; font-si=
+ze: 1px; width: 100%;">&nbsp;</div></table><tr><td id=3D"k"><span id=3D"n">=
+<a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253390.345909">Benchma=
+rk, Peer Group &amp; Returns Data on 20,000 Funds</a><br><div id=3D"n">Pitc=
+hBook, setting a higher bar for performance benchmarking</div></span></tabl=
+e></table><div id=3D"bn"><a target=3D"_blank" href=3D"https://my.pitchbook.=
+com/n/9759.1253391.345909"><img width=3D"420" src=3D"https://img.pitchbook.=
+com/ads/ad517/GE.jpg" id=3D"aw" /></a></div><table width=3D"420" cellspacin=
+g=3D"0" cellpadding=3D"0" id=3D"av"><tr><td><div id=3D"au"><a name=3D"" id=
+=3D"at">Deals in Play & Announcements</a></div></table><div id=3D"v"><div i=
+d=3D"p"><a id=3D"o" name=3D"n113004"></a>Millard Joining Bay Grove's Lineag=
+e </div></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"Q=
+SRB7SA6JY6LO"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=
+=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitch=
+book.com/n/9759.1253392.345909" target=3D"_blank"><img id=3D"d" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253393.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253394.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></d=
+iv><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.12=
+53395.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbo=
+ok.com/rs/pitchbook/images/smfb.png"></a></div></table></div></div><table c=
+ellspacing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q">=
+<table cellspacing=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n">=
+<table cellpadding=3D"4" cellspacing=3D"4" align=3D"right" id=3D"as"><tr><t=
+d align=3D"center"><table align=3D"center" cellpadding=3D"0" cellspacing=3D=
+"0" width=3D"1" id=3D"ar"><tr><td><a href=3D""><img src=3D"https://img.pitc=
+hbook.com/news/8615.gif" align=3D"center" id=3D"an" width=3D"150" /></a><tr=
+><td align=3D"right" id=3D"ap"><tr><td align=3D"left" id=3D"aq"></table></t=
+able><a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253396.345909'>Ba=
+y Grove Capital</a>'s <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1=
+253397.345909'>Lineage Logistics</a> has agreed to acquire <a id=3D"g" href=
+=3D'https://my.pitchbook.com/n/9759.1253398.345909'>Millard Refrigerated Se=
+rvices</a>, a national third party warehousing and logistics company. Linea=
+ge will add 30 strategic locations through the acquisition, doubling the si=
+ze of its business and creating the second largest refrigerated warehouse n=
+etwork globally.</span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacin=
+g=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=
+=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.1253398.34=
+5909" id=3D"ai">Millard Refrigerated Services</a></div></div></div><div id=
+=3D"a"><span id=3D"j"> Logistics </span></div><div id=3D"a"><span id=3D"j">=
+ Omaha, NE </span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my.=
+pitchbook.com/n/9759.1253398.345909" id=3D"l"> Add-on </a></span></div><tab=
+le cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D=
+"z"><tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" he=
+ight=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" cellspacing=3D"=
+0"><tr valign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"cente=
+r" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pitchbook.com/r=
+s/pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17=
+" height=3D"18"><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitch=
+book.com/n/9759.1253398.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</spa=
+n>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28"><td width=
+=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investors</d=
+iv><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1=
+253396.345909" id=3D"i">Bay Grove Capital</a> (sponsor) </div></div><div id=
+=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253397.345=
+909" id=3D"i">Lineage Logistics</a> (platform) </div></div></div></table></=
+table></table><table width=3D"420" cellspacing=3D"0" cellpadding=3D"0" id=
+=3D"av"><tr><td><div id=3D"au"><a name=3D"" id=3D"at">Completed PE Deals</a=
+></div></table><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n112980"></a=
+>Riverstone Backs Rock Oil </div></div><div id=3D"s"><div id=3D"t"><input t=
+ype=3D"hidden" value=3D"KA65NTN5BWGBC"/><table cellpadding=3D"0" cellspacin=
+g=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e" h=
+ref=3D"https://my.pitchbook.com/n/9759.1253399.345909" target=3D"_blank"><i=
+mg id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smem.gi=
+f"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com=
+/n/9759.1253400.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marke=
+to.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><div id=3D"c">=
+<a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253401.345909" target=
+=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/=
+images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my=
+.pitchbook.com/n/9759.1253402.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></a></div></=
+table></div></div><table cellspacing=3D"0" cellpadding=3D"0" width=3D"395" =
+id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0' cellpadding=3D'0'><tr><t=
+d id=3D"k"><span id=3D"n"><a id=3D"g" href=3D'https://my.pitchbook.com/n/97=
+59.1253403.345909'>Riverstone Holdings</a> has made an equity commitment of=
+ up to $250 million in <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.=
+1253404.345909'>Rock Oil</a>, a newly formed oil and gas company based in D=
+enver and Houston. The lion's share of the commitment ($167 million) was fi=
+nanced by Riverstone's Global Energy and Power Fund V, which closed last ye=
+ar on $7.7 billion and has notched a 10.46% IRR as of September 30, 2013.</=
+span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td wi=
+dth=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"=
+ag"><a href=3D"https://my.pitchbook.com/n/9759.1253404.345909" id=3D"ai">Ro=
+ck Oil</a></div></div></div><div id=3D"a"><span id=3D"j"> Energy Exploratio=
+n </span></div><div id=3D"a"><span id=3D"j"> Denver, CO </span></div><div i=
+d=3D"a"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253404.3=
+45909" id=3D"l"> $250 million </a></span></div><div id=3D"a"><span id=3D"m"=
+><a href=3D"https://my.pitchbook.com/n/9759.1253404.345909" id=3D"l"> PE Gr=
+owth </a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><=
+tr><td height=3D"20" id=3D"z"><tr><td valign=3D"bottom"><table cellspacing=
+=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpa=
+dding=3D"0" cellspacing=3D"0"><tr valign=3D"middle" height=3D"28"><td valig=
+n=3D"middle" align=3D"center" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"htt=
+p://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.png?uq=3DqIf=
+G1Slq" id=3D"y" width=3D"17" height=3D"18"><td valign=3D"middle" id=3D"ab">=
+<a href=3D"https://my.pitchbook.com/n/9759.1253404.345909" id=3D"af"><span =
+id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><=
+td width=3D"28"><td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><d=
+iv id=3D"aj">Investor</div><div id=3D"f"><div id=3D"h"><a href=3D"https://m=
+y.pitchbook.com/n/9759.1253403.345909" id=3D"i">Riverstone Holdings</a></di=
+v></div></div><div id=3D"a"><div id=3D"ax">Advisors</div><div id=3D"f"><div=
+ id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253405.345909" id=3D"=
+i">DLA Piper</a> (legal) </div></div><div id=3D"f"><div id=3D"h"><a href=3D=
+"https://my.pitchbook.com/n/9759.1253406.345909" id=3D"i">Latham & Watkins<=
+/a> (legal) </div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.p=
+itchbook.com/n/9759.1253407.345909" id=3D"i">Rivington Holdings</a> (financ=
+ial) </div></div></div></table></table></table><div id=3D"al"><div id=3D"ak=
+">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113020=
+"></a>Genstar Forms Palomar Specialty Insurance </div></div><div id=3D"s"><=
+div id=3D"t"><input type=3D"hidden" value=3D"ITT4J7LUWA7C2"/><table cellpad=
+ding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253408.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253409.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></d=
+iv><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.12=
+53410.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbo=
+ok.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e=
+" href=3D"https://my.pitchbook.com/n/9759.1253411.345909" target=3D"_blank"=
+><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb=
+.png"></a></div></table></div></div><table cellspacing=3D"0" cellpadding=3D=
+"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpa=
+dding=3D"0"><tr><td id=3D"k"><span id=3D"n"><a id=3D"g" href=3D"https://my.=
+pitchbook.com/n/9759.1253412.345909">Genstar Capital</a> has partnered with=
+ insurance industry veteran <a id=3D"g" href=3D"https://my.pitchbook.com/n/=
+9759.1253413.345909">David M. Armstrong</a> to form <a id=3D"g" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253414.345909">Palomar Specialty Insurance</a=
+>. The company was funded with $75 million of equity capital from Genstar a=
+nd the management team. Palomar, which will provide commercial and resident=
+ial earthquake insurance, has received A- ratings of financial strength thu=
+s far.</span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><t=
+r><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><di=
+v id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.1253414.345909" id=
+=3D"ai">Palomar Specialty Insurance</a></div></div></div><div id=3D"a"><spa=
+n id=3D"j"> Property and Casualty Insurance </span></div><div id=3D"a"><spa=
+n id=3D"j"> La Jolla, CA </span></div><div id=3D"a"><span id=3D"m"><a href=
+=3D"https://my.pitchbook.com/n/9759.1253414.345909" id=3D"l"> $75 million <=
+/a></span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my.pitchboo=
+k.com/n/9759.1253414.345909" id=3D"l"> Platform Creation </a></span></div><=
+table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=
+=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpaddin=
+g=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr valign=3D"middle" h=
+eight=3D"28"><td valign=3D"middle" align=3D"center" width=3D"30" id=3D"aa">=
+&nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white_sm=
+all_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18" /><td valig=
+n=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759.1253414.3=
+45909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp=
+; </a></table></table><td width=3D"28">&nbsp; <td width=3D"187" valign=3D"t=
+op" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investor</div><div id=3D"f"><div=
+ id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253412.345909" id=3D"=
+i">Genstar Capital</a></div></div></div></table></table></table><div id=3D"=
+al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o=
+" name=3D"n112528"></a>SCPE Invests $57M in Copperbelt Energy </div></div><=
+div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"A4B7JIH4G4II2"/>=
+<table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </=
+div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1=
+253415.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchb=
+ook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"=
+e" href=3D"https://my.pitchbook.com/n/9759.1253416.345909" target=3D"_blank=
+"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smt=
+w.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook=
+.com/n/9759.1253417.345909" target=3D"_blank"><img id=3D"d" src=3D"http://m=
+arketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D=
+"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253418.345909" tar=
+get=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbo=
+ok/images/smfb.png"></a></div></table></div></div><table cellspacing=3D"0" =
+cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacin=
+g=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n"><table cellpaddin=
+g=3D"4" cellspacing=3D"4" align=3D"right" id=3D"as"><tr><td align=3D"center=
+"><table align=3D"center" cellpadding=3D"0" cellspacing=3D"0" width=3D"1" i=
+d=3D"ar"><tr><td><a href=3D"https://my.pitchbook.com/n/9759.1253370.345909"=
+><img src=3D"https://img.pitchbook.com/news/8623.gif" align=3D"center" id=
+=3D"an" width=3D"102" /></a><tr><td align=3D"right" id=3D"ap"><tr><td align=
+=3D"left" id=3D"aq"></table></table><a id=3D"g" href=3D'https://my.pitchboo=
+k.com/n/9759.1253419.345909'>Standard Chartered Private Equity</a>'s Africa=
+ division has invested $57 million in the controlling shareholder of <a id=
+=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253420.345909'>Copperbelt E=
+nergy</a>. The investment equates to an effective 25.8% equity stake. A pub=
+licly traded, independent power transmission and distribution company, Copp=
+erbelt Energy primarily distributes power to Zambian mines and Zambia's nat=
+ional utility.</span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=
+=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=
+=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.1253421.34=
+5909" id=3D"ai">Copperbelt Energy</a></div></div></div><div id=3D"a"><span =
+id=3D"j"> Electric Utilities </span></div><div id=3D"a"><span id=3D"j"> Lus=
+aka, Zambia </span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my=
+.pitchbook.com/n/9759.1253421.345909" id=3D"l"> $57 million </a></span></di=
+v><div id=3D"a"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1=
+253421.345909" id=3D"l"> PIPE </a></span></div><table cellspacing=3D"0" cel=
+lpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z"><tr><td valign=3D"bo=
+ttom"><table cellspacing=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bg=
+color=3D"#476990" cellpadding=3D"0" cellspacing=3D"0"><tr valign=3D"middle"=
+ height=3D"28"><td valign=3D"middle" align=3D"center" width=3D"30" id=3D"aa=
+"> &nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white=
+_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18"><td vali=
+gn=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759.1253421.=
+345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbs=
+p; </a></table></table><td width=3D"28"><td width=3D"187" valign=3D"top" id=
+=3D"ah"><div id=3D"a"><div id=3D"aj">Investor</div><div id=3D"f"><div id=3D=
+"h"><a href=3D"https://my.pitchbook.com/n/9759.1253419.345909" id=3D"i">Sta=
+ndard Chartered Private Equity</a></div></div></div></table></table></table=
+><div id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p=
+"><a id=3D"o" name=3D"n112965"></a>Taglich and Gladstone on Fire with Ligne=
+tics Deal </div></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" va=
+lue=3D"YJRTPHTFS6JDG"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><=
+div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my=
+.pitchbook.com/n/9759.1253422.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><t=
+d><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253423=
+.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.co=
+m/rs/pitchbook/images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253424.345909" target=3D"_blank"><img=
+ id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"=
+></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n=
+/9759.1253425.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo=
+.pitchbook.com/rs/pitchbook/images/smfb.png"></a></div></table></div></div>=
+<table cellspacing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td i=
+d=3D"q"><table cellspacing=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span i=
+d=3D"n"><table cellpadding=3D"4" cellspacing=3D"4" align=3D"right" id=3D"as=
+"><tr><td align=3D"center"><table align=3D"center" cellpadding=3D"0" cellsp=
+acing=3D"0" width=3D"1" id=3D"ar"><tr><td><a href=3D""><img src=3D"https://=
+img.pitchbook.com/news/8605.gif" align=3D"center" id=3D"an" width=3D"150" /=
+></a><tr><td align=3D"right" id=3D"ap"><tr><td align=3D"left" id=3D"aq"> Li=
+gnetics </table></table><a id=3D"g" href=3D'https://my.pitchbook.com/n/9759=
+.1253426.345909'>Taglich Private Equity</a> has acquired <a id=3D"g" href=
+=3D'https://my.pitchbook.com/n/9759.1253427.345909'>Lignetics</a>, a manufa=
+cturer and distributor of branded wood pellets. From its three U.S. product=
+ion facilities, Lignetics also makes and distributes firelogs and fire star=
+ters. <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253428.345909'>G=
+ladstone Investment</a> invested $7 million through a combination of debt a=
+nd equity to support the acquisition.</span><tr><td id=3D"k"><table cellpad=
+ding=3D"0" cellspacing=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w">=
+<div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.=
+com/n/9759.1253427.345909" id=3D"ai">Lignetics</a></div></div></div><div id=
+=3D"a"><span id=3D"j"> Wood/Hard Products </span></div><div id=3D"a"><span =
+id=3D"j"><span>Manufacturing</span><br></span></div><div id=3D"a"><span id=
+=3D"j"> Sandpoint, ID </span></div><div id=3D"a"><span id=3D"m"><a href=3D"=
+https://my.pitchbook.com/n/9759.1253427.345909" id=3D"l"> Buyout </a></span=
+></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=
+=3D"20" id=3D"z"><tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpad=
+ding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" ce=
+llspacing=3D"0"><tr valign=3D"middle" height=3D"28"><td valign=3D"middle" a=
+lign=3D"center" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pi=
+tchbook.com/rs/pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y=
+" width=3D"17" height=3D"18"><td valign=3D"middle" id=3D"ab"><a href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253427.345909" id=3D"af"><span id=3D"ad">VIEW=
+ DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28=
+"><td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">I=
+nvestors</div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253426.345909" id=3D"i">Taglich Private Equity</a> (lead) </div>=
+</div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/975=
+9.1253429.345909" id=3D"i">Gladstone Investment</a></div></div></div></tabl=
+e></table></table><div id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=
+=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n112978"></a>Duet Group Acquires G=
+hana-Based GNFoods and Shop N Save </div></div><div id=3D"s"><div id=3D"t">=
+<input type=3D"hidden" value=3D"LCYUDRNOMVBX4"/><table cellpadding=3D"0" ce=
+llspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=
+=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253430.345909" target=3D"_b=
+lank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images=
+/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitch=
+book.com/n/9759.1253431.345909" target=3D"_blank"><img id=3D"d" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253432.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253433.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></a></d=
+iv></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" width=3D"=
+395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpadding=3D"0"><=
+tr><td id=3D"k"><span id=3D"n">U.K. investment firm <a href=3D"https://my.p=
+itchbook.com/n/9759.1253434.345909" id=3D"g">Duet Group</a> has acquired co=
+ntrolling stakes in Ghana-based <a href=3D"https://my.pitchbook.com/n/9759.=
+1253435.345909" id=3D"g">Shop N Save</a> and <a href=3D"https://my.pitchboo=
+k.com/n/9759.1253436.345909" id=3D"g">GNFoods</a> through a $50 million inv=
+estment. Shop N Save is a supermarket joint-venture, while GNFoods makes to=
+mato paste and tomato-related products. The funds will be used to open new =
+food retail stores, expand manufacturing capacity and invest in sales and m=
+arketing capabilities.</span><tr><td id=3D"k"><table cellspacing=3D"0" cell=
+padding=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><=
+div id=3D"f"><div id=3D"ag"><a id=3D"ai" href=3D"https://my.pitchbook.com/n=
+/9759.1253436.345909">GNFoods</a></div></div></div><div id=3D"a"><span id=
+=3D"j"> Food Products </span></div><div id=3D"a"><span id=3D"j"><span>Manuf=
+acturing</span><br></span></div><div id=3D"a"><span id=3D"j"> Tema, Ghana <=
+/span></div><br><div id=3D"a"><div id=3D"f"><div id=3D"h"><a id=3D"ai" href=
+=3D"https://my.pitchbook.com/n/9759.1253435.345909">Shop N Save</a></div></=
+div></div><div id=3D"a"><span id=3D"j"> General Merchandise Stores </span><=
+/div><div id=3D"a"><span id=3D"j"> Accra, Ghana </span></div><br><div id=3D=
+"a"><span id=3D"m"><a id=3D"l" href=3D"https://my.pitchbook.com/n/9759.1253=
+436.345909"> Buyout </a></span></div><table cellspacing=3D"0" cellpadding=
+=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bot=
+tom"><table cellspacing=3D"0" cellpadding=3D"0" bgcolor=3D"#476990" height=
+=3D"30" id=3D"ac"><tr valign=3D"middle" height=3D"28"><td width=3D"30" vali=
+gn=3D"middle" align=3D"center" id=3D"aa">&nbsp;<img width=3D"17" height=3D"=
+18" id=3D"y" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white_=
+small_logo.png?uq=3DqIfG1Slq" /><td valign=3D"middle" id=3D"ab"><a id=3D"af=
+" href=3D"https://my.pitchbook.com/n/9759.1253436.345909"><span id=3D"ad">V=
+IEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D=
+"28">&nbsp; <td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div i=
+d=3D"aj">Investor</div><div id=3D"f"><div id=3D"h"><a id=3D"i" href=3D"http=
+s://my.pitchbook.com/n/9759.1253434.345909">Duet Group</a></div></div></div=
+><div id=3D"a"><div id=3D"ax">Advisors</div><div id=3D"f"><div id=3D"h"><a =
+id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253437.345909">Bentsi-Enc=
+hill, Letsa &amp; Ankomah</a> (legal)</div></div><div id=3D"f"><div id=3D"h=
+"><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253438.345909">Cliff=
+ord Chance</a> (legal)</div></div><div id=3D"f"><div id=3D"h"><a id=3D"i" h=
+ref=3D"https://my.pitchbook.com/n/9759.1253439.345909">PricewaterhouseCoope=
+rs</a> (financial)</div></div></div></table></table></table><div id=3D"al">=
+<div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" na=
+me=3D"n112983"></a>Audax Gets CURT </div></div><div id=3D"s"><div id=3D"t">=
+<input type=3D"hidden" value=3D"BF33YQUQBCGMO"/><table cellpadding=3D"0" ce=
+llspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=
+=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253440.345909" target=3D"_b=
+lank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images=
+/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitch=
+book.com/n/9759.1253441.345909" target=3D"_blank"><img id=3D"d" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253442.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253443.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></a></d=
+iv></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" width=3D"=
+395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0' cellpadding=3D'0'><=
+tr><td id=3D"k"><span id=3D"n"><table cellpadding=3D"4" cellspacing=3D"4" a=
+lign=3D"right" id=3D"as"><tr><td align=3D"center"><table align=3D"center" c=
+ellpadding=3D"0" cellspacing=3D"0" width=3D"1" id=3D"ar"><tr><td><a href=3D=
+""><img src=3D"https://img.pitchbook.com/news/8609.gif" align=3D"center" id=
+=3D"an" width=3D"150" /></a><tr><td align=3D"right" id=3D"ap"><tr><td align=
+=3D"left" id=3D"aq"></table></table><a id=3D"g" href=3D'https://my.pitchboo=
+k.com/n/9759.1253444.345909'>Audax Group</a> has announced its acquisition =
+of <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253445.345909'>CURT=
+ Manufacturing</a>, a designer and maker of towing and trailer products lik=
+e hitches, ball mounts, converters, brake controls and more. Seller <a id=
+=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253446.345909'>Pfingsten Pa=
+rtners</a> acquired CURT in December 2010. <a id=3D"g" href=3D'https://my.p=
+itchbook.com/n/9759.1253447.345909'>BMO Capital Markets</a> and <a id=3D"g"=
+ href=3D'https://my.pitchbook.com/n/9759.1253448.345909'>GE Capital</a> pro=
+vided senior debt financing for the transaction. <a id=3D"g" href=3D'https:=
+//my.pitchbook.com/n/9759.1253449.345909'>BB&T Capital Partners</a> provide=
+d junior debt.</span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=
+=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=
+=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.1253445.34=
+5909" id=3D"ai">CURT Manufacturing</a></div></div></div><div id=3D"a"><span=
+ id=3D"j"> Automotive </span></div><div id=3D"a"><span id=3D"j"><span>Manuf=
+acturing</span><br></span></div><div id=3D"a"><span id=3D"j"> Eau Claire, W=
+I </span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my.pitchbook=
+.com/n/9759.1253445.345909" id=3D"l"> Secondary Buyout </a></span></div><ta=
+ble cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=
+=3D"z"><tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0"=
+ height=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" cellspacing=
+=3D"0"><tr valign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"c=
+enter" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pitchbook.c=
+om/rs/pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=
+=3D"17" height=3D"18"><td valign=3D"middle" id=3D"ab"><a href=3D"https://my=
+.pitchbook.com/n/9759.1253445.345909" id=3D"af"><span id=3D"ad">VIEW DETAIL=
+S</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28"><td w=
+idth=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investor=
+</div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/975=
+9.1253444.345909" id=3D"i">Audax Group</a></div></div></div><div id=3D"a"><=
+div id=3D"ax">Seller</div><div id=3D"f"><div id=3D"h"><a href=3D"https://my=
+.pitchbook.com/n/9759.1253446.345909" id=3D"i">Pfingsten Partners</a></div>=
+</div></div><div id=3D"a"><div id=3D"ax">Advisors</div><div id=3D"f"><div i=
+d=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253450.345909" id=3D"i"=
+>BB&T Capital Markets</a> (financial) </div></div><div id=3D"f"><div id=3D"=
+h"><a href=3D"https://my.pitchbook.com/n/9759.1253451.345909" id=3D"i">Kirk=
+land & Ellis</a> (legal) </div></div><div id=3D"f"><div id=3D"h"><a href=3D=
+"https://my.pitchbook.com/n/9759.1253452.345909" id=3D"i">Paul Hastings</a>=
+ (legal) </div></div></div></table></table></table><div id=3D"al"><div id=
+=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n=
+112982"></a>Riverstone Gets Next Generation Up and Running </div></div><div=
+ id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"JATOX3VDQIYRC"/><ta=
+ble cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div=
+><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253=
+453.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook=
+.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" =
+href=3D"https://my.pitchbook.com/n/9759.1253454.345909" target=3D"_blank"><=
+img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.g=
+if"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.co=
+m/n/9759.1253455.345909" target=3D"_blank"><img id=3D"d" src=3D"http://mark=
+eto.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"=
+><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253456.345909" target=
+=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/=
+images/smfb.png"></a></div></table></div></div><table cellspacing=3D"0" cel=
+lpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=
+=3D"0" cellpadding=3D"0"><tr><td id=3D"k"><span id=3D"n"><a id=3D"g" href=
+=3D"https://my.pitchbook.com/n/9759.1253457.345909">Next Generation Energy =
+Logistics</a> has been formed. The company, which has agreed to work exclus=
+ively with <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253403.3459=
+09">Riverstone Holdings</a> as it pursues its strategy, will focus on the d=
+ownstream energy logistics industry, namely in businesses that distribute d=
+iesel fuel, gasoline, bio-fuels and industrial lubricants throughout North =
+America.</span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0">=
+<tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><=
+div id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.1253457.345909" id=
+=3D"ai">Next Generation Energy Logistics</a></div></div></div><div id=3D"a"=
+><span id=3D"j"> Energy Transportation </span></div><div id=3D"a"><span id=
+=3D"j"><span>Infrastructure</span><br></span></div><div id=3D"a"><span id=
+=3D"j"> New York, NY </span></div><div id=3D"a"><span id=3D"m"><a href=3D"h=
+ttps://my.pitchbook.com/n/9759.1253457.345909" id=3D"l"> Platform Creation =
+</a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><t=
+d height=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspacin=
+g=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr v=
+align=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center" width=
+=3D"30" id=3D"aa">&nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbo=
+ok/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=
+=3D"18" /><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253457.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbs=
+p;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28">&nbsp; <td width=
+=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investor</di=
+v><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.12=
+53403.345909" id=3D"i">Riverstone Holdings</a></div></div></div></table></t=
+able></table><table width=3D"420" cellspacing=3D"0" cellpadding=3D"0" id=3D=
+"av"><tr><td><div id=3D"au"><a name=3D"" id=3D"at">Completed VC Financings<=
+/a></div></table><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113016"><=
+/a>Eventbrite Receives $60M in Funding, $1B Valuation </div></div><div id=
+=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"INXTPQXLAFEA4"/><table=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><t=
+d><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253458=
+.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.co=
+m/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253459.345909" target=3D"_blank"><img=
+ id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"=
+></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n=
+/9759.1253460.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo=
+.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a=
+ id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253461.345909" target=3D=
+"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/ima=
+ges/smfb.png"></a></div></table></div></div><table cellspacing=3D"0" cellpa=
+dding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0=
+' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n"><table cellpadding=3D"4=
+" cellspacing=3D"4" align=3D"right" id=3D"as"><tr><td align=3D"center"><tab=
+le align=3D"center" cellpadding=3D"0" cellspacing=3D"0" width=3D"1" id=3D"a=
+r"><tr><td><a href=3D"https://my.pitchbook.com/n/9759.1253462.345909"><img =
+src=3D"https://img.pitchbook.com/news/8616.gif" align=3D"center" id=3D"an" =
+width=3D"180" /></a><tr><td align=3D"right" id=3D"ap"><tr><td align=3D"left=
+" id=3D"aq"></table></table>Online ticketing platform <a id=3D"g" href=3D'h=
+ttps://my.pitchbook.com/n/9759.1253463.345909'>Eventbrite</a> has reportedl=
+y raised another $60 million in funding, this time at the magical $1 billio=
+n valuation. The company raised the same amount of capital in a Series F ro=
+und in April 2013, garnering a $650 million valuation at the time. The new =
+funds come from <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253464=
+.345909'>Tiger Global Management</a> and <a id=3D"g" href=3D'https://my.pit=
+chbook.com/n/9759.1253465.345909'>T. Rowe Price</a>, both of which invested=
+ in the Series F round and supposedly initiated the new deal with an offer =
+that Eventbrite couldn't pass up.<br><br> Many thought that Eventbrite was =
+on a sure track to an IPO, and while that is still very much the case, the =
+massive new round will likely postpone any plans to go public. Since its la=
+st massive infusion, the company has been accelerating international growth=
+, event discovery and product development, as well as expanding its team. O=
+ther Eventbrite investors include <a id=3D"g" href=3D'https://my.pitchbook.=
+com/n/9759.1253466.345909'>Sequoia Capital</a>, <a id=3D"g" href=3D'https:/=
+/my.pitchbook.com/n/9759.1253467.345909'>Tenaya Capital</a>, <a id=3D"g" hr=
+ef=3D'https://my.pitchbook.com/n/9759.1253468.345909'>DAG Ventures</a> and =
+<a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253469.345909'>SoftTec=
+h VC</a>, among others.</span><tr><td id=3D"k"><table cellpadding=3D"0" cel=
+lspacing=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a">=
+<div id=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.125=
+3463.345909" id=3D"ai">Eventbrite</a></div></div></div><div id=3D"a"><span =
+id=3D"j"> Internet Retail </span></div><div id=3D"a"><span id=3D"j"><span>M=
+obile</span><br><span>SaaS</span><br></span></div><div id=3D"a"><span id=3D=
+"j"> San Francisco, CA </span></div><div id=3D"a"><span id=3D"m"><a href=3D=
+"https://my.pitchbook.com/n/9759.1253463.345909" id=3D"l"> $60 million </a>=
+</span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253463.345909" id=3D"l"> Late Stage VC </a></span></div><table c=
+ellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z">=
+<tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" height=
+=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" cellspacing=3D"0"><=
+tr valign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center" w=
+idth=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pi=
+tchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" he=
+ight=3D"18"><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook=
+.com/n/9759.1253463.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&n=
+bsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28"><td width=3D"18=
+7" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investors</div><di=
+v id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253465=
+.345909" id=3D"i">T. Rowe Price</a></div></div><div id=3D"f"><div id=3D"h">=
+<a href=3D"https://my.pitchbook.com/n/9759.1253464.345909" id=3D"i">Tiger G=
+lobal Management</a></div></div></div></table></table></table><div id=3D"al=
+"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" =
+name=3D"n113008"></a>MuleSoft Scores $50M Round </div></div><div id=3D"s"><=
+div id=3D"t"><input type=3D"hidden" value=3D"CDCWQZGNVGDXW"/><table cellpad=
+ding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253470.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253471.345909" target=3D"_blank"><img id=3D"d=
+" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></d=
+iv><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.12=
+53472.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbo=
+ok.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e=
+" href=3D"https://my.pitchbook.com/n/9759.1253473.345909" target=3D"_blank"=
+><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb=
+.png"></a></div></table></div></div><table cellspacing=3D"0" cellpadding=3D=
+"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0' cellpa=
+dding=3D'0'><tr><td id=3D"k"><span id=3D"n"><table cellpadding=3D"4" cellsp=
+acing=3D"4" align=3D"right" id=3D"as"><tr><td align=3D"center"><table align=
+=3D"center" cellpadding=3D"0" cellspacing=3D"0" width=3D"1" id=3D"ar"><tr><=
+td><a href=3D"https://my.pitchbook.com/n/9759.1253474.345909"><img src=3D"h=
+ttps://img.pitchbook.com/news/8612.gif" align=3D"center" id=3D"an" width=3D=
+"180" /></a><tr><td align=3D"right" id=3D"ap"><tr><td align=3D"left" id=3D"=
+aq"></table></table><a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.125=
+3475.345909'>New Enterprise Associates</a>, <a id=3D"g" href=3D'https://my.=
+pitchbook.com/n/9759.1253476.345909'>Lightspeed Venture Partners</a> and <a=
+ id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253477.345909'>Meritech =
+Capital Partners</a> have led a $50 million financing round for <a id=3D"g"=
+ href=3D'https://my.pitchbook.com/n/9759.1253478.345909'>MuleSoft</a>, the =
+San Francisco-based provider of an integration platform for connecting SaaS=
+ and enterprise applications. Also participating in the round was new inves=
+tor <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253479.345909'>Cis=
+co</a>, as well as returning backers <a id=3D"g" href=3D'https://my.pitchbo=
+ok.com/n/9759.1253480.345909'>salesforce.com</a>, <a id=3D"g" href=3D'https=
+://my.pitchbook.com/n/9759.1253481.345909'>SAP Ventures</a>, <a id=3D"g" hr=
+ef=3D'https://my.pitchbook.com/n/9759.1253482.345909'>Hummer Winblad Ventur=
+e Partners</a>, <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253483=
+.345909'>Morgenthaler Ventures</a> and <a id=3D"g" href=3D'https://my.pitch=
+book.com/n/9759.1253484.345909'>Bay Partners</a>. With a total of about $13=
+1 million in to-date funding, MuleSoft will use the new capital to accelera=
+te its global growth.<br><br>MuleSoft's platform is designed to unify busin=
+ess processes across applications, data sources and APIs, giving organizati=
+ons the freedom to connect what they want, when they want, whether on-premi=
+ses or in the cloud. 150,000 developers use MuleSoft's platform at thousand=
+s of companies from industries including healthcare, financial services, in=
+surance, retail, government, media and more. The new investment gives the c=
+ompany a reported $800 million valuation, more than double what it was wort=
+h after a 2013 $37 million Series E round ($348 million).</span><tr><td id=
+=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"187" val=
+ign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"=
+https://my.pitchbook.com/n/9759.1253478.345909" id=3D"ai">MuleSoft</a></div=
+></div></div><div id=3D"a"><span id=3D"j"> Systems and Information Manageme=
+nt </span></div><div id=3D"a"><span id=3D"j"><span>SaaS</span><br></span></=
+div><div id=3D"a"><span id=3D"j"> San Francisco, CA </span></div><div id=3D=
+"a"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253478.34590=
+9" id=3D"l"> $50 million </a></span></div><div id=3D"a"><span id=3D"m"><a h=
+ref=3D"https://my.pitchbook.com/n/9759.1253478.345909" id=3D"l"> Late Stage=
+ VC </a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><t=
+r><td height=3D"20" id=3D"z"><tr><td valign=3D"bottom"><table cellspacing=
+=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpa=
+dding=3D"0" cellspacing=3D"0"><tr valign=3D"middle" height=3D"28"><td valig=
+n=3D"middle" align=3D"center" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"htt=
+p://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.png?uq=3DqIf=
+G1Slq" id=3D"y" width=3D"17" height=3D"18"><td valign=3D"middle" id=3D"ab">=
+<a href=3D"https://my.pitchbook.com/n/9759.1253478.345909" id=3D"af"><span =
+id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><=
+td width=3D"28"><td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><d=
+iv id=3D"aj">Investors</div><div id=3D"f"><div id=3D"h"><a href=3D"https://=
+my.pitchbook.com/n/9759.1253476.345909" id=3D"i">Lightspeed Venture Partner=
+s</a> (lead) </div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.=
+pitchbook.com/n/9759.1253477.345909" id=3D"i">Meritech Capital Partners</a>=
+ (lead) </div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitch=
+book.com/n/9759.1253475.345909" id=3D"i">New Enterprise Associates</a> (lea=
+d) </div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.=
+com/n/9759.1253484.345909" id=3D"i">Bay Partners</a></div></div><div id=3D"=
+f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253479.345909"=
+ id=3D"i">Cisco</a></div></div><div id=3D"f"><div id=3D"h"><a href=3D"https=
+://my.pitchbook.com/n/9759.1253482.345909" id=3D"i">Hummer Winblad Venture =
+Partners</a></div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.p=
+itchbook.com/n/9759.1253485.345909" id=3D"i">Morgenthaler Ventures</a></div=
+></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/97=
+59.1253481.345909" id=3D"i">SAP Ventures</a></div></div><div id=3D"f"><div =
+id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253480.345909" id=3D"i=
+">salesforce.com</a></div></div></div></table></table></table><div id=3D"al=
+"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" =
+name=3D"n113031"></a>Balderton Capital Leads $16M Series B for Banjo </div>=
+</div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"RIW6ZPZQE=
+SFJC"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SH=
+ARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n=
+/9759.1253486.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo=
+.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"><a=
+ id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253487.345909" target=3D=
+"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/ima=
+ges/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pi=
+tchbook.com/n/9759.1253488.345909" target=3D"_blank"><img id=3D"d" src=3D"h=
+ttp://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><td><di=
+v id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253489.3459=
+09" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/=
+pitchbook/images/smfb.png"></a></div></table></div></div><table cellspacing=
+=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cel=
+lspacing=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n"><table cel=
+lpadding=3D"4" cellspacing=3D"4" align=3D"right" id=3D"as"><tr><td align=3D=
+"center"><table align=3D"center" cellpadding=3D"0" cellspacing=3D"0" width=
+=3D"1" id=3D"ar"><tr><td><a href=3D"https://my.pitchbook.com/n/9759.1253490=
+.345909"><img src=3D"https://img.pitchbook.com/news/8622.gif" align=3D"cent=
+er" id=3D"an" width=3D"180" /></a><tr><td align=3D"right" id=3D"ap"><tr><td=
+ align=3D"left" id=3D"aq"></table></table><a id=3D"g" href=3D'https://my.pi=
+tchbook.com/n/9759.1253491.345909'>Banjo</a>, a highly visual app and Websi=
+te that allows users to experience breaking news and live events in real ti=
+me through the eyes of the people who are there, has completed a $16 millio=
+n Series B financing round led by <a id=3D"g" href=3D'https://my.pitchbook.=
+com/n/9759.1253492.345909'>Balderton Capital</a>, with participation from <=
+a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253493.345909'>BlueRun =
+Ventures</a> and <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.125349=
+4.345909'>Vegas Tech Fund</a>. The infusion brings Banjo's total to-date fu=
+nding to $21 million and will be used to accelerate growth plans by recruit=
+ing talent, expanding the company's global user base and enhancing its ente=
+rprise platform for media partnerships. The company also just launched a ne=
+w feature called Banjo Rewind that allows users to search past events and g=
+o back to specific moments in time, providing a full historical view into w=
+hat happened anytime, anywhere around the world. Banjo previously raised a =
+$5 million Series A round led by BlueRun Ventures.</span><tr><td id=3D"k"><=
+table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"187" valign=3D"t=
+op" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"https://=
+my.pitchbook.com/n/9759.1253491.345909" id=3D"ai">Banjo</a></div></div></di=
+v><div id=3D"a"><span id=3D"j"> Information Services </span></div><div id=
+=3D"a"><span id=3D"j"><span>Mobile</span><br></span></div><div id=3D"a"><sp=
+an id=3D"j"> Redwood City, CA </span></div><div id=3D"a"><span id=3D"m"><a =
+href=3D"https://my.pitchbook.com/n/9759.1253491.345909" id=3D"l"> $16 milli=
+on </a></span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my.pitc=
+hbook.com/n/9759.1253491.345909" id=3D"l"> Series B </a></span></div><table=
+ cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z=
+"><tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" heig=
+ht=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" cellspacing=3D"0"=
+><tr valign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center"=
+ width=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pitchbook.com/rs/=
+pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" =
+height=3D"18"><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbo=
+ok.com/n/9759.1253491.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>=
+&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28"><td width=3D"=
+187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investors</div><=
+div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.12534=
+92.345909" id=3D"i">Balderton Capital</a> (lead) </div></div><div id=3D"f">=
+<div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253493.345909" id=
+=3D"i">BlueRun Ventures</a></div></div><div id=3D"f"><div id=3D"h"><a href=
+=3D"https://my.pitchbook.com/n/9759.1253494.345909" id=3D"i">Vegas Tech Fun=
+d</a></div></div></div></table></table></table><div id=3D"al"><div id=3D"ak=
+">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n112992=
+"></a>Rover.com Fetches $12M Series C </div></div><div id=3D"s"><div id=3D"=
+t"><input type=3D"hidden" value=3D"SOJXRGUXTI446"/><table cellpadding=3D"0"=
+ cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a=
+ id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253495.345909" target=3D=
+"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/ima=
+ges/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pi=
+tchbook.com/n/9759.1253496.345909" target=3D"_blank"><img id=3D"d" src=3D"h=
+ttp://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><td><di=
+v id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253497.3459=
+09" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/=
+pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"=
+https://my.pitchbook.com/n/9759.1253498.345909" target=3D"_blank"><img id=
+=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"></=
+a></div></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" widt=
+h=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpadding=3D=
+"0"><tr><td id=3D"k"><span id=3D"n"><table cellpadding=3D"4" cellspacing=3D=
+"4" align=3D"right" id=3D"as"><tr><td align=3D"center"><table align=3D"cent=
+er" cellpadding=3D"0" cellspacing=3D"0" width=3D"1" id=3D"ar"><tr><td><a hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253499.345909"><img src=3D"https://i=
+mg.pitchbook.com/news/8619.gif" align=3D"center" id=3D"an" width=3D"180" />=
+</a><tr><td align=3D"right" id=3D"ap">&nbsp; <tr><td align=3D"left" id=3D"a=
+q">&nbsp; </table></table><a id=3D"g" href=3D"https://my.pitchbook.com/n/97=
+59.1253500.345909">Rover.com</a>, an online community that connects dog own=
+ers with approved and reviewed in-home dog sitters, has raised $12 million =
+in Series C funding led by <a id=3D"g" href=3D"https://my.pitchbook.com/n/9=
+759.1253501.345909">Menlo Ventures</a> and joined by existing investors <a =
+id=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253502.345909">Madrona Ve=
+nture Group</a>, <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.125350=
+3.345909">Foundry Group</a> and <a id=3D"g" href=3D"https://my.pitchbook.co=
+m/n/9759.1253504.345909">Petco</a>. Menlo's <a id=3D"g" href=3D"https://my.=
+pitchbook.com/n/9759.1253505.345909">Sunil Raman</a> and <a id=3D"g" href=
+=3D"https://my.pitchbook.com/n/9759.1253506.345909">Venky Ganesan</a> will =
+join the company's Board of Directors as part of the transaction.<br><br> R=
+over, which provides an online pet services community that has over 25,000 =
+sitters in the U.S. serving every major city, also offers pet insurance, ve=
+t consultations, photo sharing and more. Rover last raised $10.5 million of=
+ Series B funding at a $29 million valuation in July 2013 and now has a tot=
+al of about $25 million of VC backing. The company will use this investment=
+ to grow its employee headcount and expand its product offering.</span><tr>=
+<td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"18=
+7" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253500.345909" id=3D"ai">Rover.com</=
+a></div></div></div><div id=3D"a"><span id=3D"j"> Social/Platform Software =
+</span></div><div id=3D"a"><span id=3D"j"><span>SaaS</span><br></span></div=
+><div id=3D"a"><span id=3D"j"> Seattle, WA </span></div><div id=3D"a"><span=
+ id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253500.345909" id=3D"=
+l"> $12 million </a></span></div><div id=3D"a"><span id=3D"m"><a href=3D"ht=
+tps://my.pitchbook.com/n/9759.1253500.345909" id=3D"l"> Series C </a></span=
+></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=
+=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspacing=3D"0" =
+cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr valign=3D=
+"middle" height=3D"28"><td valign=3D"middle" align=3D"center" width=3D"30" =
+id=3D"aa">&nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbook/image=
+s/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18" /=
+><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759=
+.1253500.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&=
+nbsp;&nbsp; </a></table></table><td width=3D"28">&nbsp; <td width=3D"187" v=
+align=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investors</div><div id=
+=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253501.345=
+909" id=3D"i">Menlo Ventures</a> (lead)</div></div><div id=3D"f"><div id=3D=
+"h"><a href=3D"https://my.pitchbook.com/n/9759.1253503.345909" id=3D"i">Fou=
+ndry Group</a></div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my=
+.pitchbook.com/n/9759.1253502.345909" id=3D"i">Madrona Venture Group</a></d=
+iv></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/=
+9759.1253504.345909" id=3D"i">Petco</a></div></div></div></table></table></=
+table><div id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=
+=3D"p"><a id=3D"o" name=3D"n113024"></a>SAGE Therapeutics Seals $38M Series=
+ C Financing </div></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden"=
+ value=3D"45YWBDB63HSRQ"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><t=
+d><div id=3D"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253507.345909" target=3D"_blank"><img id=3D"d" sr=
+c=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><=
+td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.125350=
+8.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.c=
+om/rs/pitchbook/images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253509.345909" target=3D"_blank"><im=
+g id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif=
+"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/=
+n/9759.1253510.345909" target=3D"_blank"><img id=3D"d" src=3D"http://market=
+o.pitchbook.com/rs/pitchbook/images/smfb.png"></a></div></table></div></div=
+><table cellspacing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td =
+id=3D"q"><table cellspacing=3D"0" cellpadding=3D"0"><tr><td id=3D"k"><span =
+id=3D"n"><a href=3D"https://my.pitchbook.com/n/9759.1253511.345909" id=3D"g=
+">SAGE Therapeutics</a> is a biopharmaceutical company developing medicines=
+ to treat specialty, critical and orphan central nervous system disorders.<=
+/span><tr><td id=3D"k"><table cellspacing=3D"0" cellpadding=3D"0"><tr><td w=
+idth=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D=
+"ag"><a id=3D"ai" href=3D"https://my.pitchbook.com/n/9759.1253511.345909">S=
+AGE Therapeutics</a></div></div></div><div id=3D"a"><span id=3D"j"> Biotech=
+nology </span></div><div id=3D"a"><span id=3D"j"><span>Life Sciences</span>=
+<br></span></div><div id=3D"a"><span id=3D"j"> Cambridge, MA </span></div><=
+div id=3D"a"><span id=3D"m"><a id=3D"l" href=3D"https://my.pitchbook.com/n/=
+9759.1253511.345909"> $38 million </a></span></div><div id=3D"a"><span id=
+=3D"m"><a id=3D"l" href=3D"https://my.pitchbook.com/n/9759.1253511.345909">=
+ Series C </a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D=
+"x"><tr><td height=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bottom"><table =
+cellspacing=3D"0" cellpadding=3D"0" bgcolor=3D"#476990" height=3D"30" id=3D=
+"ac"><tr valign=3D"middle" height=3D"28"><td width=3D"30" valign=3D"middle"=
+ align=3D"center" id=3D"aa">&nbsp;<img width=3D"17" height=3D"18" id=3D"y" =
+src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.pn=
+g?uq=3DqIfG1Slq" /><td valign=3D"middle" id=3D"ab"><a id=3D"af" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253511.345909"><span id=3D"ad">VIEW DETAILS</=
+span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28">&nbsp; <=
+td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Inve=
+stors</div><div id=3D"f"><div id=3D"h"><a id=3D"i" href=3D"https://my.pitch=
+book.com/n/9759.1253512.345909">ARCH Venture Partners</a></div></div><div i=
+d=3D"f"><div id=3D"h"><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1=
+253513.345909">EcoR1 Capital Management</a></div></div><div id=3D"f"><div i=
+d=3D"h"><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253514.345909"=
+>Foresite Capital Management</a></div></div><div id=3D"f"><div id=3D"h"><a =
+id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253515.345909">OrbiMed Ad=
+visors</a></div></div><div id=3D"f"><div id=3D"h"><a id=3D"i" href=3D"https=
+://my.pitchbook.com/n/9759.1253516.345909">Third Rock Ventures</a></div></d=
+iv></div></table></table></table><div id=3D"al"><div id=3D"ak">&nbsp;</div>=
+</div><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113028"></a>Economic=
+ Data Tracking Platform Premise Snares $11M </div></div><div id=3D"s"><div =
+id=3D"t"><input type=3D"hidden" value=3D"QBG2YRWPOAWFE"/><table cellpadding=
+=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D=
+"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253517.345909" tar=
+get=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbo=
+ok/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253518.345909" target=3D"_blank"><img id=3D"d" sr=
+c=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><=
+td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.125351=
+9.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.c=
+om/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253520.345909" target=3D"_blank"><im=
+g id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png=
+"></a></div></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" =
+width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpaddin=
+g=3D"0"><tr><td id=3D"k"><span id=3D"n"><a href=3D"https://my.pitchbook.com=
+/n/9759.1253521.345909" id=3D"g">Premise</a> provides software and mobile i=
+nfrastructure that collects millions of discrete data points every day from=
+ thousands of local sources, enabling clients to understand and navigate vo=
+latility in global inflation, industry competitive dynamics and food securi=
+ty.</span><tr><td id=3D"k"><table cellspacing=3D"0" cellpadding=3D"0"><tr><=
+td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div i=
+d=3D"ag"><a id=3D"ai" href=3D"https://my.pitchbook.com/n/9759.1253521.34590=
+9">Premise</a></div></div></div><div id=3D"a"><span id=3D"j"> Database Soft=
+ware </span></div><div id=3D"a"><span id=3D"j"><span>SaaS</span><br></span>=
+</div><div id=3D"a"><span id=3D"j"> San Francisco, CA </span></div><div id=
+=3D"a"><span id=3D"m"><a id=3D"l" href=3D"https://my.pitchbook.com/n/9759.1=
+253521.345909"> $11 million </a></span></div><div id=3D"a"><span id=3D"m"><=
+a id=3D"l" href=3D"https://my.pitchbook.com/n/9759.1253521.345909"> Series =
+B </a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr>=
+<td height=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspac=
+ing=3D"0" cellpadding=3D"0" bgcolor=3D"#476990" height=3D"30" id=3D"ac"><tr=
+ valign=3D"middle" height=3D"28"><td width=3D"30" valign=3D"middle" align=
+=3D"center" id=3D"aa">&nbsp;<img width=3D"17" height=3D"18" id=3D"y" src=3D=
+"http://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.png?uq=
+=3DqIfG1Slq" /><td valign=3D"middle" id=3D"ab"><a id=3D"af" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253521.345909"><span id=3D"ad">VIEW DETAILS</span=
+>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28">&nbsp; <td w=
+idth=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investor=
+s</div><div id=3D"f"><div id=3D"h"><a id=3D"i" href=3D"https://my.pitchbook=
+.com/n/9759.1253522.345909">Social+Capital Partnership</a> (lead)</div></di=
+v><div id=3D"f"><div id=3D"h"><a id=3D"i" href=3D"https://my.pitchbook.com/=
+n/9759.1253523.345909">Bowery Capital</a></div></div><div id=3D"f"><div id=
+=3D"h"><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253524.345909">=
+Google Ventures</a></div></div><div id=3D"f"><div id=3D"h"><a id=3D"i" href=
+=3D"https://my.pitchbook.com/n/9759.1253525.345909">Harrison Metal</a></div=
+></div></div></table></table></table><div id=3D"al"><div id=3D"ak">&nbsp;</=
+div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113027"></a>Ed-T=
+ech Startup Smart Sparrow Raises $10M in Funding </div></div><div id=3D"s">=
+<div id=3D"t"><input type=3D"hidden" value=3D"FASML52BWW2V4"/><table cellpa=
+dding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div =
+id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253526.345909=
+" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pi=
+tchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"ht=
+tps://my.pitchbook.com/n/9759.1253527.345909" target=3D"_blank"><img id=3D"=
+d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></=
+div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1=
+253528.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchb=
+ook.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"=
+e" href=3D"https://my.pitchbook.com/n/9759.1253529.345909" target=3D"_blank=
+"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smf=
+b.png"></a></div></table></div></div><table cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cel=
+lpadding=3D"0"><tr><td id=3D"k"><span id=3D"n"><a href=3D"https://my.pitchb=
+ook.com/n/9759.1253530.345909" id=3D"g">Smart Sparrow</a> provides educator=
+s with an adaptive e-learning platform that allows them to create and tailo=
+r their own interactive learning experiences.</span><tr><td id=3D"k"><table=
+ cellspacing=3D"0" cellpadding=3D"0"><tr><td width=3D"187" valign=3D"top" i=
+d=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a id=3D"ai" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253530.345909">Smart Sparrow</a></div></div><=
+/div><div id=3D"a"><span id=3D"j"> Educational Software </span></div><div i=
+d=3D"a"><span id=3D"j"><span>SaaS</span><br></span></div><div id=3D"a"><spa=
+n id=3D"j"> Sydney, Australia </span></div><div id=3D"a"><span id=3D"m"><a =
+id=3D"l" href=3D"https://my.pitchbook.com/n/9759.1253530.345909"> $10 milli=
+on </a></span></div><div id=3D"a"><span id=3D"m"><a id=3D"l" href=3D"https:=
+//my.pitchbook.com/n/9759.1253530.345909"> Early Stage VC </a></span></div>=
+<table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" i=
+d=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpaddi=
+ng=3D"0" bgcolor=3D"#476990" height=3D"30" id=3D"ac"><tr valign=3D"middle" =
+height=3D"28"><td width=3D"30" valign=3D"middle" align=3D"center" id=3D"aa"=
+>&nbsp;<img width=3D"17" height=3D"18" id=3D"y" src=3D"http://marketo.pitch=
+book.com/rs/pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" /><td vali=
+gn=3D"middle" id=3D"ab"><a id=3D"af" href=3D"https://my.pitchbook.com/n/975=
+9.1253530.345909"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbs=
+p; </a></table></table><td width=3D"28">&nbsp; <td width=3D"187" valign=3D"=
+top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investors</div><div id=3D"f"><d=
+iv id=3D"h"><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253531.345=
+909">Yellow Brick Capital</a> (lead)</div></div><div id=3D"f"><div id=3D"h"=
+><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253532.345909">OneVen=
+tures</a></div></div><div id=3D"f"><div id=3D"h"><a id=3D"i" href=3D"https:=
+//my.pitchbook.com/n/9759.1253533.345909">Uniseed</a></div></div></div></ta=
+ble></table></table><div id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=
+=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113029"></a>Money Transfer Servic=
+e Azimo Pockets $10M in Series A Funds </div></div><div id=3D"s"><div id=3D=
+"t"><input type=3D"hidden" value=3D"SFTI7USS5SYWE"/><table cellpadding=3D"0=
+" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D"c"><=
+a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253534.345909" target=
+=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/=
+images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my=
+.pitchbook.com/n/9759.1253535.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><t=
+d><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253536=
+.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.co=
+m/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253537.345909" target=3D"_blank"><img=
+ id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png"=
+></a></div></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" w=
+idth=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpadding=
+=3D"0"><tr><td id=3D"k"><span id=3D"n"><a id=3D"g" href=3D"https://my.pitch=
+book.com/n/9759.1253538.345909">Azimo</a> is an Internet-based money transf=
+er business that enables users to send money to banks, payout locations and=
+ mobile phones in over 190 countries worldwide.</span><tr><td id=3D"k"><tab=
+le cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"187" valign=3D"top"=
+ id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"https://my.=
+pitchbook.com/n/9759.1253538.345909" id=3D"ai">Azimo</a></div></div></div><=
+div id=3D"a"><span id=3D"j"> Financial Services </span></div><div id=3D"a">=
+<span id=3D"j"><span>FinTech</span><br><span>SaaS</span><br></span></div><d=
+iv id=3D"a"><span id=3D"j"> London, United Kingdom </span></div><div id=3D"=
+a"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253538.345909=
+" id=3D"l"> $10 million </a></span></div><div id=3D"a"><span id=3D"m"><a hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253538.345909" id=3D"l"> Series A </=
+a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td =
+height=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspacing=
+=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr va=
+lign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center" width=
+=3D"30" id=3D"aa">&nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbo=
+ok/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=
+=3D"18" /><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253538.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbs=
+p;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28">&nbsp; <td width=
+=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Investors</d=
+iv><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1=
+253539.345909" id=3D"i">Greycroft Partners</a> (lead)</div></div><div id=3D=
+"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253540.345909=
+" id=3D"i">Frontier Investments Group</a></div></div><div id=3D"f"><div id=
+=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253541.345909" id=3D"i">=
+KRW Schindler Investments</a></div></div><div id=3D"f"><div id=3D"h"><a hre=
+f=3D"https://my.pitchbook.com/n/9759.1253542.345909" id=3D"i">RI Digital Ve=
+ntures</a></div></div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pit=
+chbook.com/n/9759.1253543.345909" id=3D"i">TA Ventures</a></div></div><div =
+id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253544.3=
+45909" id=3D"i">e.ventures</a></div></div></div></table></table></table><di=
+v id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a=
+ id=3D"o" name=3D"n113009"></a>Acorns Grow Harvests $5.5M in Series B Funds=
+ </div></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"EB=
+VPSGEU3B2LQ"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D=
+"r"> SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchboo=
+k.com/n/9759.1253545.345909" target=3D"_blank"><img id=3D"d" src=3D"http://=
+marketo.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=
+=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253546.345909" =
+target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitc=
+hbook/images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"http=
+s://my.pitchbook.com/n/9759.1253547.345909" target=3D"_blank"><img id=3D"d"=
+ src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></di=
+v><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.125=
+3548.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchboo=
+k.com/rs/pitchbook/images/smfb.png"></a></div></table></div></div><table ce=
+llspacing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><=
+table cellspacing=3D"0" cellpadding=3D"0"><tr><td id=3D"k"><span id=3D"n"><=
+a href=3D"https://my.pitchbook.com/n/9759.1253549.345909" id=3D"g">Acorns G=
+row</a> provides a micro-investing platform that allows people to harvest, =
+save and invest small amounts of money on the fly by automatically &quot;ro=
+unding up&quot; purchases and investing that money into a commission-free d=
+iversified portfolio.</span><tr><td id=3D"k"><table cellspacing=3D"0" cellp=
+adding=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"><d=
+iv id=3D"f"><div id=3D"ag"><a id=3D"ai" href=3D"https://my.pitchbook.com/n/=
+9759.1253549.345909">Acorns Grow</a></div></div></div><div id=3D"a"><span i=
+d=3D"j"> Financial Software </span></div><div id=3D"a"><span id=3D"j"><span=
+>Mobile</span><br><span>FinTech</span><br></span></div><div id=3D"a"><span =
+id=3D"j"> Newport Beach, CA </span></div><div id=3D"a"><span id=3D"m"><a id=
+=3D"l" href=3D"https://my.pitchbook.com/n/9759.1253549.345909"> $5.5 millio=
+n </a></span></div><div id=3D"a"><span id=3D"m"><a id=3D"l" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253549.345909"> Series B </a></span></div><table =
+cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z"=
+>&nbsp; <tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0=
+" bgcolor=3D"#476990" height=3D"30" id=3D"ac"><tr valign=3D"middle" height=
+=3D"28"><td width=3D"30" valign=3D"middle" align=3D"center" id=3D"aa">&nbsp=
+;<img width=3D"17" height=3D"18" id=3D"y" src=3D"http://marketo.pitchbook.c=
+om/rs/pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" /><td valign=3D"=
+middle" id=3D"ab"><a id=3D"af" href=3D"https://my.pitchbook.com/n/9759.1253=
+549.345909"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a=
+></table></table><td width=3D"28">&nbsp; <td width=3D"187" valign=3D"top" i=
+d=3D"ah"><div id=3D"a"><div id=3D"aj">Lead Investor</div><div id=3D"f"><div=
+ id=3D"h"><a id=3D"i" href=3D"https://my.pitchbook.com/n/9759.1253550.34590=
+9">Jacobs Asset Management</a></div></div></div></table></table></table><di=
+v id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a=
+ id=3D"o" name=3D"n112981"></a>Mobile Email App Tipbit Gets $4M </div></div=
+><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"2GZVRJGAJOSVY"=
+/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: =
+</div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759=
+.1253551.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitc=
+hbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=
+=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253552.345909" target=3D"_b=
+lank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images=
+/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitch=
+book.com/n/9759.1253553.345909" target=3D"_blank"><img id=3D"d" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><td><div i=
+d=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253554.345909"=
+ target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pit=
+chbook/images/smfb.png"></a></div></table></div></div><table cellspacing=3D=
+"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellsp=
+acing=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n"><a id=3D"g" h=
+ref=3D'https://my.pitchbook.com/n/9759.1253555.345909'>Tipbit</a> brings em=
+ail, social and search together so users can complete tasks on their smartp=
+hone rather than wait until they are back at their office desk.</span><tr><=
+td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"187=
+" valign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a hre=
+f=3D"https://my.pitchbook.com/n/9759.1253555.345909" id=3D"ai">Tipbit</a></=
+div></div></div><div id=3D"a"><span id=3D"j"> Business/Productivity Softwar=
+e </span></div><div id=3D"a"><span id=3D"j"> Bellevue, WA </span></div><div=
+ id=3D"a"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253555=
+.345909" id=3D"l"> $4 million </a></span></div><div id=3D"a"><span id=3D"m"=
+><a href=3D"https://my.pitchbook.com/n/9759.1253555.345909" id=3D"l"> Serie=
+s A </a></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><t=
+r><td height=3D"20" id=3D"z"><tr><td valign=3D"bottom"><table cellspacing=
+=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpa=
+dding=3D"0" cellspacing=3D"0"><tr valign=3D"middle" height=3D"28"><td valig=
+n=3D"middle" align=3D"center" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"htt=
+p://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.png?uq=3DqIf=
+G1Slq" id=3D"y" width=3D"17" height=3D"18"><td valign=3D"middle" id=3D"ab">=
+<a href=3D"https://my.pitchbook.com/n/9759.1253555.345909" id=3D"af"><span =
+id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><=
+td width=3D"28"><td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><d=
+iv id=3D"aj">Lead Investor</div><div id=3D"f"><div id=3D"h"><a href=3D"http=
+s://my.pitchbook.com/n/9759.1253556.345909" id=3D"i">Ignition Partners</a><=
+/div></div></div></table></table></table><table width=3D"420" cellspacing=
+=3D"0" cellpadding=3D"0" id=3D"av"><tr><td><div id=3D"au"><a name=3D"" id=
+=3D"at">Exit & Liquidity News</a></div></table><div id=3D"v"><div id=3D"p">=
+<a id=3D"o" name=3D"n112966"></a>Poundland Shares Rise in Public Debut </di=
+v></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"HHAN3KC=
+GDKE5C"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> =
+SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com=
+/n/9759.1253557.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marke=
+to.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c">=
+<a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253558.345909" target=
+=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/=
+images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my=
+.pitchbook.com/n/9759.1253559.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><t=
+d><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253560=
+.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.co=
+m/rs/pitchbook/images/smfb.png"></a></div></table></div></div><table cellsp=
+acing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><tabl=
+e cellspacing=3D'0' cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n"><tabl=
+e cellpadding=3D"4" cellspacing=3D"4" align=3D"right" id=3D"as"><tr><td ali=
+gn=3D"center"><table align=3D"center" cellpadding=3D"0" cellspacing=3D"0" w=
+idth=3D"1" id=3D"ar"><tr><td><a href=3D""><img src=3D"https://img.pitchbook=
+.com/news/8607.jpg" align=3D"center" id=3D"an" width=3D"150" /></a><tr><td =
+align=3D"right" id=3D"ap"><tr><td align=3D"left" id=3D"aq"></table></table>=
+British discount retailer <a id=3D"g" href=3D'https://my.pitchbook.com/n/97=
+59.1253561.345909'>Poundland</a> priced its IPO at =C2=A33 ($5.01) per shar=
+e and went public, offering 125 million shares on the London Stock Exchange=
+ under the symbol PLND. Based on the offer price, Poundland's market capita=
+lization was =C2=A3750 million ($1.25 billion). Shares closed at =C2=A33.88=
+ ($6.48) on their first day of trading on Thursday. <br><br>Poundland share=
+holder <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253562.345909'>=
+Warburg Pincus</a>, which reduced its stake in the offering to 37.9%, is sa=
+id to have made about 4.5x on its investment. The company, which operates a=
+ network of over 500 general merchandise, single-price stores in the U.K. a=
+nd Ireland, was acquired for =C2=A3200 million ($334 million) in 2010 by Wa=
+rburg Pincus from <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.12535=
+63.345909'>Advent International</a>.</span><tr><td id=3D"k"><table cellpadd=
+ing=3D"0" cellspacing=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><=
+div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253561.345909" id=3D"ai">Poundland</a></div></div></div><div id=
+=3D"a"><span id=3D"j"> General Merchandise Stores </span></div><div id=3D"a=
+"><span id=3D"j"> Willenhall, United Kingdom </span></div><div id=3D"a"><sp=
+an id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253561.345909" id=
+=3D"l"> =C2=A3375 million </a></span></div><div id=3D"a"><span id=3D"m"><a =
+href=3D"https://my.pitchbook.com/n/9759.1253561.345909" id=3D"l"> IPO </a><=
+/span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td hei=
+ght=3D"20" id=3D"z"><tr><td valign=3D"bottom"><table cellspacing=3D"0" cell=
+padding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0"=
+ cellspacing=3D"0"><tr valign=3D"middle" height=3D"28"><td valign=3D"middle=
+" align=3D"center" width=3D"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo=
+.pitchbook.com/rs/pitchbook/images/white_small_logo.png?uq=3DqIfG1Slq" id=
+=3D"y" width=3D"17" height=3D"18"><td valign=3D"middle" id=3D"ab"><a href=
+=3D"https://my.pitchbook.com/n/9759.1253561.345909" id=3D"af"><span id=3D"a=
+d">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table><td widt=
+h=3D"28"><td width=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=
+=3D"aj">Selling Shareholder</div><div id=3D"f"><div id=3D"h"><a href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253562.345909" id=3D"i">Warburg Pincus</a></d=
+iv></div></div><div id=3D"a"><div id=3D"ax">Joint Book-Runners</div><div id=
+=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253379.345=
+909" id=3D"i">Credit Suisse</a></div></div><div id=3D"f"><div id=3D"h"><a h=
+ref=3D"https://my.pitchbook.com/n/9759.1253564.345909" id=3D"i">J.P. Morgan=
+</a></div></div></div></table></table></table><div id=3D"al"><div id=3D"ak"=
+>&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=3D"o" name=3D"n113025"=
+></a>Applied Genetic Technologies Issues IPO Details </div></div><div id=3D=
+"s"><div id=3D"t"><input type=3D"hidden" value=3D"D3WDXAVL65VVM"/><table ce=
+llpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><=
+div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253565.34=
+5909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/r=
+s/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=
+=3D"https://my.pitchbook.com/n/9759.1253566.345909" target=3D"_blank"><img =
+id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif">=
+</a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/=
+9759.1253567.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.=
+pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a =
+id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253568.345909" target=3D"=
+_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/imag=
+es/smfb.png"></a></div></table></div></div><table cellspacing=3D"0" cellpad=
+ding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D'0'=
+ cellpadding=3D'0'><tr><td id=3D"k"><span id=3D"n"><table cellpadding=3D"4"=
+ cellspacing=3D"4" align=3D"right" id=3D"as"><tr><td align=3D"center"><tabl=
+e align=3D"center" cellpadding=3D"0" cellspacing=3D"0" width=3D"1" id=3D"ar=
+"><tr><td><a href=3D""><img src=3D"https://img.pitchbook.com/news/8620.gif"=
+ align=3D"center" id=3D"an" width=3D"150" /></a><tr><td align=3D"right" id=
+=3D"ap"><tr><td align=3D"left" id=3D"aq"></table></table><a id=3D"g" href=
+=3D'https://my.pitchbook.com/n/9759.1253569.345909'>Applied Genetic Technol=
+ogies</a> anticipates pricing its upcoming IPO for between $13 and $15 per =
+share. The company employs a proprietary gene therapy platform to develop p=
+roducts targeting rare eye diseases. It has raised several rounds of financ=
+ing since 2007 from the likes of <a id=3D"g" href=3D'https://my.pitchbook.c=
+om/n/9759.1253570.345909'>Alta Partners</a> (30.7% pre-IPO stake), <a id=3D=
+"g" href=3D'https://my.pitchbook.com/n/9759.1253571.345909'>S.R. One</a> (2=
+0.4%), <a id=3D"g" href=3D'https://my.pitchbook.com/n/9759.1253572.345909'>=
+InterWest Partners</a> (15.1%), <a id=3D"g" href=3D'https://my.pitchbook.co=
+m/n/9759.1253573.345909'>MedImmune Ventures</a> (15.1%) and <a id=3D"g" hre=
+f=3D'https://my.pitchbook.com/n/9759.1253574.345909'>InterSouth Partners</a=
+> (12.5%), among others.</span><tr><td id=3D"k"><table cellpadding=3D"0" ce=
+llspacing=3D"0"><tr><td width=3D"187" valign=3D"top" id=3D"w"><div id=3D"a"=
+><div id=3D"f"><div id=3D"ag"><a href=3D"https://my.pitchbook.com/n/9759.12=
+53569.345909" id=3D"ai">Applied Genetic Technologies</a></div></div></div><=
+div id=3D"a"><span id=3D"j"> Drug Discovery </span></div><div id=3D"a"><spa=
+n id=3D"j"> Alachua, FL </span></div><div id=3D"a"><span id=3D"m"><a href=
+=3D"https://my.pitchbook.com/n/9759.1253569.345909" id=3D"l"> $50 million <=
+/a></span></div><div id=3D"a"><span id=3D"m"><a href=3D"https://my.pitchboo=
+k.com/n/9759.1253569.345909" id=3D"l"> IPO </a></span></div><table cellspac=
+ing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z"><tr><td=
+ valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" height=3D"30"=
+ id=3D"ac" bgcolor=3D"#476990" cellpadding=3D"0" cellspacing=3D"0"><tr vali=
+gn=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center" width=3D=
+"30" id=3D"aa"> &nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbook=
+/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D=
+"18"><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/=
+9759.1253569.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nb=
+sp;&nbsp;&nbsp; </a></table></table><td width=3D"28"><td width=3D"187" vali=
+gn=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Book-Running Managers</di=
+v><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.12=
+53575.345909" id=3D"i">Wedbush Securities</a></div></div><div id=3D"f"><div=
+ id=3D"h"><a href=3D"https://my.pitchbook.com/n/9759.1253447.345909" id=3D"=
+i">BMO Capital Markets</a></div></div></div></table></table></table><div id=
+=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div id=3D"p"><a id=
+=3D"o" name=3D"n113032"></a>Dipexium Goes Public </div></div><div id=3D"s">=
+<div id=3D"t"><input type=3D"hidden" value=3D"KQZJP4GNGGVSS"/><table cellpa=
+dding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div =
+id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253576.345909=
+" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pi=
+tchbook/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"ht=
+tps://my.pitchbook.com/n/9759.1253577.345909" target=3D"_blank"><img id=3D"=
+d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></=
+div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1=
+253578.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchb=
+ook.com/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"=
+e" href=3D"https://my.pitchbook.com/n/9759.1253579.345909" target=3D"_blank=
+"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smf=
+b.png"></a></div></table></div></div><table cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cel=
+lpadding=3D"0"><tr><td id=3D"k"><span id=3D"n">Angel-backed, late-stage pha=
+rmaceutical company <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.125=
+3580.345909">Dipexium Pharmaceuticals</a> has gone public. The company pric=
+ed its IPO at $12 per share, the low end of its expected range, and now tra=
+des on the NASDAQ under the symbol DPRX. Dipexium's main product is Locilex=
+, a topical antibiotic chemically synthesized from the skin of the African =
+Clawed Frog that targets mild infections of diabetic foot ulcers. The compa=
+ny has raised several rounds of funding from angel investors totaling $6.9 =
+million. Shares closed at $14.04 on their debut, up 17%.</span><tr><td id=
+=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"187" val=
+ign=3D"top" id=3D"w"><div id=3D"a"><div id=3D"f"><div id=3D"ag"><a href=3D"=
+https://my.pitchbook.com/n/9759.1253580.345909" id=3D"ai">Dipexium Pharmace=
+uticals</a></div></div></div><div id=3D"a"><span id=3D"j"> Drug Delivery </=
+span></div><div id=3D"a"><span id=3D"j"> New York, NY </span></div><div id=
+=3D"a"><span id=3D"m"><a href=3D"https://my.pitchbook.com/n/9759.1253580.34=
+5909" id=3D"l"> $33 million </a></span></div><div id=3D"a"><span id=3D"m"><=
+a href=3D"https://my.pitchbook.com/n/9759.1253580.345909" id=3D"l"> IPO </a=
+></span></div><table cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td h=
+eight=3D"20" id=3D"z">&nbsp; <tr><td valign=3D"bottom"><table cellspacing=
+=3D"0" cellpadding=3D"0" height=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr va=
+lign=3D"middle" height=3D"28"><td valign=3D"middle" align=3D"center" width=
+=3D"30" id=3D"aa">&nbsp;<img src=3D"http://marketo.pitchbook.com/rs/pitchbo=
+ok/images/white_small_logo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=
+=3D"18" /><td valign=3D"middle" id=3D"ab"><a href=3D"https://my.pitchbook.c=
+om/n/9759.1253580.345909" id=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbs=
+p;&nbsp;&nbsp;&nbsp; </a></table></table><td width=3D"28">&nbsp; <td width=
+=3D"187" valign=3D"top" id=3D"ah"><div id=3D"a"><div id=3D"aj">Sole Book-Ru=
+nning Manager</div><div id=3D"f"><div id=3D"h"><a href=3D"https://my.pitchb=
+ook.com/n/9759.1253581.345909" id=3D"i">Oppenheimer and Co.</a></div></div>=
+</div></table></table></table><table width=3D"420" cellspacing=3D"0" cellpa=
+dding=3D"0" id=3D"av"><tr><td><div id=3D"au"><a name=3D"" id=3D"at">Service=
+ Provider News</a></div></table><div id=3D"v"><div id=3D"p"><a id=3D"o" nam=
+e=3D"n113036"></a>Lincoln Advises on Hartland Controls Recapitalization </d=
+iv></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"56CEVG=
+52PC5AI"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r">=
+ SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.co=
+m/n/9759.1253582.345909" target=3D"_blank"><img id=3D"d" src=3D"http://mark=
+eto.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c"=
+><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253583.345909" target=
+=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/=
+images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://my=
+.pitchbook.com/n/9759.1253584.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><t=
+d><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253585=
+.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.co=
+m/rs/pitchbook/images/smfb.png"></a></div></table></div></div><table cellsp=
+acing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><tabl=
+e cellspacing=3D"0" cellpadding=3D"0"><tr><td id=3D"k"><span id=3D"n"><a id=
+=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253586.345909">Lincoln Inte=
+rnational</a> has announced it served as <a id=3D"g" href=3D"https://my.pit=
+chbook.com/n/9759.1253587.345909">Hartland Controls</a>' exclusive financia=
+l advisor on its recent recapitalization by <a id=3D"g" href=3D"https://my.=
+pitchbook.com/n/9759.1253588.345909">Incline Equity Partners</a>. Illinois-=
+based Hartland manufactures definite purpose contactors for the U.S. HVAC m=
+arket, as well as a variety of other industrial end markets.</span><tr><td =
+id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"402" i=
+d=3D"w"><div id=3D"ao"><div id=3D"f"><div id=3D"ag"><a href=3D"https://my.p=
+itchbook.com/n/9759.1253586.345909" id=3D"cc">Lincoln International</a></di=
+v></div></div><div id=3D"ao"><span id=3D"j"> Investment Bank </span></div><=
+div id=3D"ao"><span id=3D"j"> Chicago, IL </span></div><table cellspacing=
+=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z">&nbsp; <tr=
+><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" height=3D=
+"30" id=3D"ac" bgcolor=3D"#476990"><tr valign=3D"middle" height=3D"28"><td =
+valign=3D"middle" align=3D"center" width=3D"30" id=3D"aa">&nbsp;<img src=3D=
+"http://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.png?uq=
+=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18" /><td valign=3D"middle" id=
+=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759.1253586.345909" id=3D"af=
+"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table><=
+tr><td colspan=3D"3" height=3D"5" id=3D"by">&nbsp; <tr><td id=3D"bx"><a hre=
+f=3D"https://my.pitchbook.com/n/9759.1253589.345909" id=3D"bv" target=3D"_b=
+lank"><span id=3D"cf"> &nbsp;VIEW <span>375</span> SERVICED FIRMS&nbsp;&raq=
+uo; </span></a></table></table></table></table><table width=3D"420" cellspa=
+cing=3D"0" cellpadding=3D"0" id=3D"av"><tr><td><div id=3D"au"><a name=3D"" =
+id=3D"at">Management News</a></div></table><div id=3D"v"><div id=3D"p"><a i=
+d=3D"o" name=3D"n113015"></a>Tatum Adds Two </div></div><div id=3D"s"><div =
+id=3D"t"><input type=3D"hidden" value=3D"FPAVJ2SB6NM2S"/><table cellpadding=
+=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"> SHARE: </div><td><div id=3D=
+"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253590.345909" tar=
+get=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbo=
+ok/images/smem.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253591.345909" target=3D"_blank"><img id=3D"d" sr=
+c=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smtw.gif"></a></div><=
+td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.125359=
+2.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.c=
+om/rs/pitchbook/images/smin.gif"></a></div><td><div id=3D"c"><a id=3D"e" hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253593.345909" target=3D"_blank"><im=
+g id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smfb.png=
+"></a></div></table></div></div><table cellspacing=3D"0" cellpadding=3D"0" =
+width=3D"395" id=3D"u"><tr><td id=3D"q"><table cellspacing=3D"0" cellpaddin=
+g=3D"0"><tr><td id=3D"k"><span id=3D"n">Management and advisory firm <a id=
+=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253594.345909">Tatum</a> ha=
+s appointed <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253595.345=
+909">Pat Donka</a> and <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.=
+1253596.345909">Ken Myer</a> as engagement partners. Both will support mark=
+et growth and business development efforts out of the firm's Seattle office=
+, with Mr. Donka focusing on financial and operations advisory services and=
+ Mr. Myer advising on information technology matters for clients.</span><tr=
+><td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"0"><tr><td width=3D"4=
+02" id=3D"w"><div id=3D"ao"><img id=3D"br" src=3D"http://marketo.pitchbook.=
+com/rs/pitchbook/images/cnt.png?uq=3DqIfG1Slq" align=3D"bottom" />&nbsp; <a=
+ href=3D"https://my.pitchbook.com/n/9759.1253596.345909" id=3D"bp">Ken Myer=
+</a><span id=3D"bq">,</span> Engagement Partner <br><img id=3D"br" src=3D"h=
+ttp://marketo.pitchbook.com/rs/pitchbook/images/cnt.png?uq=3DqIfG1Slq" alig=
+n=3D"bottom" />&nbsp; <a href=3D"https://my.pitchbook.com/n/9759.1253595.34=
+5909" id=3D"bp">Pat Donka</a><span id=3D"bq">,</span> Engagement Partner</d=
+iv><div id=3D"ao">&nbsp;</div><div id=3D"ao"><div id=3D"f"><div id=3D"h"><a=
+ href=3D"https://my.pitchbook.com/n/9759.1253594.345909" id=3D"ch">Tatum</a=
+></div></div></div><div id=3D"ao"><span id=3D"j"> Management Consultants </=
+span></div><div id=3D"ao"><span id=3D"j"> New York, NY </span></div><table =
+cellspacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z"=
+>&nbsp; <tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0=
+" height=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr valign=3D"middle" height=
+=3D"28"><td valign=3D"middle" align=3D"center" width=3D"30" id=3D"aa">&nbsp=
+;<img src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white_small_l=
+ogo.png?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18" /><td valign=3D"=
+middle" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759.1253597.345909=
+" style=3D"text-decoration: none; margin-left: 5px;"><span id=3D"ad">VIEW D=
+ETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></table></table></table></table><=
+/table><div id=3D"al"><div id=3D"ak">&nbsp;</div></div><div id=3D"v"><div i=
+d=3D"p"><a id=3D"o" name=3D"n113007"></a>Fresh Face on Linden Care Board </=
+div></div><div id=3D"s"><div id=3D"t"><input type=3D"hidden" value=3D"6PXZT=
+6ZKBDJPA"/><table cellpadding=3D"0" cellspacing=3D"0"><tr><td><div id=3D"r"=
+> SHARE: </div><td><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.c=
+om/n/9759.1253598.345909" target=3D"_blank"><img id=3D"d" src=3D"http://mar=
+keto.pitchbook.com/rs/pitchbook/images/smem.gif"></a></div><td><div id=3D"c=
+"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253599.345909" targe=
+t=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.com/rs/pitchbook=
+/images/smtw.gif"></a></div><td><div id=3D"c"><a id=3D"e" href=3D"https://m=
+y.pitchbook.com/n/9759.1253600.345909" target=3D"_blank"><img id=3D"d" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/smin.gif"></a></div><t=
+d><div id=3D"c"><a id=3D"e" href=3D"https://my.pitchbook.com/n/9759.1253601=
+.345909" target=3D"_blank"><img id=3D"d" src=3D"http://marketo.pitchbook.co=
+m/rs/pitchbook/images/smfb.png"></a></div></table></div></div><table cellsp=
+acing=3D"0" cellpadding=3D"0" width=3D"395" id=3D"u"><tr><td id=3D"q"><tabl=
+e cellspacing=3D"0" cellpadding=3D"0"><tr><td id=3D"k"><span id=3D"n"><a id=
+=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253602.345909">Linden Care<=
+/a>, a provider of specialty pharmacy services to the pain management indus=
+try, has added <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.1253603.=
+345909">Robert Stutman</a> to its Board of Directors. Mr. Stutman served as=
+ a special agent with the DEA for 25 years, most recently heading the New Y=
+ork Field Division. <a id=3D"g" href=3D"https://my.pitchbook.com/n/9759.125=
+3604.345909">BelHealth Investment Partners</a> has backed Linden Care since=
+ July 2013.</span><tr><td id=3D"k"><table cellpadding=3D"0" cellspacing=3D"=
+0"><tr><td width=3D"402" id=3D"w"><div id=3D"ao"><img id=3D"br" src=3D"http=
+://marketo.pitchbook.com/rs/pitchbook/images/cnt.png?uq=3DqIfG1Slq" align=
+=3D"bottom" />&nbsp; <a href=3D"https://my.pitchbook.com/n/9759.1253603.345=
+909" id=3D"bp">Robert Stutman</a><span id=3D"bq">,</span> Board Member</div=
+><div id=3D"ao">&nbsp;</div><div id=3D"ao"><div id=3D"f"><div id=3D"h"><a h=
+ref=3D"https://my.pitchbook.com/n/9759.1253602.345909" id=3D"ch">Linden Car=
+e</a></div></div></div><div id=3D"ao"><span id=3D"j"> Pharmaceuticals </spa=
+n></div><div id=3D"ao"><span id=3D"j"> Syosset, NY </span></div><table cell=
+spacing=3D"0" cellpadding=3D"0" id=3D"x"><tr><td height=3D"20" id=3D"z">&nb=
+sp; <tr><td valign=3D"bottom"><table cellspacing=3D"0" cellpadding=3D"0" he=
+ight=3D"30" id=3D"ac" bgcolor=3D"#476990"><tr valign=3D"middle" height=3D"2=
+8"><td valign=3D"middle" align=3D"center" width=3D"30" id=3D"aa">&nbsp;<img=
+ src=3D"http://marketo.pitchbook.com/rs/pitchbook/images/white_small_logo.p=
+ng?uq=3DqIfG1Slq" id=3D"y" width=3D"17" height=3D"18" /><td valign=3D"middl=
+e" id=3D"ab"><a href=3D"https://my.pitchbook.com/n/9759.1253603.345909" id=
+=3D"af"><span id=3D"ad">VIEW DETAILS</span>&nbsp;&nbsp;&nbsp;&nbsp; </a></t=
+able></table></table></table></table></table><td width=3D"30"><td width=3D"=
+190" style=3D"text-align: left; vertical-align: top;"><div style=3D"margin-=
+left: 6px;"><div id=3D"ay"> <div id=3D"uce"><table cellpadding=3D"0" cellsp=
+acing=3D"0" width=3D"182" style=3D"min-width: 100%; border-collapse: collap=
+se;"><tr><td><table cellpadding=3D"0" cellspacing=3D"0" width=3D"180"><tr><=
+td><table cellpadding=3D"0" cellspacing=3D"0" style=3D"font: 13px Arial; co=
+lor: #333333; text-align: left;"><tr><td> The best tool for <b>private<br>m=
+arket professionals</b> to: <tr><td height=3D"5"></table><div><table cellsp=
+acing=3D"0" cellpadding=3D"0" width=3D"195" style=3D"-webkit-text-size-adju=
+st: none;"><tr><td height=3D"36"><table bgcolor=3D"#496990" cellspacing=3D"=
+0" cellpadding=3D"0" width=3D"100%"><tr><td width=3D"13" id=3D"ucc">&nbsp;&=
+nbsp;&nbsp; <td colspan=3D"3" height=3D"35" valign=3D"middle" align=3D"left=
+" style=3D" background: #496990; width: 195px; height: 35px; overflow: hidd=
+en;"><a href=3D"https://my.pitchbook.com/n/9759.1253773.345909" id=3D"ucb">=
+Source Deals</a><tr><td colspan=3D"4" height=3D"1" id=3D"uca"></table><tr><=
+td height=3D"36"><table bgcolor=3D"#496990" cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"100%"><tr><td width=3D"13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <t=
+d colspan=3D"3" height=3D"35" valign=3D"middle" align=3D"left" style=3D" ba=
+ckground: #496990; width: 195px; height: 35px; overflow: hidden;"><a href=
+=3D"https://my.pitchbook.com/n/9759.1253775.345909" id=3D"ucb">Run Private =
+Comps</a><tr><td colspan=3D"4" height=3D"1" id=3D"uca"></table><tr><td heig=
+ht=3D"36"><table bgcolor=3D"#496990" cellspacing=3D"0" cellpadding=3D"0" wi=
+dth=3D"100%"><tr><td width=3D"13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=
+=3D"3" height=3D"35" valign=3D"middle" align=3D"left" style=3D" background:=
+ #496990; width: 195px; height: 35px; overflow: hidden;"><a href=3D"https:/=
+/my.pitchbook.com/n/9759.1253784.345909" id=3D"ucb">Pull Public Financials<=
+/a><tr><td colspan=3D"4" height=3D"1" id=3D"uca"></table><tr><td height=3D"=
+36"><table bgcolor=3D"#496990" cellspacing=3D"0" cellpadding=3D"0" width=3D=
+"100%"><tr><td width=3D"13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=3D"3"=
+ height=3D"35" valign=3D"middle" align=3D"left" style=3D" background: #4969=
+90; width: 195px; height: 35px; overflow: hidden;"><a href=3D"https://my.pi=
+tchbook.com/n/9759.1253772.345909" id=3D"ucb">Benchmark IRRs/Funds</a><tr><=
+td colspan=3D"4" height=3D"1" id=3D"uca"></table><tr><td height=3D"36"><tab=
+le bgcolor=3D"#496990" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%"><=
+tr><td width=3D"13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=3D"3" height=
+=3D"35" valign=3D"middle" align=3D"left" style=3D" background: #496990; wid=
+th: 195px; height: 35px; overflow: hidden;"><a href=3D"https://my.pitchbook=
+.com/n/9759.1253776.345909" id=3D"ucb">Target LPs/Fundraising</a><tr><td co=
+lspan=3D"4" height=3D"1" id=3D"uca"></table><tr><td height=3D"36"><table bg=
+color=3D"#496990" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%"><tr><t=
+d width=3D"13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=3D"3" height=3D"35=
+" valign=3D"middle" align=3D"left" style=3D" background: #496990; width: 19=
+5px; height: 35px; overflow: hidden;"><a href=3D"https://my.pitchbook.com/n=
+/9759.1253780.345909" id=3D"ucb">Competitive Intelligence</a><tr><td colspa=
+n=3D"4" height=3D"1" id=3D"uca"></table><tr><td height=3D"36"><table bgcolo=
+r=3D"#496990" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%"><tr><td wi=
+dth=3D"13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=3D"3" height=3D"35" va=
+lign=3D"middle" align=3D"left" style=3D" background: #496990; width: 195px;=
+ height: 35px; overflow: hidden;"><a href=3D"https://my.pitchbook.com/n/975=
+9.1253789.345909" id=3D"ucb">Most Active Investors</a><tr><td colspan=3D"4"=
+ height=3D"1" id=3D"uca"></table><tr><td height=3D"36"><table bgcolor=3D"#4=
+96990" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%"><tr><td width=3D"=
+13" id=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=3D"3" height=3D"35" valign=3D=
+"middle" align=3D"left" style=3D" background: #496990; width: 195px; height=
+: 35px; overflow: hidden;"><a href=3D"https://my.pitchbook.com/n/9759.12537=
+86.345909" id=3D"ucb">Analyze Market Trends</a><tr><td colspan=3D"4" height=
+=3D"1" id=3D"uca"></table><tr><td height=3D"36"><table bgcolor=3D"#496990" =
+cellspacing=3D"0" cellpadding=3D"0" width=3D"100%"><tr><td width=3D"13" id=
+=3D"ucc">&nbsp;&nbsp;&nbsp; <td colspan=3D"3" height=3D"35" valign=3D"middl=
+e" align=3D"left" style=3D" background: #496990; width: 195px; height: 35px=
+; overflow: hidden;"><a href=3D"https://my.pitchbook.com/n/9759.1253793.345=
+909" id=3D"ucb">Find Strategic Buyers</a><tr><td colspan=3D"4" height=3D"1"=
+ id=3D"uca"></table><tr><td height=3D"36"><table bgcolor=3D"#496990" cellsp=
+acing=3D"0" cellpadding=3D"0" width=3D"100%"><tr><td width=3D"19" id=3D"ucd=
+">&nbsp; <td align=3D"right" width=3D"18" id=3D"ucd"><a href=3D"" style=3D"=
+font: 0/0 Arial; text-decoration: none; text-transform: uppercase;" target=
+=3D"_blank"><img width=3D"18" height=3D"13" style=3D"border: none;" src=3D"=
+http://pitchbook.com/images/video_walkthroughs.png"></a><td width=3D"10" id=
+=3D"ucd"><td width=3D"148" height=3D"35" valign=3D"middle" align=3D"left" s=
+tyle=3D" background: #496990; width: 195px; height: 35px; overflow: hidden;=
+"><a href=3D"http://pitchbook.com/Video_Walkthrough_Library.html" style=3D"=
+color: white; font-size: 11px; line-height: 35px; font-family: Arial; text-=
+decoration: none; white-space: nowrap; text-transform: uppercase;" target=
+=3D"_blank">VIDEO WALKTHROUGHS</a><tr><td colspan=3D"4" height=3D"1" id=3D"=
+uca"></table><tr><td height=3D"36"><table bgcolor=3D"#484848" cellspacing=
+=3D"0" cellpadding=3D"0" width=3D"100%"><tr><td width=3D"13" style=3D"backg=
+round-color: #484848;"><td colspan=3D"3" height=3D"35" valign=3D"middle" al=
+ign=3D"left" style=3D" background: #484848; width: 195px; height: 35px; ove=
+rflow: hidden;"><a href=3D"http://my.pitchbook.com" style=3D"color: white; =
+white-space: nowrap; font-size: 11px; line-height: 11px; font-family: Arial=
+; text-decoration: none; text-transform: uppercase;"> LOG-IN TO PITCHBOOK <=
+/a></table><tr style=3D"background-color: white; border-color: white;"><td =
+colspan=3D"4" height=3D"15" id=3D"uca"></table></div></table><div><div styl=
+e=3D"background-color: white;"><div style=3D"border: solid 5px white; font:=
+ 12px Tahoma, Arial;"><div style=3D"ccolor: #333; font-weight: bold; font-s=
+ize: 13px; font-family: Tahoma, Arial; border-bottom: solid 4px white;">Wan=
+t to learn more?</div><div style=3D"font: 13px/17px Tahoma, Arial; color: #=
+333; border-bottom: solid 4px white;"> Contact our team of private market s=
+pecialists.<br>Tel: 1-877-267-5593<br><a style=3D"text-decoration: underlin=
+e; color: #5279B2; font-size: 13px; line-height: 17px; font-family: Tahoma,=
+ Arial;" href=3D"mailto:demo@pitchbook.com">demo@pitchbook.com</a></div></d=
+iv></div></div></table></div> </div><div id=3D"ay"><a target=3D"_blank" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253615.345909"><img width=3D"180" src=
+=3D"https://img.pitchbook.com/ads/ad300/Madison_tombstone_ad_jan2-2014.jpg"=
+ id=3D"aw" /></a></div><div id=3D"ay"><a target=3D"_blank" href=3D"https://=
+my.pitchbook.com/n/9759.1253616.345909"><img width=3D"180" src=3D"https://i=
+mg.pitchbook.com/ads/ad497/Salus_revised11-12(2).jpg" id=3D"aw" /></a></div=
+><div id=3D"ay"><a target=3D"_blank" href=3D"https://my.pitchbook.com/n/975=
+9.1253617.345909"><img width=3D"180" src=3D"https://img.pitchbook.com/ads/a=
+d514/RRD.gif" id=3D"aw" /></a></div><div id=3D"ay"><a target=3D"_blank" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253618.345909"><img width=3D"180" src=
+=3D"https://img.pitchbook.com/ads/ad521/CitrixShareFile.jpg" id=3D"aw" /></=
+a></div><div id=3D"ay"><table cellpadding=3D"0" cellspacing=3D"0" width=3D"=
+195" align=3D"right" style=3D"margin-bottom: 10px;"><tr><td height=3D"5" id=
+=3D"bw"><tr><td height=3D"10"><tr><td align=3D"left"><div style=3D"font: bo=
+ld 13px Tahoma, Arial; text-align: left; color: #333; margin-top: 3px;"> Wh=
+o's in the News? </div><tr><td id=3D"bk"><div><div id=3D"bg"><div id=3D"be"=
+> Companies </div></div><div id=3D"bi"><a id=3D"b" href=3D"https://my.pitch=
+book.com/n/9759.1253549.345909">Acorns Grow</a><br><a id=3D"b" href=3D"http=
+s://my.pitchbook.com/n/9759.1253569.345909">Applied Genetic Technologies</a=
+><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253538.345909">Az=
+imo</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253491.3459=
+09">Banjo</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.125344=
+5.345909">CURT Manufacturing</a><br><a id=3D"b" href=3D"https://my.pitchboo=
+k.com/n/9759.1253420.345909">Copperbelt Energy</a><br><a id=3D"b" href=3D"h=
+ttps://my.pitchbook.com/n/9759.1253421.345909">Copperbelt Energy</a><br><a =
+id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253580.345909">Dipexium P=
+harmaceuticals</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1=
+253463.345909">Eventbrite</a><br><a id=3D"b" href=3D"https://my.pitchbook.c=
+om/n/9759.1253436.345909">GNFoods</a><br><a id=3D"b" href=3D"https://my.pit=
+chbook.com/n/9759.1253587.345909">Hartland Controls</a><br><a id=3D"b" href=
+=3D"https://my.pitchbook.com/n/9759.1253427.345909">Lignetics</a><br><a id=
+=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253602.345909">Linden Care<=
+/a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253398.345909">=
+Millard Refrigerated Services</a><br><a id=3D"b" href=3D"https://my.pitchbo=
+ok.com/n/9759.1253478.345909">MuleSoft</a><br><a id=3D"b" href=3D"https://m=
+y.pitchbook.com/n/9759.1253457.345909">Next Generation Energy Logistics</a>=
+<br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253414.345909">Pal=
+omar Specialty Insurance</a><br><a id=3D"b" href=3D"https://my.pitchbook.co=
+m/n/9759.1253561.345909">Poundland</a><br><a id=3D"b" href=3D"https://my.pi=
+tchbook.com/n/9759.1253521.345909">Premise</a><br><a id=3D"b" href=3D"https=
+://my.pitchbook.com/n/9759.1253372.345909">Renaissance Learning</a><br><a i=
+d=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253404.345909">Rock Oil</a=
+><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253500.345909">Ro=
+ver.com</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253511.=
+345909">SAGE Therapeutics</a><br><a id=3D"b" href=3D"https://my.pitchbook.c=
+om/n/9759.1253435.345909">Shop N Save</a><br><a id=3D"b" href=3D"https://my=
+.pitchbook.com/n/9759.1253530.345909">Smart Sparrow</a><br><a id=3D"b" href=
+=3D"https://my.pitchbook.com/n/9759.1253555.345909">Tipbit</a><br></div><di=
+v id=3D"bg"><div id=3D"be"> Investors </div></div><div id=3D"bi"><a id=3D"b=
+" href=3D"https://my.pitchbook.com/n/9759.1253512.345909">ARCH Venture Part=
+ners</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253563.345=
+909">Advent International</a><br><a id=3D"b" href=3D"https://my.pitchbook.c=
+om/n/9759.1253570.345909">Alta Partners</a><br><a id=3D"b" href=3D"https://=
+my.pitchbook.com/n/9759.1253444.345909">Audax Group</a><br><a id=3D"b" href=
+=3D"https://my.pitchbook.com/n/9759.1253492.345909">Balderton Capital</a><b=
+r><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253396.345909">Bay G=
+rove Capital</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.125=
+3484.345909">Bay Partners</a><br><a id=3D"b" href=3D"https://my.pitchbook.c=
+om/n/9759.1253604.345909">BelHealth Investment Partners</a><br><a id=3D"b" =
+href=3D"https://my.pitchbook.com/n/9759.1253493.345909">BlueRun Ventures</a=
+><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253523.345909">Bo=
+wery Capital</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.125=
+3479.345909">Cisco</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/97=
+59.1253468.345909">DAG Ventures</a><br><a id=3D"b" href=3D"https://my.pitch=
+book.com/n/9759.1253434.345909">Duet Group</a><br><a id=3D"b" href=3D"https=
+://my.pitchbook.com/n/9759.1253513.345909">EcoR1 Capital Management</a><br>=
+<a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253514.345909">Foresit=
+e Capital Management</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/=
+9759.1253503.345909">Foundry Group</a><br><a id=3D"b" href=3D"https://my.pi=
+tchbook.com/n/9759.1253540.345909">Frontier Investments Group</a><br><a id=
+=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253412.345909">Genstar Capi=
+tal</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253429.3459=
+09">Gladstone Investment</a><br><a id=3D"b" href=3D"https://my.pitchbook.co=
+m/n/9759.1253359.345909">Golden Gate Capital</a><br><a id=3D"b" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253374.345909">Google Capital</a><br><a id=3D=
+"b" href=3D"https://my.pitchbook.com/n/9759.1253524.345909">Google Ventures=
+</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253539.345909"=
+>Greycroft Partners</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9=
+759.1253525.345909">Harrison Metal</a><br><a id=3D"b" href=3D"https://my.pi=
+tchbook.com/n/9759.1253371.345909">Hellman & Friedman</a><br><a id=3D"b" hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253482.345909">Hummer Winblad Ventur=
+e Partners</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.12535=
+56.345909">Ignition Partners</a><br><a id=3D"b" href=3D"https://my.pitchboo=
+k.com/n/9759.1253588.345909">Incline Equity Partners</a><br><a id=3D"b" hre=
+f=3D"https://my.pitchbook.com/n/9759.1253574.345909">InterSouth Partners</a=
+><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253572.345909">In=
+terWest Partners</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759=
+.1253550.345909">Jacobs Asset Management</a><br><a id=3D"b" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253541.345909">KRW Schindler Investments</a><br><=
+a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253476.345909">Lightspe=
+ed Venture Partners</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9=
+759.1253397.345909">Lineage Logistics</a><br><a id=3D"b" href=3D"https://my=
+.pitchbook.com/n/9759.1253502.345909">Madrona Venture Group</a><br><a id=3D=
+"b" href=3D"https://my.pitchbook.com/n/9759.1253573.345909">MedImmune Ventu=
+res</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253501.3459=
+09">Menlo Ventures</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/97=
+59.1253477.345909">Meritech Capital Partners</a><br><a id=3D"b" href=3D"htt=
+ps://my.pitchbook.com/n/9759.1253483.345909">Morgenthaler Ventures</a><br><=
+a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253485.345909">Morgenth=
+aler Ventures</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.12=
+53475.345909">New Enterprise Associates</a><br><a id=3D"b" href=3D"https://=
+my.pitchbook.com/n/9759.1253532.345909">OneVentures</a><br><a id=3D"b" href=
+=3D"https://my.pitchbook.com/n/9759.1253515.345909">OrbiMed Advisors</a><br=
+><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253373.345909">Permir=
+a</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253504.345909=
+">Petco</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253446.=
+345909">Pfingsten Partners</a><br><a id=3D"b" href=3D"https://my.pitchbook.=
+com/n/9759.1253542.345909">RI Digital Ventures</a><br><a id=3D"b" href=3D"h=
+ttps://my.pitchbook.com/n/9759.1253403.345909">Riverstone Holdings</a><br><=
+a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253571.345909">S.R. One=
+</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253481.345909"=
+>SAP Ventures</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.12=
+53466.345909">Sequoia Capital</a><br><a id=3D"b" href=3D"https://my.pitchbo=
+ok.com/n/9759.1253522.345909">Social+Capital Partnership</a><br><a id=3D"b"=
+ href=3D"https://my.pitchbook.com/n/9759.1253469.345909">SoftTech VC</a><br=
+><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253419.345909">Standa=
+rd Chartered Private Equity</a><br><a id=3D"b" href=3D"https://my.pitchbook=
+.com/n/9759.1253465.345909">T. Rowe Price</a><br><a id=3D"b" href=3D"https:=
+//my.pitchbook.com/n/9759.1253543.345909">TA Ventures</a><br><a id=3D"b" hr=
+ef=3D"https://my.pitchbook.com/n/9759.1253426.345909">Taglich Private Equit=
+y</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253467.345909=
+">Tenaya Capital</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759=
+.1253516.345909">Third Rock Ventures</a><br><a id=3D"b" href=3D"https://my.=
+pitchbook.com/n/9759.1253464.345909">Tiger Global Management</a><br><a id=
+=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253533.345909">Uniseed</a><=
+br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253494.345909">Vega=
+s Tech Fund</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253=
+562.345909">Warburg Pincus</a><br><a id=3D"b" href=3D"https://my.pitchbook.=
+com/n/9759.1253531.345909">Yellow Brick Capital</a><br><a id=3D"b" href=3D"=
+https://my.pitchbook.com/n/9759.1253544.345909">e.ventures</a><br><a id=3D"=
+b" href=3D"https://my.pitchbook.com/n/9759.1253480.345909">salesforce.com</=
+a><br></div><div id=3D"bg"><div id=3D"be"> Service Providers </div></div><d=
+iv id=3D"bi"><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253450.34=
+5909">BB&T Capital Markets</a><br><a id=3D"b" href=3D"https://my.pitchbook.=
+com/n/9759.1253449.345909">BB&T Capital Partners</a><br><a id=3D"b" href=3D=
+"https://my.pitchbook.com/n/9759.1253447.345909">BMO Capital Markets</a><br=
+><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253437.345909">Bentsi=
+-Enchill, Letsa &amp; Ankomah</a><br><a id=3D"b" href=3D"https://my.pitchbo=
+ok.com/n/9759.1253378.345909">BofA Merrill Lynch</a><br><a id=3D"b" href=3D=
+"https://my.pitchbook.com/n/9759.1253438.345909">Clifford Chance</a><br><a =
+id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253379.345909">Credit Sui=
+sse</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253405.3459=
+09">DLA Piper</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.12=
+53448.345909">GE Capital</a><br><a id=3D"b" href=3D"https://my.pitchbook.co=
+m/n/9759.1253428.345909">Gladstone Investment</a><br><a id=3D"b" href=3D"ht=
+tps://my.pitchbook.com/n/9759.1253564.345909">J.P. Morgan</a><br><a id=3D"b=
+" href=3D"https://my.pitchbook.com/n/9759.1253451.345909">Kirkland & Ellis<=
+/a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253406.345909">=
+Latham & Watkins</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759=
+.1253586.345909">Lincoln International</a><br><a id=3D"b" href=3D"https://m=
+y.pitchbook.com/n/9759.1253581.345909">Oppenheimer and Co.</a><br><a id=3D"=
+b" href=3D"https://my.pitchbook.com/n/9759.1253452.345909">Paul Hastings</a=
+><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253439.345909">Pr=
+icewaterhouseCoopers</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/=
+9759.1253377.345909">RBC Capital Markets</a><br><a id=3D"b" href=3D"https:/=
+/my.pitchbook.com/n/9759.1253407.345909">Rivington Holdings</a><br><a id=3D=
+"b" href=3D"https://my.pitchbook.com/n/9759.1253375.345909">Simpson Thacher=
+ & Bartlett</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253=
+376.345909">Skadden, Arps, Slate, Meagher & Flom</a><br><a id=3D"b" href=3D=
+"https://my.pitchbook.com/n/9759.1253594.345909">Tatum</a><br><a id=3D"b" h=
+ref=3D"https://my.pitchbook.com/n/9759.1253575.345909">Wedbush Securities</=
+a><br></div><div id=3D"bg"><div id=3D"be"> People </div></div><div id=3D"bi=
+"><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.1253413.345909">David=
+ M. Armstrong</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/n/9759.12=
+53596.345909">Ken Myer</a><br><a id=3D"b" href=3D"https://my.pitchbook.com/=
+n/9759.1253595.345909">Pat Donka</a><br><a id=3D"b" href=3D"https://my.pitc=
+hbook.com/n/9759.1253603.345909">Robert Stutman</a><br><a id=3D"b" href=3D"=
+https://my.pitchbook.com/n/9759.1253505.345909">Sunil Raman</a><br><a id=3D=
+"b" href=3D"https://my.pitchbook.com/n/9759.1253506.345909">Venky Ganesan</=
+a><br></div><div style=3D"line-height: 50%;">&nbsp;</div></div><tr><td heig=
+ht=3D"5"><tr><td height=3D"5" id=3D"bw"></table></div><div id=3D"ay"><a tar=
+get=3D"_blank" href=3D"https://my.pitchbook.com/n/9759.1253619.345909"><img=
+ width=3D"180" src=3D"https://img.pitchbook.com/ads/ad418/GenericAd.jpg" id=
+=3D"aw" /></a></div><div id=3D"ay"><a target=3D"_blank" href=3D"https://my.=
+pitchbook.com/n/9759.1253614.345909"><img width=3D"180" src=3D"https://img.=
+pitchbook.com/ads/ad402/AlertsAd_Walkthroughs-01.jpg" id=3D"aw" /></a></div=
+></div></table></table><table cellpadding=3D"0" cellspacing=3D"0" width=3D"=
+100%" id=3D"bo"><tr width=3D"100%"><td width=3D"100%" align=3D"center" styl=
+e=3D"background-color: #404040;"><table align=3D"center" cellspacing=3D"0" =
+cellpadding=3D"0" width=3D"640" height=3D"340" style=3D"font: 10px Tahoma, =
+Arial; text-align: center;"> <tr>
+    <td colspan=3D"2" height=3D"20"></td>
+</tr>
+<tr>
+    <td align=3D"left" colspan=3D"2" style=3D"font-size: 22px; font-family:=
+ Arial; color: white; text-align: left;">
+        PitchBook Platform Video of the Day
+    </td>
+</tr>
+<tr>
+    <td colspan=3D"2" height=3D"5"></td>
+</tr>
+<tr>
+    <td align=3D"left" width=3D"350" height=3D"30" style=3D"border-bottom: =
+1px solid transparent;">
+        <a style=3D"font-size: 20px; font-family: Tahoma, Arial; color: #7d=
+9abf; text-decoration: none; cursor: pointer;" href=3D'https://my.pitchbook=
+.com/n/9759.1253763.345909' target=3D"_blank">Analyzing Industry Trends&nbs=
+p;&raquo;</a>
+    </td>
+            <td align=3D"left" style=3D"border-bottom: 1px solid #7d9abf;">
+            <a href=3D'https://my.pitchbook.com/n/9759.1253614.345909' targ=
+et=3D"_blank" style=3D"font-size: 20px; font-family: Tahoma, Arial; color: =
+#7d9abf; text-decoration: none; cursor: pointer;">More Video Walkthroughs&n=
+bsp;&raquo;</a>
+        </td>
+    </tr>
+<tr>
+    <td colspan=3D"2" height=3D"5"></td>
+</tr>
+<tr>
+    <td rowspan=3D"7" align=3D"left">
+        <a href=3D'https://my.pitchbook.com/n/9759.1253763.345909' target=
+=3D"_blank">
+            <img width=3D"290" height=3D"180" style=3D"border: none;" src=
+=3D"http://marketo.pitchbook.com/rs/pitchbook/images/VideoThumbnail4.png" a=
+lt=3D"PitchBook's dynamic charting tool feature allows you to analyze trend=
+s over time using a variety of informative charts and graphs. These present=
+ation-ready visuals will add depth to your client, investor or internal mee=
+tings. All charts are easily exportable to Excel and can be downloaded to y=
+our computer with a simple click.">
+        </a>
+    </td>
+</tr>
+            <tr>
+            <td align=3D"left" height=3D"30">
+                <a style=3D"font-size: 16px; font-family: Tahoma, Arial; co=
+lor: white; text-decoration: none; cursor: pointer;" href=3D'https://my.pit=
+chbook.com/n/9759.1253764.345909' target=3D"_blank">Platform Quick Tip: Cus=
+tomized Target Company List&nbsp;&raquo;</a>
+            </td>
+        </tr>
+            <tr>
+            <td align=3D"left" height=3D"30">
+                <a style=3D"font-size: 16px; font-family: Tahoma, Arial; co=
+lor: white; text-decoration: none; cursor: pointer;" href=3D'https://my.pit=
+chbook.com/n/9759.1253621.345909' target=3D"_blank">Find Aging Portfolio Co=
+mpanies&nbsp;&raquo;</a>
+            </td>
+        </tr>
+            <tr>
+            <td align=3D"left" height=3D"30">
+                <a style=3D"font-size: 16px; font-family: Tahoma, Arial; co=
+lor: white; text-decoration: none; cursor: pointer;" href=3D'https://my.pit=
+chbook.com/n/9759.1253622.345909' target=3D"_blank">Build a List of Targete=
+d Buyers&nbsp;&raquo;</a>
+            </td>
+        </tr>
+            <tr>
+            <td align=3D"left" height=3D"30">
+                <a style=3D"font-size: 16px; font-family: Tahoma, Arial; co=
+lor: white; text-decoration: none; cursor: pointer;" href=3D'https://my.pit=
+chbook.com/n/9759.1253623.345909' target=3D"_blank">Create Business Develop=
+ment & Marketing Lists&nbsp;&raquo;</a>
+            </td>
+        </tr>
+            <tr>
+            <td align=3D"left" height=3D"30">
+                <a style=3D"font-size: 16px; font-family: Tahoma, Arial; co=
+lor: white; text-decoration: none; cursor: pointer;" href=3D'https://my.pit=
+chbook.com/n/9759.1253624.345909' target=3D"_blank">Find Private Company Co=
+mparables&nbsp;&raquo;</a>
+            </td>
+        </tr>
+    <tr>
+    <td colspan=3D"2"></td>
+</tr> <tr><td colspan=3D"2" height=3D"20">&nbsp; <tr><td colspan=3D"2" alig=
+n=3D"left" id=3D"bc"><div style=3D"font-size: 12px; font-family: Arial; col=
+or: white; border-top: solid 8px transparent;"><a style=3D"font-size: 12px;=
+ font-family: Arial; color: rgb (255, 255, 255); text-decoration: none; cur=
+sor: pointer;" href=3D"https://my.pitchbook.com/n/9759.1253626.345909" targ=
+et=3D"_blank"><span id=3D"bc">About PitchBook</span></a>&nbsp;|&nbsp; <a st=
+yle=3D"font-size: 12px; font-family: Arial; color: rgb (255, 255, 255); tex=
+t-decoration: none; cursor: pointer;" href=3D"https://my.pitchbook.com/n/97=
+59.1253627.345909" target=3D"_blank"><span id=3D"bc">Terms of Use</span></a=
+>&nbsp;|&nbsp; <a style=3D"font-size: 12px; font-family: Arial; color: rgb =
+(255, 255, 255); text-decoration: none; cursor: pointer;" href=3D"https://m=
+y.pitchbook.com/n/9759.1253628.345909" target=3D"_blank"><span id=3D"bc">Pr=
+ivacy Policy</span></a>&nbsp;|&nbsp; <a style=3D"font-size: 12px; font-fami=
+ly: Arial; color: rgb (255, 255, 255); text-decoration: none; cursor: point=
+er;" href=3D"https://my.pitchbook.com/n/9759.1253629.345909" target=3D"_bla=
+nk"><span id=3D"bc">Advertise</span></a>&nbsp;|&nbsp; <a style=3D"font-size=
+: 12px; font-family: Arial; color: rgb (255, 255, 255); text-decoration: no=
+ne; cursor: pointer;" href=3D"https://my.pitchbook.com/n/9759.1253630.34590=
+9" target=3D"_blank"><span id=3D"bc">Contact Us</span></a></div><tr><td col=
+span=3D"2" height=3D"10"></table></table><table cellpadding=3D"0" cellspaci=
+ng=3D"0" width=3D"100%" id=3D"bo"><tr><td align=3D"center"><table width=3D"=
+640" align=3D"center" cellpadding=3D"0" cellspacing=3D"0"><tr><td height=3D=
+"5"><tr><td id=3D"cg" align=3D"left"><div style=3D"font-size: 11px; font-fa=
+mily: Arial; color: #333; border-top: solid 7px transparent; border-bottom:=
+ solid 10px transparent;"> Copyright &copy; 2014 PitchBook Data, Inc. All r=
+ights reserved. - Private Equity and Venture Capital Deals Database </div><=
+tr><td height=3D"25"><tr><td valign=3D"middle" align=3D"left" style=3D"font=
+-size: 12px; font-family: Arial; color: #333;"> Newsletter sent to: <a id=
+=3D"bt" href=3D"mailto:jay@example.com"> jay@example.com </=
+a><tr><td height=3D"15"><tr><td valign=3D"middle" align=3D"left" id=3D"bz">=
+ Want this newsletter sent to a different email address? <a id=3D"bt" href=
+=3D"http://pitchbook.com/Newsletter_Change_Email_Address.html?id=NLNNNNNN&e=
+mail=3Djay@example.com"> Change your email address here. </a><tr><t=
+d height=3D"15"><tr><td valign=3D"middle"><table cellpadding=3D"0" cellspac=
+ing=3D"0"><tr><td valign=3D"top"><td align=3D"left" id=3D"bz"> You are curr=
+ently receiving the <span id=3D"bl"> PE &amp; VC Edition </span> of the new=
+sletter. <a id=3D"cb" href=3D"http://pitchbook.com/Newsletter_Subscribe_to_=
+PitchBook_News.html?id=NLNNNNNN&email=3Djay@example.com"> Click her=
+e </a> if you'd like to switch to the <span id=3D"bl"> Private Equity Editi=
+on </span> or the <span id=3D"bl"> Venture Capital Edition </span> of the n=
+ewsletter. </table><tr><td height=3D"30"><tr><td align=3D"left" valign=3D"m=
+iddle" style=3D"font-size: 12px; font-family: Arial; color: #333333; height=
+: 18px; padding-top: 4px;"> If you would like to unsubscribe from this news=
+letter, <a id=3D"cb" href=3D"http://pitchbook.com/Newsletter_Unsubscribe.ht=
+ml?id=NLNNNNNN&email=3Djay@example.com"> Unsubscribe here. </a><tr>=
+<td id=3D"cg"></table></table></body></html>

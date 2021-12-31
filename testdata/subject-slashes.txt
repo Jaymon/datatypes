@@ -1,0 +1,10 @@
+MIME-Version: 1.0
+Date: Thu, 7 Jun 2018 02:21:21 -0600
+Message-ID: <61ba2998bbe60_13fef710f7ddc11028f@one-two-f48c6-6t7tw.mail>
+Subject: [Name] Error in /foo/Library/Developer/Devices/9B98F192-6530-2234976EB546/data/Bundle/555B3437-8CF1-369E46E3AB15/Bar Staging.app/main.ext:293
+From: Foo Foooo <foo@example.com>
+To: Bar Barrrrr <bar@example1.com>
+Cc: Che Cheeeee <che@example2.com>
+Content-Type: text/plain; charset="UTF-8"
+
+this email has a cc

@@ -1,0 +1,10 @@
+MIME-Version: 1.0
+Date: Thu, 7 Jun 2018 02:21:21 -0600
+Message-ID: <CAEoHzfqbxM21Rv0K50K9edhfh1rhyza4pciJax87WzoYWX7F8w@mail.gmail.com>
+Subject: a cc email
+From: Foo Foooo <foo@example.com>
+To: Bar Barrrrr <bar@example1.com>
+Cc: Che Cheeeee <che@example2.com>
+Content-Type: text/plain; charset="UTF-8"
+
+this email has a cc
