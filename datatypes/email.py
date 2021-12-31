@@ -44,6 +44,11 @@ class EmailPart(object):
             self.contents = String(contents, encoding)
 
     def path(self, basedir):
+        """Get the save path for this part
+
+        :param basedir: string, the base directory this will use to generate a full path
+        :returns: string, the full path to a file that this part could be saved to
+        """
         if self.filename:
             fileroot, ext = os.path.splitext(self.filename)
 
@@ -80,9 +85,11 @@ class EmailPart(object):
         return p
 
     def is_attachment(self):
+        """True if this is an attachment, False if it is a body"""
         return bool(self.filename)
 
     def is_body(self):
+        """True if this is a body, False if it is an attachment"""
         return not self.is_attachment()
 
 
@@ -95,6 +102,7 @@ class Email(object):
         http://mail.python.org/pipermail/python-list/2004-June/265634.html
     """
     part_class = EmailPart
+    """Each body or attachment in the email will be represented by this class"""
 
     @property
     def raw(self):
@@ -119,13 +127,15 @@ class Email(object):
             ret = "(no subject)"
         return ret
 
-    @property
-    def subject_basename(self):
-        stamp = self.datetime.strftime("%Y-%m-%d %H%M")
-        return f"{stamp} - {self.subject}"
-
     def path(self, basedir):
-        s = self.subject_basename
+        """Get the save path for this email, this should be a directory that
+        all the parts can be saved into
+
+        :param basedir: string, the base directory that will be used to generate a full path
+        :returns: string, the full path to a directory this email can be saved into
+        """
+        stamp = self.datetime.strftime("%Y-%m-%d %H%M")
+        s = f"{stamp} - {self.subject}"
         s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
         s = re.sub(r"[:?\"\'|^]", "", s)
 
@@ -136,6 +146,14 @@ class Email(object):
         ).sanitize(maxpath=220)
 
     def paths(self, basedir):
+        """Returns all the potential paths that .save() could use. This is really
+        more for debugging because it might generate different paths since it doesn't
+        actually create the paths, which might cause datatypes.Path.sanitize() to
+        produce different results
+
+        :param basedir: string, the base directory that will be used to generate a full path
+        :returns: list, all the folders and attachment/bpdy paths this could generate
+        """
         email_dir = self.path(basedir)
         paths = [email_dir]
         for ps in self.parts.values():
@@ -149,7 +167,7 @@ class Email(object):
 
         https://docs.python.org/3/library/email.util.html#email.utils.getaddresses
 
-        :returns: list, the list of recipients
+        :returns: list, the list of recipients, this includes to, cc, bcc, etc.
         """
         tos = self.msg.get_all('to', [])
         ccs = self.msg.get_all('cc', [])
@@ -161,28 +179,33 @@ class Email(object):
 
     @property
     def to_addrs(self):
+        """Only to addresses, ignore cc"""
         to_addrs = email.utils.getaddresses(self.msg.get_all('To', []))
         to_addrs = [String(a[1]) for a in to_addrs]
         return to_addrs
 
     @property
     def from_addr(self):
+        """Get just the email address this email is from"""
         from_addr = ""
         from_addrs = email.utils.getaddresses(self.msg.get_all('From', []))
         return String(from_addrs[0][1]) if from_addrs else ""
 
     @property
     def from_domain(self):
+        """Get the from email address domain (eg, the example.com of a foo@example.com email address)"""
         from_addr = self.from_addr
         return from_addr.rsplit("@", maxsplit=1)[-1]
 
     @property
     def date(self):
+        """Get the string datestamp from the email"""
         ret = String(self.msg.get('Date', ""))
         return ret
 
     @property
     def datetime(self):
+        """Convert .date into a datetime instance"""
         d = self.date
         # https://docs.python.org/3/library/email.util.html#email.utils.parsedate_tz
         t = email.utils.parsedate_tz(d)
@@ -193,16 +216,14 @@ class Email(object):
         return Datetime(stamp)
 
     @property
-    def isodate(self):
-        return self.datetime.isoformat()
-
-    @property
     def plain(self):
+        """Return the plain text body of this email"""
         ret = self.parts["text/plain"]
         return ret[0].contents
 
     @property
     def html(self):
+        """Return the html body of this email, if it exists"""
         ret = self.parts.get("text/html", [])
         ret = ret[0].contents if ret else ""
         return ret
@@ -255,26 +276,42 @@ class Email(object):
             ))
 
     def bodies(self):
+        """Get all the bodies in the email"""
         for ps in self.parts.values():
             for b in ps:
                 if b.is_body():
                     yield b
 
     def attachments(self):
+        """Get all the attachments of the email"""
         for ps in self.parts.values():
             for a in ps:
                 if a.is_attachment():
                     yield a
 
     def has_attachments(self):
+        """Does this email have attachments? Returns True or False"""
         for a in self.attachments():
             return True
         return False
 
     def has_attachment(self):
+        """Alias of .has_attachments()"""
         return self.has_attachments()
 
     def save(self, basedir):
+        """Save this email into basedir
+
+        this will generate a base email path in the format:
+
+            basedir/<FROM_DOMAIN>/<FROM_ADDR>/<DATE> - <SUBJECT>
+
+        Then it will use this base email path to save all the bodies and attachments
+        of the email
+
+        :param basedir: string, path to save the email into
+        :returns: list, all the paths the email saved
+        """
         ret = []
         email_dir = self.path(basedir)
         email_dir.touch()
@@ -292,7 +329,7 @@ class Email(object):
             f.write("From:\n\t- {}\n".format(self.from_addr))
             f.write("Recipients:\n\t- {}\n".format("\n\t- ".join(self.recipient_addrs)))
             f.write("Subject: {}\n".format(self.subject))
-            f.write("Date: {}\n\n".format(self.isodate))
+            f.write("Date: {}\n\n".format(self.datetime.isoformat()))
 
             for name, val in self.headers:
                 f.write("{}: {}\n".format(name, val))
