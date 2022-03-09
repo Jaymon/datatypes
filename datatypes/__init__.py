@@ -41,6 +41,7 @@ from .path import (
     TempDirpath, Dirtemp,
     Cachepath,
     Sentinel,
+    UrlFilepath,
     SitePackagesDirpath,
 )
 from .environ import (
@@ -56,9 +57,10 @@ from .copy import (
 from .datetime import (
     Datetime,
 )
-from .headers import (
+from .http import (
     HTTPHeaders,
     HTTPEnviron,
+    HTTPClient,
 )
 from .token import (
     # we don't import Token because it's too generic for toplevel, if you need it
@@ -73,7 +75,7 @@ from .email import (
 )
 
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

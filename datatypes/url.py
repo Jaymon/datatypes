@@ -6,7 +6,6 @@ from socket import gethostname
 
 from .compat import *
 from .string import String, ByteString
-from .path import Cachepath, Path
 
 
 class Url(String):
@@ -21,14 +20,12 @@ class Url(String):
     .netloc = user:pass@foo.com:1000
     .hostloc = foo.com:1000
     .hostname = foo.com
-    .host() = http://foo.com
     .port = 1000
-    .base = http://user:pass@foo.com:1000/bar/che
     .fragment = anchor
     .anchor = fragment
     .uri = /bar/che?baz=boom#anchor
     .host(...) = http://foo.com/...
-    .base(...) = http://foo.com/bar/che/...
+    .base(...) = http://user:pass@foo.com/bar/che/...
     """
     scheme = "http"
 
@@ -569,37 +566,4 @@ class Host(tuple):
             netloc += ":{}".format(port)
         return netloc
 
-
-
-class Urlpath(Cachepath):
-
-    def __new__(cls, url, path="", **kwargs):
-        # TODO -- pass in client? I should move testdata.client.HTTP (and really
-        # all of testdata.client into .client.py module
-
-        keys = []
-        if path:
-            path = Path.create_file(path)
-            kwargs.setdefault("dir", path.parent)
-            keys.append(path.basename)
-
-        instance = super(Urlpath, cls).__new__(cls, *keys, **kwargs)
-        instance.url = url
-        return instance
-
-
-    def read(self):
-        raise NotImplementedError()
-        # TODO -- if the file doesn't exist fetch it then read
-        pass
-
-    def read_text(self):
-        raise NotImplementedError()
-        # TODO -- if the file doesn't exist fetch it then read
-        pass
-
-    def read_bytes(self):
-        raise NotImplementedError()
-        # TODO -- if the file doesn't exist fetch it then read
-        pass
 

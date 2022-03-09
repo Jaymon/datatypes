@@ -164,3 +164,6 @@ ENCODING_ERRORS = environ.get("ENCODING_ERRORS", "replace")
 CACHE_DIR = environ.get("CACHE_DIR", os.path.join(tempfile.gettempdir(), environ.namespace.lower().rstrip("_")))
 """the default caching directory for things that need a cache folder"""
 
+
+USER_AGENT = environ.get("USER_AGENT", "")
+

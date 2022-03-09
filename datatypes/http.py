@@ -1,0 +1,646 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals, division, print_function, absolute_import
+from wsgiref.headers import Headers as BaseHeaders
+import itertools
+import base64
+import socket
+import re
+import json
+import email.message
+import platform
+
+from .compat import *
+from .copy import Deepcopy
+from .string import String, ByteString
+from . import environ
+
+
+class HTTPHeaders(BaseHeaders, Mapping):
+    """handles headers, see wsgiref.Headers link for method and use information
+
+    Handles normalizing of header names, the problem with headers is they can
+    be in many different forms and cases and stuff (eg, CONTENT_TYPE and Content-Type),
+    so this handles normalizing the header names so you can request Content-Type
+    or CONTENT_TYPE and get the same value.
+
+    This has the same interface as Python's built-in wsgiref.Headers class but
+    makes it even more dict-like and will return titled header names when iterated
+    or anything (eg, Content-Type instead of all lowercase content-type)
+
+    http headers spec:
+        https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+
+    wsgiref class docs:
+        https://docs.python.org/2/library/wsgiref.html#module-wsgiref.headers
+        https://hg.python.org/cpython/file/2.7/Lib/wsgiref/headers.py
+    actual python3 code:
+        https://github.com/python/cpython/blob/master/Lib/wsgiref/headers.py
+    """
+    encoding = "iso-8859-1"
+    """From rfc2616:
+
+        The default language is English and the default character set is ISO-8859-1.
+
+        If a character set other than ISO-8859-1 is used, it MUST be encoded in the
+        warn-text using the method described in RFC 2047
+    """
+
+    def __init__(self, headers=None, **kwargs):
+        super(HTTPHeaders, self).__init__([])
+        self.update(headers, **kwargs)
+
+    def _convert_string_part(self, bit):
+        """each part of a header will go through this method, this allows further
+        normalization of each part, so a header like FOO_BAR would call this method
+        twice, once with foo and again with bar
+
+        this is called train case or http-header case
+
+        https://stackoverflow.com/questions/17326185/what-are-the-different-kinds-of-cases
+
+        this method doesn't normalize all the non-standard header bits, for example, this
+        would mess up ETag, HTTP2, WWW, DNT, ATT, ID, etc
+
+        https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
+
+        :param bit: string, a part of a header all lowercase
+        :returns: string, the normalized bit
+        """
+        if bit == "websocket":
+            bit = "WebSocket"
+        else:
+            bit = bit.title()
+        return bit
+
+    def _convert_string_name(self, k):
+        """converts things like FOO_BAR to Foo-Bar which is the normal form"""
+        k = String(k, self.encoding)
+        bits = k.lower().replace('_', '-').split('-')
+        return "-".join((self._convert_string_part(bit) for bit in bits))
+
+    def _convert_string_type(self, v):
+        """Override the internal method wsgiref.headers.Headers uses to check values
+        to make sure they are strings"""
+        # wsgiref.headers.Headers expects a str() (py3) or unicode (py2), it
+        # does not accept even a child of str, so we need to convert the String
+        # instance to the actual str, as does the python wsgi methods, so even
+        # though we override this method we still return raw() strings so we get
+        # passed all the type(v) == "str" checks
+        # sadly, this method is missing in 2.7
+        # https://github.com/python/cpython/blob/2.7/Lib/wsgiref/headers.py
+        return String(v).raw()
+
+    def get_all(self, name):
+        name = self._convert_string_name(name)
+        return super(HTTPHeaders, self).get_all(name)
+
+    def get(self, name, default=None):
+        name = self._convert_string_name(name)
+        return super(HTTPHeaders, self).get(name, default)
+
+    def __delitem__(self, name):
+        name = self._convert_string_name(name)
+        return super(HTTPHeaders, self).__delitem__(name)
+
+    def __setitem__(self, name, val):
+        name = self._convert_string_name(name)
+        if is_py2:
+            val = self._convert_string_type(val)
+        return super(HTTPHeaders, self).__setitem__(name, val)
+
+    def setdefault(self, name, val):
+        name = self._convert_string_name(name)
+        if is_py2:
+            val = self._convert_string_type(val)
+        return super(HTTPHeaders, self).setdefault(name, val)
+
+    def add_header(self, name, val, **params):
+        name = self._convert_string_name(name)
+        if is_py2:
+            val = self._convert_string_type(val)
+        return super(HTTPHeaders, self).add_header(name, val, **params)
+
+    def keys(self):
+        return [k for k, v in self._headers]
+
+    def items(self):
+        for k, v in self._headers:
+            yield k, v
+
+    def iteritems(self):
+        return self.items()
+
+    def iterkeys(self):
+        for k in self.keys():
+            yield k
+
+    def __iter__(self):
+        for k, v in self._headers:
+            yield k
+
+    def pop(self, name, *args, **kwargs):
+        """remove and return the value at name if it is in the dict
+
+        This uses *args and **kwargs instead of default because this will raise
+        a KeyError if default is not supplied, and if it had a definition like
+        (name, default=None) you wouldn't be able to know if default was provided
+        or not
+
+        :param name: string, the key we're looking for
+        :param default: mixed, the value that would be returned if name is not in
+            dict
+        :returns: the value at name if it's there
+        """
+        val = self.get(name)
+        if val is None:
+            if args:
+                val = args[0]
+            elif "default" in kwargs:
+                val = kwargs["default"]
+            else:
+                raise KeyError(name)
+
+        else:
+            del self[name]
+
+        return val
+
+    def update(self, headers, **kwargs):
+        if not headers: headers = {}
+        if isinstance(headers, Mapping):
+            headers.update(kwargs)
+            headers = headers.items()
+
+        else:
+            if kwargs:
+                headers = itertools.chain(
+                    headers,
+                    kwargs.items()
+                )
+
+        for k, v in headers:
+            self[k] = v
+
+    def copy(self):
+        return Deepcopy().copy(self)
+
+    def list(self):
+        """Return all the headers as a list of headers instead of a dict"""
+        return [": ".join(h) for h in self.items() if h[1]]
+
+
+class HTTPEnviron(HTTPHeaders):
+    """just like Headers but allows any values (headers converts everything to unicode
+    string)"""
+    def _convert_string_type(self, v):
+        return v
+
+
+class HTTPResponse(object):
+    """This is the response object that is returned from an HTTP request, it tries
+    its best to look like a requests response object so you can switch this out
+    when you need a more full-featured solution
+    """
+    @property
+    def encoding(self):
+        encoding = environ.ENCODING
+        if "content-type" in self.headers:
+            # use the email stdlib to parse out the encoding from the content type
+            em = email.message.Message()
+            em.add_header("content-type", self.headers["content-type"])
+            encoding = em.get_content_charset()
+
+            # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
+            if not encoding:
+                if self.http.is_json(self.headers):
+                    encoding = "UTF-8"
+                else:
+                    if self.headers["content-type"].startswith("text/"):
+                        encoding = "ISO-8859-1"
+
+        return encoding
+
+    @property
+    def cookies(self):
+        # https://stackoverflow.com/questions/25387340/is-comma-a-valid-character-in-cookie-value
+        # https://stackoverflow.com/questions/21522586/python-convert-set-cookies-response-to-array-of-cookies
+        # https://gist.github.com/Ostrovski/c8d16ce16759eddf6664
+        if "set-cookie" in self.headers:
+            # for some reason SimpleCookie leaves commas in the value
+            if is_py2:
+                cookie_headers = self.headers.get("set-cookie", "")
+                cookie_headers = cookie_headers.split(b", ")
+                cs = cookies.SimpleCookie(b"\r\n".join(cookie_headers))
+            else:
+                cookie_headers = self.headers.get_all("set-cookie", "")
+                cs = cookies.SimpleCookie("\r\n".join(cookie_headers))
+            cookies = {cs[k].key:cs[k].value for k in cs}
+        else:
+            cookies = {}
+        return cookies
+
+    @property
+    def content(self):
+        encoding = self.encoding
+        return self._body.decode(encoding) if encoding else self._body
+
+    @property
+    def status_code(self):
+        return self.code
+
+    @property
+    def body(self):
+        if self.http.is_json(self.headers):
+            body = self.json()
+        else:
+            body = self.content
+        return body
+
+    def __init__(self, code, body, headers, http, response):
+        self.http = http
+        self.response = response
+        self.headers = headers
+        self._body = body
+        self.code = code
+
+    def json(self):
+        return json.loads(self._body)
+
+    def iter_content(self, chunk_size=0):
+        content = self.content
+        if chunk_size:
+            start = 0
+            total = len(content)
+            while start < total:
+                yield content[start:start + chunk_size]
+                start += chunk_size
+
+        else:
+            yield content
+
+
+class HTTPClient(object):
+    """A Generic HTTP request client
+
+    Because sometimes I don't want to install requests
+
+    https://stackoverflow.com/questions/645312/what-is-the-quickest-way-to-http-get-in-python
+
+    :Example:
+        # make a simple get request
+        c = HTTP("http://example.com")
+        c.get("/foo/bar")
+
+        # make a request with a cookie
+        c = HTTP("http://example.com")
+        c.get("/foo/bar", cookies={"foo": "1"})
+
+        # make a request with a different method
+        c = HTTP("http://example.com")
+        c.fetch("PUT", "/foo/bar")
+
+        # make a POST request
+        c = HTTP("http://example.com")
+        c.post("/foo/bar", {"foo": 1})
+
+        # make a json POST request
+        c = HTTP("http://example.com")
+        c.post("/foo/bar", {"foo": 1}, json=True)
+
+    moved from testdata.client.HTTP on March 4, 2022
+    """
+    timeout = 10
+
+    def __init__(self, base_url="", **kwargs):
+        self.base_url = base_url
+        self.query = {}
+
+        # these are the common headers that usually don't change all that much
+        self.headers = HTTPHeaders(kwargs.get("headers", None))
+
+        if kwargs.get("json", False):
+            self.headers.update({
+                "Content-Type": "application/json",
+            })
+
+    def get(self, uri, query=None, **kwargs):
+        """make a GET request"""
+        return self.fetch('get', uri, query, **kwargs)
+
+    def post(self, uri, body=None, **kwargs):
+        """make a POST request"""
+        return self.fetch('post', uri, kwargs.pop("query", None), body, **kwargs)
+
+    def __getattr__(self, key):
+        def callback(*args, **kwargs):
+            return self.fetch(key, *args, **kwargs)
+        return callback
+        #return lambda *args, **kwargs: self.fetch(key, *args, **kwargs)
+
+    def basic_auth(self, username, password):
+        """add basic auth to this client
+
+        this will set the Authorization header so the request will use Basic auth
+
+        link -- http://stackoverflow.com/questions/6068674/
+        link -- https://docs.python.org/2/howto/urllib2.html#id6
+
+        :param username: str
+        :param password: str
+        """
+        credentials = Base64.encode('{}:{}'.format(username, password))
+        auth_string = 'Basic {}'.format(credentials)
+        #credentials = base64.b64encode('{}:{}'.format(username, password)).strip()
+        #auth_string = 'Basic {}'.format(credentials())
+        self.headers['Authorization'] = auth_string
+
+    def token_auth(self, access_token):
+        """add bearer TOKEN auth to this client"""
+        self.headers['Authorization'] = 'Bearer {}'.format(access_token)
+
+    def remove_auth(self):
+        """Get rid of the internal Authorization header"""
+        self.headers.pop('Authorization', None)
+
+    def fetch(self, method, uri, query=None, body=None, **kwargs):
+        """wrapper method that all the top level methods (get, post, etc.) use to actually
+        make the request
+        """
+        if not query: query = {}
+        fetch_url = self.get_fetch_url(uri, query)
+
+        fetch_kwargs = {}
+        fetch_kwargs["headers"] = self.get_fetch_headers(
+            method,
+            kwargs.get("headers", {}),
+            kwargs.get("cookies", {}),
+        )
+
+        if body:
+            fetch_kwargs["data"] = self.get_fetch_body(fetch_kwargs["headers"], body)
+
+        res = self._fetch(method, fetch_url, **fetch_kwargs)
+        return res
+
+    def _fetch(self, method, fetch_url, **kwargs):
+        """Internal method called from self.fetch that performs the actual request
+
+        If you wanted to switch out the backend to actually use requests then this
+        should be the only method you would need to override
+
+        :param method: str, the http method (eg, GET, POST)
+        :param fetch_url: str, the full url requested
+        :param **kwargs: mixed, any arguments to pass to the backend client
+        :returns: HTTPResponse, a response instance
+        """
+        orig_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(self.timeout)
+
+        # this block actually performs the request
+        req = self.get_fetch_request(method, fetch_url, **kwargs)
+        res = self.get_fetch_response(req)
+
+        socket.setdefaulttimeout(orig_timeout)
+
+        return res
+
+    def get_fetch_url(self, uri, query=None):
+        """Combine the passed in uri and query with self.base_url to create the full
+        url the request will actually request
+
+        :param uri: str, usually like a relative path (eg /path) but can be a full
+            url (eg scheme://host.ext/path)
+        :param query: dict, the key/val that you want to attach to the url after the
+            question mark
+        :returns: str, the full url (eg scheme://host.ext/path?key=val&...)
+        """
+        if not isinstance(uri, basestring):
+            # allow ["foo", "bar"] to be converted to "/foo/bar"
+            uri = "/".join(uri)
+
+        if re.match(r"^\S+://\S", uri):
+            ret_url = uri
+
+        else:
+            base_url = self.base_url
+            base_url = base_url.rstrip('/')
+
+            uri = uri.lstrip('/')
+            ret_url = "/".join([base_url, uri])
+
+        query_str = ''
+        if '?' in ret_url:
+            i = ret_url.index('?')
+            query_str = ret_url[i+1:]
+            ret_url = ret_url[0:i]
+
+        query_str = self.get_fetch_query(query_str, query)
+        if query_str:
+            ret_url = '{}?{}'.format(ret_url, query_str)
+
+        return ret_url
+
+    def get_fetch_query(self, query_str, query):
+        """get the query string (eg ?key=val&...)
+
+        :param query_str: str, a query string, if not empty then query will be 
+            added onto it
+        :param query: dict, key/val that will be added to query_str and returned
+        :returns: str, the full query string
+        """
+        all_query = getattr(self, "query", {})
+        if not all_query: all_query = {}
+        if query:
+            all_query.update(query)
+
+        if all_query:
+            more_query_str = urlencode(all_query, doseq=True)
+            if query_str:
+                query_str += '&{}'.format(more_query_str)
+            else:
+                query_str = more_query_str
+
+        return query_str
+
+    def get_fetch_user_agent_name(self):
+        """Returns the client name that the user agent will use
+
+        :returns: str, the client name
+        """
+        from . import __version__ # avoid circular dependency
+        return "{}.{}/{}".format(
+            self.__module__.split(".", maxsplit=1)[0],
+            self.__class__.__name__,
+            __version__
+        )
+
+    def get_fetch_user_agent(self):
+        """create a default user agent that looks very similar to a web browser's
+        user-agent string
+
+        :returns: str, the full user agent that will be passed up to the server
+            in the User-Agent header
+        """
+        ua = environ.USER_AGENT
+
+        if not ua:
+
+            osname = ""
+            machine = platform.machine()
+            ps = platform.system()
+            if ps == "Darwin":
+                osname = "Macintosh"
+                if machine.startswith("x86"):
+                    osname += " Intel"
+
+                osname += " Mac OS X {}".format(platform.mac_ver()[0].replace(".", "_"))
+
+            elif ps == "Linux":
+                osname = "X11; Linux {}".format(machine)
+
+            elif ps == "Windows":
+                # TODO -- this is not fleshed out because I don't use windows
+                osname = "Windows NT"
+                if machine.startswith("x86"):
+                    osname += "; Win64; x64"
+
+            else:
+                osname = "Unknown OS {}".format(machine)
+
+            ua = "Mozilla/5.0 ({}) AppleWebKit/537.36 (KHTML, like Gecko) {} Safari/537.36".format(
+                osname,
+                self.get_fetch_user_agent_name(),
+            )
+
+        return ua
+
+    def get_fetch_headers(self, method, headers, cookies):
+        """merge class headers with passed in headers
+
+        you can see what headers browsers are sending: http://httpbin.org/headers
+
+        More info:
+            - https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
+
+        why does this want to look similar to a browser?
+            - https://www.zenrows.com/blog/stealth-web-scraping-in-python-avoid-blocking-like-a-ninja
+            - https://www.scrapehero.com/how-to-fake-and-rotate-user-agents-using-python-3/
+
+        :param method: string, (eg, GET or POST), this is passed in so you can customize
+            headers based on the method that you are calling
+        :param headers: dict, all the headers passed into the fetch method
+        :param cookies: dict, all the cookies
+        :returns: passed in headers merged with global class headers
+        """
+        fetch_headers = HTTPHeaders({
+            "Accept": ",".join([
+                "text/html",
+                "application/xhtml+xml",
+                "application/xml;q=0.9",
+                "image/avif",
+                "image/webp",
+                "image/apng",
+                "*/*;q=0.8",
+                "application/signed-exchange;v=b3;q=0.9", 
+            ]),
+            "Accept-Encoding": "gzip, deflate", 
+            # https://stackoverflow.com/a/29020782/5006
+            "Accept-Language": "*", #"en-US,en;q=0.9", # could use LANG environment variable
+            "Dnt": "1", 
+            "Upgrade-Insecure-Requests": "1", 
+            "User-Agent": self.get_fetch_user_agent(),
+        })
+
+        if self.headers:
+            fetch_headers.update(self.headers)
+
+        if headers:
+            fetch_headers.update(headers)
+
+        if cookies:
+            cl = []
+            for k, v in cookies.items():
+                c = cookies.SimpleCookie()
+                c[k] = v
+                cl.append(c[k].OutputString())
+            if cl:
+                fetch_headers["Cookie"] =  ", ".join(cl)
+
+        return fetch_headers
+
+    def get_fetch_body(self, headers, body):
+        """Get the body that will be sent up to the server
+
+        :param headers: HTTPHeaders, the full set of headers being sent to the server,
+            that means these headers have been returned from get_fetch_headers
+        :param body: mixed, the raw body that will be normalized and returned
+        :returns: str, the body ready to be sent up to the server
+        """
+        if self.is_json(headers):
+            ret = json.dumps(body)
+        else:
+            ret = urlencode(body, doseq=True)
+        return ret if is_py2 else ret.encode(environ.ENCODING)
+
+    def get_fetch_request(self, method, *args, **kwargs):
+        """Create a request that can be passed to get_fetch_response to actually
+        make the request
+
+        This is used in self._fetch
+
+        :param method: str, the http method (eg GET, POST)
+        :param *args: mixed, any positional arguments you need
+        :param **kwargs: mixed, any keyword arguments you need
+        :returns: Request instance, a request object that can be passed to get_fetch_response
+        """
+        req = Request(*args, **kwargs) # compat * import
+        # https://stackoverflow.com/a/111988/5006
+        req.get_method = lambda: method.upper()
+        return req
+
+    def get_fetch_response(self, req):
+        """Given a Request instance make a call and return the response
+
+        This is used in self._fetch
+
+        :param req: Request instance, the request instance created by self.get_fetch_request
+        :returns: HTTPResponse instance, this looks like a requests Response object
+        """
+        try:
+            res = urlopen(req)
+            ret = HTTPResponse(
+                res.code,
+                res.read(),
+                res.headers,
+                self,
+                res
+            )
+
+        except HTTPError as e:
+            ret = HTTPResponse(
+                e.code,
+                String(e),
+                {},
+                self,
+                e
+            )
+
+        except URLError as e:
+            ret = HTTPResponse(
+                0,
+                e.reason,
+                {},
+                self,
+                e
+            )
+
+        return ret
+
+    def is_json(self, headers):
+        """return true if content_type is a json content type"""
+        ret = False
+        ct = headers.get("Content-Type", headers.get("content-type", "")).lower()
+        if ct:
+            ret = ct.lower().rfind("json") >= 0
+        return ret
+

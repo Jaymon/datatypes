@@ -13,6 +13,7 @@ from datatypes.path import (
     TempFilepath,
     Cachepath,
     Sentinel,
+    UrlFilepath,
 )
 
 from . import TestCase, testdata
@@ -1175,4 +1176,33 @@ class SentinelTest(TestCase):
         if s:
             count += 1
         self.assertEqual(1, count)
+
+
+class UrlFilepathTest(TestCase):
+    def test_url_only(self):
+        dirpath = testdata.create_files({
+            "foo.txt": "this is foo.txt",
+            "bar/che.txt": "this is che.txt",
+        })
+        imagepath = testdata.create_jpg("baz.jpg", dirpath)
+
+        server = testdata.create_fileserver({}, dirpath)
+        with server:
+            p = UrlFilepath(server.url("bar/che.txt"))
+            self.assertEqual("this is che.txt", p.read_text())
+
+            p = UrlFilepath(server.url("baz.jpg"))
+            self.assertEqual(p.checksum(), imagepath.checksum())
+
+    def test_url_path(self):
+        server = testdata.create_fileserver({
+            "foo.txt": "this is foo.txt",
+        })
+        filepath = testdata.get_file("foo2.txt")
+
+        with server:
+            p = UrlFilepath(server.url("foo.txt"), filepath)
+            self.assertEqual(filepath.path, p.path)
+            self.assertEqual("this is foo.txt", p.read_text())
+
 

@@ -19,6 +19,7 @@ import datetime
 import re
 import string
 import random
+import email.message
 
 try:
     from pathlib import Path as Pathlib
@@ -33,6 +34,8 @@ except ImportError:
 from .compat import *
 from . import environ
 from .string import String, ByteString
+from .http import HTTPClient
+from .url import Url
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +47,7 @@ class Path(String):
     instances are actually string instances and are always resolved
 
     This finally brings into a DRY location my path code from testdata, stockton,
-    and bang, among others. I've needed this functionality. I've also tried to standardize
+    and bang, among others where I've needed this functionality. I've also tried to standardize
     the interface to be very similar to Pathlib so you can, hopefully, swap between
     them
 
@@ -1786,6 +1789,11 @@ class Filepath(Path):
         with self.open(mode="a+", encoding=encoding, errors=errors) as fp:
             return fp.write(data)
 
+    def append_bytes(self, data):
+        data, encoding, errors = self.prepare_bytes(data, **kwargs)
+        with self.open(mode="ab+") as fp:
+            return fp.write(data)
+
     def joinpath(self, *other):
         raise NotImplementedError()
 
@@ -2390,10 +2398,105 @@ class Sentinel(Cachepath):
         return ret
 
 
-# !!! Ripped from pyt.path which was ripped from pout.path
+class UrlFilepath(Cachepath):
+    """Retrieve a file from a url and save it as a local file
+
+    :Example:
+        p = UrlFilepath("https://example.com/foo.txt")
+        print(p) # CACHE_DIR/foo.txt
+
+        p = UrlFilepath("https://example.com/bar/foo/che.txt", "foo.txt")
+        print(p) # ./foo.txt
+
+    this was moved here from Glyph's codebase on March 7, 2022
+    """
+    http_client = HTTPClient
+    """The http client this will use to retrieve the file. If you want to completely
+    ignore this property just override the .fetch method"""
+
+    def __new__(cls, url, path="", **kwargs):
+        url = Url(url)
+
+        if path:
+            p = cls.create_file(path)
+            # the path directory takes precedence over a passed in dir
+            kwargs["dir"] = p.directory
+            kwargs["prefix"] = ""
+            keys = cls.splitparts(p.basename)
+
+        else:
+            keys = cls.splitparts(url.path)
+
+        instance = super().__new__(cls, *keys, **kwargs)
+        instance.url = url
+        instance.fetched = False
+
+        if not instance:
+            instance.fetch()
+
+        return instance
+
+    def fetch(self):
+        """Fetch the file from a url and save it in a local path, you can call this
+        method anytime to refresh the file
+
+        this method will set self.fetched to True
+        """
+        # we need to fetch the file using url and save it to filepath
+        logger.debug("Fetching {} to {}".format(self.url, self))
+
+        c = self.http_client(stream=True)
+        r = c.get(self.url)
+        if r.status_code >= 400:
+            raise IOError(r.status_code)
+
+        try:
+            fp = None
+            # we use the encoding the server returned to decide if we should
+            # treat this file as binary or text. Text should get decoded to
+            # unicode in the response object so then we will write it to the
+            # file using self.encoding
+            encoding = r.encoding
+            for chunk in r.iter_content(chunk_size=1024): 
+                if chunk: # filter out keep-alive new chunks
+                    if encoding:
+                        data, data_encoding, errors = self.prepare_text(chunk)
+
+                    else:
+                        data, data_encoding, errors = self.prepare_bytes(chunk)
+
+                    if not fp:
+                        if encoding:
+                            fp = self.open(mode="w+", encoding=data_encoding, errors=errors)
+                        else:
+                            fp = self.open("wb+")
+
+                    fp.write(chunk)
+
+        finally:
+            if fp:
+                fp.close()
+
+
+        self.fetched = True
+
+    def write(self, data):
+        """Restore Cachepath parent class functionality"""
+        return self.as_file().write(data)
+
+    def read(self):
+        raise NotImplementedError()
+UrlFilePath = UrlFilepath
+Urlpath = UrlFilepath
+UrlPath = UrlFilepath
+
+
 class SitePackagesDirpath(Dirpath):
     """Finds the site-packages directory and sets the value of this string to that
-    path"""
+    path
+
+    !!! Ripped from pyt.path which was ripped from pout.path
+    """
     def __new__(cls):
         basepath = cls._basepath
         if not basepath:

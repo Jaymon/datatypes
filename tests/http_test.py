@@ -2,8 +2,10 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
-from datatypes.headers import HTTPHeaders, HTTPEnviron
+from datatypes.http import HTTPHeaders, HTTPEnviron, HTTPClient, HTTPResponse
 from datatypes.string import String, ByteString
+from datatypes import environ
+
 
 from . import TestCase, testdata
 
@@ -135,4 +137,47 @@ class HTTPHeadersTest(TestCase):
         self.assertEqual("1", h["foo"])
         h.update({"foo": "2"})
         self.assertEqual("2", h["foo"])
+
+
+class HTTPClientTest(TestCase):
+    def test_alternative_method(self):
+        def do_PUT(handler):
+            return "PUT"
+
+        server = testdata.CallbackServer({
+            "PUT": do_PUT,
+        })
+        with server:
+            c = HTTPClient(server)
+            res = c.put(server)
+            self.assertEqual(200, res.code)
+            self.assertEqual("PUT", res.body)
+
+    def test_get_fetch_user_agent(self):
+        c = HTTPClient()
+
+        ua = c.get_fetch_user_agent()
+        self.assertTrue("datatypes.HTTPClient/" in ua)
+
+        with testdata.modify(environ, USER_AGENT="foobar"):
+            ua = c.get_fetch_user_agent()
+            self.assertEqual("foobar", ua)
+
+    def test_get_fetch_headers(self):
+        c = HTTPClient()
+
+        headers = c.get_fetch_headers("GET", {}, {})
+        self.assertTrue("user-agent" in headers)
+
+        headers = c.get_fetch_headers("GET", {"user-agent": "foo"}, {})
+        self.assertEqual(headers["user-agent"], "foo")
+
+    def test_iter_content(self):
+        content = testdata.get_ascii(2000)
+        r = HTTPResponse(200, ByteString(content), {}, None, None)
+        rc = ""
+        for rch in r.iter_content(100):
+            pout.v(rch)
+            rc += rch
+        self.assertEqual(content, rc)
 

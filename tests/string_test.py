@@ -110,10 +110,19 @@ class StringTest(TestCase):
         for line in s2.splitlines():
             self.assertTrue(line.startswith("  "))
 
+    def test_indent_issue37(self):
+        #s = String("\nFOO\n").indent(1, "...")
+        s = String("\nFOO\n").indent("...")
+        self.assertEqual("...\n...FOO\n", s)
+
     def test_indent_count(self):
         s = String("foo")
         self.assertTrue(s.indent(".", 3).startswith("..."))
         self.assertFalse(s.indent(".", 2).startswith("..."))
+
+    def test_wrap(self):
+        s = String("foo bar che").wrap(5)
+        self.assertEqual("foo\nbar\nche", s)
 
     def test_ispunc(self):
         s = String("{.}")
@@ -131,6 +140,17 @@ class StringTest(TestCase):
         self.assertNotEqual(h1, h3)
         self.assertNotEqual(h1, h4)
         self.assertNotEqual(h3, h4)
+
+    def test_camelcase(self):
+        s = String("foo_bar").camelcase()
+        self.assertEqual("FooBar", s)
+
+        s = String("foo BAR").camelcase()
+        self.assertEqual("FooBar", s)
+
+    def test_snakecase(self):
+        s = String("FooBar").snakecase()
+        self.assertEqual("foo_bar", s)
 
 
 class ByteStringTest(TestCase):

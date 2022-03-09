@@ -6,6 +6,7 @@ import re
 import string
 import binascii
 import unicodedata
+from distutils.fancy_getopt import wrap_text
 
 from . import environ
 from .compat import *
@@ -13,7 +14,25 @@ from .compat import HTMLParser as BaseHTMLParser
 from .utils import make_list
 
 
-class ByteString(Bytes):
+class StringMixin(object):
+    def chunk(self, chunk_size):
+        """Return chunk_size chunks of the string until it is exhausted
+
+        :param chunk_size: int, the size of the chunk
+        :returns: generator, yields chunks of the string until the end
+        """
+        if chunk_size:
+            start = 0
+            total = len(self)
+            while start < total:
+                yield self[start:start + chunk_size]
+                start += chunk_size
+
+        else:
+            yield self
+
+
+class ByteString(Bytes, StringMixin):
     """Wrapper around a byte string b"" to make sure we have a byte string that
     will work across python versions and handle the most annoying encoding issues
     automatically
@@ -96,7 +115,7 @@ class ByteString(Bytes):
         return hashlib.sha256(self).hexdigest()
 
 
-class String(Str):
+class String(Str, StringMixin):
     """Wrapper around a unicode string "" to make sure we have a unicode string that
     will work across python versions and handle the most annoying encoding issues
     automatically
@@ -252,8 +271,20 @@ class String(Str):
         """
         if not indent: return self
 
-        s = ((indent * count) + line for line in self.splitlines(False))
-        s = "\n".join(s)
+        s = ((indent * count) + line for line in self.splitlines(True))
+        s = "".join(s)
+        return type(self)(s)
+
+    def wrap(self, size):
+        """Wraps text to less than width wide
+
+        https://docs.python.org/3/distutils/apiref.html#distutils.fancy_getopt.wrap_text
+
+        :param size: int, the width you want
+        :returns: str, all text wrapped to no more than size, if there isn't a space
+            or linebreak then the middle of the word will get broken on
+        """
+        s = "\n".join(wrap_text(self, size))
         return type(self)(s)
 
     def stripall(self, chars):
@@ -272,6 +303,7 @@ class String(Str):
         return ret
 
     def astrip(self, chars):
+        """alias of .stripall"""
         return self.stripall(chars)
 
     def re(self, pattern, flags=0):
@@ -299,6 +331,12 @@ class String(Str):
 
     def capwords(self, sep=None):
         """passthrough for string module capwords
+
+        Split the argument into words using str.split(), capitalize each word using
+        str.capitalize(), and join the capitalized words using str.join(). If the
+        optional second argument sep is absent or None, runs of whitespace
+        characters are replaced by a single space and leading and trailing whitespace
+        are removed, otherwise sep is used to split and join the words.
 
         https://docs.python.org/3/library/string.html#string.capwords
         """
@@ -353,6 +391,112 @@ class String(Str):
             "'": "&apos;",
             "\"": "&quot;"
         })
+
+    def camelcase(self):
+        """Convert a string to use camel case (spaces removed and capital letters)
+
+        CamelCase
+
+        this method and snakecase come from pout.utils.String, they were moved
+        here on March 8, 2022
+
+        https://en.wikipedia.org/wiki/Camel_case
+        https://stackoverflow.com/questions/17326185/what-are-the-different-kinds-of-cases
+        https://en.wikipedia.org/wiki/Naming_convention_(programming)#Examples_of_multiple-word_identifier_formats
+        """
+        return "".join(map(lambda s: s.title(), re.split(r"[\s_-]+", self)))
+
+    def upper_camelcase(self):
+        """aliase of camel case
+
+        CamelCase"""
+        return self.camelcase()
+
+    def pascalcase(self):
+        """alias of camel case
+
+        CamelCase"""
+        return self.camelcase()
+
+    def studlycase(self):
+        """alias of camel case
+
+        CamelCase"""
+        return self.camelcase()
+
+    def lower_camelcase(self):
+        """camel case but first letter is lowercase
+
+        camelCase"""
+        cc = self.camelcase()
+        return cc[0].lower() + cc[1:]
+
+    def dromedarycase(self):
+        """camel case but first letter is lowercase
+
+        camelCase"""
+        return self.lowercamelcase()
+
+    def snakecase(self):
+        """Convert a string to use snake case (lowercase with underscores in place
+        of spaces)
+
+        snake_case
+
+        https://en.wikipedia.org/wiki/Snake_case
+        """
+        s = []
+        prev_ch_was_lower = False
+
+        for i, ch in enumerate(self):
+            if ch.isupper():
+                if i and prev_ch_was_lower:
+                    s.append("_")
+
+                prev_ch_was_lower = False
+
+            else:
+                prev_ch_was_lower = True
+
+            s.append(ch)
+        return re.sub(r"[\s-]+", "_", "".join(s)).lower()
+
+    def screaming_snakecase(self):
+        """snake case but all capital letters instead of lowercase
+
+        SCREAMING_SNAKE_CASE
+        """
+        return self.snakecase().upper()
+
+    def kebabcase(self):
+        """snake case but with dashes instead of underscores
+
+        kebab-case
+
+        https://en.wikipedia.org/wiki/Letter_case#Kebab_case
+        """
+        return self.snakecase().replace("_", "-")
+
+    def screaming_kebabcase(self):
+        """snake case but with dashes and all caps
+
+        SCREAMING-KEBAB-CASE
+        """
+        return self.kebabcase().upper()
+
+    def camel_snakecase(self):
+        """two_Words
+
+        https://en.wikipedia.org/wiki/Naming_convention_(programming)#Examples_of_multiple-word_identifier_formats
+        """
+        raise NotImplementedError()
+
+    def pascal_snakecase(self):
+        """Two_Words
+
+        https://en.wikipedia.org/wiki/Naming_convention_(programming)#Examples_of_multiple-word_identifier_formats
+        """
+        raise NotImplementedError()
 
 
 class HTML(String):
