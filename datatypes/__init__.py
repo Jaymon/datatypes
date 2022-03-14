@@ -75,7 +75,7 @@ from .email import (
 )
 
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

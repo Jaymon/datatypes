@@ -847,21 +847,35 @@ class Path(String):
         path = re.sub(r"\s+", "-", self.path)
         return path.lower()
 
-    def sanitize(self, chars="\\/:*?\"<>|^\0", maxpart=255, maxpath=260):
+    def sanitize(self, callback=None, maxpart=255, maxpath=260, rename=False):
         """Sanitize each part of self.path to make sure all the characters are safe
 
         macos has a 1023 character path limit, with each part limited to 255 chars:
             https://discussions.apple.com/thread/250275651
 
+        Dropbox has a max character path of 260 and they say don't use periods (which makes no sense),
+        you also can't have emoji or emoticons, there is no easy way to just strip emoji though
+        so I'm just going to stip all non-ascii characters
+            https://help.dropbox.com/files-folders/sort-preview/file-names
+
+        :param callback: callable, takes a fileroot and extension, and returns sanitized
+            fileroot and extension which will be joined by a period
         :param chars: string, the characters you want to remove from each part
         :param maxpart: int, the maximum length of each part of the path
         :param maxpath: int, the maximum length of the total path
+        :param rename: bool, True if this should sanitize parts that already exist
         :returns: Path, the path with bad characters stripped and within maxpath length
         """
         sparts = []
         rempath = maxpath
         paths = self.paths
         remparts = len(paths)
+
+        if not callback:
+            chars = "\\/:*?\"<>|^\0"
+            # https://stackoverflow.com/a/2759009/5006
+            callback = lambda s, ext: (re.sub(r'[^\x00-\x7F]+', '', String(s).stripall(chars)).strip(), ext)
+            #callback = lambda s, ext: (re.sub(r'(?u)[^_\s\w.@-]+', '', String(s).stripall(chars)).strip(), ext)
 
         logger.debug(f"Sanitizing {remparts} part(s) with {maxpart} chars each and a total path of {maxpath} chars")
 
@@ -872,7 +886,7 @@ class Path(String):
                 logger.debug(f"Path.sanitize {p} is root")
                 sp = p.path
 
-            elif p.exists():
+            elif p.exists() and not rename:
                 # if the folder already exists then it makes no sense to try and
                 # modify it
                 logger.debug(f"Path.sanitize {p} already exists")
@@ -889,11 +903,17 @@ class Path(String):
                     # sure to include it
                     fileroot, ext = p.splitbase()
 
-                logger.debug(f"Path.sanitize part {fileroot}{ext} is being sanitized")
+                logger.debug(f"Sanitizing part {fileroot}{ext}")
                 rempart = min(maxpart, rempath // remparts) - len(ext)
                 # https://kb.acronis.com/content/39790
                 # https://gitlab.com/jplusplus/sanitize-filename
-                sp = String(fileroot).truncate(size=rempart, postfix="").stripall(chars) + ext
+                # strip characters and then truncate
+                sp, ext = callback(fileroot, ext.lstrip("."))
+                sp = String(sp).truncate(size=rempart, postfix="")
+                #sp, ext = callback(String(fileroot).truncate(size=rempart, postfix=""), ext.lstrip("."))
+                if ext:
+                    sp = sp + "." + ext
+                #sp = String(fileroot).truncate(size=rempart, postfix="").stripall(chars) + ext
 
             remparts -= 1
             if sp:

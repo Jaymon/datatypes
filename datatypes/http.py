@@ -543,9 +543,12 @@ class HTTPClient(object):
                 "*/*;q=0.8",
                 "application/signed-exchange;v=b3;q=0.9", 
             ]),
-            "Accept-Encoding": "gzip, deflate", 
+            # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
+            # Indicates the identity function (that is, without modification or compression)
+            "Accept-Encoding": "identity", #"gzip, deflate", 
             # https://stackoverflow.com/a/29020782/5006
-            "Accept-Language": "*", #"en-US,en;q=0.9", # could use LANG environment variable
+            # could use LANG environment variable
+            "Accept-Language": "*", #"en-US,en;q=0.9",
             "Dnt": "1", 
             "Upgrade-Insecure-Requests": "1", 
             "User-Agent": self.get_fetch_user_agent(),

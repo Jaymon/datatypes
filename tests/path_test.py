@@ -307,6 +307,19 @@ class PathTest(TestCase):
             self.assertEqual(len(r.parts), len(r2.parts))
             self.assertTrue(r2.endswith(".ext"))
 
+    def test_sanitize_emoji(self):
+        r = Path("foo \U0001F441\u200D\U0001F5E8.ext")
+        rr = r.sanitize()
+        self.assertEqual("foo.ext", rr.basename)
+
+        r = Path("foo \U0001F441\u200D\U0001F5E8")
+        rr = r.sanitize()
+        self.assertEqual("foo", rr.basename)
+
+        r = Path("2021-09-09 2221 - \U0001F3A5")
+        rr = r.sanitize()
+        self.assertEqual("2021-09-09 2221 -", rr.basename)
+
 
 class _PathTestCase(PathTest):
     def test_stat(self):

@@ -619,9 +619,9 @@ class Character(String):
         ret = ""
         for cp in self.codepoints:
             if len(cp.hex) <= 4:
-                ret += '\\u{}'.format(cp.hex)
+                ret += '\\u{:0>4}'.format(cp.hex)
             else:
-                ret += '\\U{}'.format(cp.hex)
+                ret += '\\U{:0>8}'.format(cp.hex)
         return ret
 
     def repr_bytes(self):
