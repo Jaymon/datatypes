@@ -875,7 +875,6 @@ class Path(String):
             chars = "\\/:*?\"<>|^\0"
             # https://stackoverflow.com/a/2759009/5006
             callback = lambda s, ext: (re.sub(r'[^\x00-\x7F]+', '', String(s).stripall(chars)).strip(), ext)
-            #callback = lambda s, ext: (re.sub(r'(?u)[^_\s\w.@-]+', '', String(s).stripall(chars)).strip(), ext)
 
         logger.debug(f"Sanitizing {remparts} part(s) with {maxpart} chars each and a total path of {maxpath} chars")
 
@@ -910,10 +909,8 @@ class Path(String):
                 # strip characters and then truncate
                 sp, ext = callback(fileroot, ext.lstrip("."))
                 sp = String(sp).truncate(size=rempart, postfix="")
-                #sp, ext = callback(String(fileroot).truncate(size=rempart, postfix=""), ext.lstrip("."))
                 if ext:
                     sp = sp + "." + ext
-                #sp = String(fileroot).truncate(size=rempart, postfix="").stripall(chars) + ext
 
             remparts -= 1
             if sp:
