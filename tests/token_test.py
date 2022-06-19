@@ -387,4 +387,3 @@ class HTMLTokenizerTest(TestCase):
         tag = t.prev()
         self.assertEqual("four", tag.tagname)
 
-

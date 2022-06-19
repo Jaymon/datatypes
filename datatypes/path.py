@@ -542,6 +542,20 @@ class Path(String):
         return kwargs["path"]
 
     def __new__(cls, *parts, **kwargs):
+        """Create a new path
+
+        all the arguments are combined like this:
+
+            dir / *parts / prefix + name + suffix + ext
+
+        :param *parts: mixed, parts you want to have in the path, or a full path
+        :param **kwargs:
+            ext -- the extension (see .get_basename)
+            prefix -- a prefix to name (see .get_basename)
+            suffix -- a suffix to name (see .get_basename)
+            dir -- a base directory, this will be prepended to *parts (see .normparts)
+            name|basename -- the file name
+        """
         parts = cls.normparts(*parts, **kwargs)
         path = cls.normpath(*parts, **kwargs)
         value = cls.normvalue(*parts, path=path, **kwargs)

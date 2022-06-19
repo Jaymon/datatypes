@@ -254,6 +254,13 @@ class HTMLParserTest(TestCase):
         self.assertEqual(1, len(t))
         self.assertEqual(2, len(t.tags[0]["body"]))
 
+    def test_empty_tags(self):
+        html = '<div><span><img src=""><p>p data</p><br></span></div>'
+        t = HTMLParser(html)
+        self.assertEqual(1, len(t))
+        self.assertEqual(1, len(t.tags[0]["body"]))
+        self.assertEqual(3, len(t.tags[0]["body"][0]["body"]))
+
 
 class CharacterTest(TestCase):
     """

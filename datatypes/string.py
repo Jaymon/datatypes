@@ -1108,23 +1108,35 @@ class HTMLParser(BaseHTMLParser):
 
     https://docs.python.org/3/library/html.parser.html
     """
+    # https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
+    EMPTY_TAGNAMES = set([
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "keygen",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    ])
+
     def __init__(self, data, tagnames=None):
         """create an instance
 
         :param data: string, the html
         :param tagnames: list|string, the tags you want to parse out of data
         """
-        self.rawdata = data
-        self.stack = []
-        self.tags = []
-
-        if is_py2:
-            BaseHTMLParser.__init__(self)
-        else:
-            super(HTMLParser, self).__init__()
+        super(HTMLParser, self).__init__()
 
         self.handle_tagnames(tagnames)
-        self.feed()
+        self.feed(data)
 
     def handle_tagnames(self, tagnames):
         if tagnames:
@@ -1140,29 +1152,53 @@ class HTMLParser(BaseHTMLParser):
         """
         return not self.tagnames or tagname in self.tagnames
 
-    def feed(self):
-        if is_py2:
-            BaseHTMLParser.feed(self, "")
-        else:
-            super(HTMLParser, self).feed("")
-
-        # clean up any stragglers, we now know the HTML was invalid
-        if self.stack:
-            self.tags.append(self.stack.pop(-1))
+    def feed(self, data):
+        """This .feed is different than parent's .feed in that data has to be
+        the full html, so you can't keep calling it, every time you call this method
+        it will set .data and parse it and place it into .tags
+        """
+        self.stack = []
+        self.tags = []
+        self.data = data
         self.seek(0)
 
+        super(HTMLParser, self).feed(data)
+        self.close()
+
+    def close(self):
+        # clean up any stragglers, we now know the HTML was invalid
+        while self.stack:
+            self.tags.append(self.stack.pop(-1))
+
+    def append(self, tag):
+        if self.stack:
+            self.stack[-1]["body"].append(tag)
+        else:
+            self.tags.append(tag)
+
     def handle_starttag(self, tagname, attrs):
+        # we add the tag if it is in the wanted tag list or if it is part of the
+        # body of another tag
         if not self.is_tagname(tagname) and not self.stack:
             return
 
         start_line, start_ch = self.getpos()
-        self.stack.append({
+
+        tag = {
             "tagname": tagname,
             "attrs": attrs,
             "body": [],
             "start": start_ch,
             "start_line": start_line,
-        })
+        }
+
+        if tagname in self.EMPTY_TAGNAMES:
+            tag["stop"] = start_ch
+            tag["stop_line"] = start_line
+            self.append(tag)
+
+        else:
+            self.stack.append(tag)
 
     def handle_data(self, data):
         if not self.stack:
@@ -1184,18 +1220,14 @@ class HTMLParser(BaseHTMLParser):
         tag = self.stack.pop(-1)
         tag["stop"] = stop_ch
         tag["stop_line"] = stop_line
-
-        if self.stack:
-            self.stack[-1]["body"].append(tag)
-
-        else:
-            self.tags.append(tag)
+        self.append(tag)
 
     def seekable(self):
         return True
 
     def seek(self, offset):
-        self.offset = offset
+        """This is the current tag position, not the position while parsing the html"""
+        self.tag_offset = offset
 
     def fileno(self):
         return 0
@@ -1208,32 +1240,28 @@ class HTMLParser(BaseHTMLParser):
         return False
 
     def tell(self):
-        """Return the current stream position"""
-        return self.offset
+        """Return the current tag position"""
+        return self.tag_offset
 
     def next(self):
-        if self.offset >= len(self.tags):
+        if self.tag_offset >= len(self.tags):
             raise StopIteration()
 
-        tag = self.tags[self.offset]
-        self.offset += 1
+        tag = self.tags[self.tag_offset]
+        self.tag_offset += 1
         return tag
 
     def reset(self):
-        rawdata = self.rawdata
-        if is_py2:
-            BaseHTMLParser.reset(self)
-        else:
-            super(HTMLParser, self).reset()
-
-        self.rawdata = rawdata
+        self.stack = []
+        self.tags = []
         self.seek(0)
+        super(HTMLParser, self).reset()
 
     def __next__(self):
         return self.next()
 
     def __iter__(self):
-        self.reset()
+        self.seek(0)
         return self
 
     def __len__(self):
