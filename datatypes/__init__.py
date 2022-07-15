@@ -75,9 +75,10 @@ from .email import (
 )
 
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
+# DEPRECATED 7-15-2022, doesn't seem to be needed in python3
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
