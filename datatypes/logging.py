@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from logging import *
+from logging import * # allow using this module as a passthrough for builtin logging
+import logging
+import sys
 
 
 def null_config(name):
