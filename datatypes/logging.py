@@ -46,9 +46,13 @@ def quick_config(**kwargs):
 
     # configure certain loggers
     # https://github.com/Jaymon/testdata/issues/34
+    if isinstance(levels, dict):
+        levels = levels.items()
     for logger_name, logger_level in levels:
         l = logging.getLogger(logger_name)
-        l.setLevel(getattr(logging, logger_level))
+        if isinstance(logger_level, str):
+            logger_level = getattr(logging, logger_level)
+        l.setLevel(logger_level)
 
 #     rlogger = logging.getLogger()
 #     if not rlogger.handlers:
