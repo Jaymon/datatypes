@@ -242,7 +242,8 @@ class HTTPResponse(object):
     @property
     def content(self):
         encoding = self.encoding
-        return self._body.decode(encoding) if encoding else self._body
+        errors = environ.ENCODING_ERRORS
+        return self._body.decode(encoding, errors) if encoding else self._body
 
     @property
     def status_code(self):
