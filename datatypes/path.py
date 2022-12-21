@@ -219,6 +219,30 @@ class Path(String):
         return os.path.basename(self.path)
 
     @property
+    def nameparts(self):
+        """Similar to .splitbase() but removes the period from the ext and returns
+        it as the delim
+
+        :returns: tuple, (fileroot, delim, suffix), delim will be "." if suffix
+            exists, otherwise it will be an empty string
+        """
+        delim = ""
+        fileroot, ext = self.splitbase()
+        if ext:
+            if ext == ".":
+                # if the extension is just a period then it is part of fileroot
+                # and ext is empty, this is a change from .splitbase(), which
+                # would return a period as the extension
+                fileroot += ext
+                delim = ""
+
+            else:
+                delim = "."
+
+            ext = ext.lstrip(".")
+        return (fileroot, delim, ext)
+
+    @property
     def fileroot(self):
         """Return the fileroot portion of a directory/fileroot.ext path"""
         # https://stackoverflow.com/questions/2235173/
@@ -467,11 +491,6 @@ class Path(String):
 
         if ext:
             basename += ext
-
-#         https://kb.acronis.com/content/39790
-#         if kwargs.get("safe", kwargs.get("sanitize", False)):
-#             https://gitlab.com/jplusplus/sanitize-filename
-#             basename = String(basename).stripall("\\/:*?\"<>|\^\0")
 
         if not basename:
             raise ValueError("basename is empty")
@@ -869,15 +888,20 @@ class Path(String):
 
         Dropbox has a max character path of 260 and they say don't use periods (which makes no sense),
         you also can't have emoji or emoticons, there is no easy way to just strip emoji though
-        so I'm just going to stip all non-ascii characters
+        so I'm just going to strip all non-ascii characters
             https://help.dropbox.com/files-folders/sort-preview/file-names
 
-        :param callback: callable, takes a fileroot and extension, and returns sanitized
-            fileroot and extension which will be joined by a period
+        Other references:
+            * https://kb.acronis.com/content/39790
+            * https://gitlab.com/jplusplus/sanitize-filename
+
+        :param callback: callable, takes a fileroot and extension, and returns a sanitized
+            tuple (fileroot, extension) which will be joined by a period
         :param chars: string, the characters you want to remove from each part
         :param maxpart: int, the maximum length of each part of the path
         :param maxpath: int, the maximum length of the total path
         :param rename: bool, True if this should sanitize parts that already exist
+            ??? should this be renamed "rename_existing"?
         :returns: Path, the path with bad characters stripped and within maxpath length
         """
         sparts = []
@@ -886,9 +910,23 @@ class Path(String):
         remparts = len(paths)
 
         if not callback:
-            chars = "\\/:*?\"<>|^\0"
-            # https://stackoverflow.com/a/2759009/5006
-            callback = lambda s, ext: (re.sub(r'[^\x00-\x7F]+', '', String(s).stripall(chars)).strip(), ext)
+            def callback(s, ext):
+                # strip all these characters from anywhere
+                chars = "\\/:*?\"<>|^\0"
+                s = String(s).stripall(chars)
+
+                # removes non-ascii characters
+                # https://stackoverflow.com/a/2759009/5006
+                s = re.compile(r'[^\x00-\x7F]+').sub('', s)
+
+                # remove and consolidate all whitespace to one space (this strips
+                # newlines and tabs) and make sure there are no spaces at the
+                # beginning or end of the part
+                s = re.compile(r'\s+').sub(' ', s.strip())
+
+                return (s, callback(ext, "")[0] if ext else ext)
+
+            #callback = lambda s, ext: (re.sub(r'\s+', ' ', re.sub(r'[^\x00-\x7F]+', '', String(s).stripall(chars)).strip()), ext)
 
         logger.debug(f"Sanitizing {remparts} part(s) with {maxpart} chars each and a total path of {maxpath} chars")
 
@@ -896,13 +934,13 @@ class Path(String):
             sp = p.basename
             if p.is_root():
                 # we can't modify root in any way
-                logger.debug(f"Path.sanitize {p} is root")
+                logger.debug(f"Path.sanitize part {p} is root")
                 sp = p.path
 
             elif p.exists() and not rename:
                 # if the folder already exists then it makes no sense to try and
                 # modify it
-                logger.debug(f"Path.sanitize {p} already exists")
+                logger.debug(f"Path.sanitize part {p} already exists")
                 sp = p.basename
 
             else:
@@ -910,21 +948,22 @@ class Path(String):
                     # since we have more parts still this must be a directory so
                     # no point in splitting it
                     fileroot = p.basename
+                    delim = ""
                     ext = ""
+
                 else:
                     # we are at the basename so let's split the ext so we make
                     # sure to include it
-                    fileroot, ext = p.splitbase()
+                    fileroot, delim, ext = p.nameparts
 
-                logger.debug(f"Sanitizing part {fileroot}{ext}")
-                rempart = min(maxpart, rempath // remparts) - len(ext)
+                logger.debug(f"Path.sanitize part {fileroot}{delim}{ext} sanitizing")
+                rempart = min(maxpart, rempath // remparts) - len(ext) - len(delim)
                 # https://kb.acronis.com/content/39790
                 # https://gitlab.com/jplusplus/sanitize-filename
                 # strip characters and then truncate
-                sp, ext = callback(fileroot, ext.lstrip("."))
+                sp, ext = callback(fileroot, ext)
                 sp = String(sp).truncate(size=rempart, postfix="")
-                if ext:
-                    sp = sp + "." + ext
+                sp = sp + delim + ext
 
             remparts -= 1
             if sp:
@@ -1151,7 +1190,8 @@ class Path(String):
         return os.path.splitext(self.path)
 
     def splitbase(self):
-        """Splits fileroot from ext, wrapper around os.path.splitext()
+        """Splits fileroot from ext, wrapper around os.path.splitext() but uses
+        the basename instead of the full path
 
         :Example:
             p = Path("/foo/bar/che.ext")
@@ -1815,8 +1855,8 @@ class Filepath(Path):
         else:
             return self.write_text(data)
 
-    def append_text(self, data):
-        data, encoding, errors = self.prepare_text(data)
+    def append_text(self, data, **kwargs):
+        data, encoding, errors = self.prepare_text(data, **kwargs)
         with self.open(mode="a+", encoding=encoding, errors=errors) as fp:
             return fp.write(data)
 

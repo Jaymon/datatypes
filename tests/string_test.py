@@ -10,6 +10,7 @@ from datatypes.string import (
     HTMLParser,
     Character,
     Codepoint,
+    NamingConvention,
 )
 
 from . import TestCase, testdata
@@ -141,16 +142,47 @@ class StringTest(TestCase):
         self.assertNotEqual(h1, h4)
         self.assertNotEqual(h3, h4)
 
+
+class NamingConventionTest(TestCase):
     def test_camelcase(self):
-        s = String("foo_bar").camelcase()
+        s = NamingConvention("foo_bar").camelcase()
         self.assertEqual("FooBar", s)
 
-        s = String("foo BAR").camelcase()
+        s = NamingConvention("foo BAR").camelcase()
         self.assertEqual("FooBar", s)
 
     def test_snakecase(self):
-        s = String("FooBar").snakecase()
+        s = NamingConvention("FooBar").snakecase()
         self.assertEqual("foo_bar", s)
+
+    def test_name(self):
+        s = NamingConvention("FooBar")
+        self.assertEqual("Foo_Bar", s.underscore())
+        self.assertEqual("Foo-Bar", s.dash())
+        a = set(["FooBar", "foobar", "Foo_Bar", "foo_bar", "Foo-Bar", "foo-bar"])
+        self.assertEqual(a, s.variations())
+
+        s = NamingConvention("Foo-Bar")
+        self.assertEqual("Foo_Bar", s.underscore())
+        self.assertEqual("Foo-Bar", s.dash())
+        a = set(["Foo_Bar", "foo_bar", "Foo-Bar", "foo-bar"])
+        self.assertEqual(a, s.variations())
+
+        s = NamingConvention("Foo_Bar")
+        self.assertEqual("Foo_Bar", s.underscore())
+        self.assertEqual("Foo-Bar", s.dash())
+        a = set(["Foo_Bar", "foo_bar", "Foo-Bar", "foo-bar"])
+        self.assertEqual(a, s.variations())
+
+        s = NamingConvention("Foo_bar")
+        self.assertEqual("Foo_bar", s.underscore())
+        self.assertEqual("Foo-bar", s.dash())
+        a = set(["Foo_bar", "foo_bar", "Foo-bar", "foo-bar"])
+        self.assertEqual(a, s.variations())
+
+    def test_varname(self):
+        s = NamingConvention("Foo Bar")
+        self.assertEqual("foo_bar", s.varname())
 
 
 class ByteStringTest(TestCase):

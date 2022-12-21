@@ -363,6 +363,18 @@ IDict = idict
 iDict = idict
 
 
+class Namespace(NormalizeDict):
+    """Allows both dictionary syntax (eg foo["keyname"]) and object syntax (eg foo.keyname)"""
+    def __setattr__(self, k, v):
+        return self.__setitem__(k, v)
+
+    def __getattr__(self, k):
+        return self.__getitem__(k)
+
+    def __delattr__(self, k):
+        return self.__delitem__(k)
+
+
 class Trie(object):
     """https://en.wikipedia.org/wiki/Trie"""
     def __init__(self, *values):

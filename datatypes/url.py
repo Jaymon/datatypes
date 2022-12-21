@@ -101,7 +101,7 @@ class Url(String):
         return values
 
     @classmethod
-    def merge(cls, urlstring="", **kwargs):
+    def merge(cls, urlstring="", *args, **kwargs):
         # we handle port before any other because the port of host:port in hostname takes precedence
         # the port on the host would take precedence because proxies mean that the
         # host can be something:10000 and the port could be 9000 because 10000 is
@@ -204,7 +204,7 @@ class Url(String):
                 parts["hostloc"]
             )
 
-        parts["path"] = "/".join(cls.normalize_paths(parts["path"]))
+        parts["path"] = "/".join(cls.normalize_paths(parts["path"], *args))
 
         parts["urlstring"] = parse.urlunsplit((
             parts["scheme"],
@@ -266,6 +266,18 @@ class Url(String):
 
     @classmethod
     def unparse_query(cls, query_kwargs):
+        """Given query kwargs in a dict format, convert them back into a string
+
+        This will encode [] in the name as discussed in:
+            https://stackoverflow.com/a/39294315/5006
+            https://github.com/ljharb/qs/issues/235
+
+        Luckily, it seems most servers will transparently handle encoded [] in 
+        variable names
+
+        :param query_kwargs: dict, eg {"foo": "bar", "che": 1}
+        :returns: str, foo=bar&che=1
+        """
         return urlencode(query_kwargs, doseq=True)
 
     @classmethod
@@ -290,8 +302,8 @@ class Url(String):
             p = int(bits[1])
         return d, p
 
-    def __new__(cls, urlstring=None, **kwargs):
-        parts = cls.merge(urlstring, **kwargs)
+    def __new__(cls, urlstring=None, *args, **kwargs):
+        parts = cls.merge(urlstring, *args, **kwargs)
         urlstring = parts.pop("urlstring")
         instance = super(Url, cls).__new__(cls, urlstring)
         for k, v in parts.items():
@@ -510,7 +522,7 @@ class Url(String):
 
 
 class Host(tuple):
-    """Creates a tuple (hostname, port) that can be passed to built-in PYthon server
+    """Creates a tuple (hostname, port) that can be passed to built-in Python server
     classes and anything that uses that same interface, does all the lifting to
     figure out what the hostname and port should be based on the passed in input,
     so you can pass things like hostname:port, or (host, port), etc.

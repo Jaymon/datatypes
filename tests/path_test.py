@@ -292,7 +292,6 @@ class PathTest(TestCase):
         maxpath = 100
         p = Path(basedir, testdata.get_words(20), f"{testdata.get_words(20)}.ext")
         sp = p.sanitize(maxpart=20, maxpath=maxpath)
-        pout.v(len(sp))
         self.assertGreaterEqual(maxpath, len(sp))
         self.assertTrue(sp.endswith(".ext"))
 
@@ -307,7 +306,7 @@ class PathTest(TestCase):
             self.assertEqual(len(r.parts), len(r2.parts))
             self.assertTrue(r2.endswith(".ext"))
 
-    def test_sanitize_emoji(self):
+    def test_sanitize_emoji_1(self):
         r = Path("foo \U0001F441\u200D\U0001F5E8.ext")
         rr = r.sanitize()
         self.assertEqual("foo.ext", rr.basename)
@@ -319,6 +318,23 @@ class PathTest(TestCase):
         r = Path("2021-09-09 2221 - \U0001F3A5")
         rr = r.sanitize()
         self.assertEqual("2021-09-09 2221 -", rr.basename)
+
+    def test_sanitize_emoji_2(self):
+        r = Path("You're #1 - Come check these drops out...\U0001F440")
+        r2 = r.sanitize()
+        self.assertTrue(r2.endswith("You're #1 - Come check these drops out..."))
+
+    def test_sanitize_newlines(self):
+        r = Path("foo\nbar")
+        self.assertTrue("\n" in r)
+        r2 = r.sanitize()
+        self.assertFalse("\n" in r2)
+
+    def test_sanitize_callback(self):
+        r = Path(".foo.", ".bar.")
+        self.assertTrue(r.endswith(".foo./.bar."))
+        r2 = r.sanitize(lambda s, ext: (s.replace(".", ""), ext))
+        self.assertTrue(r2.endswith("foo/bar"))
 
 
 class _PathTestCase(PathTest):

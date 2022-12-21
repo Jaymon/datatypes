@@ -9,6 +9,7 @@ from datatypes.collections import (
     Trie,
     OrderedList,
     Dict,
+    Namespace,
 )
 
 from . import TestCase, testdata
@@ -343,4 +344,23 @@ class OrderedListTest(TestCase):
         self.assertEqual("foo", h.pop(0)[1])
         self.assertEqual("boo", h.pop(-1)[1])
         self.assertEqual("che", h.pop()[1])
+
+
+class NamespaceTest(TestCase):
+    def test_crud(self):
+        n = Namespace()
+
+        n.bar = 1
+        self.assertEqual(1, n.bar)
+        self.assertEqual(1, n["bar"])
+        del n.bar
+        with self.assertRaises(KeyError):
+            n.bar
+
+        n["foo"] = 2
+        self.assertEqual(2, n.foo)
+        self.assertEqual(2, n["foo"])
+        del n["foo"]
+        with self.assertRaises(KeyError):
+            n.foo
 

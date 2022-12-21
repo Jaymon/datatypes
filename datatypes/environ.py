@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 import os
 import tempfile
+import sys
 
 from .compat import *
 
@@ -18,17 +19,87 @@ class Environ(object):
 
         environ = Environ("FOO_")
     """
-    def __init__(self, modname=""):
-        self.namespace = ""
-        if modname:
-            namespace = modname.split(".")[0].upper()
-            if not namespace.endswith("_"):
-                namespace += "_"
-            self.namespace = namespace
+#     @classmethod
+#     def load(cls, modname, envmodname="", clobber=False):
+#         """Load the variables found using a namespace generated from modname into
+#         the module found using envmodname
+# 
+#         This is designed to be called from a library's environ.py file
+# 
+#         :Example:
+#             # <LIBRARY>/environ.py
+#             from datatypes.environ import Environ
+#             Environ.load(__name__)
+# 
+#         :param modname: str, this will be used to generate the modname
+#         :param envmodname: str, this is the modpath used to pull the module from
+#             sys.modules
+#         :param clobber: bool, True if you want to clobber previously set values,
+#             False if you skip values that have already been set
+#         :returns: module, the module found via envmodname
+#         """
+#         if not modname:
+#             raise ValueError("Pass in something like __name__")
+# 
+#         if not envmodname:
+#             envmodname = modname
+# 
+#         envmod = sys.modules[envmodname]
+# 
+#         instance = cls(modname)
+#         for k in instance.keys():
+#             ek = instance.ekey(k)
+#             if clobber or not hasattr(envmod, ek):
+#                 setattr(envmod, ek, instance.get(k))
+# 
+#         return envmod
+
+    @classmethod
+    def find_namespace(cls, modname):
+        namespace = modname.split(".")[0].upper()
+        if not namespace.endswith("_"):
+            namespace += "_"
+        return namespace
+
+    def __init__(self, modname="", envmodname=""):
+        self.namespace = self.find_namespace(modname) if modname else ""
+        self.envmodname = envmodname if envmodname else modname
+
+    def update(self, environ=None, envmodname="", clobber=False):
+        """merge the variables of environ into the module found using envmodname
+
+        This is designed to be called from a library's environ.py file
+
+        :Example:
+            # <LIBRARY>/environ.py
+            from datatypes.environ import Environ
+            environ = Environ(__name__)
+            environ.merge()
+
+        :param environ: dict, if None os.environ will be used instead
+        :param envmodname: str, this is the modpath used to pull the module from
+            sys.modules
+        :param clobber: bool, True if you want to clobber previously set values,
+            False if you skip values that have already been set
+        :returns: module, the module found via envmodname
+        """
+        if not environ:
+            environ = os.environ
+
+        if not envmodname:
+            envmodname = self.envmodname
+
+        envmod = sys.modules[envmodname]
+
+        for k in self.keys():
+            ek = self.ekey(k)
+            if clobber or not hasattr(envmod, ek):
+                setattr(envmod, ek, self.get(k))
+
+        return envmod
 
     def set(self, key, value):
-        k = self.key(key)
-        os.environ[k] = value
+        os.environ[self.key(key)] = value
 
     def nset(self, key, values):
         """Given a list of values, this will set key_* where * is 1 -> len(values)
@@ -44,8 +115,7 @@ class Environ(object):
 
     def delete(self, key):
         """remove key from the environment"""
-        k = self.key(key)
-        os.environ.pop(k)
+        os.environ.pop(self.key(key), None)
 
     def ndelete(self, key):
         """remove all key_* from the environment"""
@@ -59,11 +129,13 @@ class Environ(object):
         :returns: mixed, the value in the environment of key, or default if key
             is not in the environment
         """
-        if self.namespace and not key.startswith(self.namespace):
-            key = self.namespace + key
+        return os.environ.get(self.key(key), default)
 
-        r = os.environ.get(key, default)
-        return r
+    def __getitem__(self, key):
+        return os.environ[self.key(key)]
+
+    def __getattr__(self, key):
+        return self.__getitem__(key)
 
     def nget(self, key):
         """this will look for key, and kkey_N (where
@@ -96,6 +168,16 @@ class Environ(object):
         if self.namespace and not key.startswith(self.namespace):
             key = self.namespace + key
         return key
+
+    def ekey(self, key):
+        """Given a full namespaced key return the key name without the namespace
+
+        :Example:
+            environ = Environ("FOO_")
+            k = environ.ekey("FOO_BAR")
+            print(k) # BAR
+        """
+        return key.replace(self.namespace, "")
 
     def nkey(self, key, n):
         """helper method for nkeys"""
@@ -145,11 +227,13 @@ class Environ(object):
         :param k: str
         :returns: bool
         """
-        k = self.key(key)
-        return k in os.environ
+        return self.key(key) in os.environ
+
+    def __contains__(self, key):
+        return self.has(key)
 
 
-environ = Environ(modname=__name__)
+environ = Environ("DATATYPES_", __name__)
 
 ENCODING = environ.get("ENCODING", "UTF-8")
 """For things that need encoding, this will be the default encoding if nothing else
@@ -166,4 +250,8 @@ CACHE_DIR = environ.get("CACHE_DIR", os.path.join(tempfile.gettempdir(), environ
 
 
 USER_AGENT = environ.get("USER_AGENT", "")
+
+
+# Load all other DATATYPES_* environment variables into this module
+environ.update()
 

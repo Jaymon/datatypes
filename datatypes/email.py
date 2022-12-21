@@ -127,40 +127,6 @@ class Email(object):
             ret = "(no subject)"
         return ret
 
-    def path(self, basedir):
-        """Get the save path for this email, this should be a directory that
-        all the parts can be saved into
-
-        :param basedir: string, the base directory that will be used to generate a full path
-        :returns: string, the full path to a directory this email can be saved into
-        """
-        stamp = self.datetime.strftime("%Y-%m-%d %H%M")
-        s = f"{stamp} - {self.subject}"
-        s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
-        s = re.sub(r"[:?\"\'|^]", "", s)
-
-        return Dirpath(
-            basedir,
-            f"{self.from_domain}",
-            f"{self.from_addr}/{s}",
-        ).sanitize(maxpath=220)
-
-    def paths(self, basedir):
-        """Returns all the potential paths that .save() could use. This is really
-        more for debugging because it might generate different paths since it doesn't
-        actually create the paths, which might cause datatypes.Path.sanitize() to
-        produce different results
-
-        :param basedir: string, the base directory that will be used to generate a full path
-        :returns: list, all the folders and attachment/bpdy paths this could generate
-        """
-        email_dir = self.path(basedir)
-        paths = [email_dir]
-        for ps in self.parts.values():
-            for p in ps:
-                paths.append(p.path(email_dir))
-        return paths
-
     @property
     def recipient_addrs(self):
         """return all the recipient email addresses
@@ -275,6 +241,40 @@ class Email(object):
                 encoding=encoding
             ))
 
+    def path(self, basedir):
+        """Get the save path for this email, this should be a directory that
+        all the parts can be saved into
+
+        :param basedir: string, the base directory that will be used to generate a full path
+        :returns: string, the full path to a directory this email can be saved into
+        """
+        stamp = self.datetime.strftime("%Y-%m-%d %H%M")
+        s = f"{stamp} - {self.subject}"
+        s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
+        s = re.sub(r"[:?\"\'|^]", "", s)
+
+        return Dirpath(
+            basedir,
+            f"{self.from_domain}",
+            f"{self.from_addr}/{s}",
+        ).sanitize(maxpath=220)
+
+    def paths(self, basedir):
+        """Returns all the potential paths that .save() could use. This is really
+        more for debugging because it might generate different paths since it doesn't
+        actually create the paths, which might cause datatypes.Path.sanitize() to
+        produce different results
+
+        :param basedir: string, the base directory that will be used to generate a full path
+        :returns: list, all the folders and attachment/bpdy paths this could generate
+        """
+        email_dir = self.path(basedir)
+        paths = [email_dir]
+        for ps in self.parts.values():
+            for p in ps:
+                paths.append(p.path(email_dir))
+        return paths
+
     def bodies(self):
         """Get all the bodies in the email"""
         for ps in self.parts.values():
@@ -299,22 +299,29 @@ class Email(object):
         """Alias of .has_attachments()"""
         return self.has_attachments()
 
-    def save(self, basedir):
+    def save(self, basedir, save_original=False):
         """Save this email into basedir
 
         this will generate a base email path in the format:
 
             basedir/<FROM_DOMAIN>/<FROM_ADDR>/<DATE> - <SUBJECT>
 
-        Then it will use this base email path to save all the bodies and attachments
+        Then it will use this base email path to save all the headers, bodies, and attachments
         of the email
 
         :param basedir: string, path to save the email into
+        :param save_original: bool, True if you would also like to save the full
+            original email in original.txt
         :returns: list, all the paths the email saved
         """
         ret = []
         email_dir = self.path(basedir)
         email_dir.touch()
+
+        if save_original:
+            p = Filepath(email_dir, "original.txt")
+            p.write_bytes(ByteString(self.contents))
+            ret.append(p)
 
         ret.append(email_dir)
         for ps in self.parts.values():
@@ -324,7 +331,6 @@ class Email(object):
                     ret.append(rp)
 
         p = Filepath(email_dir, "headers.txt")
-        ret.append(p)
         with p.open_text("w+") as f:
             f.write("From:\n\t- {}\n".format(self.from_addr))
             f.write("Recipients:\n\t- {}\n".format("\n\t- ".join(self.recipient_addrs)))
@@ -333,6 +339,7 @@ class Email(object):
 
             for name, val in self.headers:
                 f.write("{}: {}\n".format(name, val))
+        ret.append(p)
 
         return ret
 

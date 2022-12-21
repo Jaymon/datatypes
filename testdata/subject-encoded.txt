@@ -1,0 +1,29 @@
+Subject: =?utf-8?Q?You=27re=20#1=20=2D=20Come=20check=20these=20drops=20out...=F0=9F=91=80?=
+From: =?utf-8?Q?hello=20Gateway?= <hello@example1.com>
+Reply-To: =?utf-8?Q?hello=20Gateway?= <hello@example1.com>
+To: =?utf-8?Q?NG=20Army?= <hi@example2.com>
+Date: Tue,  1 Mar 2022 21:07:15 +0000
+Message-ID: <da618d618ebaf5401db144aff.132571b818.20220301210702.82d7dd6e8a.752a97f2@example3.net>
+Content-Type: multipart/alternative; boundary="_----------=_MCPart_224190142"
+MIME-Version: 1.0
+
+This is a multi-part message in MIME format
+
+--_----------=_MCPart_224190142
+Content-Type: text/plain; charset="utf-8"; format="fixed"
+Content-Transfer-Encoding: quoted-printable
+
+Plain body
+--_----------=_MCPart_224190142
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<!doctype html>
+<html xmlns=3D"http://www.w3.org/1999/xhtml" xmlns:v=3D"urn:schemas-micros=
+oft-com:vml" xmlns:o=3D"urn:schemas-microsoft-com:office:office">
+    <head>
+        <title>You're #1 - Come check these drops out...=F0=9F=91=80</titl=
+e>
+<body>html body</body>
+</html>
+--_----------=_MCPart_224190142--

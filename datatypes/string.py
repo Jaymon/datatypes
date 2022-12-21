@@ -295,12 +295,22 @@ class String(Str, StringMixin):
             s = "foo bar che.  "
             s2 = s.stripall(" .")
             print(s2) # "foobarche"
+
+        :param chars: str|callable, either the characters to strip, or a callback
+            that takes a character and returns True if that character should be stripped
         """
         ret = ""
-        for ch in self:
-            if ch not in chars:
-                ret += ch
-        return ret
+        if callable(chars):
+            for ch in self:
+                if not chars(ch):
+                    ret += ch
+
+        else:
+            for ch in self:
+                if ch not in chars:
+                    ret += ch
+
+        return type(self)(ret)
 
     def astrip(self, chars):
         """alias of .stripall"""
@@ -392,6 +402,78 @@ class String(Str, StringMixin):
             "\"": "&quot;"
         })
 
+
+class NamingConvention(String):
+    """Class that makes it easy to handle the different types of names that can
+    be defined and passed in.
+
+    For example, python convention is snake case (underscores), but you would want
+    to pass in values on the commandline using dashes, so this class makes it easy
+    to go from `--foo-bar=1` to `foo_bar=1`
+
+    Moved here from Captain.reflection.Name on 12-19-2022, also moved all the case
+    methods from String into here
+
+    https://en.wikipedia.org/wiki/Naming_convention_(programming)
+    """
+    def splitcamel(self):
+        # https://stackoverflow.com/a/37697078/5006
+        return re.sub('([A-Z][a-z]+)', r' \1', re.sub('([A-Z]+)', r' \1', self)).split()
+
+    def splitdash(self):
+        return self.split("-")
+
+    def splitunderscore(self):
+        return self.split("_")
+
+    def split(self, *args, **kwargs):
+        if args or kwargs:
+            ret = super().split(*args, **kwargs)
+
+        else:
+            ret = self.splitunderscore()
+            if len(ret) == 1:
+                ret = self.splitdash()
+                if len(ret) == 1:
+                    ret = self.splitcamel()
+
+        return ret
+
+    def underscore(self):
+        return "_".join(self.split())
+
+    def dash(self):
+        return "-".join(self.split())
+
+    def aliases(self): return self.variations()
+    def variations(self):
+        s = set()
+        for n in [self, self.underscore(), self.dash()]:
+            s.add(n)
+            s.add(n.lower())
+        return s
+
+    def varname(self):
+        """Return the typical python variable name for self"""
+        return self.snakecase()
+    variable_name = varname
+    variable = varname
+    var_name = varname
+
+    def classname(self):
+        """Return the typical python class name for self"""
+        return self.camelcase()
+    class_name = classname
+
+    def constantname(self):
+        """Return the typical constant name for self"""
+        return self.screaming_snakecase()
+    constant = constantname
+
+    def keyname(self):
+        """Return the typical key name for self"""
+        return self.kebabcase()
+
     def camelcase(self):
         """Convert a string to use camel case (spaces removed and capital letters)
 
@@ -435,7 +517,7 @@ class String(Str, StringMixin):
         """camel case but first letter is lowercase
 
         camelCase"""
-        return self.lowercamelcase()
+        return self.lower_camelcase()
 
     def snakecase(self):
         """Convert a string to use snake case (lowercase with underscores in place
@@ -452,14 +534,26 @@ class String(Str, StringMixin):
             if ch.isupper():
                 if i and prev_ch_was_lower:
                     s.append("_")
+                s.append(ch)
 
+            elif ch.islower():
+                prev_ch_was_lower = True
+                s.append(ch)
+
+            elif ch.isspace():
+                s.append("_")
+                prev_ch_was_lower = False
+
+            elif ch == "-":
+                s.append("_")
                 prev_ch_was_lower = False
 
             else:
-                prev_ch_was_lower = True
+                prev_ch_was_lower = False
+                s.append(ch)
 
-            s.append(ch)
-        return re.sub(r"[\s-]+", "_", "".join(s)).lower()
+        return "".join(s).lower()
+        #return re.sub(r"[\s-]+", "_", "".join(s)).lower()
 
     def screaming_snakecase(self):
         """snake case but all capital letters instead of lowercase

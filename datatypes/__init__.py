@@ -9,6 +9,7 @@ from .string import (
     HTMLCleaner,
     HTMLParser,
     HTML,
+    NamingConvention,
 )
 from .number import (
     Shorten,
@@ -25,6 +26,7 @@ from .collections import (
     AppendList,
     OrderedList,
     Trie,
+    Namespace,
 )
 from .csv import (
     CSV,
@@ -73,9 +75,19 @@ from .token import (
 from .email import (
     Email,
 )
+from .parse import (
+    ArgvParser,
+    ArgParser,
+)
+from .utils import (
+    cball,
+    cbany,
+    make_dict,
+    make_list,
+)
 
 
-__version__ = "0.5.2"
+__version__ = "0.7.0"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

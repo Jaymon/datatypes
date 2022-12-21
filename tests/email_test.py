@@ -63,6 +63,18 @@ class EmailTest(TestCase):
         email_dir = paths[0]
         self.assertEqual(5, email_dir.filecount())
 
+    def test_original(self):
+        """makes sure the original.txt file exists and isn't empty"""
+        basedir = testdata.create_dir()
+        em = self.get_email("bad-2")
+
+        count = 0
+        paths = em.save(basedir, save_original=True)
+        for p in paths:
+            if p.endswith("original.txt"):
+                count = p.count()
+        self.assertLess(0, count)
+
     def test_save(self):
         basedir = testdata.create_dir()
         em = self.get_email("emoji-html-attachment")
@@ -98,4 +110,8 @@ class EmailTest(TestCase):
             "[AWS Account NNNNNNNN]",
         ])
         self.assertEqual(tr, em.path("/"))
+
+    def test_subject_encoded(self):
+        em = self.get_email("subject-encoded")
+        self.assertEqual("You're #1 - Come check these drops out...\U0001F440", em.subject)
 
