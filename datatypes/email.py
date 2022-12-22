@@ -248,7 +248,7 @@ class Email(object):
         :param basedir: string, the base directory that will be used to generate a full path
         :returns: string, the full path to a directory this email can be saved into
         """
-        stamp = self.datetime.strftime("%Y-%m-%d %H%M")
+        stamp = self.datetime.strftime("%Y-%m-%d %H%M%S")
         s = f"{stamp} - {self.subject}"
         s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
         s = re.sub(r"[:?\"\'|^]", "", s)
