@@ -71,7 +71,7 @@ class EmailTest(TestCase):
         count = 0
         paths = em.save(basedir, save_original=True)
         for p in paths:
-            if p.endswith("original.txt"):
+            if p.endswith("original.eml"):
                 count = p.count()
         self.assertLess(0, count)
 
@@ -96,7 +96,7 @@ class EmailTest(TestCase):
     def test_subject_slashes(self):
         em = self.get_email("subject-slashes")
         tr = "".join([
-            "/example.com/foo@example.com/2018-06-07 1421 - [Name] Error in foo Library Developer "
+            "/example.com/foo@example.com/2018-06-07 142121 - [Name] Error in foo Library Developer "
             "Devices 9B98F192-6530-2234976EB546 data Bundle 555B3437-8CF1-369E46E3AB15 ",
             "Bar Staging.app main.ext293"
         ])
@@ -105,7 +105,7 @@ class EmailTest(TestCase):
     def test_subject_question_mark(self):
         em = self.get_email("subject-question-mark")
         tr = "".join([
-            "/example.com/foo@example.com/2018-06-07 1421 - [Action Required] Database Version ",
+            "/example.com/foo@example.com/2018-06-07 142121 - [Action Required] Database Version ",
             "Upgrade For Your Amazon Aurora PostgreSQL Database Instances ",
             "[AWS Account NNNNNNNN]",
         ])

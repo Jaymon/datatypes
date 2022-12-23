@@ -219,35 +219,11 @@ class Path(String):
         return os.path.basename(self.path)
 
     @property
-    def nameparts(self):
-        """Similar to .splitbase() but removes the period from the ext and returns
-        it as the delim
-
-        :returns: tuple, (fileroot, delim, suffix), delim will be "." if suffix
-            exists, otherwise it will be an empty string
-        """
-        delim = ""
-        fileroot, ext = self.splitbase()
-        if ext:
-            if ext == ".":
-                # if the extension is just a period then it is part of fileroot
-                # and ext is empty, this is a change from .splitbase(), which
-                # would return a period as the extension
-                fileroot += ext
-                delim = ""
-
-            else:
-                delim = "."
-
-            ext = ext.lstrip(".")
-        return (fileroot, delim, ext)
-
-    @property
     def fileroot(self):
         """Return the fileroot portion of a directory/fileroot.ext path"""
         # https://stackoverflow.com/questions/2235173/
         # https://stackoverflow.com/a/2235762/5006
-        fileroot, ext = os.path.splitext(self.name)
+        fileroot, ext = self.splitpart(self.name)
         return fileroot
 
     @property
@@ -268,7 +244,7 @@ class Path(String):
 
         :returns: String, the full path and fileroot without suffix (ext)
         """
-        return os.path.splitext(self.path)[0]
+        return self.splitpart(self.path)[0]
 
     @property
     def pathroot(self):
@@ -280,12 +256,21 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.suffix
         """
+        # we do not use self.splitpart here because suffix should keep
+        # consistent functionality with pathlib
         fileroot, ext = os.path.splitext(self.name)
         return ext
 
     @property
     def ext(self):
-        return self.suffix.lstrip(".")
+        """Returns the extension
+
+        this will usually be identical to .suffix but it isn't guarranteed because
+        this uses self.splitpart() to find the extension which tries to be a bit
+        smarter while finding the extension
+        """
+        _, ext = self.splitbase()
+        return ext.lstrip(".")
 
     @property
     def extension(self):
@@ -297,13 +282,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.suffixes
         """
-        if is_py2:
-            suffixes = ["." + s for s in self.basename.split(".")[1:]]
-
-        else:
-            suffixes = self.pathlib.suffixes
-
-        return suffixes
+        return self.pathlib.suffixes
 
     @classmethod
     def path_class(cls):
@@ -388,8 +367,75 @@ class Path(String):
         return instance
 
     @classmethod
+    def splitpart(cls, part):
+        """Split the part to base and extension
+
+        This tries to be a bit smarter than os.path.split() but just like that will
+        fail by being too naive, this will fail by being to smart
+
+        https://superuser.com/a/315395/
+            While you are free to use any length of extension you wish, I would not
+            recommend using a very lengthy one for one reason: convention. Most file
+            extensions are three to four alphanumeric characters. Anything longer,
+            or with funny characters, is going to "stand out"
+
+
+        https://filext.com/faq/file_extension_information.html
+
+        :param part: str, the part to split
+        :returns: tuple, (base, ext), extension will be empty if nothing was found
+        """
+        logger.debug(f"Splitting to base and extension: {part}")
+        base, ext = os.path.splitext(part)
+        if ext:
+            is_valid = True
+            if not base:
+                # there technically is no length limit, but for my purpose if it
+                # is too long it probably isn't valid
+                logger.debug("Extension is too long")
+                is_valid = False
+
+            else:
+                cext = String(ext[1:]) # for comparison let's strip the period
+
+                if cext == "":
+                    logger.debug("Extension can't just be a period")
+                    is_valid = False
+
+                if not cext.re(r"^[a-zA-Z0-9 \$#&+@!\(\)\{\}'`_~-]+$").match():
+                    logger.debug("Extension contains 1 or more invalid characters")
+                    is_valid = False
+
+                elif cext.re(r"[|<>\^=?/\[\]\";\*]$").match():
+                    logger.debug("Extension contains illegal characters")
+                    is_valid = False
+
+                elif not cext.isascii():
+                    logger.debug("Extension is not just ascii")
+                    is_valid = False
+
+                elif cext.re(r"\s").search():
+                    # while an extension can contain spaces, I think for my purpose
+                    # let's say an extension that contains a space is invalid
+                    logger.debug("Extension has spaces")
+                    is_valid = False
+
+                elif len(cext) > 25:
+                    # there technically is no length limit, but for my purpose if it
+                    # is too long it probably isn't valid
+                    logger.debug("Extension is too long")
+                    is_valid = False
+
+            if not is_valid:
+                base = base + ext
+                ext = ""
+
+        logger.debug(f"Returning base: {base}, ext: {ext}")
+        return base, ext
+
+    @classmethod
     def splitparts(cls, *parts, **kwargs):
-        """Does the opposite of .join()
+        """Does the opposite of .joinparts()
 
 
         :param *parts: mixed, as many parts as you pass in as arguments
@@ -905,7 +951,11 @@ class Path(String):
         :returns: Path, the path with bad characters stripped and within maxpath length
         """
         sparts = []
+
+        if maxpart > maxpath:
+            maxpart = maxpath
         rempath = maxpath
+
         paths = self.paths
         remparts = len(paths)
 
@@ -926,8 +976,6 @@ class Path(String):
 
                 return (s, callback(ext, "")[0] if ext else ext)
 
-            #callback = lambda s, ext: (re.sub(r'\s+', ' ', re.sub(r'[^\x00-\x7F]+', '', String(s).stripall(chars)).strip()), ext)
-
         logger.debug(f"Sanitizing {remparts} part(s) with {maxpart} chars each and a total path of {maxpath} chars")
 
         for p in paths:
@@ -947,23 +995,23 @@ class Path(String):
                 if remparts > 1:
                     # since we have more parts still this must be a directory so
                     # no point in splitting it
-                    fileroot = p.basename
-                    delim = ""
+                    fileroot = sp
                     ext = ""
 
                 else:
                     # we are at the basename so let's split the ext so we make
                     # sure to include it
-                    fileroot, delim, ext = p.nameparts
+                    fileroot, ext = self.splitpart(sp)
 
-                logger.debug(f"Path.sanitize part {fileroot}{delim}{ext} sanitizing")
-                rempart = min(maxpart, rempath // remparts) - len(ext) - len(delim)
+                logger.debug(f"Path.sanitize part {fileroot}{ext} sanitizing")
+                rempart = min(maxpart, rempath // remparts) - len(ext)
+
                 # https://kb.acronis.com/content/39790
                 # https://gitlab.com/jplusplus/sanitize-filename
                 # strip characters and then truncate
                 sp, ext = callback(fileroot, ext)
                 sp = String(sp).truncate(size=rempart, postfix="")
-                sp = sp + delim + ext
+                sp = sp + ext
 
             remparts -= 1
             if sp:
@@ -1179,7 +1227,7 @@ class Path(String):
         return self.__truediv__(other)
 
     def splitext(self):
-        """Splits pathroot from ext, wrapper around os.path.splitext()
+        """Splits pathroot from ext
 
         :Example:
             p = Path("/foo/bar/che.ext")
@@ -1187,11 +1235,10 @@ class Path(String):
 
         :returns: tuple, (pathroot, suffix)
         """
-        return os.path.splitext(self.path)
+        return self.splitpart(self.path)
 
     def splitbase(self):
-        """Splits fileroot from ext, wrapper around os.path.splitext() but uses
-        the basename instead of the full path
+        """Splits fileroot from ext, uses the basename instead of the full path
 
         :Example:
             p = Path("/foo/bar/che.ext")
@@ -1199,7 +1246,7 @@ class Path(String):
 
         :returns: tuple, (fileroot, suffix)
         """
-        return os.path.splitext(self.name)
+        return self.splitpart(self.name)
 
 
 class Dirpath(Path):

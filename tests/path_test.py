@@ -336,6 +336,57 @@ class PathTest(TestCase):
         r2 = r.sanitize(lambda s, ext: (s.replace(".", ""), ext))
         self.assertTrue(r2.endswith("foo/bar"))
 
+    def test_sanitize_inconsistent(self):
+        p = Path(
+            "/",
+            "12345",
+            "123456",
+            "1234567",
+            "1234567",
+            "123456",
+            "1234567890123456789012",
+            "1234567",
+            "12345678",
+            "1234567890123456789",
+            " ".join([
+                "2020-03-04 220059 -",
+                "123456789",
+                "1234567890",
+                "123",
+                "&",
+                "X.509",
+                "12345678901",
+                "12345678\n",
+                "123456789012345",
+                "1234",
+                "12345678",
+                "12345678901",
+                "123456789",
+                "1234567890",
+                "1234567890",
+            ])
+        )
+
+        r = p.sanitize(maxpath=220)
+        self.assertEqual(212, len(r))
+
+    def test_splitpart(self):
+        tests = [
+            ("base.", "base.", ""),
+            (".base", ".base", ""),
+            (".base.", ".base.", ""),
+            ("base.ext", "base", ".ext"),
+            ("base.ext ension", "base.ext ension", ""),
+            ("base.123456789012345678901234567", "base.123456789012345678901234567", ""),
+            ("base.not.ext", "base.not", ".ext"),
+            ("base", "base", ""),
+        ]
+
+        for tinput, rbase, rext in tests:
+            base, ext = Path.splitpart(tinput)
+            self.assertEqual(rbase, base)
+            self.assertEqual(rext, ext)
+
 
 class _PathTestCase(PathTest):
     def test_stat(self):

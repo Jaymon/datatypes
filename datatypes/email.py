@@ -250,8 +250,11 @@ class Email(object):
         """
         stamp = self.datetime.strftime("%Y-%m-%d %H%M%S")
         s = f"{stamp} - {self.subject}"
-        s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
-        s = re.sub(r"[:?\"\'|^]", "", s)
+
+        # remove path delims from the subject
+        s = re.sub(r"[\\/]+", " ", s)
+        #s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
+        #s = re.sub(r"[:?\"\'|^]", "", s)
 
         return Dirpath(
             basedir,
@@ -311,7 +314,8 @@ class Email(object):
 
         :param basedir: string, path to save the email into
         :param save_original: bool, True if you would also like to save the full
-            original email in original.txt
+            original email in original.eml.
+            eml: https://www.loc.gov/preservation/digital/formats/fdd/fdd000388.shtml
         :returns: list, all the paths the email saved
         """
         ret = []
@@ -319,7 +323,7 @@ class Email(object):
         email_dir.touch()
 
         if save_original:
-            p = Filepath(email_dir, "original.txt")
+            p = Filepath(email_dir, "original.eml")
             p.write_bytes(ByteString(self.contents))
             ret.append(p)
 
