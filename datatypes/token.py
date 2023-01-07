@@ -64,7 +64,7 @@ class StreamToken(Token):
 
 
 class StreamTokenizer(io.IOBase):
-    """Tokenize a string finding tokens that are divided by pass in deliminators
+    """Tokenize a string finding tokens that are divided by passed in deliminators
 
     https://docs.python.org/3/library/io.html#io.IOBase
     """
@@ -387,7 +387,7 @@ class StreamTokenizer(io.IOBase):
         return total
 
     def __len__(self):
-        """WARNING -- don't use this if you can, at all, avoid it"""
+        """WARNING -- don't use this if you can avoid it"""
         return self.total()
 
     def close(self, *args, **kwargs):
@@ -417,100 +417,37 @@ class Tokenizer(StreamTokenizer):
         super(Tokenizer, self).__init__(mixed, delims)
 
 
-class HTMLToken(Token):
-    """This is what is returned from the HTMLTokenizer
+class Scanner(object):
+    """Python implementation of Obj-c Scanner
 
-        .tagname - the name of the tag
-        .text - the body of the tag
+    Moved from bang.utils on 1-6-2023
+
+    https://github.com/Jaymon/PlusPlus/blob/master/PlusPlus/NSString%2BPlus.m
     """
-    @property
-    def text(self):
-        text = []
-        for d in self.taginfo.get("body", []):
-            if "tagname" in d:
-                t = type(self)(self.tokenizer, d)
-                text.append(t.__unicode__())
+    def __init__(self, text):
+        self.text = text
+        self.offset = 0
+        self.length = len(self.text)
 
-            else:
-                text.extend(d["body"])
+    def to(self, char):
+        """scans and returns string up to char"""
+        partial = ""
+        while (self.offset < self.length) and (self.text[self.offset] != char):
+            partial += self.text[self.offset]
+            self.offset += 1
 
-        return "".join(text)
+        return partial
 
-    def __init__(self, tokenizer, taginfo):
-        self.tagname = taginfo.get("tagname", "")
-        self.start = taginfo.get("start", -1)
-        self.stop = taginfo.get("stop", -1)
-        self.taginfo = taginfo
-        self.tokenizer = tokenizer
+    def until(self, char):
+        """similar to to() but includes the char"""
+        partial = self.to(char)
+        if self.offset < self.length:
+            partial += self.text[self.offset]
+            self.offset += 1
+        return partial
 
-    def __getattr__(self, k):
-        if k in self.taginfo:
-            return self.taginfo[k]
-
-        else:
-            ret = None
-            for attr_name, attr_val in self.taginfo.get("attrs", []):
-                if attr_name == k:
-                    return attr_val
-
-        raise AttributeError(k)
-        #return super(HTMLToken, self).__getattr__(k)
-
-    def attrs(self):
-        ret = {}
-        for attr_name, attr_val in self.taginfo.get("attrs", []):
-            ret[attr_name] = attr_val
-        return ret
-
-    def __pout__(self):
-        """used by pout python external library
-
-        https://github.com/Jaymon/pout
-        """
-        return self.__unicode__()
-
-    def __unicode__(self):
-        attrs = ""
-        for ak, av in self.attrs().items():
-            attrs += ' {}="{}"'.format(ak, av)
-
-        s = "<{}{}>{}</{}>".format(
-            self.tagname,
-            attrs,
-            self.text,
-            self.tagname
-        )
-        return s
-
-
-class HTMLTokenizer(Tokenizer):
-    DEFAULT_DELIMS = None
-    token_class = HTMLToken
-
-    def __init__(self, html, tagnames=None):
-        """
-        :param stream: io.IOBase, this is the input that will be tokenized, the stream
-            has to be seekable
-        :param delims: callback|string, if a callback, it should have the signature:
-            callback(char) and return True if the char is a delim, False otherwise.
-            If a string then it is a string of chars that will be considered delims
-        """
-        stream = HTMLParser(html, tagnames)
-        super(HTMLTokenizer, self).__init__(stream)
-
-    def next(self):
-        taginfo = self.stream.next()
-        return self.token_class(self, taginfo)
-
-    def prev(self):
-        ret = None
-        pos = self.tell()
-        if pos > 0:
-            self.seek(pos - 1)
-            ret = self.next()
-        return ret
-
-    def tell_ldelim(self):
-        raise NotImplementedError()
+    def __nonzero__(self): return self.__bool__() # py <3
+    def __bool__(self):
+        return self.offset < self.length
 
 

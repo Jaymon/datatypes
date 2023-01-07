@@ -6,10 +6,13 @@ from .string import (
     String,
     ByteString,
     Base64,
+    NamingConvention,
+)
+from .html import (
     HTMLCleaner,
     HTMLParser,
     HTML,
-    NamingConvention,
+    HTMLTokenizer,
 )
 from .number import (
     Shorten,
@@ -39,6 +42,7 @@ from .path import (
     Path,
     Filepath,
     Dirpath,
+    Imagepath,
     TempFilepath, Filetemp,
     TempDirpath, Dirtemp,
     Cachepath,
@@ -69,7 +73,6 @@ from .token import (
     # then import it directly from the submodule
     StreamTokenizer,
     Tokenizer,
-    HTMLTokenizer,
 )
 
 from .email import (
@@ -84,6 +87,11 @@ from .utils import (
     cbany,
     make_dict,
     make_list,
+)
+form .profile import (
+    Profiler,
+    AggregateProfiler,
+    AggregateProfiler as AProfiler
 )
 
 

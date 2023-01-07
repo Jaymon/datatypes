@@ -20,6 +20,9 @@ import re
 import string
 import random
 import email.message
+import struct
+import imghdr
+
 
 try:
     from pathlib import Path as Pathlib
@@ -285,88 +288,6 @@ class Path(String):
         return self.pathlib.suffixes
 
     @classmethod
-    def path_class(cls):
-        """Return the Path class this class will use, this is a method because 
-        we couldn't make them all Path class properties because they are defined
-        after Path"""
-        return Path
-
-    @classmethod
-    def dir_class(cls):
-        """Return the Dirpath class to use"""
-        return Dirpath
-
-    @classmethod
-    def file_class(cls):
-        """Return the Filepath class to use"""
-        return Filepath
-
-    @classmethod
-    def create_file(cls, *parts, **kwargs):
-        kwargs["path_class"] = cls.file_class()
-        return cls.create(*parts, **kwargs)
-        #return kwargs["path_class"](*parts, **kwargs)
-
-    @classmethod
-    def create_dir(cls, *parts, **kwargs):
-        kwargs["path_class"] = cls.dir_class()
-        return cls.create(*parts, **kwargs)
-        #return kwargs["path_class"](*parts, **kwargs)
-
-    @classmethod
-    def create_path(cls, *parts, **kwargs):
-        kwargs["path_class"] = cls.path_class()
-        return cls.create(*parts, **kwargs)
-        #return kwargs["path_class"](*parts, **kwargs)
-
-    @classmethod
-    def create(cls, *parts, **kwargs):
-        """Create a path instance using the full inferrencing (guessing code) of
-        cls.path_class().__new__()"""
-        # we want inference to work so we don't want any path_class being passed
-        # to the __new__ method but we will use it to create the instance if
-        # passed in
-        path_class = kwargs.pop("path_class", cls.path_class())
-        return path_class(*parts, **kwargs)
-
-    @classmethod
-    def create_as(cls, instance, path_class, **kwargs):
-        """Used by .__new__() to convert a Path to one of the children. This is 
-        a separate method so it could be augmented by children classes if desired
-
-        take note that this has a different signature than all the other create_*
-        methods
-
-        :param instance: Path, a Path instance created by __new__()
-        :param path_class: type, the path class that was passed in to __new__()
-        :param **kwargs: the keywords passed into __new__()
-        :returns: Path, either the same instance or a different one
-        """
-        instance.path = kwargs["path"]
-
-        if path_class or (cls is not cls.path_class()):
-            # makes sure if you've passed in any class explicitely, even the Path
-            # class, then don't try and infer anything
-            pass
-
-        else:
-            if instance.is_file():
-                instance = instance.as_file()
-
-            elif instance.is_dir():
-                instance = instance.as_dir()
-
-            else:
-                # let's assume a file if it has an extension
-                if instance.ext:
-                    instance = instance.as_file()
-
-        if kwargs.get("touch", kwargs.get("create", False)):
-            instance.touch()
-
-        return instance
-
-    @classmethod
     def splitpart(cls, part):
         """Split the part to base and extension
 
@@ -606,6 +527,88 @@ class Path(String):
         """
         return kwargs["path"]
 
+    @classmethod
+    def path_class(cls):
+        """Return the Path class this class will use, this is a method because 
+        we couldn't make them all Path class properties because they are defined
+        after Path"""
+        return Path
+
+    @classmethod
+    def dir_class(cls):
+        """Return the Dirpath class to use"""
+        return Dirpath
+
+    @classmethod
+    def file_class(cls):
+        """Return the Filepath class to use"""
+        return Filepath
+
+    @classmethod
+    def create_file(cls, *parts, **kwargs):
+        kwargs["path_class"] = cls.file_class()
+        return cls.create(*parts, **kwargs)
+        #return kwargs["path_class"](*parts, **kwargs)
+
+    @classmethod
+    def create_dir(cls, *parts, **kwargs):
+        kwargs["path_class"] = cls.dir_class()
+        return cls.create(*parts, **kwargs)
+        #return kwargs["path_class"](*parts, **kwargs)
+
+    @classmethod
+    def create_path(cls, *parts, **kwargs):
+        kwargs["path_class"] = cls.path_class()
+        return cls.create(*parts, **kwargs)
+        #return kwargs["path_class"](*parts, **kwargs)
+
+    @classmethod
+    def create(cls, *parts, **kwargs):
+        """Create a path instance using the full inferrencing (guessing code) of
+        cls.path_class().__new__()"""
+        # we want inference to work so we don't want any path_class being passed
+        # to the __new__ method but we will use it to create the instance if
+        # passed in
+        path_class = kwargs.pop("path_class", cls.path_class())
+        return path_class(*parts, **kwargs)
+
+    @classmethod
+    def create_as(cls, instance, path_class, **kwargs):
+        """Used by .__new__() to convert a Path to one of the children. This is 
+        a separate method so it could be augmented by children classes if desired
+
+        take note that this has a different signature than all the other create_*
+        methods
+
+        :param instance: Path, a Path instance created by __new__()
+        :param path_class: type, the path class that was passed in to __new__()
+        :param **kwargs: the keywords passed into __new__()
+        :returns: Path, either the same instance or a different one
+        """
+        instance.path = kwargs["path"]
+
+        if path_class or (cls is not cls.path_class()):
+            # makes sure if you've passed in any class explicitely, even the Path
+            # class, then don't try and infer anything
+            pass
+
+        else:
+            if instance.is_file():
+                instance = instance.as_file()
+
+            elif instance.is_dir():
+                instance = instance.as_dir()
+
+            else:
+                # let's assume a file if it has an extension
+                if instance.ext:
+                    instance = instance.as_file()
+
+        if kwargs.get("touch", kwargs.get("create", False)):
+            instance.touch()
+
+        return instance
+
     def __new__(cls, *parts, **kwargs):
         """Create a new path
 
@@ -626,7 +629,7 @@ class Path(String):
         value = cls.normvalue(*parts, path=path, **kwargs)
         path_class = kwargs.pop("path_class", None) # has to be None so create_as works
 
-        instance = super(Path, cls).__new__(
+        instance = super().__new__(
             path_class if path_class else cls,
             value,
             encoding=kwargs.pop("encoding", environ.ENCODING),
@@ -673,6 +676,12 @@ class Path(String):
     def empty(self):
         """Return True if the file/directory is empty"""
         raise NotImplementedError()
+
+    def count(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def size(self, *args, **kwargs):
+        return self.count(*args, **kwargs)
 
     def stat(self):
         """Return a os.stat_result object containing information about this path,
@@ -1074,19 +1083,19 @@ class Path(String):
 
         return ret
 
-    def mv(self, target):
+    def mv(self, target, *args, **kwargs):
         """mimics the behavior of unix mv command"""
         raise NotImplementedError()
 
-    def move_to(self, target):
-        return self.mv(target)
+    def move_to(self, target, *args, **kwargs):
+        return self.mv(target, *args, **kwargs)
 
-    def cp(self, target):
+    def cp(self, target, *args, **kwargs):
         """mimics the behavior of unix cp command"""
         raise NotImplementedError()
 
-    def copy_to(self, target):
-        return self.cp(target)
+    def copy_to(self, target, *args, **kwargs):
+        return self.cp(target, *args, **kwargs)
 
     def relative_to(self, *other):
         """Compute a version of this path relative to the path represented by other.
@@ -1117,6 +1126,14 @@ class Path(String):
             ret = String(self.pathlib.relative_to(*other))
 
         return ret
+
+    def relative_parts(self, *other):
+        """Same as relative_to() but returns a list of each part
+
+        Moved from bang.path.Path on 1-2-2023
+        """
+        relative = self.relative_to(*other)
+        return re.split(r"[\/]", relative)
 
     def symlink_to(self, target, target_is_directory=False):
         """Make this path a symbolic link to target. Under Windows, target_is_directory
@@ -1476,23 +1493,57 @@ class Dirpath(Path):
 
         return target
 
-    def cp(self, target):
-        """Copy the entire contents of the directory at self into a directory at target
+    def cp(self, target, recursive=True):
+        """Copy directory at self into a directory at target
+
+        Added recursive to better mimic Bang.path.Directory.copy_to on 1-4-2023
 
         :Example:
             $ cp -R src target
             src is copied to target if target does not exist
             target/src if target exists
             src is merged into target/src if target/src exists
+
+        :param target: Dirpath|str, the destination directory
+        :param recursive: bool, True if copy files in this dir and all subdirs,
+            false to only copy files in self
+        :returns: Dirpath, the target directory
         """
         target = self.create_dir(target)
 
-        if target.is_dir():
-            target = self.create_dir(target, self.basename)
+        if recursive:
+            if target.is_dir():
+                target = self.create_dir(target, self.basename)
 
-        shutil.copytree(self.path, target, dirs_exist_ok=True)
+            shutil.copytree(self.path, target, dirs_exist_ok=True)
+
+        else:
+            for p in self.iterfiles(recursive=recursive):
+                tp = target.child(p.relative_to(self))
+                tp.touch()
+                p.copy_to(tp)
 
         return target
+
+#     def copy_files_to(self, target, recursive=True):
+#         """Copy only the files from self to target
+# 
+#         This is a modified version of Bang.path.Directory.copy_to moved here on
+#         1-4-2023
+# 
+#         :param target: Dirpath|str, the destination directory
+#         :param recursive: bool, True if copy files in this dir and all subdirs,
+#             false to only copy files in self
+#         :returns: Dirpath, the target directory
+#         """
+#         target = self.create_dir(target)
+# 
+#         for p in self.iterfiles(recursive=recursive):
+#             tp = target.child(p.relative_to(self))
+#             tp.touch()
+#             p.copy_to(tp)
+# 
+#         return target
 
     def touch(self, mode=0o666, exist_ok=True):
         """Create the directory at this given path.  If the directory already exists,
@@ -1597,7 +1648,6 @@ class Dirpath(Path):
         https://github.com/benhoyt/scandir
         https://bugs.python.org/issue11406
         """
-        # TODO -- make this work similarly for py2
         for entry in os.scandir(self.path):
             yield entry
 
@@ -1673,6 +1723,106 @@ class Dirpath(Path):
             for p in it("*"):
                 yield p
 
+    def dirs(self, pattern="", recursive=True):
+        for p in self.children(pattern, recursive=recursive):
+            if p.is_dir():
+                yield p
+
+    def files(self, pattern="", recursive=True):
+        for p in self.children(pattern, recursive=recursive):
+            if p.is_file():
+                yield p
+
+    def rechildren(self, pattern, recursive=True, exclude=False):
+        for p in self.children(recursive=recursive):
+            if re.search(pattern, p):
+                if not exclude:
+                    yield p
+            else:
+                if exclude:
+                    yield p
+
+    def refiles(self, pattern, recursive=True, exclude=False):
+        for p in self.rechildren(pattern, recursive=recursive, exclude=exclude):
+            if p.is_file():
+                yield p
+
+    def redirs(self, pattern, recursive=True, exclude=False):
+        for p in self.rechildren(pattern, recursive=recursive, exclude=exclude):
+            if p.is_dir():
+                yield p
+
+
+    def depth_files(self, regex=None, depth=1, exclude=False):
+        """return files in self
+
+        Moved from bang.path.Directory on 1-5-2023
+
+        :param regex: string, the regular expression
+        :param depth: int, if 1, just return immediate files, if 0 return all files
+            of the entire tree, otherwise just return depth files
+        :param exclude: bool, if True then any files that would be returned won't
+            and files that wouldn't be returned normally will be
+        :returns: list, the matching files
+        """
+        fs = []
+        for root_dir, subdirs, files in self.walk(topdown=True):
+            for basename in files:
+                f = self.file_class()(root_dir, basename)
+                if exclude:
+                    if regex and not re.search(regex, basename, re.I):
+                        fs.append(f.path)
+
+                else:
+                    if not regex or re.search(regex, basename, re.I):
+                        fs.append(f.path)
+
+
+            fs.sort()
+            if depth != 1:
+                fs2 = []
+                depth = depth - 1 if depth else depth
+                for sd in subdirs:
+                    d = self.dir_class()(root_dir, sd)
+                    fs2.extend(d.depth_files(regex=regex, depth=depth))
+                fs.extend(fs2)
+
+            break
+
+        return fs
+
+    def depth_dirs(self, regex=None, depth=1):
+        """return directories in self
+
+        Moved from bang.path.Directory on 1-5-2023
+
+        :param regex: string, the regular expression
+        :param depth: int, if 1, just return immediate dirs, if 0 return all subdirs
+            of the entire tree, otherwise just return depth dirs
+        :returns: list, the matching directories
+        """
+        ds = []
+        for root_dir, dirs, _ in self.walk(topdown=True):
+            for basename in dirs:
+                if not regex or re.search(regex, basename, re.I):
+                    d = self.dir_class()(root_dir, basename)
+                    ds.append(d)
+
+            ds.sort(key=lambda d: d.path)
+            if depth != 1:
+                ds2 = []
+                depth = depth - 1 if depth else depth
+                for d in ds:
+                    for sd in d.depth_dirs(pattern=regex, depth=depth):
+                        sd.ancestor_dir = self
+                        ds2.append(sd)
+
+                ds.extend(ds2)
+
+            break
+
+        return ds
+
     def walk(self, *args, **kwargs):
         """passthrough for os.walk
 
@@ -1719,6 +1869,34 @@ class Dirpath(Path):
         for p in self.children(pattern, recursive=recursive):
             return True
         return False
+
+    def has_file(self, *parts):
+        """return true if the file basename exists in this directory"""
+        return self.file_class()(self.path, *parts).exists()
+
+    def has_dir(self, *parts):
+        d = self.child(*parts)
+        return d.exists()
+
+    def child(self, *parts):
+        """Return a new instance with parts added onto self.path"""
+        return self.path_class()(self.path, *parts)
+
+    def child_file(self, *parts):
+        return self.file_class()(self.path, *parts)
+
+    def child_dir(self, *parts):
+        return self.dir_class()(self.path, *parts)
+
+    def file_text(self, *parts):
+        """return the text of the basename file in this directory"""
+        output_file = self.create_file(self.path, *parts)
+        return output_file.read_text()
+
+    def file_bytes(self, *parts):
+        """return the bytes of the basename file in this directory"""
+        output_file = self.create_file(self.path, *parts)
+        return output_file.read_bytes()
 DirPath = Dirpath
 
 
@@ -1732,7 +1910,7 @@ class Filepath(Path):
             ret = False if st.st_size else True
         return ret
 
-    def open(self, mode='r', buffering=-1, encoding=None, errors=None, newline=None):
+    def open(self, mode="", buffering=-1, encoding=None, errors=None, newline=None):
         """Open the file pointed to by the path, like the built-in open() function does
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.open
@@ -1740,33 +1918,17 @@ class Filepath(Path):
         if not mode:
             mode = "r" if encoding else "rb"
 
+        logger.debug(f"Opening: {self.path} with mode: {mode} and encoding: {encoding}")
+
         try:
-            if is_py2:
-                if encoding:
-                    fp = codecs.open(
-                        self.path,
-                        mode=mode,
-                        encoding=encoding,
-                        errors=errors,
-                        buffering=buffering,
-                    )
-
-                else:
-                    fp = open(
-                        self.path,
-                        mode=mode,
-                        buffering=buffering,
-                    )
-
-            else:
-                fp = open(
-                    self.path,
-                    mode=mode,
-                    encoding=encoding,
-                    errors=errors,
-                    buffering=buffering,
-                    newline=newline,
-                )
+            fp = open(
+                self.path,
+                mode=mode,
+                encoding=encoding,
+                errors=errors,
+                buffering=buffering,
+                newline=newline,
+            )
 
         except IOError:
             if self.exists():
@@ -1778,14 +1940,14 @@ class Filepath(Path):
 
         return fp
 
-    def open_text(self, mode='r', encoding=None, errors=None, **kwargs):
+    def open_text(self, mode="", encoding=None, errors=None, **kwargs):
         """Just like .open but will set encoding and errors to class values
         if they aren't passed in"""
         encoding = encoding or self.encoding
         errors = errors or self.errors
         return self.open(mode, encoding=encoding, errors=errors, **kwargs)
 
-    def __call__(self, mode="w+", **kwargs):
+    def __call__(self, mode="", **kwargs):
         """Allow an easier interface for opening a writing file descriptor
 
         This uses the class defaults for things like encoding, so it's better to
@@ -1793,7 +1955,7 @@ class Filepath(Path):
 
         :Example:
             p = Filepath("foo/bar.ext")
-            with p("a+) as fp:
+            with p("a+") as fp:
                 fp.write("some value")
         """
         return self.open(
@@ -1923,6 +2085,16 @@ class Filepath(Path):
 
         shutil.copy(self.path, target)
         return target.as_file()
+
+    def copy_into(self, target):
+        """Copy this file to target directory
+
+        Moved from bang.path on 1-3-2023
+
+        :param target: directory, the target directory
+        :returns: the new file
+        """
+        return self.cp(target)
 
     def mv(self, target):
         target = self.create(target)
@@ -2069,6 +2241,263 @@ class Filepath(Path):
 
         return False
 FilePath = Filepath
+
+
+class Imagepath(Filepath):
+    """A filepath that represents an image
+
+    This adds some handy helper methods/properties to make working with images
+    easier
+
+    Moved here from bang.path on 1-2-2023
+    """
+    @property
+    def width(self):
+        """Return the width of the image"""
+        width, height = self.dimensions
+        return width
+
+    @property
+    def height(self):
+        """Return the height of the image"""
+        width, height = self.dimensions
+        return height
+
+    @property
+    def dimensions(self):
+        """Return the largest dimensions of the image"""
+        return self.get_info()["dimensions"][-1]
+
+    def count(self):
+        """The size of the image"""
+        return len(self.read_bytes())
+
+    def sizes(self):
+        sizes = []
+        info = self.get_info()
+        for width, height in info["dimensions"]:
+            sizes.append("{}x{}".format(width, height))
+        return " ".join(sizes)
+
+    def get_info(self):
+        info = getattr(self, "_info", None)
+        if info:
+            return info
+
+        # this makes heavy use of struct: https://docs.python.org/3/library/struct.html
+        # based on this great answer on SO: https://stackoverflow.com/a/39778771/5006
+        # read/write ico files: https://github.com/grigoryvp/pyico
+
+        info = {"dimensions": [], "what": ""}
+
+        with self.open() as fp:
+            head = fp.read(24)
+            if len(head) != 24:
+                raise ValueError("Could not understand image")
+
+            # https://docs.python.org/2.7/library/imghdr.html
+            what = imghdr.what(None, head)
+            if what is None:
+                what = self.extension
+
+            if what == 'png':
+                check = struct.unpack('>i', head[4:8])[0]
+                if check != 0x0d0a1a0a:
+                    raise ValueError("Could not understand PNG image")
+
+                width, height = struct.unpack('>ii', head[16:24])
+                info["dimensions"].append((width, height))
+
+            elif what == 'gif':
+                width, height = struct.unpack('<HH', head[6:10])
+                info["dimensions"].append((width, height))
+
+            elif what == 'jpeg':
+                try:
+                    fp.seek(0) # Read 0xff next
+                    size = 2
+                    ftype = 0
+                    while not 0xc0 <= ftype <= 0xcf or ftype in (0xc4, 0xc8, 0xcc):
+                        fp.seek(size, 1)
+                        byte = fp.read(1)
+                        while ord(byte) == 0xff:
+                            byte = fp.read(1)
+                        ftype = ord(byte)
+                        size = struct.unpack('>H', fp.read(2))[0] - 2
+                    # We are at a SOFn block
+                    fp.seek(1, 1)  # Skip `precision' byte.
+                    height, width = struct.unpack('>HH', fp.read(4))
+                    info["dimensions"].append((width, height))
+
+                except Exception: #W0703
+                    raise
+
+            elif what == "ico":
+                # https://en.wikipedia.org/wiki/ICO_(file_format)#Outline
+                fp.seek(0)
+                reserved, image_type, image_count = struct.unpack('<HHH', fp.read(6))
+                for x in range(image_count):
+                    width = struct.unpack('<B', fp.read(1))[0] or 256
+                    height = struct.unpack('<B', fp.read(1))[0] or 256
+                    info["dimensions"].append((width, height))
+
+                    fp.read(6) # we don't care about color or density info
+                    size = struct.unpack('<I', fp.read(4))[0]
+                    offset = struct.unpack('<I', fp.read(4))[0]
+
+            else:
+                raise ValueError("Unsupported image type {}".format(self.extension))
+
+            info["what"] = what
+            self._info = info
+            return info
+
+    def is_favicon(self):
+        """Return True if the image is an .ico file, which is primarily used as
+        an internet favicon"""
+        info = self.get_info()
+        return info["what"] == "ico"
+
+    def is_animated(self):
+        """Return true if image is animated
+
+        :returns: boolean, True if the image is animated
+        """
+        return self.is_animated_gif()
+
+    def is_animated_gif(self):
+        """Return true if image is an animated gif
+
+        primarily used this great deep dive into the structure of an animated gif
+        to figure out how to parse it:
+
+            http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
+
+        Other links that also helped:
+
+            https://en.wikipedia.org/wiki/GIF#Animated_GIF
+            https://www.w3.org/Graphics/GIF/spec-gif89a.txt
+            https://stackoverflow.com/a/1412644/5006
+
+        :returns: boolean, True if the image is an animated gif
+        """
+        info = self.get_info()
+        if info["what"] != "gif": return False
+
+        ret = False
+        image_count = 0
+
+        def skip_color_table(fp, packed_byte):
+            """this will fp.seek() completely passed the color table
+
+            http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#global_color_table_block
+
+            :param fp: io, the open image file
+            :param packed_byte: the byte that tells if the color table exists and 
+                how big it is
+            """
+            if is_py2:
+                packed_byte = int(packed_byte.encode("hex"), 16)
+            # https://stackoverflow.com/a/13107/5006
+            has_gct = (packed_byte & 0b10000000) >> 7
+            gct_size = packed_byte & 0b00000111
+
+            if has_gct:
+                global_color_table = fp.read(3 * pow(2, gct_size + 1))
+                #pout.v(" ".join("{:02x}".format(ord(c)) for c in global_color_table))
+
+        def skip_image_data(fp):
+            """skips the image data, which is basically just a series of sub blocks
+            with the addition of the lzw minimum code to decompress the file data
+
+            http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#image_data_block
+
+            :param fp: io, the open image file
+            """
+            lzw_minimum_code_size = fp.read(1)
+            skip_sub_blocks(fp)
+
+        def skip_sub_blocks(fp):
+            """skips over the sub blocks
+
+            the first byte of the sub block tells you how big that sub block is, then
+            you read those, then read the next byte, which will tell you how big
+            the next sub block is, you keep doing this until you get a sub block
+            size of zero
+
+            :param fp: io, the open image file
+            """
+            num_sub_blocks = ord(fp.read(1))
+            while num_sub_blocks != 0x00:
+                fp.read(num_sub_blocks)
+                num_sub_blocks = ord(fp.read(1))
+
+        with self.open() as fp:
+            header = fp.read(6)
+            #pout.v(header)
+            if header == b"GIF89a": # GIF87a doesn't support animation
+                logical_screen_descriptor = fp.read(7)
+                #pout.v(" ".join("{:02x}".format(ord(c)) for c in logical_screen_descriptor))
+                #pout.v(bytearray(logical_screen_descriptor))
+                #pout.v(logical_screen_descriptor.encode("hex"))
+                skip_color_table(fp, logical_screen_descriptor[4])
+
+                b = ord(fp.read(1))
+                while b != 0x3B: # 3B is always the last byte in the gif
+                    if b == 0x21: # 21 is the extension block byte
+                        b = ord(fp.read(1))
+                        if b == 0xF9: # graphic control extension
+                            # http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#graphics_control_extension_block
+                            block_size = ord(fp.read(1))
+                            fp.read(block_size)
+                            b = ord(fp.read(1))
+                            if b != 0x00:
+                                raise ValueError("GCT should end with 0x00")
+
+                        elif b == 0xFF: # application extension
+                            # http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#application_extension_block
+                            block_size = ord(fp.read(1))
+                            fp.read(block_size)
+                            skip_sub_blocks(fp)
+
+                        elif b == 0x01: # plain text extension
+                            # http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#plain_text_extension_block
+                            block_size = ord(fp.read(1))
+                            fp.read(block_size)
+                            skip_sub_blocks(fp)
+
+                        elif b == 0xFE: # comment extension
+                            # http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#comment_extension_block
+                            skip_sub_blocks(fp)
+
+                    elif b == 0x2C: # Image descriptor
+                        # http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#image_descriptor_block
+                        image_count += 1
+                        if image_count > 1:
+                            # if we've seen more than one image it's animated so
+                            # we're done
+                            ret = True
+                            break
+
+                        # total size is 10 bytes, we already have the first byte so
+                        # let's grab the other 9 bytes
+                        image_descriptor = fp.read(9)
+                        skip_color_table(fp, image_descriptor[-1])
+                        skip_image_data(fp)
+
+                    b = ord(fp.read(1))
+
+        return ret
+
+    def open_text(self, *args, **kwargs):
+        raise NotImplementedError()
+    def read_text(self, *args, **kwargs):
+        raise NotImplementedError()
+    def write_text(self, *args, **kwargs):
+        raise NotImplementedError()
+    def append_text(self, *args, **kwargs):
+        raise NotImplementedError()
+ImagePath = Imagepath
 
 
 class Archivepath(Dirpath):

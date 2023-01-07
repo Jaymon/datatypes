@@ -369,7 +369,10 @@ class Namespace(NormalizeDict):
         return self.__setitem__(k, v)
 
     def __getattr__(self, k):
-        return self.__getitem__(k)
+        try:
+            return self.__getitem__(k)
+        except KeyError as e:
+            raise AttributeError(e) from e
 
     def __delattr__(self, k):
         return self.__delitem__(k)

@@ -3,7 +3,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 
 from datatypes.compat import *
 from datatypes.string import String
-from datatypes.token import Tokenizer, HTMLTokenizer
+from datatypes.token import Tokenizer
 
 from . import TestCase, testdata
 
@@ -332,58 +332,4 @@ class TokenizerTest(TestCase):
         self.assertEqual(total, t.total())
         self.assertEqual(total, len(t))
 
-
-class HTMLTokenizerTest(TestCase):
-    def test_notagnames(self):
-        html = "\n".join([
-            '<div>',
-            '<p>one</p>'
-            '<p>two with <a href="#">link</a></p>'
-            '<p>three with <img src="foobar.jpg" /></p>'
-            '<p>four with <img src="foobar.jpg" /> and <a href="#2">link</a></p>'
-            '<p>five</p>'
-            '</div>',
-        ])
-
-        t = HTMLTokenizer(html)
-
-        tag = t.next()
-        self.assertEqual("div", tag.tagname)
-
-    def test_next_prev(self):
-        html = "\n".join([
-            '<one>1</one>',
-            '<two>2</two>',
-            '<three>3</three>',
-            '<four>4</four>',
-        ])
-        t = HTMLTokenizer(html)
-
-        tag = t.prev()
-        self.assertEqual(None, tag)
-
-        tag = t.next()
-        self.assertEqual("one", tag.tagname)
-
-        tag = t.prev()
-        self.assertEqual("one", tag.tagname)
-
-        tag = t.next()
-        self.assertEqual("two", tag.tagname)
-
-        tag = t.next()
-        self.assertEqual("three", tag.tagname)
-
-        tag = t.next()
-        self.assertEqual("four", tag.tagname)
-        self.assertEqual("4", tag.text)
-
-        with self.assertRaises(StopIteration):
-            tag = t.next()
-
-        tag = t.prev()
-        self.assertEqual("four", tag.tagname)
-
-        tag = t.prev()
-        self.assertEqual("four", tag.tagname)
 

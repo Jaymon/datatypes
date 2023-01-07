@@ -8,6 +8,7 @@ from datatypes.path import (
     Path,
     Dirpath,
     Filepath,
+    Imagepath,
     Archivepath,
     TempDirpath,
     TempFilepath,
@@ -774,6 +775,145 @@ class DirpathTest(_PathTestCase):
         source_f.copy_to(dest_f)
         self.assertEqual(source_f.read_text(), dest_f.read_text())
 
+    def test_add_file_from_bang(self):
+        """Similar test to bang.tests.path_test.FileTest.test_create
+
+        moved to here on 1-4-2023
+        """
+        data = "contents"
+        d = testdata.create_dir()
+        d.add_file("foo/test.txt", data=data)
+        f = Filepath(d.path, "foo", "test.txt")
+        self.assertTrue(f.exists())
+
+        s = f.read_text()
+        self.assertEqual(data, s)
+
+    def test_has_file(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_has_file
+
+        moved to here on 1-4-2023
+        """
+        f = testdata.create_file(path="/foo/bar/che/index.html")
+
+        d = Dirpath(f.parent)
+        self.assertTrue(d.has_file("index.html"))
+
+        d = Dirpath(f.parent.parent)
+        self.assertTrue(d.has_file("che", "index.html"))
+
+        d = Dirpath(f.parent.parent.parent)
+        self.assertTrue(d.has_file("bar", "che", "index.html"))
+
+    def test_files_1_from_bang(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_files_1
+
+        moved to here on 1-4-2023
+        """
+        d = testdata.create_files({
+            "foo.txt": "",
+            "bar/che.txt": "",
+            "boo/baz/bah.txt": ""
+        })
+
+        fs = list(d.files())
+        self.assertEqual(3, len(fs))
+
+        fs = list(d.files(recursive=False))
+        self.assertEqual(1, len(fs))
+
+    def test_refiles(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_files_2
+
+        moved to here on 1-4-2023
+        """
+        d = testdata.create_files({
+            "foo.txt": "",
+            "che.txt": "",
+            "bah.txt": ""
+        })
+
+        fs = list(d.children())
+        self.assertEqual(3, len(fs))
+
+        fs2 = list(d.refiles(pattern=r"/che"))
+        self.assertEqual(1, len(fs2))
+        self.assertTrue(fs2[0].endswith("che.txt"))
+
+        fs2 = list(d.refiles(pattern=r"/che", exclude=True))
+        self.assertEqual(2, len(fs2))
+        for f in fs2:
+            self.assertFalse(f.endswith("che.txt"))
+
+    def test_dirs(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_directories
+
+        moved to here on 1-4-2023
+        """
+        d = testdata.create_files({
+            "foo.txt": "",
+            "bar/che.txt": "",
+            "boo/baz/bah.txt": ""
+        })
+
+        ds = [v.path for v in d.dirs()]
+        self.assertEqual(3, len(ds))
+
+        ds = [v.path for v in d.dirs(recursive=False)]
+        self.assertEqual(2, len(ds))
+
+    def test_copy_to_from_bang_1(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_copy_to
+
+        moved to here on 1-4-2023
+        """
+        output_dir = testdata.create_dir()
+        input_dir = testdata.create_files({
+            "foo.txt": "",
+            "bar/che.txt": "",
+            "boo/baz/bah.txt": ""
+        })
+
+        ifs = list(input_dir.files())
+        ofs = list(output_dir.files())
+        self.assertNotEqual(len(ifs), len(ofs))
+
+        input_dir.copy_to(output_dir)
+        ifs = list(input_dir.files())
+        ofs = list(output_dir.files())
+        self.assertEqual(len(ifs), len(ofs))
+
+    def test_copy_to_from_bang_2(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_copy_paths_depth
+
+        moved to here on 1-4-2023
+        """
+        src_dir = testdata.create_files({
+            "foo.txt": "",
+            "bar/che.txt": "",
+            "boo/baz/bah.txt": ""
+        })
+
+        target_dir = testdata.create_dir()
+        rd = src_dir.copy_to(target_dir)
+        self.assertEqual(3, len(list(rd.iterfiles())))
+
+        target_dir = testdata.create_dir()
+        rd = src_dir.copy_to(target_dir, recursive=False)
+        self.assertEqual(1, len(list(rd.iterfiles())))
+
+    def test_relative_parts(self):
+        """Similar test to bang.tests.path_test.DirectoryTest.test_relative_parts
+
+        moved to here on 1-4-2023
+        """
+        d = Dirpath("/foo/bar/che/bam/boo")
+        p = d.relative_parts("/")
+        self.assertEqual(["foo", "bar", "che", "bam", "boo"], p)
+
+        p = d.relative_parts("/foo/bar/")
+        self.assertEqual(["che", "bam", "boo"], p)
+
 
 class FilepathTest(_PathTestCase):
     path_class = Filepath
@@ -940,6 +1080,31 @@ class FilepathTest(_PathTestCase):
         p.delete()
         self.assertFalse(p.exists())
         self.assertTrue(p.empty())
+
+
+class ImagepathTest(TestCase):
+    def test_dimensions(self):
+        ts = [
+            ("agif", (11, 29)),
+            ("gif", (190, 190)),
+            ("jpg", (190, 190)),
+            ("png", (190, 190)),
+            ("ico", (64, 64)),
+        ]
+
+        for t in ts:
+            im = Imagepath(testdata.create_image(t[0]))
+            self.assertEqual(t[1], im.dimensions)
+
+    def test_is_animated(self):
+        im = Imagepath(testdata.create_animated_gif())
+        self.assertTrue(im.is_animated())
+
+        im = Imagepath(testdata.create_gif())
+        self.assertFalse(im.is_animated())
+
+        im = Imagepath(testdata.create_jpg())
+        self.assertFalse(im.is_animated())
 
 
 class ArchivepathTest(TestCase):
