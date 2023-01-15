@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 import os
 import time
+import re
 
 from datatypes.compat import *
 from datatypes.path import (
@@ -15,6 +16,7 @@ from datatypes.path import (
     Cachepath,
     Sentinel,
     UrlFilepath,
+    PathIterator,
 )
 
 from . import TestCase, testdata
@@ -1451,3 +1453,409 @@ class UrlFilepathTest(TestCase):
             self.assertEqual("this is foo.txt", p.read_text())
 
 
+
+class PathIteratorTest(TestCase):
+    def test_simple(self):
+        """Makes sure it can iterate through a directory"""
+        dirpath = testdata.create_files({
+            "foo.txt": "this is foo.txt",
+            "bar/che.txt": "this is che.txt",
+        })
+
+        r_count = 0
+        r = set(["foo.txt", "bar", "bar/che.txt"])
+        pi = PathIterator(dirpath)
+        for p in pi:
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(3, r_count)
+
+    def test_files_dirs(self):
+        dirpath = testdata.create_files({
+            "foo.txt": "this is foo.txt",
+            "bar/che.txt": "this is che.txt",
+            "boo/baz": None,
+        })
+
+        r_count = 0
+        r = set(["foo.txt", "bar/che.txt"])
+        for p in PathIterator(dirpath).files():
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(2, r_count)
+
+        r_count = 0
+        r = set(["bar", "boo", "boo/baz"])
+        for p in PathIterator(dirpath).dirs():
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(3, r_count)
+
+    def test_depth(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+            "che": None,
+        })
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar",
+            "boo",
+            "che",
+        ])
+        for p in PathIterator(dirpath).depth(1):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar",
+            "boo",
+            "che",
+        ])
+        for p in PathIterator(dirpath).recursive(False):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar", "bar/2.txt",
+            "boo", "boo/3.txt",
+            "boo/baz",
+            "che",
+        ])
+        for p in PathIterator(dirpath).depth(2):
+            self.assertTrue(p.relative_to(dirpath) in r, p)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar", "bar/2.txt",
+            "boo", "boo/3.txt",
+            "boo/baz", "boo/baz/4.txt",
+            "che",
+        ])
+        for p in PathIterator(dirpath).recursive(True):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+        ])
+        for p in PathIterator(dirpath).recursive(False).files():
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).recursive(True).files():
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar",
+            "boo",
+            "boo/baz",
+            "che",
+        ])
+        for p in PathIterator(dirpath).recursive(True).dirs():
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar",
+            "boo",
+            "che",
+        ])
+        for p in PathIterator(dirpath).recursive(False).dirs():
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+    def test_pattern(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+            "che": None,
+        })
+
+        r_count = 0
+        r = set([
+            "1.txt",
+        ])
+        for p in PathIterator(dirpath).glob("*.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).pattern("*.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).pattern("**/*.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+        ])
+        for p in PathIterator(dirpath).pattern("*/bar/*.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+        ])
+        for p in PathIterator(dirpath).pattern("**/bar/*.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+    def test_regex(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+            "che": None,
+        })
+
+        r_count = 0
+        r = set([
+            "1.txt",
+        ])
+        for p in PathIterator(dirpath).regex("[1]\.TXT", flags=re.I):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).regex("[^/]+\.txt$"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+        ])
+        for p in PathIterator(dirpath).regex("/bar/.+\.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+    def test_callback(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+            "che": None,
+        })
+
+        r_count = 0
+        r = set([
+            "1.txt",
+        ])
+        for p in PathIterator(dirpath).callback(lambda p: p.endswith("1.txt")):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).callback(lambda p: p.endswith(".txt")):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+        ])
+        for p in PathIterator(dirpath).callback(lambda p: p.endswith("bar/2.txt")):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+    def test_inverse(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+            "che": None,
+        })
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).files().not_callback(lambda p: p.endswith("1.txt")):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).files().not_pattern("1.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for p in PathIterator(dirpath).files().not_regex("1.txt"):
+            self.assertTrue(p.relative_to(dirpath) in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+    def test_count(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+            "che": None,
+            "bam": None
+        })
+
+        self.assertEqual(4, len(PathIterator(dirpath).files()))
+        self.assertEqual(9, len(PathIterator(dirpath)))
+        self.assertEqual(5, len(PathIterator(dirpath).dirs()))
+
+    def test_get_index(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+        })
+
+        it = PathIterator(dirpath)
+
+        it[0] # no error means it's good
+
+        with self.assertRaises(IndexError):
+            it[100000]
+
+    def test_get_slice(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+        })
+
+        it = PathIterator(dirpath)
+        self.assertEqual(7, len(it[:]))
+
+        it = PathIterator(dirpath)
+        self.assertEqual(3, len(it[1:4]))
+
+        it = PathIterator(dirpath)
+        self.assertEqual(3, len(it[:3]))
+
+        it = PathIterator(dirpath)
+        self.assertEqual(3, len(it[1::2]))
+
+        it = PathIterator(dirpath)
+        self.assertEqual(4, len(it[::2]))
+
+    def test_property_name(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/baz/4.txt": "body 4",
+        })
+
+        it = PathIterator(dirpath)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "bar/2.txt",
+            "boo/3.txt",
+            "boo/baz/4.txt",
+        ])
+        for relpath in it.files().relative_to(dirpath):
+            self.assertTrue(relpath in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)
+
+        r_count = 0
+        r = set([
+            "1.txt",
+            "2.txt",
+            "3.txt",
+            "4.txt",
+        ])
+        for basename in it.files().basename:
+            self.assertTrue(basename in r)
+            r_count += 1
+        self.assertEqual(len(r), r_count)

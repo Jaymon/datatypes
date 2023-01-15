@@ -10,6 +10,7 @@ from datatypes.collections import (
     OrderedList,
     Dict,
     Namespace,
+    ContextNamespace,
 )
 
 from . import TestCase, testdata
@@ -268,6 +269,14 @@ class IdictTest(TestCase):
         d["foo"] = 2
         self.assertEqual(2, d["FOO"])
 
+    def test_pop(self):
+        d = idict()
+        d["foo"] = 1
+        self.assertEqual(1, d.pop("foo"))
+        self.assertEqual(None, d.pop("foo", None))
+        with self.assertRaises(KeyError):
+            d.pop("foo")
+
 
 class TrieTest(TestCase):
     def test_has(self):
@@ -363,4 +372,147 @@ class NamespaceTest(TestCase):
         del n["foo"]
         with self.assertRaises(KeyError):
             n.foo
+
+
+class ContextNamespaceTest(TestCase):
+    def test_crud(self):
+        n = ContextNamespace()
+
+        n.foo = "foo"
+        self.assertEqual("foo", n.foo)
+        self.assertTrue("foo" in n)
+
+        with n.context("bar") as nbar:
+            self.assertEqual("foo", nbar.foo)
+            self.assertTrue("foo" in nbar)
+
+            nbar.foo = "bar"
+            self.assertEqual("bar", nbar.foo)
+            self.assertTrue("foo" in nbar)
+            self.assertEqual("bar", n.foo)
+            self.assertTrue("foo" in n)
+
+            nbar.bar = "bar2"
+            self.assertEqual("bar2", nbar.bar)
+            self.assertTrue("bar" in nbar)
+
+            del nbar.foo
+            self.assertEqual("foo", nbar.foo)
+
+        self.assertEqual("foo", n.foo)
+        self.assertTrue("foo" in n)
+        with self.assertRaises(AttributeError):
+            n.bar
+
+
+    def test_pop(self):
+        n = ContextNamespace("one")
+
+        n.foo = 1
+        n.bar = 2
+
+        with n.context("two"):
+            n.bar = 3
+            self.assertEqual(3, n.pop("bar"))
+            self.assertEqual(None, n.pop("bar", None))
+            with self.assertRaises(KeyError):
+                n.pop("bar")
+
+        self.assertEqual(2, n.pop("bar"))
+        with self.assertRaises(KeyError):
+            n.pop("bar")
+        self.assertEqual(None, n.pop("bar", None))
+
+    def test_popitem(self):
+        n = ContextNamespace()
+
+        with self.assertRaises(KeyError):
+            n.popitem()
+
+        n.foo = 1
+        self.assertEqual(("foo", 1), n.popitem())
+
+        n.foo = 2
+        with n.context("two"):
+            with self.assertRaises(KeyError):
+                n.popitem()
+
+            n.foo = 3
+            self.assertEqual(("foo", 3), n.popitem())
+
+            with self.assertRaises(KeyError):
+                n.popitem()
+        self.assertEqual(("foo", 2), n.popitem())
+
+    def test_reversed(self):
+        n = ContextNamespace()
+        n.foo = 1
+        n.bar = 2
+
+        keys = []
+        for k in reversed(n):
+            keys.append(k)
+        self.assertEqual(["bar", "foo"], keys)
+
+
+    def test_setdefault(self):
+        n = ContextNamespace()
+        self.assertEqual(1, n.setdefault("foo", 1))
+        self.assertEqual(1, n.setdefault("foo", 2))
+
+        with n.context("two"):
+            self.assertEqual(1, n.setdefault("foo", 3))
+
+    def test_update(self):
+        n = ContextNamespace()
+
+        n.update({"foo": 1, "bar": 2})
+        self.assertEqual(1, n.foo)
+        self.assertEqual(2, n.bar)
+
+        with n.context("two"):
+            n.update({"che": 3, "bar": 4})
+            self.assertEqual(1, n.foo)
+            self.assertEqual(4, n.bar)
+            self.assertEqual(3, n.che)
+        self.assertEqual(1, n.foo)
+        self.assertEqual(2, n.bar)
+
+        with n.context("three"):
+            n |= {"che": 5, "bar": 6}
+            self.assertEqual(1, n.foo)
+            self.assertEqual(6, n.bar)
+            self.assertEqual(5, n.che)
+        self.assertEqual(1, n.foo)
+        self.assertEqual(2, n.bar)
+
+        n2 = n | {"che": 5, "bar": 6}
+        self.assertEqual(1, n2.foo)
+        self.assertEqual(6, n2.bar)
+        self.assertEqual(5, n2.che)
+        self.assertEqual(1, n.foo)
+        self.assertEqual(2, n.bar)
+
+    def test_clear(self):
+        n = ContextNamespace()
+
+        n.foo = 1
+        with n.context("two"):
+            n.foo = 2
+            n.clear()
+            self.assertEqual(1, n.foo)
+
+    def test_copy(self):
+        n = ContextNamespace()
+
+        n.foo = 1
+
+        self.assertEqual({"foo": 1}, n.copy())
+
+        with n.context("two"):
+            n.foo = 2
+            n.bar = 3
+            self.assertEqual({"foo": 2, "bar": 3}, n.copy())
+
+        self.assertEqual({"foo": 1}, n.copy())
 

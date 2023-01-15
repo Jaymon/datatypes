@@ -3,6 +3,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 import heapq
 import itertools
 import bisect
+from contextlib import contextmanager
 
 from .compat import *
 
@@ -225,6 +226,27 @@ class PriorityQueue(object):
     __nonzero__ = __bool__
 
 
+
+class Stack(list):
+    """An incredibly simple stack implementation"""
+    def push(self, v):
+        self.append(v)
+
+    def pop(self):
+        return super().pop(-1)
+
+    def peak(self):
+        return self[-1]
+
+    def __iter__(self):
+        """By default stacks are LIFO"""
+        return reversed(self)
+
+    def __reversed__(self):
+        """calling reverse on a stack would switch to normal list FIFO"""
+        return super().__iter__()
+
+
 class Dict(dict):
     def ritems(self, *keys):
         """Iterate through the dict and all sub dicts
@@ -323,10 +345,11 @@ class NormalizeDict(Dict):
         for k, v in d.items():
             self[k] = v
 
-    def pop(self, k, default=None):
+    def pop(self, k, *default):
         k = self.normalize_key(k)
-        v = self.normalize_value(default)
-        return super(NormalizeDict, self).pop(k, v)
+        if default:
+            default = [self.normalize_value(default[0])]
+        return super(NormalizeDict, self).pop(k, *default)
 
     def get(self, k, default=None):
         k = self.normalize_key(k)
@@ -378,10 +401,224 @@ class Namespace(NormalizeDict):
         return self.__delitem__(k)
 
 
+class ContextNamespace(Namespace):
+    """A context aware namespace where you can override values in later contexts and
+    then revert back to the original context when the with statement is done
+
+    values are retrieved in LIFO order of the pushed contexts
+
+    Based on bang.config.Config moved here and expanded on 1-10-2023
+
+    :Example:
+        n = ContextNamespace
+
+        n.foo = 1
+        with n.context("<CONTEXT NAME>"):
+            n.foo # 1
+            n.foo = 2
+            n.foo # 2
+            with n.context("<CONTEXT NAME 2>"):
+                n.foo # 2
+                n.foo = 3
+                n.foo #3
+
+            n.foo # 2
+
+        n.foo # 1
+    """
+    context_class = Namespace
+    """Each context will be an instance of this class"""
+
+    def __init__(self, name=""):
+        """
+        :param name: str, If you want to customize the default context name then
+            pass it in
+        """
+        super().__init__()
+
+        # we set support properties directly on the __dict__ so __setattr__ doesn't
+        # infinite loop, context properties can just be set normally
+
+        # a stack of the context names, where -1 is always the current active context
+        self.__dict__["_context_names"] = Stack()
+        self.push_context(name)
+
+    def normalize_context_name(self, name):
+        """normalize the context name, this is meant to be customized in child
+        classes if needed
+
+        :param name: str, the context name
+        :returns: str, the name, normalized
+        """
+        return name
+
+    def push_context(self, name):
+        """push a context named name onto the context stack"""
+        name = self.normalize_context_name(name)
+
+        # this is where all the magic happens, the keys are the context names
+        # and the values are the set properties for that context, 
+        super().setdefault(name, self.context_class())
+
+        self._context_names.push(name)
+        return name
+
+    def pop_context(self):
+        """Pop the last context from the stack"""
+        return self._context_names.pop()
+
+    def clear_context(self, name):
+        """Completely clear the context"""
+        name = self.normalize_context_name(name)
+        super().__getitem__(name).clear()
+
+    def context_name(self):
+        """Get the current context name"""
+        return self._context_names.peak()
+
+    def current_context(self):
+        """get the current context
+
+        :returns: self.context_class instance
+        """
+        return self.get_context(self.context_name())
+
+    def get_context(self, name):
+        """Get the context at name
+
+        :returns: self.context_class instance
+        """
+        name = self.normalize_context_name(name)
+        return super().__getitem__(name)
+
+    def is_context(self, name):
+        """Return True if name matches the current context name"""
+        return self.context_name() == self.normalize_context_name(context_name)
+
+    @contextmanager
+    def context(self, name, **kwargs):
+        """This is meant to be used with the "with ..." command, its purpose is to
+        make it easier to change the context and restore it back to the previous context
+        when it is done
+
+        :Example:
+            with instance.context("foo"):
+                # anything in this block will use the foo configuration
+                pass
+            # anything outside this block will *NOT* use the foo configuration
+        """
+        name = self.push_context(name)
+
+        # passed in values get set on the instance directly
+        for k, v in kwargs.items():
+            self[k] = v
+
+        yield self
+
+        self.pop_context()
+
+    def __setitem__(self, k, v):
+        k = self.normalize_key(k)
+        v = self.normalize_value(v)
+        self.current_context().__setitem__(k, v)
+
+    def __delitem__(self, k):
+        k = self.normalize_key(k)
+        self.current_context().__delitem__(k)
+
+    def __getitem__(self, k):
+        """Most of the context LIFO magic happens here, this will work through
+        the contexts looking for k"""
+        k = self.normalize_key(k)
+        for context_name in self._context_names:
+            try:
+                return self.get_context(context_name)[k]
+
+            except KeyError:
+                pass
+
+        raise KeyError(k)
+
+    def __contains__(self, k):
+        try:
+            self[k]
+            return True
+
+        except KeyError:
+            return False
+
+    def __len__(self):
+        """Unlike a normal dict this is O(n)"""
+        return len(list(self.keys()))
+
+    def __reversed__(self):
+        return reversed(list(self.keys()))
+
+    def __ior__(self, other):
+        """self |= other"""
+        self.update(other)
+        return self
+
+    def __or__(self, other):
+        """self | other"""
+        d = self.context_class({i[0]: i[1] for i in self.items()})
+        d.update(other)
+        return d
+
+    def pop(self, k, *default):
+        """Pop works a little differently than other key access methods, pop will
+        only return a value if it is actually in the current context, if k is not
+        in the current context then this will return default
+        """
+        k = self.normalize_key(k)
+        try:
+            d = self.current_context()
+            v = d[k]
+            del d[k]
+
+        except KeyError:
+            if default:
+                v = self.normalize_value(default[0])
+            else:
+                raise
+
+        return v
+
+    def popitem(self):
+        return self.current_context().popitem()
+
+    def clear(self):
+        return self.current_context().clear()
+
+    def copy(self):
+        """return a dict of all active values in the config at the moment"""
+        d = self.context_class()
+        for context_name in reversed(self._context_names):
+            d.update(self.get_context(context_name))
+        return d
+
+    def items(self):
+        seen_keys = set()
+        for context_name in self._context_names:
+            d = self.get_context(context_name)
+            for k, v in d.items():
+                if k not in seen_keys:
+                    yield k, v
+                    seen_keys.add(k)
+
+    def keys(self):
+        for k, _ in self.items():
+            yield k
+
+    def values(self):
+        for _, v in self.items():
+            yield v
+
+
 class Trie(object):
     """https://en.wikipedia.org/wiki/Trie"""
     def __init__(self, *values):
-        self.values = {} #defaultdict(list)
+        self.values = {}
 
         for value in values:
             self.add(value)
@@ -594,9 +831,6 @@ class ListIterator(list):
     def __init__(self, *args, **kwargs):
         super(Iterator, self).__init__(*args, **kwargs)
 
-    def next(self):
-        raise NotImplementedError()
-
     def __next__(self):
         """needed for py3 api compatibility"""
         return self.next()
@@ -605,14 +839,12 @@ class ListIterator(list):
         return self
 
     def __nonzero__(self):
-        return True if self.count() else False
+        for _ in self:
+            return True
+        return False
 
     def __len__(self):
         return self.count()
-
-    def count(self):
-        """list interface compatibility"""
-        raise NotImplementedError()
 
     def __getslice__(self, i, j):
         """required for slicing in python 2 when extending built-in types like list
@@ -622,28 +854,65 @@ class ListIterator(list):
         """
         return self.__getitem__(slice(i, j))
 
-    def __getitem__(self, k):
+    def __reversed__(self):
+        it = self.copy()
+        it.reverse()
+        return it
+
+    def __iter__(self):
+        return self
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return self.get_slice(i)
+
+        else:
+            return self.get_index(i)
+
+    def get_slice(self, s):
+        """s is a slice object
+
+        * s.start - lower bound
+        * s.stop - uppder bound
+        * s.step - step value
+
+        Any propert of the slice instance can be None:
+
+        * [:N:N] - start is None
+        * [N:] - stop and step are None
+        * [:N] - start and step are None
+        * [N:N] - step is None
+        * [N::N] - stop and step are None
+
+        slice objects are described here: https://docs.python.org/3/reference/datamodel.html
+        under section 3.2 in the "slice objects" section
+        """
+        raise NotImplementedError()
+
+    def get_index(self, i):
+        raise NotImplementedError()
+
+    def next(self):
+        raise NotImplementedError()
+
+    def count(self):
+        """list interface compatibility"""
         raise NotImplementedError()
 
     def reverse(self):
         """list interface compatibility"""
         raise NotImplementedError()
 
-    def __reversed__(self):
-        it = self.copy()
-        it.reverse()
-        return it
-
     def sort(self, *args, **kwargs):
         """list interface compatibility"""
         raise NotImplementedError()
 
-    def __getattr__(self, k):
-        """
-        this allows you to focus in on certain fields of results
+    def copy(self):
+        """list interface compatibility"""
+        raise NotImplementedError()
 
-        It's just an easier way of doing: (getattr(x, k, None) for x in self)
-        """
+    def index(self, x, start=None, end=None):
+        """list interface compatibility"""
         raise NotImplementedError()
 
     def append(self, x):
@@ -666,11 +935,7 @@ class ListIterator(list):
         """list interface compatibility"""
         raise NotImplementedError()
 
-    def index(self, x, start=None, end=None):
-        """list interface compatibility"""
-        raise NotImplementedError()
-
-    def copy(self):
+    def insert(self, i, x):
         """list interface compatibility"""
         raise NotImplementedError()
 

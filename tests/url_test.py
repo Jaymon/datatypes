@@ -5,7 +5,6 @@ from datatypes.compat import *
 from datatypes.url import (
     Url,
     Host,
-    Urlpath,
 )
 
 from . import TestCase, testdata
@@ -24,20 +23,20 @@ class UrlTest(TestCase):
     def test_scheme_with_path(self):
         u = Url("scheme:///foo/bar?query=val")
         self.assertEqual("", u.hostloc)
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
         self.assertEqual("scheme", u.scheme)
         self.assertTrue("query" in u.query_kwargs)
         self.assertEqual(1, len(u.query_kwargs))
 
         u = Url("scheme:///foo/bar")
         self.assertEqual("", u.hostloc)
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
         self.assertEqual("scheme", u.scheme)
 
     def test_host_trailing_slash(self):
         u = Url("example.com/foo/bar")
         self.assertEqual("example.com", u.hostloc)
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
 
         u = Url("example.com/")
         self.assertEqual("example.com", u.hostloc)
@@ -65,28 +64,28 @@ class UrlTest(TestCase):
         h = Url("//localhost:8080/foo/bar?che=1")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
-        self.assertEqual("foo/bar", h.path)
+        self.assertEqual("/foo/bar", h.path)
         self.assertEqual("che=1", h.query)
         self.assertEqual("http", h.scheme)
 
         h = Url("localhost:8080/foo/bar?che=1")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
-        self.assertEqual("foo/bar", h.path)
+        self.assertEqual("/foo/bar", h.path)
         self.assertEqual("che=1", h.query)
         self.assertEqual("http", h.scheme)
 
         h = Url("http://localhost:8080/foo/bar?che=1")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
-        self.assertEqual("foo/bar", h.path)
+        self.assertEqual("/foo/bar", h.path)
         self.assertEqual("che=1", h.query)
         self.assertEqual("http", h.scheme)
 
         h = Url("n://localhost:8080/foo/bar?che=1")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
-        self.assertEqual("foo/bar", h.path)
+        self.assertEqual("/foo/bar", h.path)
         self.assertEqual("che=1", h.query)
         self.assertEqual("n", h.scheme)
 
@@ -128,14 +127,14 @@ class UrlTest(TestCase):
         self.assertEqual("http", u.scheme)
         self.assertEqual(80, u.port)
         self.assertEqual({}, u.query_kwargs)
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
 
         u = Url("example.com/foo/bar?query=val")
         self.assertEqual("http", u.scheme)
         self.assertEqual(80, u.port)
         self.assertTrue("query" in u.query_kwargs)
         self.assertEqual(1, len(u.query_kwargs))
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
 
         u = Url("/foo/bar?query=val")
         self.assertEqual("http", u.scheme)
@@ -162,7 +161,7 @@ class UrlTest(TestCase):
         self.assertEqual(8080, u.port)
         self.assertTrue("query" in u.query_kwargs)
         self.assertEqual(1, len(u.query_kwargs))
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
 
         u = Url("127.0.0.1?query=val")
         self.assertEqual("http", u.scheme)
@@ -176,7 +175,7 @@ class UrlTest(TestCase):
         self.assertEqual(80, u.port)
         self.assertTrue("query" in u.query_kwargs)
         self.assertEqual(1, len(u.query_kwargs))
-        self.assertEqual("foo/bar", u.path)
+        self.assertEqual("/foo/bar", u.path)
 
     def test_base(self):
         u = Url("http://example.com/path/part")
@@ -259,7 +258,7 @@ class UrlTest(TestCase):
 
     def test_port_standard(self):
         h = Url("localhost:80")
-        self.assertEqual("http://localhost", h)
+        self.assertEqual("//localhost", h)
         self.assertEqual(80, h.port)
 
         h = Url("http://localhost:80")
@@ -430,6 +429,91 @@ class UrlTest(TestCase):
             self.assertTrue(k in ks)
             self.assertTrue(k in dvs)
 
+    def test_parts_from_bang(self):
+        """Moved from bang Url tests on 1-6-2023"""
+        u = Url("http://example.com/foo/bar.jpg")
+
+        self.assertTrue(u.is_hostname("example.com"))
+        self.assertTrue(u.is_hostname("EXAMPLE.COM"))
+        self.assertEqual("/foo/bar.jpg", u.path)
+
+    def test_is_relative_and_path(self):
+        u = Url("//hostname.tld/foo/bar")
+        self.assertTrue(u.is_relative())
+
+        u = Url("/foo/bar")
+        self.assertTrue(u.is_path())
+
+    def test_is_full(self):
+        u = Url("//hostname.tld/foo/bar")
+        self.assertFalse(u.is_full())
+
+        u = Url("/foo/bar")
+        self.assertFalse(u.is_full())
+
+        u = Url("http://example.tld/foo/bar")
+        self.assertTrue(u.is_full())
+
+    def test_is_url(self):
+        self.assertTrue(Url.is_url("//hostname.tld/foo/bar"))
+        self.assertFalse(Url.is_url("/foo/bar"))
+        self.assertTrue(Url.is_url("http://example.tld/foo/bar"))
+
+    def test_is_local(self):
+        """Moved from bang Url tests on 1-6-2023"""
+        u = Url("http://localhost:8000/some-page/bar.png")
+        self.assertTrue(u.is_local())
+
+        u = Url("http://127.0.0.1:8000/some-page/bar.png")
+        self.assertTrue(u.is_local())
+
+        u = Url("http://hostname.tld:8000/some-page/bar.png")
+        self.assertFalse(u.is_local())
+
+    def test_paths(self):
+        """Moved from bang Url tests on 1-6-2023"""
+        u = Url("http://host.tld/foo/bar/che/baz")
+        r = ["/foo", "/foo/bar", "/foo/bar/che", "/foo/bar/che/baz"]
+        self.assertEqual(r, u.paths)
+
+    def test_unsplit(self):
+        u = Url("example.com/foo/bar")
+        self.assertEqual("//example.com/foo/bar", u)
+        self.assertEqual("http://example.com/foo/bar", u.unsplit())
+
+    def test_ext(self):
+        u = Url("example.com/foo/bar.ext")
+        self.assertEqual("ext", u.ext)
+
+        u = Url("example.com/foo/bar")
+        self.assertEqual("", u.ext)
+
+    def test_basename(self):
+        u = Url("example.com/foo/bar.ext")
+        self.assertEqual("bar.ext", u.basename)
+
+        u = Url("example.com/foo/bar")
+        self.assertEqual("bar", u.basename)
+
+        u = Url("example.com/")
+        self.assertEqual("", u.basename)
+
+    def test___new__(self):
+        scheme = "http"
+        host = "example.tld"
+
+        u = Url(scheme=scheme, hostname=host)
+        self.assertEqual("http://example.tld", u)
+
+        u = Url(hostname=host)
+        self.assertEqual("//example.tld", u)
+
+        u = Url()
+        self.assertEqual("", u)
+
+        u = Url(scheme="", hostname="")
+        self.assertEqual("", u)
+
 
 class HostTest(TestCase):
     def test___new__(self):
@@ -471,16 +555,4 @@ class HostTest(TestCase):
 
         h = Host("localhost:")
         self.assertEqual(0, h.port)
-
-
-class UrlpathTest(TestCase):
-    def test_path_set(self):
-        url = testdata.get_url()
-        path = testdata.get_file("pathset.ext")
-        up = Urlpath(url, path)
-        self.assertEqual(url, up.url)
-        self.assertEqual(path, up.path)
-
-    def test_read(self):
-        self.skip_test("functionality has not been added yet")
 

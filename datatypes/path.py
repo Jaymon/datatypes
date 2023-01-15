@@ -16,27 +16,17 @@ import tempfile
 import itertools
 import glob
 import datetime
-import re
 import string
 import random
-import email.message
 import struct
 import imghdr
-
-
-try:
-    from pathlib import Path as Pathlib
-except ImportError:
-    Pathlib = None
-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+from pathlib import Path as Pathlib
+import pickle
 
 from .compat import *
 from . import environ
 from .string import String, ByteString
+from .collections import ListIterator
 from .http import HTTPClient
 from .url import Url
 
@@ -545,6 +535,10 @@ class Path(String):
         return Filepath
 
     @classmethod
+    def iterator_class(cls):
+        return PathIterator
+
+    @classmethod
     def create_file(cls, *parts, **kwargs):
         kwargs["path_class"] = cls.file_class()
         return cls.create(*parts, **kwargs)
@@ -927,6 +921,13 @@ class Path(String):
 
         return self.create(parent, basename)
 
+    def with_stem(self, stem):
+        """Return a new path with the stem/fileroot changed
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.with_stem
+        """
+        return self.pathlib.with_stem(stem)
+
     def slug(self):
         """Return this path as a URI slug
 
@@ -1269,6 +1270,11 @@ class Path(String):
 class Dirpath(Path):
     """Represents a directory so extends Path with methods to iterate through
     a directory"""
+    @property
+    def iterator(self):
+        """Returns an iterator for this directory"""
+        return self.iterator_class()(self)
+
     @classmethod
     def cwd(cls):
         """Return a new path object representing the current directory (as returned by os.getcwd())
@@ -1371,12 +1377,6 @@ class Dirpath(Path):
                         # unknown data is assumed to be something that can be
                         # normalized in .prepare_text()
                         fp.write_text(data, **kwargs)
-
-#                     elif isinstance(data, Sequence):
-#                         fp.write_text("\n".join(data), **kwargs)
-# 
-#                     else:
-#                         raise ValueError("Unknown data for {}".format(fp))
 
                 else:
                     fp.touch()
@@ -1669,7 +1669,7 @@ class Dirpath(Path):
             for p in self.pathlib.iterdir():
                 yield self.create(p)
 
-    def iterdirs(self, recursive=True):
+    def iterdirs(self, recursive=False):
         """iterate through all the directories similar to .iterdir() but only
         returns directories
 
@@ -1684,7 +1684,7 @@ class Dirpath(Path):
             if not recursive:
                 break
 
-    def iterfiles(self, recursive=True):
+    def iterfiles(self, recursive=False):
         """iterate through all the files in this directory only"""
         """iterate through all the files in this directory and subdirectories"""
         for basedir, directories, files in os.walk(self.path, topdown=True):
@@ -1723,12 +1723,12 @@ class Dirpath(Path):
             for p in it("*"):
                 yield p
 
-    def dirs(self, pattern="", recursive=True):
+    def dirs(self, pattern="", recursive=False):
         for p in self.children(pattern, recursive=recursive):
             if p.is_dir():
                 yield p
 
-    def files(self, pattern="", recursive=True):
+    def files(self, pattern="", recursive=False):
         for p in self.children(pattern, recursive=recursive):
             if p.is_file():
                 yield p
@@ -1742,12 +1742,12 @@ class Dirpath(Path):
                 if exclude:
                     yield p
 
-    def refiles(self, pattern, recursive=True, exclude=False):
+    def refiles(self, pattern, recursive=False, exclude=False):
         for p in self.rechildren(pattern, recursive=recursive, exclude=exclude):
             if p.is_file():
                 yield p
 
-    def redirs(self, pattern, recursive=True, exclude=False):
+    def redirs(self, pattern, recursive=False, exclude=False):
         for p in self.rechildren(pattern, recursive=recursive, exclude=exclude):
             if p.is_dir():
                 yield p
@@ -2241,6 +2241,385 @@ class Filepath(Path):
 
         return False
 FilePath = Filepath
+
+
+class PathIterator(ListIterator):
+    """Iterate through a path
+
+    I was not happy with all the Dirpath iteration methods I've added over the last
+    few years, they all were subtlely different and it was annoying trying to figure
+    out which one I should use. This is an attempt to fix that. This provides a
+    fluid interface to iterating a directory
+
+    :Example:
+        # iterate through only the files in the current directory
+        for p in PathIterator(dirpath).depth(1).files():
+            print(p)
+
+        # iterate through only the directories in the current directory
+        for p in PathIterator(dirpath).depth(1).dirs():
+            print(p)
+
+        # find all txt files
+        for p in PathIterator(dirpath).pattern("*.txt"):
+            print(p)
+
+        # find any files that aren't txt files
+        for p in PathIterator(dirpath).not_pattern("*.txt").files():
+            print(p)
+
+        # iterate through current directory and its subdirectories, but no farther
+        for p in PathIterator(dirpath).depth(2):
+            print(p)
+
+        # iterate through all the basenames in the current directory
+        for basename in PathIterator(dirpath).depth(1).basename:
+            print(basename)
+
+        # iterate through all the paths relative to dirpath
+        for relpath in PathIterator(dirpath).relative_to(dirpath):
+            print(relpath)
+
+    """
+    def __init__(self, path: Dirpath):
+        """
+        :param path: Dirpath, the directory to iterate
+        """
+        self.path = path
+
+        # True if files should be iterated
+        self._yield_files = True
+
+        # True if directories should be iterated
+        self._yield_dirs = True
+
+        # subdirectory folder depth to iterate, see .depth()
+        self._yield_depth = -1
+
+        # the glob/fnmatch patterns to filter the iteration through
+        self._yield_patterns = []
+
+        # the regex patterns to filter the iteration through
+        self._yield_regexes = []
+
+        # the callables to filter the iteration through
+        self._yield_callbacks = []
+
+        # reverse the iteration?
+        self._yield_reverse = False
+
+        # sor the iteration? When set this is a tuple (args, kwargs) to pass to
+        # sorted
+        self._yield_sort = None
+
+        # instead of return Path instances, return this property of the Path
+        # instance
+        self._yield_property_name = ""
+
+        # If the iterated Path property is a method, pass it these, when set
+        # it's a tuple (args, kwargs)
+        self._yield_property_args = None
+
+    def files(self):
+        """Iterate only files (this excludes directories)"""
+        self._yield_files = True
+        return self.not_dirs()
+
+    def not_files(self):
+        """Don't iterate files"""
+        self._yield_files = False
+        return self
+
+    def dirs(self):
+        """Iterate only directories (this excludes files)"""
+        self._yield_dirs = True
+        return self.not_files()
+
+    def not_dirs(self):
+        """Don't iterate directories"""
+        self._yield_dirs = False
+        return self
+
+    def recursive(self, recursive=True):
+        """Only iterate current directory all current and all subdirectories
+
+        :param recursive: bool, if True then iterate through directory and all
+            subdirectories, otherwise only iterate through current directory and
+            ignore subdirectories
+        """
+        return self.depth(-1) if recursive else self.depth(1)
+
+    def depth(self, depth):
+        """Set depth of iteration
+
+        :param depth: int, how many subdirectories should be iterated. -1 for all
+        subdirs, 1 would only iterate the current directory, 2 would do 2 levels of
+        subdirectories, etc.
+        """
+        self._yield_depth = depth
+        return self
+
+    def pattern(self, pattern, **kwargs):
+        """Only iterate paths that match pattern
+
+        https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatch
+
+        :param pattern: str, the pattern to match, fnmatch patterns are endswith
+            so if you want to match a path part you would need to prefix * to the
+            pattern
+        :param **kwargs:
+            * inverse: bool, Fail the match if pattern matches the path
+        """
+        self._yield_patterns.append((pattern, kwargs))
+        return self
+
+    def fnmatch(self, pattern):
+        """alias of .pattern()"""
+        return self.pattern(pattern)
+
+    def glob(self, pattern):
+        """alias of .pattern() but will set recursive=True if pattern starts with **/"""
+        self.pattern(pattern)
+        return self.recursive("**/" in pattern)
+
+    def rglob(self, pattern):
+        """alias of .pattern() but sets recursive=True"""
+        self.pattern(pattern)
+        return self.recursive(True)
+
+    def not_pattern(self, pattern):
+        """Inverse the pattern match, same as calling .pattern(pattern, inverse=True)"""
+        return self.pattern(pattern, inverse=True)
+
+    def regex(self, regex, **kwargs):
+        """Only iterate paths that match regex
+
+        https://docs.python.org/3/library/re.html#re.search
+
+        :param regex: str, the regex pattern to match
+        :param **kwargs:
+            * inverse: bool, Fail the match if regex matches the path
+        """
+        self._yield_regexes.append((regex, kwargs))
+        return self
+
+    def not_regex(self, regex):
+        """Inverse the regex match, same as calling .regex(regex, inverse=True)"""
+        return self.regex(regex, inverse=True)
+
+    def callback(self, cb, **kwargs):
+        """Only iterate paths that return True from cb(path)
+
+        :param cb: callable, the callback with signature (path)
+        :param **kwargs:
+            * inverse: bool, Fail the match if callback returns True
+        """
+        self._yield_callbacks.append((cb, kwargs))
+        return self
+
+    def ifilter(self, cb):
+        """alias of .callback()"""
+        return self.callback(cb)
+
+    def not_callback(self, cb):
+        """Inverse the callback return, same as calling .callback(cb, inverse=True)"""
+        return self.callback(cb, inverse=True)
+
+    def _failed_match(self, matched, **kwargs):
+        """internal method, this handles the inversing logic of the match and will
+        always return False if the match failed according to the configured logic
+
+        :param matched: bool, the original match value
+        :param **kwargs:
+            * inverse: bool, inverses matched
+        :returns: bool, True if the match failed, False otherwise
+        """
+        inverse = kwargs.get("inverse", kwargs.get("exclude", False))
+        if matched:
+            if inverse:
+                failed = True
+            else:
+                failed = False
+        else:
+            if inverse:
+                failed = False
+            else:
+                failed = True
+        return failed
+
+    def _should_yield(self, path):
+        """internal method, returns True if path should be yielded by the iterator
+
+        This runs path through all filtering cases (patterns, regexes, callbacks)
+        and accounts for inverse values
+
+        :param path: Path
+        :returns: bool, True if path should be yielded
+        """
+        should_yield = True
+
+        for pattern, kwargs in self._yield_patterns:
+            haystack = path if pattern.startswith("*") else path.basename
+            if self._failed_match(fnmatch.fnmatch(haystack, pattern), **kwargs):
+                should_yield = False
+                break
+
+        if should_yield:
+            for regex, kwargs in self._yield_regexes:
+                if self._failed_match(re.search(regex, path, flags=kwargs.get("flags", 0)), **kwargs):
+                    should_yield = False
+                    break
+
+        if should_yield:
+            for cb, kwargs in self._yield_callbacks:
+                if self._failed_match(cb(path), **kwargs):
+                    should_yield = False
+                    break
+
+        return should_yield
+
+
+    def _iterfiles(self, path, basedir, basenames):
+        """internal method that converts .walk() values to Filepath instances"""
+        if self._yield_files:
+            for basename in basenames:
+                yield path.create_file(basedir, basename)
+
+    def _iterdirs(self, path, basedir, basenames):
+        """internal method that converts .walk() values to Dirpath instances"""
+        if self._yield_dirs:
+            for basename in basenames:
+                yield path.create_dir(basedir, basename)
+
+    def _iterpath(self, path, depth):
+        """internal recursive method that yields path instances and respects depth
+
+        :param path: Dirpath, the path to be iterated
+        :param depth: int, how far into path should be iterated
+        """
+        for basedir, dirnames, filenames in path.walk(topdown=True):
+            it = itertools.chain(
+                self._iterdirs(path, basedir, dirnames),
+                self._iterfiles(path, basedir, filenames),
+            )
+            for p in it:
+                if self._should_yield(p):
+                    if self._yield_property_name:
+                        if self._yield_property_args:
+                            args, kwargs = self._yield_property_args
+                            yield getattr(p, self._yield_property_name)(*args, **kwargs)
+
+                        else:
+                            yield getattr(p, self._yield_property_name)
+
+                    else:
+                        yield p
+
+            if depth != 1:
+                depth = depth - 1 if depth >= 0 else depth
+                for basename in dirnames:
+                    p = path.create_dir(basedir, basename)
+                    for sp in self._iterpath(p, depth=depth):
+                        yield sp
+
+            break
+
+    def __iter__(self):
+        """list interface compatibility"""
+        it = self._iterpath(self.path, depth=self._yield_depth)
+
+        if self._yield_reverse:
+            if not self._yield_sort:
+                it = [p for p in it]
+                it.reverse()
+
+        if self._yield_sort:
+            it = [p for p in it]
+            args, kwargs = self._yield_sort
+            kwargs.setdefault("reverse", self._yield_reverse)
+            it.sort(*args, **kwargs)
+
+        return it
+
+    def __call__(self, *args, **kwargs):
+        """Makes it possible to yield method calls of the yielded paths"""
+        self._yield_property_args = (args, kwargs)
+        return self
+
+    def get_index(self, i):
+        """Makes subscription possible, unlike real lists though, this is O(n)"""
+        for _i, p in enumerate(self):
+            if _i == i:
+                return p
+
+        raise IndexError(f"list index {i} out of range")
+
+    def get_slice(self, s):
+        """Makes slicing possible, unlike real lists though, this is O(n)"""
+        start = s.start
+        stop = s.stop
+        step = s.step
+
+        if start is None and stop is None:
+            if step and step > 1:
+                sl = [p for p in self][::step]
+
+            else:
+                sl = self.copy()
+
+        elif start and stop is None:
+            if step and step > 1:
+                sl = [p for p in self][start::step]
+
+            else:
+                sl = []
+                for _i, p in enumerate(self):
+                    if _i >= start:
+                        sl.append(p)
+
+        else:
+            sl = []
+            indexes = set(range(start or 0, stop, step or 1))
+            for _i, p in enumerate(self):
+                if _i in indexes:
+                    sl.append(p)
+                    indexes.discard(_i)
+
+                if not indexes:
+                    break
+
+        return sl
+
+    def __getattr__(self, property_name):
+        """makes it possible to yield property values of the yielded paths"""
+        it = self.copy()
+        it._yield_property_name = property_name
+        return it
+
+    def count(self):
+        """list interface compatibility, this is O(n)"""
+        return len([p for p in self])
+
+    def reverse(self):
+        """list interface compatibility, this is O(n*n)"""
+        #return reversed([p for p in self])
+        self._yield_reverse = True
+
+
+    def sort(self, *args, **kwargs):
+        """list interface compatibility, this is O(n*n)"""
+        #return sorted([p for p in self])
+        self._yield_sort = (args, kwargs)
+
+    def copy(self):
+        """Makes a copy of the iterator"""
+        ret = type(self)(self.path)
+
+        for name in dir(self):
+            if name.startswith("_yield"):
+                setattr(ret, name, getattr(self, name))
+
+        return ret
 
 
 class Imagepath(Filepath):

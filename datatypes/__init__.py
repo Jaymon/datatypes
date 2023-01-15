@@ -30,6 +30,7 @@ from .collections import (
     OrderedList,
     Trie,
     Namespace,
+    ContextNamespace,
 )
 from .csv import (
     CSV,
@@ -88,7 +89,7 @@ from .utils import (
     make_dict,
     make_list,
 )
-form .profile import (
+from .profile import (
     Profiler,
     AggregateProfiler,
     AggregateProfiler as AProfiler

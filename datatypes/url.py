@@ -3,6 +3,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 import re
 import inspect
 from socket import gethostname
+import os
 
 from .compat import *
 from .string import String, ByteString
@@ -21,6 +22,7 @@ class Url(String):
     .hostloc = foo.com:1000
     .hostname = foo.com
     .port = 1000
+    .path = bar/che
     .fragment = anchor
     .anchor = fragment
     .uri = /bar/che?baz=boom#anchor
@@ -72,10 +74,58 @@ class Url(String):
 
         return uristring
 
+    @property
+    def paths(self):
+        """Returns the list of breadcrumbs for path, similar to path.Path.paths
+
+        Moved from bang.utils.Url on 1-6-2023
+
+        :returns: list, so if path was /foo/bar/che this would return
+            [/foo, /foo/bar, /foo/bar/che]
+        """
+        ret = []
+        paths = self.parts
+
+        for x in range(1, len(paths) + 1):
+            ret.append("/" + "/".join(paths[0:x]))
+
+        return ret
+
+    @property
+    def parts(self):
+        """Return a list of the path parts, similar to path.Path.parts"""
+        path = self.path
+        return path.strip("/").split("/")
+
+    @property
+    def ext(self):
+        """return the extension of the file, the basename without the fileroot
+
+        Moved from bang.utils.Url.ext on 1-10-2023
+        """
+        return os.path.splitext(self.basename)[1].lstrip(".")
+
+    @property
+    def extension(self):
+        return self.ext
+
+    @property
+    def basename(self):
+        """Returns the basename of the path portion of the url
+
+        Moved from bang.utils.Url.ext on 1-10-2023
+        """
+        return os.path.basename(self.path)
+
     @classmethod
     def keys(cls):
         # we need to ignore property objects also
-        is_valid = lambda k, v: not k.startswith("__") and not callable(v) and not isinstance(v, property)
+        def is_valid(k, v):
+            return not k.startswith("_") \
+                and not callable(v) \
+                and not isinstance(v, property) \
+                and not k.isupper()
+
         keys = set(k for k, v in inspect.getmembers(cls) if is_valid(k, v))
         return keys
 
@@ -109,17 +159,11 @@ class Url(String):
         # for things like that and then if custom behavior is needed then this method
         # can be overridden
         parts = cls.default_values()
-#         parts = {
-#             "hostname": cls.hostname,
-#             "port": cls.port,
-#             "query_kwargs": dict(cls.query_kwargs),
-#             "scheme": cls.scheme,
-#             "netloc": cls.netloc,
-#             "path": cls.path,
-#             "fragment": cls.fragment,
-#             "username": cls.username,
-#             "password": cls.password,
-#         }
+
+        # we're going to remove our default scheme so we can make sure we set
+        # everything up correctly using passed in data, we'll add it back after
+        # we've got everything we needed
+        default_scheme = parts.pop("scheme", "")
 
         if urlstring:
             properties = [
@@ -134,12 +178,12 @@ class Url(String):
                 "query", # 4
             ]
 
-            if re.match(r"^\S+://", urlstring) or urlstring.startswith("//"):
+            if cls.is_url(urlstring):
                 o = parse.urlsplit(String(urlstring))
 
             else:
-                # if we don't have a scheme we put // in front of it so it will
-                # still parse correctly
+                # if we don't have a url so let's make it a url by putting // in
+                # front of it so it will still parse correctly
                 s = "//{}".format(String(urlstring))
                 o = parse.urlsplit(s)
 
@@ -180,7 +224,7 @@ class Url(String):
             if "default_port" in kwargs:
                 parts["port"] = kwargs["default_port"]
             else:
-                parts["port"] = ports.get(parts["scheme"], None)
+                parts["port"] = ports.get(parts.get("scheme", default_scheme), None)
 
         # make sure port is an int
         if parts["port"]:
@@ -205,14 +249,21 @@ class Url(String):
             )
 
         parts["path"] = "/".join(cls.normalize_paths(parts["path"], *args))
+        if parts["path"]:
+            # if path exists than we want to make sure it has a starting /
+            parts["path"] = "/" + parts["path"]
 
         parts["urlstring"] = parse.urlunsplit((
-            parts["scheme"],
+            parts.get("scheme", ""),
             parts["netloc"],
             parts["path"],
             parts["query"],
             parts["fragment"],
         ))
+
+        # let's add our default scheme back now that we've generated everything
+        # we needed with the passed in values
+        parts.setdefault("scheme", default_scheme)
 
         for k in parts:
             if isinstance(parts[k], bytes):
@@ -302,10 +353,39 @@ class Url(String):
             p = int(bits[1])
         return d, p
 
+    @classmethod
+    def is_full_url(cls, urlstring):
+        """Return True if urlstring is a url"""
+        return True if re.match(r"^\S+://", urlstring) else False
+
+    @classmethod
+    def is_relative_url(cls, urlstring):
+        """Return True if urlstring is a relative url (does not have a scheme but
+        instead starts with //)
+        """
+        return urlstring.startswith("//")
+
+    @classmethod
+    def is_path_url(cls, urlstring):
+        """Return true if this is a path url (url that doesn't have a host)
+
+        a path url: /foo/bar
+        """
+        return True if re.match(r"^/[^/]", urlstring) else False
+
+    @classmethod
+    def is_url(cls, urlstring):
+        """Returns True if urlstring is an actual full or relative url
+
+        Moved from bang.utils.Url.match on 1-10-2023
+        """
+        # REGEX = re.compile(r"^(?:https?:\/\/|\/\/)", re.I)
+        return cls.is_full_url(urlstring) or cls.is_relative_url(urlstring)
+
     def __new__(cls, urlstring=None, *args, **kwargs):
         parts = cls.merge(urlstring, *args, **kwargs)
         urlstring = parts.pop("urlstring")
-        instance = super(Url, cls).__new__(cls, urlstring)
+        instance = super().__new__(cls, urlstring)
         for k, v in parts.items():
             setattr(instance, k, v)
         return instance
@@ -519,6 +599,61 @@ class Url(String):
                 ret[k] = v
 
         return ret
+
+    def has_hostname(self):
+        """Return True if this url has a host"""
+        return True if self.hostname else False
+
+    def is_hostname(self, hostname):
+        """return true if the url's host matches host"""
+        ret = False
+        if not self.has_hostname() and not hostname:
+            ret = True
+        else:
+            ret = self.hostname.lower() == hostname.lower()
+        return ret
+
+    def is_relative(self):
+        """return True if this url is a path or relative url
+
+        a relative url: //hostname.tld/foo/bar
+        """
+        return self.is_relative_url(self)
+
+    def is_full(self):
+        """return True if this url is a path or relative url
+
+        a full url: scheme//hostname.tld/foo/bar
+        """
+        return self.is_full_url(self)
+
+    def is_path(self):
+        """Return true if this is a path url (url that doesn't have a host)
+
+        a path url: /foo/bar
+        """
+        return self.is_path_url(self)
+
+    def is_local(self):
+        """return True if is a localhost url"""
+        return self.is_path() or self.is_hostname("localhost") or self.is_hostname("127.0.0.1")
+
+    def unsplit(self):
+        """By default, the URL won't contain a scheme if it wasn't passed in, this
+        will add the default scheme and return the url"""
+        return parse.urlunsplit((
+            self.scheme,
+            self.netloc,
+            self.path,
+            self.query,
+            self.fragment,
+        ))
+
+    def full(self):
+        """alias of .unsplit()"""
+        return self.unsplit()
+Urlstring = Url
+UrlString = Url
 
 
 class Host(tuple):

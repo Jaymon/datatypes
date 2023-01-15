@@ -7,6 +7,8 @@ from .collections import Namespace
 
 
 class Profile(Namespace):
+    """This is the context object that is returned from the Profiler, it's main
+    purpose is to allow printing of one atomic profiling session"""
     @property
     def elapsed(self):
         return self.get_elapsed(self.start, self.stop)
@@ -36,7 +38,34 @@ class Profile(Namespace):
 
 
 class Profiler(object):
+    """Allows you to profile some code.
+
+    The best way to profile would be to use the with functionality, but you can
+    .start() and .stop() a profiling session also
+
+    :Example:
+        # you can use an existing Profiler instance and pass a name
+        p = Profiler()
+        with p("<SESSION NAME>"):
+            pass
+        print(p)
+
+        # you can give a name when creating the profiler in a with statement
+        with Profiler("<SESSION NAME>) as p:
+            pass
+        print(p)
+
+        # you don't have to give a name
+        with p:
+            pass
+        print(p)
+
+    This was moved from bang.utils.Profile on 1-6-2023, then it was updated/combined
+    with pout.value.P
+    """
     profile_class = Profile
+    """The class that is used to track the actual profiling. An instance of this
+    class is returned from the context manager"""
 
     def __init__(self, name=""):
         self.last = None
@@ -44,26 +73,19 @@ class Profiler(object):
         self.name = name
 
     def __call__(self, name=""):
-        pout.v("__call__")
+        """Allows you to set a name when using the context manager on an existing
+        instance. This must return self or the context manager won't run"""
         self.name = name
-        #pout.v(name)
-        #self.start(name)
         return self
 
     def __enter__(self):
-        pout.v("__enter__")
+        """Allows with statement support"""
         d = self.start(self.name)
         self.name = ""
         return d
 
     def __exit__(self, exception_type, exception_val, trace):
-        pout.v("__exit__")
         self.stop()
-#         self.stop = time.time()
-#         multiplier = 1000.00
-#         rnd = 2
-#         self.elapsed = round(abs(self.stop - self.start) * float(multiplier), rnd)
-#         self.total = "{:.1f} ms".format(self.elapsed)
 
     def __str__(self):
         return self.output()
@@ -72,6 +94,11 @@ class Profiler(object):
         return self.last.output() if self.last else ""
 
     def start(self, name=""):
+        """Start a profiling session
+
+        :param name: str, the name of the session
+        :returns: self.profile_class instance
+        """
         d = self.profile_class(
             name=name,
             start=time.time(),
@@ -80,6 +107,11 @@ class Profiler(object):
         return d
 
     def stop(self):
+        """Stops a profiling session, this will error out if start hasn't been
+        called previously
+
+        :returns: self.profile_class instance that has the full session information
+        """
         d = self.stack.pop(-1)
         d.stop = time.time()
 
@@ -89,31 +121,10 @@ class Profiler(object):
         self.last = d
         return d
 
-# 
-# 
-#         if len(self.stack) > 0:
-#             found = False
-#             ds = []
-#             for d in pr_class.stack:
-#                 if self is d:
-#                     found = True
-#                     break
-# 
-#                 else:
-#                     ds.append(d)
-# 
-#             if found and ds:
-#                 name = ' > '.join((d.name for d in ds))
-#                 name += ' > {}'.format(self.name)
-# 
-#         self.stop_call_info = call_info or self.reflect.info
-#         self.name = name
-#         self.stop = time.time()
-#         self.elapsed = self.get_elapsed(self.start, self.stop, 1000.00, 1)
-#         self.total = "{:.1f} ms".format(self.elapsed)
-
 
 class AggregateProfile(Namespace):
+    """Used by the Agg profiler to record information for all sessions with the
+    same name"""
     @property
     def total(self):
         return "{:.1f} ms".format(self.elapsed)
@@ -131,11 +142,16 @@ class AggregateProfile(Namespace):
 
 
 class AggregateProfiler(Profiler):
+    """A singleton profiler that will keep totals of all the profile sessions
+    that have been started so you can see sums and totals of all the profiling
+    you did"""
     instance = None
+    """Holds the singleton, see __new__"""
 
     aprofile_class = AggregateProfile
 
     def __new__(cls, *args, **kwargs):
+        """Tricksy implementation that always returns cls.instance if it exists"""
         if cls.instance:
             cls.instance(*args, **kwargs)
         else:
@@ -161,5 +177,4 @@ class AggregateProfiler(Profiler):
         for d in self.profiles.values():
             lines.append(f" * {d.output()}")
         return "\n".join(lines)
-
 
