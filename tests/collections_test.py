@@ -11,6 +11,7 @@ from datatypes.collections import (
     Dict,
     Namespace,
     ContextNamespace,
+    Stack,
 )
 
 from . import TestCase, testdata
@@ -515,4 +516,143 @@ class ContextNamespaceTest(TestCase):
             self.assertEqual({"foo": 2, "bar": 3}, n.copy())
 
         self.assertEqual({"foo": 1}, n.copy())
+
+    def test_contexts(self):
+        class Config(ContextNamespace):
+            @property
+            def base_url(self):
+                s = ""
+                if self.host:
+                    s = f"{self.scheme}://" if self.scheme else "//"
+                    s += self.host
+                return s
+
+        config = Config()
+        config.host="example2.com"
+
+        with config.context("web", scheme="", host="example.com") as conf:
+            self.assertEqual("//example.com", conf.base_url)
+
+        with config.context("feed", scheme="https", host="example.com") as conf:
+            self.assertEqual("https://example.com", conf.base_url)
+
+        with config.context("no_host_no_scheme", scheme="", host="") as conf:
+            self.assertEqual("", conf.base_url)
+
+        with config.context("no_host_scheme", scheme="http", host="") as conf:
+            self.assertEqual("", conf.base_url)
+
+        with config.context("host_none_scheme", scheme="http", host=None) as conf:
+            self.assertEqual("", conf.base_url)
+
+        with config.context("none_host_and_scheme", scheme=None, host=None) as conf:
+            self.assertEqual("", conf.base_url)
+
+    def test_context_with(self):
+        config = ContextNamespace()
+        with config.context("foo", bar=1) as conf:
+            self.assertEqual("foo", conf.context_name())
+            self.assertEqual(1, conf.bar)
+
+        with self.assertRaises(AttributeError):
+            config.bar
+
+        self.assertEqual("", conf.context_name())
+
+        with config.context("foo2", bar=2) as conf:
+            self.assertEqual(2, conf.bar)
+
+        with config.context("foo") as conf:
+            self.assertEqual(1, conf.bar)
+
+    def test_context_hierarchy(self):
+        """https://github.com/Jaymon/bang/issues/33"""
+        config = ContextNamespace()
+        config.foo = False
+
+        with config.context("foo") as c:
+            c.foo = True
+            self.assertEqual("foo", c.context_name())
+            self.assertTrue(c.foo)
+
+            with config.context("bar") as c:
+                self.assertEqual("bar", c.context_name())
+                self.assertTrue(c.foo)
+                c.foo = False
+
+                with config.context("che") as c:
+                    # should be in che context here
+                    self.assertEqual("che", c.context_name())
+                    self.assertFalse(c.foo)
+
+                # should be in bar context here
+                self.assertEqual("bar", c.context_name())
+                self.assertFalse(c.foo)
+
+            #should be in foo context here
+            self.assertEqual("foo", c.context_name())
+            self.assertTrue(c.foo)
+
+        # should be in "" context here
+        self.assertEqual("", c.context_name())
+        self.assertFalse(c.foo)
+
+    def test_cascade_off(self):
+        c = ContextNamespace(cascade=False)
+
+        c.foo = 1
+        self.assertTrue("foo" in c)
+
+        c.push_context("foobar")
+        self.assertFalse("foo" in c)
+
+        c.foo = 5
+        self.assertTrue("foo" in c)
+        self.assertEqual(5, c.foo)
+
+        c.bar = 6
+        self.assertTrue("bar" in c)
+        self.assertEqual(6, c.bar)
+
+        c.pop_context()
+        self.assertTrue("foo" in c)
+        self.assertFalse("bar" in c)
+        self.assertEqual(1, c.foo)
+
+    def test_clear_context(self):
+        c = ContextNamespace()
+
+        c.foo = 1
+
+        with c.context("foobar"):
+            c.foo = 2
+            c.bar = 3
+            self.assertEqual(2, c.foo)
+            self.assertEqual(3, c.bar)
+
+        c.clear_context("foobar")
+        with c.context("foobar"):
+            self.assertEqual(1, c.foo)
+
+
+class StackTest(TestCase):
+    def test_crud(self):
+        s = Stack()
+        s.push(1)
+        self.assertEqual(1, s.peak())
+
+        s.push(2)
+        self.assertEqual(2, s.peak())
+        self.assertEqual(2, s.peak())
+
+        self.assertEqual(2, s.pop())
+        self.assertEqual(1, s.peak())
+
+        s.push(3)
+        self.assertEqual(3, s.peak())
+        self.assertEqual(2, len(s))
+
+        self.assertEqual([3, 1], [x for x in s])
+        self.assertEqual([1, 3], list(reversed(s)))
+
 

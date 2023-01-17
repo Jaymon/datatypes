@@ -684,12 +684,13 @@ class Host(tuple):
 
         :returns: string
         """
-        return "{}:{}".format(self.hostname, self.port)
-    netloc = hostloc
+        return self.url.hostloc
 
     def __new__(cls, host, port=None):
         u = Url(host, default_port=port)
-        return super(Host, cls).__new__(cls, [u.hostname, u.port if u.port else 0])
+        instance = super(Host, cls).__new__(cls, [u.hostname, u.port if u.port else 0])
+        instance.url = u
+        return instance
 
     def __str__(self):
         return self.__bytes__() if is_py2 else self.__unicode__()
@@ -699,6 +700,9 @@ class Host(tuple):
 
     def __bytes__(self):
         return ByteString(self.hostloc)
+
+    def full(self):
+        return self.url.full()
 
     def client(self):
         """Url can technically hold a hostname like 0.0.0.0, this will compensate

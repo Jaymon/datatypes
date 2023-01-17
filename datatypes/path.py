@@ -27,6 +27,7 @@ from .compat import *
 from . import environ
 from .string import String, ByteString
 from .collections import ListIterator
+from .copy import Deepcopy
 from .http import HTTPClient
 from .url import Url
 
@@ -278,6 +279,18 @@ class Path(String):
         return self.pathlib.suffixes
 
     @classmethod
+    def is_absolute_path(cls, path):
+        return os.path.isabs(path)
+
+    @classmethod
+    def is_file_path(cls, path):
+        return os.path.isfile(path)
+
+    @classmethod
+    def is_dir_path(cls, path):
+        return os.path.isdir(path)
+
+    @classmethod
     def splitpart(cls, part):
         """Split the part to base and extension
 
@@ -410,9 +423,13 @@ class Path(String):
             sep - if you want to join with a different separator than os.sep
         :returns: str, all the parts joined together
         """
-        ps = cls.splitparts(*parts, **kwargs)
-        sep = kwargs.get("sep", "")
-        return sep.join(ps) if sep else os.path.join(*ps)
+        try:
+            ps = cls.splitparts(*parts, **kwargs)
+            sep = kwargs.get("sep", "")
+            return sep.join(ps) if sep else os.path.join(*ps)
+
+        except TypeError as e:
+            raise TypeError("joinparts got an empty parts list") from e
 
     @classmethod
     def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
@@ -449,8 +466,8 @@ class Path(String):
         if ext:
             basename += ext
 
-        if not basename:
-            raise ValueError("basename is empty")
+#         if not basename:
+#             raise ValueError("basename is empty")
 
         return basename
 
@@ -763,6 +780,27 @@ class Path(String):
         """
         return os.path.exists(self.path)
 
+    def is_type(self):
+        """Syntactic sugar around calling is_dir() if this is a Dirpath instance
+        or .is_file() if this is a Filepath instance or .exists() if this is just
+        a Path instance
+
+        :returns: bool, True if this is an actual instance of the path type it is
+        """
+        ret = False
+        if isinstance(self, self.dir_class()):
+            ret = self.is_dir()
+
+        elif isinstance(self, self.file_class()):
+            ret = self.is_file()
+
+        else:
+            ret = self.exists()
+        return ret
+
+    def istype(self):
+        return self.is_type()
+
     def is_dir(self):
         """Return True if the path points to a directory (or a symbolic link pointing to a directory),
         False if it points to another kind of file.
@@ -819,7 +857,7 @@ class Path(String):
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.is_absolute
         https://docs.python.org/3/library/os.path.html#os.path.isabs
         """
-        return os.path.isabs(self.path)
+        return self.is_absolute_path(self.path)
 
     def isabs(self):
         return self.is_absolute()
@@ -842,13 +880,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.joinpath
         """
-        if is_py2:
-            ret = self.create(self.path, *other)
-
-        else:
-            ret = self.create(self.pathlib.joinpath(*other))
-
-        return ret
+        return self.create(self.pathlib.joinpath(*other))
 
     def child(self, *other):
         return self.joinpath(*other)
@@ -1350,6 +1382,7 @@ class Dirpath(Path):
                 value will be the data/contents of the file at the full path. If value
                 is None or empty dict then that path will be considered a directory.
             list - if paths is a list then it will be a list of directories to create
+            callable - a callback that takes a Filepath instance
         :returns: list, all the created Path instances
         """
         ret = []
@@ -1372,6 +1405,11 @@ class Dirpath(Path):
 
                     elif isinstance(data, Str):
                         fp.write_text(data, **kwargs)
+
+                    elif callable(data):
+                        # if it's a callback then we assume the callback will do
+                        # whatever it needs with the file
+                        data(fp)
 
                     else:
                         # unknown data is assumed to be something that can be
@@ -1513,37 +1551,18 @@ class Dirpath(Path):
 
         if recursive:
             if target.is_dir():
-                target = self.create_dir(target, self.basename)
+                target = target.child_dir(self.basename)
 
             shutil.copytree(self.path, target, dirs_exist_ok=True)
 
         else:
-            for p in self.iterfiles(recursive=recursive):
+            for p in self.children(recursive=recursive):
                 tp = target.child(p.relative_to(self))
-                tp.touch()
-                p.copy_to(tp)
+                #tp.touch()
+                #p.copy_to(tp)
+                p.cp(tp)
 
         return target
-
-#     def copy_files_to(self, target, recursive=True):
-#         """Copy only the files from self to target
-# 
-#         This is a modified version of Bang.path.Directory.copy_to moved here on
-#         1-4-2023
-# 
-#         :param target: Dirpath|str, the destination directory
-#         :param recursive: bool, True if copy files in this dir and all subdirs,
-#             false to only copy files in self
-#         :returns: Dirpath, the target directory
-#         """
-#         target = self.create_dir(target)
-# 
-#         for p in self.iterfiles(recursive=recursive):
-#             tp = target.child(p.relative_to(self))
-#             tp.touch()
-#             p.copy_to(tp)
-# 
-#         return target
 
     def touch(self, mode=0o666, exist_ok=True):
         """Create the directory at this given path.  If the directory already exists,
@@ -1560,16 +1579,16 @@ class Dirpath(Path):
             os.makedirs(self.path, exist_ok=True)
 
     def filecount(self, recursive=True):
-        """return how many files in directory"""
-        return len(list(self.iterfiles(recursive=recursive)))
+        """return how many files in directory, this is O(n)"""
+        return len(self.files().recursive(recursive))
 
     def dircount(self, recursive=True):
-        """return how many directories in directory"""
-        return len(list(self.iterdirs(recursive=recursive)))
+        """return how many directories in directory, this is O(n)"""
+        return len(self.dirs().recursive(recursive))
 
     def count(self, recursive=True):
-        """return how many files and directories in directory"""
-        return self.filecount(recursive=recursive) + self.dircount(recursive=recursive)
+        """return how many files and directories in directory, this is O(n)"""
+        return len(self.iterator.recursive(recursive))
 
     def glob(self, pattern):
         """Glob the given relative pattern in the directory represented by this path,
@@ -1584,14 +1603,8 @@ class Dirpath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
         """
-        if is_py2:
-            # https://docs.python.org/2/library/glob.html
-            for fp in glob.iglob(os.path.join(self.path, pattern)):
-                yield self.create(fp)
-
-        else:
-            for fp in self.pathlib.glob(pattern):
-                yield self.create(fp)
+        for fp in self.pathlib.glob(pattern):
+            yield self.create(fp)
 
     def rglob(self, pattern):
         """recursive glob
@@ -1602,47 +1615,13 @@ class Dirpath(Path):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob
         """
-        if is_py2:
-            for fp in self.glob(pattern):
-                yield fp
-
-            for dp in self.iterdirs(recursive=True):
-                for fp in glob.iglob(os.path.join(dp, pattern)):
-                    yield self.create(fp)
-
-        else:
-            for fp in self.pathlib.rglob(pattern):
-                yield self.create(fp)
-
-    def reglob(self, pattern, recursive=True):
-        """A glob but uses a regex instead of the common glob syntax
-
-        :param pattern: regex, the pattern to check for
-        :param recursive: boolean, True if you would like to check this directory
-            and all subdirectories, False if just self directory
-        :returns: generator, yields all found Path instances that match
-        """
-        it = self.rglob("*") if recursive else self.glob("*")
-        for p in it:
-            if re.search(pattern, p):
-                yield p
-
-    def cbglob(self, callback, recursive=True):
-        """A glob but uses a callback instead of the common glob syntax
-
-        :param callback: callable, a callback with signature callback(path) that
-            returns a boolean
-        :param recursive: boolean, True if you would like to check this directory
-            and all subdirectories, False if just self directory
-        :returns: generator, yields all found Path instances that match
-        """
-        it = self.rglob("*") if recursive else self.glob("*")
-        for p in it:
-            if callback(p):
-                yield p
+        for fp in self.pathlib.rglob(pattern):
+            yield self.create(fp)
 
     def scandir(self):
-        """
+        """I legitemately have never used this method and wouldn't reccomend using
+        it. It's only here for completeness
+
         https://docs.python.org/3.5/library/os.html#os.scandir
 
         https://github.com/benhoyt/scandir
@@ -1669,159 +1648,79 @@ class Dirpath(Path):
             for p in self.pathlib.iterdir():
                 yield self.create(p)
 
-    def iterdirs(self, recursive=False):
-        """iterate through all the directories similar to .iterdir() but only
-        returns directories
+    def children(self, **kwargs):
+        """Provides a fluid interface to iterate over all the files and folders
+        in this directory. Basicaly, this is syntactic sugar around the PathIterator
 
-        :param recursive: boolean, if True then iterate through directories in
-            self and all subdirectories
+        For most iteration needs you should either use this method, .files(), or
+        .dirs(). Most of the other methods are here mainly for full compatibility
+        with pathlib.Path's interface
+
+        .iterdirs() and .iterfiles() are similar to .files() and .dirs() but they
+        set recursive=False by default, where .files() and .dirs() are recursive
+        by default.
+
+        :param **kwargs: the keys/values will be set onto the PathIterator
+        :returns: PathIterator
         """
-        for basedir, directories, files in os.walk(self.path, topdown=True):
-            basedir = self.create_dir(basedir)
-            for basename in directories:
-                yield self.create_dir(basedir, basename)
+        it = self.iterator
+        for k, v in kwargs.items():
+            attr = getattr(it, k, None)
+            if attr:
+                attr(v)
+        return it
 
-            if not recursive:
-                break
+    def iterdirs(self, **kwargs):
+        """Similar to .iterdir() but only returns the directories in this directory only
 
-    def iterfiles(self, recursive=False):
-        """iterate through all the files in this directory only"""
-        """iterate through all the files in this directory and subdirectories"""
-        for basedir, directories, files in os.walk(self.path, topdown=True):
-            basedir = self.create_dir(basedir)
-            for basename in files:
-                yield self.create_file(basedir, basename)
-
-            if not recursive:
-                break
-
-    def children(self, pattern="", recursive=True):
-        """Syntactic sugar around the other directory iteration methods
-
-        :param pattern: callable|string
-        :param recursive: boolean, if True go through all files/folders, if false
-            then just go through self directory
-        :returns: generator, yields all matching Path instances, or every Path
-            instance if pattern is empty
+        Same as .children(recursive=False, dirs=True)
         """
-        if pattern:
-            if callable(pattern):
-                for p in self.cbglob(pattern, recursive=recursive):
-                    yield p
+        kwargs.setdefault("recursive", False)
+        return self.children(**kwargs).dirs()
 
-            else:
-                if recursive:
-                    for p in self.rglob(pattern):
-                        yield p
+    def dirs(self, **kwargs):
+        """Provides a fluid interface to iterate all files in this directory
 
-                else:
-                    for p in self.glob(pattern):
-                        yield p
+        :Example:
+            # makes this possible
+            it = self.dirs()
 
-        else:
-            it = self.rglob if recursive else self.glob
-            for p in it("*"):
-                yield p
+            # this is the normal PathIterator interface
+            for it in self.dirs():
+                pass
 
-    def dirs(self, pattern="", recursive=False):
-        for p in self.children(pattern, recursive=recursive):
-            if p.is_dir():
-                yield p
-
-    def files(self, pattern="", recursive=False):
-        for p in self.children(pattern, recursive=recursive):
-            if p.is_file():
-                yield p
-
-    def rechildren(self, pattern, recursive=True, exclude=False):
-        for p in self.children(recursive=recursive):
-            if re.search(pattern, p):
-                if not exclude:
-                    yield p
-            else:
-                if exclude:
-                    yield p
-
-    def refiles(self, pattern, recursive=False, exclude=False):
-        for p in self.rechildren(pattern, recursive=recursive, exclude=exclude):
-            if p.is_file():
-                yield p
-
-    def redirs(self, pattern, recursive=False, exclude=False):
-        for p in self.rechildren(pattern, recursive=recursive, exclude=exclude):
-            if p.is_dir():
-                yield p
-
-
-    def depth_files(self, regex=None, depth=1, exclude=False):
-        """return files in self
-
-        Moved from bang.path.Directory on 1-5-2023
-
-        :param regex: string, the regular expression
-        :param depth: int, if 1, just return immediate files, if 0 return all files
-            of the entire tree, otherwise just return depth files
-        :param exclude: bool, if True then any files that would be returned won't
-            and files that wouldn't be returned normally will be
-        :returns: list, the matching files
+        :returns: PathIterator
         """
-        fs = []
-        for root_dir, subdirs, files in self.walk(topdown=True):
-            for basename in files:
-                f = self.file_class()(root_dir, basename)
-                if exclude:
-                    if regex and not re.search(regex, basename, re.I):
-                        fs.append(f.path)
+        return self.children(**kwargs).dirs()
 
-                else:
-                    if not regex or re.search(regex, basename, re.I):
-                        fs.append(f.path)
+    def child_dirs(self, **kwargs):
+        return self.dirs(**kwargs)
 
+    def iterfiles(self, **kwargs):
+        """similar to .iterdir() but only iterate through all the files in this directory only
 
-            fs.sort()
-            if depth != 1:
-                fs2 = []
-                depth = depth - 1 if depth else depth
-                for sd in subdirs:
-                    d = self.dir_class()(root_dir, sd)
-                    fs2.extend(d.depth_files(regex=regex, depth=depth))
-                fs.extend(fs2)
-
-            break
-
-        return fs
-
-    def depth_dirs(self, regex=None, depth=1):
-        """return directories in self
-
-        Moved from bang.path.Directory on 1-5-2023
-
-        :param regex: string, the regular expression
-        :param depth: int, if 1, just return immediate dirs, if 0 return all subdirs
-            of the entire tree, otherwise just return depth dirs
-        :returns: list, the matching directories
+        Same as .children(recursive=False, files=True)
         """
-        ds = []
-        for root_dir, dirs, _ in self.walk(topdown=True):
-            for basename in dirs:
-                if not regex or re.search(regex, basename, re.I):
-                    d = self.dir_class()(root_dir, basename)
-                    ds.append(d)
+        kwargs.setdefault("recursive", False)
+        return self.children(**kwargs).files()
 
-            ds.sort(key=lambda d: d.path)
-            if depth != 1:
-                ds2 = []
-                depth = depth - 1 if depth else depth
-                for d in ds:
-                    for sd in d.depth_dirs(pattern=regex, depth=depth):
-                        sd.ancestor_dir = self
-                        ds2.append(sd)
+    def files(self, **kwargs):
+        """Provides a fluid interface to iterate all directories in this directory
 
-                ds.extend(ds2)
+        :Example:
+            # makes this possible
+            it = self.files()
 
-            break
+            # this is the normal PathIterator interface
+            for it in self.files():
+                pass
 
-        return ds
+        :returns: PathIterator
+        """
+        return self.children(**kwargs).files()
+
+    def child_files(self, **kwargs):
+        return self.files(**kwargs)
 
     def walk(self, *args, **kwargs):
         """passthrough for os.walk
@@ -1834,49 +1733,48 @@ class Dirpath(Path):
             yield basedir, dirs, files
 
     def __iter__(self):
-        """Like os.walk but will return full Path instances in each tuple
+        """Iterate through this directory
 
-        :returns: tuple, (basedir, dirs, files) where the dirs and files lists have
-            full Dirpath and Filepath instances
+        :returns: PathIterator
         """
-        for basedir, dirs, files in self.walk(topdown=True):
-            basedir = self.create_dir(basedir)
-            for i in range(len(dirs)):
-                dirs[i] = self.create_dir(basedir, dirs[i])
+        return self.iterator
 
-            for i in range(len(files)):
-                files[i] = self.create_file(basedir, files[i])
-
-            yield basedir, dirs, files
-
-    def has(self, pattern="", recursive=True):
+    def has(self, *parts, **kwargs):
         """Check for pattern in directory
 
         :Example:
             d = Dirpath("foo")
             d.add_file("bar/che.txt", "che.txt data")
 
-            d.has("che.txt") # True
+            d.has(pattern="*/che.txt") # True
             d.has("bar") # True
             d.has("bar/che.txt") # True
             d.has("bar/che") # False
-            d.has("bar/che.*") # True
+            d.has(pattern="*/bar/che.*") # True
 
-        :param pattern: string, the subpath or pattern. If pattern is empty then
-            it will return True if directory has any file/folder
-        :returns: boolean, True if the pattern is in the directory
+        :param *parts: path parts, these will be passed to .child() so they can
+            be relative to self.path
+        :param **kwargs: these will be passed to .children()
+        :returns: boolean, True if a file/dir was found matching the passed in values
         """
-        for p in self.children(pattern, recursive=recursive):
-            return True
-        return False
+        ret = False
+        if parts:
+            ret = self.child(*parts).exists()
 
-    def has_file(self, *parts):
-        """return true if the file basename exists in this directory"""
-        return self.file_class()(self.path, *parts).exists()
+        else:
+            ret = bool(self.children(**kwargs))
 
-    def has_dir(self, *parts):
-        d = self.child(*parts)
-        return d.exists()
+        return ret
+
+    def has_file(self, *parts, **kwargs):
+        """Similar to .has() but only checks files"""
+        kwargs.setdefault("files", True)
+        return self.child_file(*parts).isfile() if parts else self.has(**kwargs)
+
+    def has_dir(self, *parts, **kwargs):
+        """Similar to .has() but only checks directories"""
+        kwargs.setdefault("dirs", True)
+        return self.child_dir(*parts).isdir() if parts else self.has(**kwargs)
 
     def child(self, *parts):
         """Return a new instance with parts added onto self.path"""
@@ -2320,24 +2218,26 @@ class PathIterator(ListIterator):
         # it's a tuple (args, kwargs)
         self._yield_property_args = None
 
-    def files(self):
+        self._yield_dirwalk_modify_callback = None
+
+    def files(self, v=True):
         """Iterate only files (this excludes directories)"""
-        self._yield_files = True
+        self._yield_files = v
         return self.not_dirs()
 
-    def not_files(self):
+    def not_files(self, v=True):
         """Don't iterate files"""
-        self._yield_files = False
+        self._yield_files = not v
         return self
 
-    def dirs(self):
+    def dirs(self, v=True):
         """Iterate only directories (this excludes files)"""
-        self._yield_dirs = True
+        self._yield_dirs = v
         return self.not_files()
 
-    def not_dirs(self):
+    def not_dirs(self, v=True):
         """Don't iterate directories"""
-        self._yield_dirs = False
+        self._yield_dirs = not v
         return self
 
     def recursive(self, recursive=True):
@@ -2425,6 +2325,29 @@ class PathIterator(ListIterator):
         """Inverse the callback return, same as calling .callback(cb, inverse=True)"""
         return self.callback(cb, inverse=True)
 
+
+#     def not_basename(self, 
+
+
+    def dirwalk(self, cb):
+        """Set a callback that takes the list of dirnames from os.walk and
+        modifies the list in place
+
+        From os.walk docs:
+            https://docs.python.org/3/library/os.html#os.walk
+
+            When topdown is True, the caller can modify the dirnames list in-place
+            (perhaps using del or slice assignment), and walk() will only recurse
+            into the subdirectories whose names remain in dirnames; this can be used
+            to prune the search, impose a specific order of visiting, or even to
+            inform walk() about directories the caller creates or renames before
+            it resumes walk() again.
+
+        :param cb: callable, signature of cb(dirnames) and modifies dirnames in place
+        """
+        self._yield_dirwalk_modify_callback = cb
+        return self
+
     def _failed_match(self, matched, **kwargs):
         """internal method, this handles the inversing logic of the match and will
         always return False if the match failed according to the configured logic
@@ -2498,6 +2421,12 @@ class PathIterator(ListIterator):
         :param depth: int, how far into path should be iterated
         """
         for basedir, dirnames, filenames in path.walk(topdown=True):
+
+            dirpaths = []
+
+            if self._yield_dirwalk_modify_callback:
+                self._yield_dirwalk_modify_callback(dirnames)
+
             it = itertools.chain(
                 self._iterdirs(path, basedir, dirnames),
                 self._iterfiles(path, basedir, filenames),
@@ -2515,10 +2444,14 @@ class PathIterator(ListIterator):
                     else:
                         yield p
 
+                    if isinstance(p, p.dir_class()):
+                        dirpaths.append(p)
+
             if depth != 1:
                 depth = depth - 1 if depth >= 0 else depth
-                for basename in dirnames:
-                    p = path.create_dir(basedir, basename)
+                for p in dirpaths:
+#                 for basename in dirnames:
+#                     p = path.create_dir(basedir, basename)
                     for sp in self._iterpath(p, depth=depth):
                         yield sp
 
@@ -2617,7 +2550,7 @@ class PathIterator(ListIterator):
 
         for name in dir(self):
             if name.startswith("_yield"):
-                setattr(ret, name, getattr(self, name))
+                setattr(ret, name, Deepcopy().copy(getattr(self, name)))
 
         return ret
 
@@ -3012,6 +2945,8 @@ class TempPath(object):
         """pass through for tempfile.mkdtemp, this is here so it can be overridden
         in child classes and customized
 
+        https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
+
         :param **kwargs:
             - prefix
             - suffix
@@ -3031,8 +2966,11 @@ class TempPath(object):
             of the name and ext will be added to the end of the name)
         :returns: string, the random filename
         """
-        if not name or name == "/":
-            name = "".join(random.sample(string.ascii_letters, random.randint(3, 11))).lower()
+        # compensate for .stripparts() returing "/" for ""
+        name = name.strip("/")
+
+        if not name and kwargs.get("autogen_name", True):
+            name = "".join(random.sample(String.ASCII_LETTERS, random.randint(3, 11))).lower()
 
         return super(TempPath, cls).get_basename(
             ext=ext,
@@ -3094,23 +3032,22 @@ class TempDirpath(TempPath, Dirpath):
     """
     @classmethod
     def normparts(cls, *parts, **kwargs):
-        # https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
         prefix = kwargs.pop("prefix", "")
         basedir = kwargs.pop("dir", "")
 
-        parts = list(filter(None, parts))
-        if parts:
-            parts = super(TempDirpath, cls).normparts(*parts, **kwargs)
+        # because .mktempdir() creates a subfolder already, we don't want to
+        # auto-generate a basename while normalizing the parts
+        parts = super().normparts(*parts, autogen_name=False, **kwargs)
 
         if basedir:
-            parts = [basedir] + list(parts)
+            parts = [basedir] + parts
 
         else:
             create_dir = True
             if parts:
                 path = cls.joinparts(*parts)
-                if os.path.isabs(path) and os.path.isdir(path):
+                if os.path.isdir(path) or cls.is_absolute_path(path):
                     create_dir = False
 
             if create_dir:
@@ -3118,8 +3055,7 @@ class TempDirpath(TempPath, Dirpath):
                     suffix=suffix,
                     prefix=prefix,
                 )
-                parts = [basedir] + list(parts)
-
+                parts = [basedir] + parts
 
         return parts
 
@@ -3144,14 +3080,14 @@ class TempFilepath(TempPath, Filepath):
     @classmethod
     def normparts(cls, *parts, **kwargs):
         basedir = kwargs.pop("dir", "")
-        parts = super(TempFilepath, cls).normparts(*parts, **kwargs)
+        parts = super().normparts(*parts, **kwargs)
         if basedir:
             parts = [cls.create_tempdir(dir=basedir)] + parts
 
         else:
             # check to see if parts is a complete path
             path = cls.joinparts(*parts)
-            if not os.path.isfile(path):
+            if not os.path.isfile(path) and not cls.is_absolute_path(path):
                 parts = [cls.create_tempdir()] + parts
 
         return parts
@@ -3351,7 +3287,7 @@ class UrlFilepath(Cachepath):
             keys = cls.splitparts(p.basename)
 
         else:
-            keys = cls.splitparts(url.path)
+            keys = url.parts
 
         instance = super().__new__(cls, *keys, **kwargs)
         instance.url = url

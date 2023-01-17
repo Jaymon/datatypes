@@ -226,7 +226,6 @@ class PriorityQueue(object):
     __nonzero__ = __bool__
 
 
-
 class Stack(list):
     """An incredibly simple stack implementation"""
     def push(self, v):
@@ -240,7 +239,8 @@ class Stack(list):
 
     def __iter__(self):
         """By default stacks are LIFO"""
-        return reversed(self)
+        for i in reversed(range(0, len(self))):
+            yield self[i]
 
     def __reversed__(self):
         """calling reverse on a stack would switch to normal list FIFO"""
@@ -405,12 +405,12 @@ class ContextNamespace(Namespace):
     """A context aware namespace where you can override values in later contexts and
     then revert back to the original context when the with statement is done
 
-    values are retrieved in LIFO order of the pushed contexts
+    values are retrieved in LIFO order of the pushed contexts when cascade=True
 
     Based on bang.config.Config moved here and expanded on 1-10-2023
 
     :Example:
-        n = ContextNamespace
+        n = ContextNamespace()
 
         n.foo = 1
         with n.context("<CONTEXT NAME>"):
@@ -425,22 +425,37 @@ class ContextNamespace(Namespace):
             n.foo # 2
 
         n.foo # 1
+
+        # you can also turn cascading off, so it switches contexts but doesn't 
+        # cascade the values
+
+        n = ContextNamespace(cascade=False)
+
+        n.foo = 1
+        with n.context("<CONTEXT NAME>"):
+            "foo" in n.foo # False
+            n.foo = 2
+
+        n.foo # 1
     """
     context_class = Namespace
     """Each context will be an instance of this class"""
 
-    def __init__(self, name=""):
+    def __init__(self, name="", cascade=True):
         """
         :param name: str, If you want to customize the default context name then
             pass it in
+        :param cascade: bool, if True then gets cascade through the stack of contexts,
+            if False then this contexts completely switch
         """
         super().__init__()
 
         # we set support properties directly on the __dict__ so __setattr__ doesn't
         # infinite loop, context properties can just be set normally
 
-        # a stack of the context names, where -1 is always the current active context
+        # a stack of the context names
         self.__dict__["_context_names"] = Stack()
+        self.__dict__["_cascade"] = cascade
         self.push_context(name)
 
     def normalize_context_name(self, name):
@@ -461,16 +476,18 @@ class ContextNamespace(Namespace):
         super().setdefault(name, self.context_class())
 
         self._context_names.push(name)
+
         return name
 
     def pop_context(self):
         """Pop the last context from the stack"""
-        return self._context_names.pop()
+        if len(self._context_names) > 1:
+            return self._context_names.pop()
 
     def clear_context(self, name):
         """Completely clear the context"""
         name = self.normalize_context_name(name)
-        super().__getitem__(name).clear()
+        self.get_context(name).clear()
 
     def context_name(self):
         """Get the current context name"""
@@ -507,7 +524,7 @@ class ContextNamespace(Namespace):
                 pass
             # anything outside this block will *NOT* use the foo configuration
         """
-        name = self.push_context(name)
+        self.push_context(name)
 
         # passed in values get set on the instance directly
         for k, v in kwargs.items():
@@ -536,6 +553,9 @@ class ContextNamespace(Namespace):
 
             except KeyError:
                 pass
+
+            if not self._cascade:
+                break
 
         raise KeyError(k)
 
@@ -593,8 +613,14 @@ class ContextNamespace(Namespace):
     def copy(self):
         """return a dict of all active values in the config at the moment"""
         d = self.context_class()
-        for context_name in reversed(self._context_names):
-            d.update(self.get_context(context_name))
+
+        if self._cascade:
+            for context_name in reversed(self._context_names):
+                d.update(self.get_context(context_name))
+
+        else:
+            d.update(self.current_context())
+
         return d
 
     def items(self):
@@ -605,6 +631,9 @@ class ContextNamespace(Namespace):
                 if k not in seen_keys:
                     yield k, v
                     seen_keys.add(k)
+
+            if not self._cascade:
+                break
 
     def keys(self):
         for k, _ in self.items():
@@ -839,12 +868,18 @@ class ListIterator(list):
         return self
 
     def __nonzero__(self):
+        return self.__bool__()
+
+    def __bool__(self):
         for _ in self:
             return True
         return False
 
     def __len__(self):
         return self.count()
+
+    def __deepcopy__(self, *args, **kwargs):
+        return self.copy()
 
     def __getslice__(self, i, j):
         """required for slicing in python 2 when extending built-in types like list
@@ -876,7 +911,7 @@ class ListIterator(list):
         * s.stop - uppder bound
         * s.step - step value
 
-        Any propert of the slice instance can be None:
+        Any property of the slice instance can be None:
 
         * [:N:N] - start is None
         * [N:] - stop and step are None

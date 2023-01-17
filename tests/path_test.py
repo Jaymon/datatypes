@@ -522,7 +522,7 @@ class DirpathTest(_PathTestCase):
         count = 0
         for dp in p.iterdirs():
             count += 1
-        self.assertEqual(3, count)
+        self.assertEqual(2, count)
 
     def test_iterfiles(self):
         p = self.create_dir(contents={
@@ -535,7 +535,7 @@ class DirpathTest(_PathTestCase):
         count = 0
         for fp in p.iterfiles():
             count += 1
-        self.assertEqual(4, count)
+        self.assertEqual(2, count)
 
     def test_glob(self):
         p = self.create_dir(contents={
@@ -567,7 +567,7 @@ class DirpathTest(_PathTestCase):
             count += 1
         self.assertEqual(4, count)
 
-    def test_reglob(self):
+    def test_children_regex(self):
         p = self.create_dir(contents={
             "foo.txt": testdata.get_lines(),
             "bar/che.txt": testdata.get_lines(),
@@ -577,7 +577,7 @@ class DirpathTest(_PathTestCase):
         })
 
         count = 0
-        for fp in p.reglob(r"\.txt$"):
+        for fp in p.children(regex=r"\.txt$"):
             self.assertTrue(fp.endswith(".txt"))
             count += 1
         self.assertEqual(4, count)
@@ -759,7 +759,7 @@ class DirpathTest(_PathTestCase):
         self.assertEqual(1, p.count(recursive=True))
         self.assertEqual(2, dest.count(recursive=True))
 
-    def test_copy_to(self):
+    def test_copy_to_1(self):
         """https://github.com/Jaymon/testdata/issues/30"""
         source_d = testdata.create_files({
             "foo.txt": testdata.get_words(),
@@ -768,8 +768,8 @@ class DirpathTest(_PathTestCase):
         dest_d = testdata.create_dir()
 
         source_d.copy_to(dest_d)
-        self.assertTrue("foo.txt" in dest_d)
-        self.assertTrue("bar/che.txt" in dest_d)
+        self.assertTrue(dest_d.has(pattern="foo.txt"))
+        self.assertTrue(dest_d.has(pattern="*/bar/che.txt"))
 
         source_f = testdata.create_file("foo.txt", testdata.get_words())
         dest_f = testdata.get_file()
@@ -796,7 +796,7 @@ class DirpathTest(_PathTestCase):
 
         moved to here on 1-4-2023
         """
-        f = testdata.create_file(path="/foo/bar/che/index.html")
+        f = testdata.create_file(path="foo/bar/che/index.html")
 
         d = Dirpath(f.parent)
         self.assertTrue(d.has_file("index.html"))
@@ -824,7 +824,7 @@ class DirpathTest(_PathTestCase):
         fs = list(d.files(recursive=False))
         self.assertEqual(1, len(fs))
 
-    def test_refiles(self):
+    def test_files_regex(self):
         """Similar test to bang.tests.path_test.DirectoryTest.test_files_2
 
         moved to here on 1-4-2023
@@ -838,11 +838,11 @@ class DirpathTest(_PathTestCase):
         fs = list(d.children())
         self.assertEqual(3, len(fs))
 
-        fs2 = list(d.refiles(pattern=r"/che"))
+        fs2 = list(d.files(regex=r"/che"))
         self.assertEqual(1, len(fs2))
         self.assertTrue(fs2[0].endswith("che.txt"))
 
-        fs2 = list(d.refiles(pattern=r"/che", exclude=True))
+        fs2 = list(d.files(not_regex=r"/che"))
         self.assertEqual(2, len(fs2))
         for f in fs2:
             self.assertFalse(f.endswith("che.txt"))
@@ -898,7 +898,7 @@ class DirpathTest(_PathTestCase):
 
         target_dir = testdata.create_dir()
         rd = src_dir.copy_to(target_dir)
-        self.assertEqual(3, len(list(rd.iterfiles())))
+        self.assertEqual(3, len(list(rd.files())))
 
         target_dir = testdata.create_dir()
         rd = src_dir.copy_to(target_dir, recursive=False)
@@ -915,6 +915,30 @@ class DirpathTest(_PathTestCase):
 
         p = d.relative_parts("/foo/bar/")
         self.assertEqual(["che", "bam", "boo"], p)
+
+    def test_has(self):
+        d = testdata.create_files({
+            "foo.txt": "",
+            "bar/che.txt": "",
+        })
+
+        self.assertTrue(d.has(pattern="*/che.txt"))
+        self.assertTrue(d.has_file(pattern="*/che.txt"))
+
+        self.assertTrue(d.has("bar"))
+        self.assertTrue(d.has_dir("bar"))
+
+        self.assertTrue(d.has("bar/che.txt"))
+        self.assertTrue(d.has_file("bar/che.txt"))
+        self.assertFalse(d.has_dir("bar/che.txt"))
+        self.assertFalse(d.has("bar/che"))
+        self.assertTrue(d.has(pattern="*/bar/che.*"))
+        self.assertTrue(d.has_file(pattern="*/bar/che.*"))
+        self.assertFalse(d.has_dir(pattern="*/bar/che.*"))
+
+        self.assertTrue(d.has_file("foo.txt"))
+        self.assertFalse(d.has_dir("foo.txt"))
+
 
 
 class FilepathTest(_PathTestCase):
@@ -1061,14 +1085,15 @@ class FilepathTest(_PathTestCase):
         p = self.create()
 
         contents = testdata.get_lines()
-        with p as fp:
-            fp.write(contents)
-        self.assertEqual(contents, p.read_text())
-
-        contents = testdata.get_lines()
         with p("w+") as fp:
             fp.write(contents)
         self.assertEqual(contents, p.read_text())
+
+        # open the file without passing in mode and make sure it works as expected
+        with p as fp:
+            self.assertEqual(contents, fp.read())
+            with self.assertRaises(Exception):
+                fp.write("foo")
 
     def test_empty(self):
         p = self.create()
@@ -1154,10 +1179,10 @@ class TempDirpathTest(TestCase):
             "foo.txt": "foo.txt data",
         })
         self.assertEqual(3, len(list(d.children())))
-        self.assertEqual(2, len(list(d.children("*.txt"))))
-        self.assertEqual(1, len(list(d.children("che.txt"))))
-        self.assertEqual(1, len(list(d.children("bar/che.txt"))))
-        self.assertEqual(1, len(list(d.children("bar"))))
+        self.assertEqual(2, len(list(d.children(pattern="*.txt"))))
+        self.assertEqual(1, len(list(d.children(pattern="che.txt"))))
+        self.assertEqual(1, len(list(d.children(pattern="*/bar/che.txt"))))
+        self.assertEqual(1, len(list(d.children(pattern="bar"))))
 
     def test_has(self):
         d = TempDirpath()
@@ -1167,12 +1192,12 @@ class TempDirpathTest(TestCase):
             "bar/che.txt": "che.txt data",
             "foo.txt": "foo.txt data",
         })
-        self.assertTrue(d.has("che.txt"))
+        self.assertTrue(d.has(pattern="*/che.txt"))
         self.assertTrue(d.has("bar"))
         self.assertTrue(d.has("bar/che.txt"))
         self.assertFalse(d.has("bar/che"))
-        self.assertTrue(d.has("che.*"))
-        self.assertTrue(d.has(lambda p: p.endswith(".txt")))
+        self.assertTrue(d.has(pattern="*/che.*"))
+        self.assertTrue(d.has(callback=lambda p: p.endswith(".txt")))
         self.assertTrue(d.has())
 
     def test_division(self):
@@ -1289,13 +1314,40 @@ class TempDirpathTest(TestCase):
         d2 = TempDirpath(path)
         self.assertEqual(path, d2)
 
+    def test_normparts(self):
+        p = TempDirpath()
+        p2 = TempDirpath(p, "foo")
+        self.assertEqual("foo", p2.relative_to(p))
+
+        p = TempDirpath()
+        p2 = TempDirpath(p)
+        self.assertEqual(p, p2)
+
+        p = TempDirpath()
+        p2 = TempDirpath(dir=p)
+        self.assertEqual(p, p2)
+
+        p = TempDirpath("foo")
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(2, len(p.splitparts(relpath)))
+
+        p = TempDirpath()
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(1, len(p.splitparts(relpath)))
+
+        p = TempDirpath("")
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(1, len(p.splitparts(relpath)))
+
+        p = TempDirpath("/")
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(1, len(p.splitparts(relpath)))
+
 
 class TempFilepathTest(TestCase):
     def test_existing_init(self):
-        relpath = "/foo1/bar1/test.txt"
-        s = "happy"
-        f = TempFilepath(relpath)
-        f.write_text(s)
+        relpath = "foo1/bar1/test.txt"
+        f = TempFilepath(relpath, data="happy")
         f2 = TempFilepath(f)
         self.assertEqual(f, f2)
 
@@ -1380,6 +1432,42 @@ class TempFilepathTest(TestCase):
         f3 = TempFilepath(f.basename, dir=f.directory)
         self.assertEqual(f, f3)
 
+    def test_absolute_init(self):
+        f = TempFilepath(ext="txt")
+        f.rm()
+
+        f2 = TempFilepath(f)
+        self.assertEqual(f, f2)
+
+    def test_normparts(self):
+        p = TempDirpath()
+        p2 = TempFilepath(p, "foo")
+        self.assertEqual("foo", p2.relative_to(p))
+
+        p = TempFilepath()
+        p2 = TempFilepath(p)
+        self.assertEqual(p, p2)
+
+        p = TempDirpath()
+        p2 = TempFilepath(dir=p)
+        self.assertEqual(p, p2.parent)
+
+        p = TempFilepath("foo")
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(2, len(p.splitparts(relpath)))
+
+        p = TempFilepath()
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(2, len(p.splitparts(relpath)))
+
+        p = TempFilepath("")
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(2, len(p.splitparts(relpath)))
+
+        p = TempFilepath("/")
+        relpath = p.relative_to(p.gettempdir())
+        self.assertTrue(2, len(p.splitparts(relpath)))
+
 
 class CachepathTest(TestCase):
     def test_create_key(self):
@@ -1430,16 +1518,17 @@ class UrlFilepathTest(TestCase):
         dirpath = testdata.create_files({
             "foo.txt": "this is foo.txt",
             "bar/che.txt": "this is che.txt",
+            "baz.jpg": testdata.create_jpg,
         })
-        imagepath = testdata.create_jpg("baz.jpg", dirpath)
+        prefix = testdata.get_ascii(6) # needed so file isn't cached to same place every run
 
         server = testdata.create_fileserver({}, dirpath)
         with server:
-            p = UrlFilepath(server.url("bar/che.txt"))
+            p = UrlFilepath(server.url("bar/che.txt"), prefix=prefix)
             self.assertEqual("this is che.txt", p.read_text())
 
-            p = UrlFilepath(server.url("baz.jpg"))
-            self.assertEqual(p.checksum(), imagepath.checksum())
+            p = UrlFilepath(server.url("baz.jpg"), prefix=prefix)
+            self.assertEqual(p.checksum(), dirpath.child_file("baz.jpg").checksum())
 
     def test_url_path(self):
         server = testdata.create_fileserver({
@@ -1451,7 +1540,6 @@ class UrlFilepathTest(TestCase):
             p = UrlFilepath(server.url("foo.txt"), filepath)
             self.assertEqual(filepath.path, p.path)
             self.assertEqual("this is foo.txt", p.read_text())
-
 
 
 class PathIteratorTest(TestCase):
@@ -1859,3 +1947,32 @@ class PathIteratorTest(TestCase):
             self.assertTrue(basename in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
+
+    def test_dirwalk(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/_2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/_baz/4.txt": "body 4",
+        })
+
+        it = PathIterator(dirpath)
+
+        for p in it.not_callback(lambda p: p.basename.startswith("_")):
+            pout.v(p)
+
+        return
+
+
+
+        def filter_dirs(dirnames):
+            discard = []
+            for d in dirnames:
+                if d.startswith("_"):
+                    discard.append(d)
+            for d in discard:
+                dirnames.remove(d)
+
+        for p in it.dirwalk(filter_dirs):
+            pout.v(p)
+
