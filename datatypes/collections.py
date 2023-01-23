@@ -484,6 +484,12 @@ class ContextNamespace(Namespace):
         if len(self._context_names) > 1:
             return self._context_names.pop()
 
+    def switch_context(self, name):
+        """Switch to context name, return the previous context_name"""
+        ret = self.pop_context()
+        self.push_context(name)
+        return ret
+
     def clear_context(self, name):
         """Completely clear the context"""
         name = self.normalize_context_name(name)
@@ -492,6 +498,14 @@ class ContextNamespace(Namespace):
     def context_name(self):
         """Get the current context name"""
         return self._context_names.peak()
+
+    def context_names(self):
+        """yield all the _context_names taking into account the cascade setting"""
+        for context_name in self._context_names:
+            yield context_name
+
+            if not self._cascade:
+                break
 
     def current_context(self):
         """get the current context
@@ -510,7 +524,7 @@ class ContextNamespace(Namespace):
 
     def is_context(self, name):
         """Return True if name matches the current context name"""
-        return self.context_name() == self.normalize_context_name(context_name)
+        return self.context_name() == self.normalize_context_name(name)
 
     @contextmanager
     def context(self, name, **kwargs):
@@ -546,26 +560,32 @@ class ContextNamespace(Namespace):
     def __getitem__(self, k):
         """Most of the context LIFO magic happens here, this will work through
         the contexts looking for k"""
+        if k == "__missing__":
+            # we need to avoid infinite recursion, if __missing__ gets to here
+            # it doesn't exist so go ahead and fail fast
+            raise KeyError(k)
+
         k = self.normalize_key(k)
-        for context_name in self._context_names:
+        for context_name in self.context_names():
             try:
                 return self.get_context(context_name)[k]
 
             except KeyError:
                 pass
 
-            if not self._cascade:
-                break
+        # because we completely override __getitem__ we can't rely on the
+        # descriptor protocol to call __missing__ for us
+        try:
+            return self.__missing__(k)
 
-        raise KeyError(k)
+        except AttributeError as e:
+            raise KeyError(k)
 
     def __contains__(self, k):
-        try:
-            self[k]
-            return True
-
-        except KeyError:
-            return False
+        for context_name in self.context_names():
+            if k in self.get_context(context_name):
+                return True
+        return False
 
     def __len__(self):
         """Unlike a normal dict this is O(n)"""
@@ -584,6 +604,17 @@ class ContextNamespace(Namespace):
         d = self.context_class({i[0]: i[1] for i in self.items()})
         d.update(other)
         return d
+
+    def setdefault(self, k, v):
+        if k not in self:
+            self[k] = v
+
+    def get(self, k, default=None):
+        # we have to do it this way to play nice with __missing__
+        if k in self:
+            return self[k]
+        else:
+            return default
 
     def pop(self, k, *default):
         """Pop works a little differently than other key access methods, pop will

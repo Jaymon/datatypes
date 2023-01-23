@@ -88,11 +88,33 @@ from .utils import (
     cbany,
     make_dict,
     make_list,
+    Singleton,
 )
 from .profile import (
     Profiler,
     AggregateProfiler,
     AggregateProfiler as AProfiler
+)
+from .reflection import (
+    OrderedSubclasses,
+    Extend,
+)
+from .event import (
+    Event,
+)
+from .decorators import (
+    Decorator,
+    InstanceDecorator,
+    ClassDecorator,
+    FuncDecorator,
+    property,
+    classproperty,
+    method,
+    instancemethod,
+    classmethod,
+    staticmethod,
+    once,
+    deprecated,
 )
 
 

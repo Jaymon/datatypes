@@ -170,12 +170,12 @@ class Url(String):
                 "scheme", # 0
                 "netloc", # 1
                 "path", # 2
-                "fragment", # 5
+                "query", # 3
+                "fragment", # 4
                 "username",
                 "password",
                 "hostname",
                 "port",
-                "query", # 4
             ]
 
             if cls.is_url(urlstring):
@@ -249,19 +249,26 @@ class Url(String):
             )
 
         parts["path"] = "/".join(cls.normalize_paths(parts["path"], *args))
-        if parts["path"]:
-            # if path exists than we want to make sure it has a starting /
-            parts["path"] = "/" + parts["path"]
+        # compensate for "/" being the first path part
+        if parts["path"].startswith("//"):
+            parts["path"] = parts["path"][1:]
+
+        if parts["path"] and parts["hostname"]:
+            # if path exists than we want to make sure it has a starting / if a
+            # hostname exists also, user could've passed in a relative path but
+            # we'll need to assume it is absolute since host exists
+            if not parts["path"].startswith("/"):
+                parts["path"] = "/" + parts["path"]
 
         parts["urlstring"] = parse.urlunsplit((
-            parts.get("scheme", ""),
+            parts.get("scheme", "") or "",
             parts["netloc"],
             parts["path"],
             parts["query"],
             parts["fragment"],
         ))
 
-        # let's add our default scheme back now that we've generated everything
+        # let's add our default scheme now that we've generated everything
         # we needed with the passed in values
         parts.setdefault("scheme", default_scheme)
 
@@ -333,14 +340,36 @@ class Url(String):
 
     @classmethod
     def normalize_paths(cls, *paths):
+        """turns a bunch of paths into something that can be concatenated without
+        any issues
+
+        :param *parts: str|list, things like "/foo/bar" or ["foo", "bar/che"]
+        :returns: list, a list of normalized parts with most of the "/" stripped
+            out, the exception is if the path is absolute then the first part
+            will be "/", so "/foo/bar" -> ["/", "foo", "bar"]
+        """
         args = []
         for ps in paths:
-            if isinstance(ps, basestring):
+            if not ps: continue
+
+            if isinstance(ps, int):
+                args.append(String(ps))
+
+            elif isinstance(ps, basestring):
+                if not args and ps.startswith("/"):
+                    args.append("/")
+                    ps.lstrip("/")
+
                 args.extend(filter(None, ps.split("/")))
-                #args.append(ps.strip("/"))
+
             else:
                 for p in ps:
-                    args.extend(cls.normalize_paths(p))
+                    nps = cls.normalize_paths(p)
+                    if nps:
+                        if args and nps[0] == "/":
+                            args.extend(nps[1:])
+                        else:
+                            args.extend(nps)
         return args
 
     @classmethod
@@ -512,6 +541,16 @@ class Url(String):
         """
         kwargs = self._normalize_params(*paths, **query_kwargs)
         return self.create(self.root, **kwargs)
+
+    def child(self, *paths, **kwargs):
+        """Layers paths and kwargs on top of self, using passed in values to replace
+        anything in self
+
+        :param *paths: url path parts
+        :param **kwargs: same kwargs that can be passed into creation
+        :returns: a new instance of this class
+        """
+        return self.create(self, *paths, **kwargs)
 
     def copy(self):
         return self.__deepcopy__()

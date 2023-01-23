@@ -53,11 +53,18 @@ class HTML(String):
         return type(self)(ret)
 
     def strip_tags(self, remove_tags=None):
-        """Strip tags, you should use .plain() instead
+        """Strip tags, completely removing any tags in remove_tags list
+
+        you probably should use .plain() instead but this still has a place because
+        it will completely remove anything in remove_tags which HTMLCleaner doesn't
+        support (.plain() uses HTMLCleaner)
 
         Moved from bang.utils on 1-6-2023
+
+        :param remove_tags: list, a list of tags that will be completely removed
+            not just plained
+        :returns: str, the plain text of the html with remove_tags completely removed
         """
-        raise DeprecationWarning("Use .plain instead")
         return HTMLStripper(self, remove_tags=remove_tags).get_data()
 
 
@@ -484,7 +491,9 @@ class HTMLStripper(BaseHTMLParser):
     """strip html tags and return plaintext data
 
     Moved from bang.utils on 1-6-2023, I think it would be better to use HTMLCleaner
-    though, I'll leave this in for a little while
+    though, I'll leave this in for a little while. This actually still has a place
+    because it supports remove_tags, at some point remove_tags should be integrated
+    into HTMLCleaner and then this can be removed
 
     https://docs.python.org/3/library/html.parser.html
     http://stackoverflow.com/a/925630/5006
@@ -539,5 +548,4 @@ class HTMLStripper(BaseHTMLParser):
 
     def get_data(self):
         return ''.join(self.fed)
-
 

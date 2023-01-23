@@ -40,7 +40,7 @@ class UrlTest(TestCase):
 
         u = Url("example.com/")
         self.assertEqual("example.com", u.hostloc)
-        self.assertEqual("", u.path)
+        self.assertEqual("/", u.path)
 
     def test_normalize_query_kwargs(self):
         d = {b'foo': [b'bar'], b'baz': [b'che']}
@@ -514,6 +514,54 @@ class UrlTest(TestCase):
         u = Url(scheme="", hostname="")
         self.assertEqual("", u)
 
+    def test_path_variations(self):
+        u = Url("http://example.com/foo/bar")
+        r = parse.urlparse("http://example.com/foo/bar")
+        self.assertEqual(r.path, u.path)
+
+        u = Url("http://example.com", path="foo/bar")
+        r = parse.urlparse("http://example.com/foo/bar")
+        self.assertEqual(r.path, u.path)
+
+        u = Url("http://example.com/")
+        r = parse.urlparse("http://example.com/")
+        self.assertEqual(r.path, u.path)
+
+        u = Url("http://example.com")
+        r = parse.urlparse("http://example.com")
+        self.assertEqual(r.path, u.path)
+
+        u = Url(path="")
+        r = parse.urlparse("")
+        self.assertEqual(r.path, u.path)
+
+        u = Url("", "/foo")
+        self.assertEqual("/foo", u)
+
+        u = Url("", "foo")
+        self.assertEqual("foo", u)
+
+    def test_normalize_paths(self):
+        ps = Url.normalize_paths("/foo")
+        self.assertEqual(["/", "foo"], ps)
+
+        ps = Url.normalize_paths(["/foo/bar"], "/che")
+        self.assertEqual(["/", "foo", "bar", "che"], ps)
+
+        ps = Url.normalize_paths(["/foo/bar"], ["/che", "/baz"])
+        self.assertEqual(["/", "foo", "bar", "che", "baz"], ps)
+
+        ps = Url.normalize_paths("foo/bar")
+        self.assertEqual(["foo", "bar"], ps)
+
+    def test_none_values(self):
+        u = Url(scheme=None, hostname="example.com")
+
+    def test_child(self):
+        u = Url("http://example.com")
+        u2 = u.child("/foo/bar")
+        self.assertEqual("http://example.com/foo/bar")
+
 
 class HostTest(TestCase):
     def test___new__(self):
@@ -555,4 +603,10 @@ class HostTest(TestCase):
 
         h = Host("localhost:")
         self.assertEqual(0, h.port)
+
+    def test_trailing_slash(self):
+        h = Host("localhost:8080/")
+        self.assertEqual(8080, h.port)
+        self.assertEqual("localhost", h.hostname)
+
 

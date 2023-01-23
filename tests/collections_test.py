@@ -374,6 +374,18 @@ class NamespaceTest(TestCase):
         with self.assertRaises(KeyError):
             n.foo
 
+    def test___missing__(self):
+        class ChildNS(Namespace):
+            def __missing__(self, k):
+                return None
+
+        n = ChildNS()
+
+        self.assertIsNone(n.foo)
+
+        n.foo = 1
+        self.assertEqual(1, n.foo)
+
 
 class ContextNamespaceTest(TestCase):
     def test_crud(self):
@@ -633,6 +645,62 @@ class ContextNamespaceTest(TestCase):
         c.clear_context("foobar")
         with c.context("foobar"):
             self.assertEqual(1, c.foo)
+
+    def test___missing__1(self):
+        class ChildNS(ContextNamespace):
+            def __missing__(self, k):
+                return None
+
+        n = ChildNS()
+
+        self.assertIsNone(n.foo)
+
+        n.foo = 1
+        self.assertEqual(1, n.foo)
+
+    def test___missing____contains__(self):
+        class ChildNS(ContextNamespace):
+            def __missing__(self, k):
+                return None
+
+        n = ChildNS()
+
+        self.assertIsNone(n.foo)
+        self.assertFalse("foo" in n)
+
+        n.setdefault("foo", 1)
+        self.assertEqual(1, n.foo)
+
+        n.push_context("bar")
+        self.assertEqual(1, n.foo)
+        n.setdefault("foo", 2)
+        self.assertEqual(1, n.foo)
+
+    def test___contains__(self):
+        n = ContextNamespace(cascade=False)
+        n.switch_context("foo")
+        self.assertFalse("bar" in n)
+
+    def test_setdefault(self):
+        n = ContextNamespace()
+        n.setdefault("foo", 1)
+        self.assertEqual(1, n.foo)
+
+        n.push_context("bar")
+        self.assertEqual(1, n.foo)
+        n.setdefault("foo", 2)
+        self.assertEqual(1, n.foo)
+
+    def test_get(self):
+        n = ContextNamespace()
+        n.foo = 1
+
+        self.assertEqual(1, n.get("foo"))
+
+        n.push_context("bar")
+        self.assertEqual(1, n.get("foo"))
+        n.foo = 2
+        self.assertEqual(2, n.get("foo"))
 
 
 class StackTest(TestCase):

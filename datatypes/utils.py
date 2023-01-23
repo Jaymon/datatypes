@@ -95,3 +95,20 @@ def make_dict(*args):
     return ret
 
 
+class Singleton(object):
+    """Helper class that turns your class into a singleton where the same instance
+    is always returned on each creation
+
+    :Example:
+        s = Singleton()
+        s2 = Singleton()
+        print(s is s2) # True
+    """
+    instance = None
+    """The singleton class instance is stored here"""
+
+    def __new__(cls, *args, **kwargs):
+        if not cls.instance:
+            cls.instance = super().__new__(cls, *args, **kwargs)
+        return cls.instance
+

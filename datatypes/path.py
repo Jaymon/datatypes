@@ -30,6 +30,7 @@ from .collections import ListIterator
 from .copy import Deepcopy
 from .http import HTTPClient
 from .url import Url
+from .datetime import Datetime
 
 
 logger = logging.getLogger(__name__)
@@ -88,8 +89,6 @@ class Path(String):
 
     @property
     def pathlib(self):
-        if is_py2:
-            raise NotImplementedError()
         return Pathlib(self.path)
 
     @property
@@ -98,15 +97,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.parts
         """
-        if is_py2:
-            parts = self.path.split("/")
-            if not parts[0]:
-                parts[0] = self.anchor
-
-        else:
-            parts = self.pathlib.parts
-
-        return parts
+        return self.pathlib.parts
 
     @property
     def root(self):
@@ -114,15 +105,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.root
         """
-        if is_py2:
-            ret, tail = os.path.splitdrive(self.path)
-            if not ret:
-                ret = "/"
-
-        else:
-            ret = self.pathlib.root
-
-        return ret
+        return self.pathlib.root
 
     @property
     def anchor(self):
@@ -130,15 +113,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.anchor
         """
-        if is_py2:
-            ret = self.root
-            if ":" in ret:
-                ret = "{}\\".format(ret)
-
-        else:
-            ret = self.pathlib.anchor
-
-        return ret
+        return self.pathlib.anchor
 
     @property
     def parents(self):
@@ -146,21 +121,7 @@ class Path(String):
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.parents
         """
-        if is_py2:
-            parents = []
-            parent = self
-            while True:
-                p = parent.parent
-                if p != parent:
-                    parents.append(p)
-                    parent = p
-                else:
-                    break
-
-        else:
-            parents = [self.create_dir(p) for p in self.pathlib.parents]
-
-        return parents
+        return [self.create_dir(p) for p in self.pathlib.parents]
 
     @property
     def parent(self):
@@ -289,6 +250,10 @@ class Path(String):
     @classmethod
     def is_dir_path(cls, path):
         return os.path.isdir(path)
+
+    @classmethod
+    def is_path_instance(cls, path):
+        return isinstance(path, cls.path_class())
 
     @classmethod
     def splitpart(cls, part):
@@ -577,6 +542,13 @@ class Path(String):
     def create(cls, *parts, **kwargs):
         """Create a path instance using the full inferrencing (guessing code) of
         cls.path_class().__new__()"""
+        if "path_class" not in kwargs:
+            # if a path class isn't passed in and a single part was passed in
+            # that is a Path instance, then go ahead and clone that
+            if len(parts) == 1:
+                if cls.is_path_instance(parts[0]):
+                    kwargs["path_class"] = type(parts[0])
+
         # we want inference to work so we don't want any path_class being passed
         # to the __new__ method but we will use it to create the instance if
         # passed in
@@ -815,6 +787,10 @@ class Path(String):
     def isdir(self):
         return self.is_dir()
 
+    def is_dir_instance(self):
+        """Return True if self is a Dirpath"""
+        return isinstance(self, self.dir_class())
+
     def is_file(self):
         """Return True if the path points to a regular file (or a symbolic link pointing to a regular file),
         False if it points to another kind of file.
@@ -828,6 +804,10 @@ class Path(String):
 
     def isfile(self):
         return self.is_file()
+
+    def is_file_instance(self):
+        """Return True if self is a Filepath"""
+        return isinstance(self, self.file_class())
 
     def is_mount(self):
         """Return True if the path is a mount point: a point in a file system where
@@ -1106,15 +1086,9 @@ class Path(String):
 
         :returns: the new Path instance.
         """
-        if is_py2:
-            ret = self.rename(target)
-
-        else:
-            target = self.create_path(target)
-            self.pathlib.replace(target)
-            ret = self.create(target)
-
-        return ret
+        target = self.create_path(target)
+        self.pathlib.replace(target)
+        return self.create(target)
 
     def mv(self, target, *args, **kwargs):
         """mimics the behavior of unix mv command"""
@@ -1130,7 +1104,7 @@ class Path(String):
     def copy_to(self, target, *args, **kwargs):
         return self.cp(target, *args, **kwargs)
 
-    def relative_to(self, *other):
+    def relative_to(self, *other, empty_same=False):
         """Compute a version of this path relative to the path represented by other.
         If it’s impossible, ValueError is raised
 
@@ -1145,18 +1119,17 @@ class Path(String):
 
         :param *other: string|Directory, the directory you want to return that self
             is a child of
+        :param empty_same: bool, by default, this returns "." when other is the
+            same path. Both os.path.relpath and Pathlib.relative_to return "."
+            so I'm sticking with it by default but set this to True to return
+            "" instead
         :returns: string, the part of the path that is relative, because these are
             relative paths they can't return Path instances
         """
-        if is_py2:
-            ancestor_dir = self.joinparts(*other)
+        ret = String(self.pathlib.relative_to(*other))
 
-            ret = os.path.relpath(self.path, ancestor_dir)
-            if ret.startswith(".."):
-                raise ValueError("'{}' does not start with '{}'".format(self.path, ancestor_dir))
-
-        else:
-            ret = String(self.pathlib.relative_to(*other))
+        if empty_same and ret == ".":
+            ret = ""
 
         return ret
 
@@ -1167,6 +1140,13 @@ class Path(String):
         """
         relative = self.relative_to(*other)
         return re.split(r"[\/]", relative)
+
+    def is_relative_to(self, *other):
+        """Return whether or not this path is relative to the other path
+
+        https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.is_relative_to
+        """
+        return String(self.pathlib.relative_to(*other))
 
     def symlink_to(self, target, target_is_directory=False):
         """Make this path a symbolic link to target. Under Windows, target_is_directory
@@ -1246,13 +1226,15 @@ class Path(String):
     def created(self):
         """return a datetime.datetime of when the file was created"""
         t = os.path.getctime(self.path)
-        return datetime.datetime.fromtimestamp(t)
+        return Datetime(t)
+        #return datetime.datetime.fromtimestamp(t)
 
     def modified(self):
         """return a datetime.datetime of when the file was modified"""
         # http://stackoverflow.com/a/1526089/5006
         t = os.path.getmtime(self.path)
-        return datetime.datetime.fromtimestamp(t)
+        return Datetime(t)
+        #return datetime.datetime.fromtimestamp(t)
 
     def updated(self):
         return self.modified()
@@ -1260,7 +1242,8 @@ class Path(String):
     def accessed(self):
         """return a datetime.datetime of when the file was accessed"""
         t = os.path.getatime(self.path)
-        return datetime.datetime.fromtimestamp(t)
+        return Datetime(t)
+        #return datetime.datetime.fromtimestamp(t)
 
     def __fspath__(self):
         """conform to PathLike abstract base class for py3.6+
@@ -1531,27 +1514,37 @@ class Dirpath(Path):
 
         return target
 
-    def cp(self, target, recursive=True):
-        """Copy directory at self into a directory at target
+    def cp(self, target, recursive=True, into=True):
+        """Copy directory at self into/to a directory at target
 
-        Added recursive to better mimic Bang.path.Directory.copy_to on 1-4-2023
+        Added recursive on 1-4-2023 and into on 1-21-2023 to better mimic
+        Bang.path.Directory.copy_to
+
+        Uses this under the hood:
+            https://docs.python.org/3/library/shutil.html#shutil.copytree
 
         :Example:
-            $ cp -R src target
-            src is copied to target if target does not exist
-            target/src if target exists
-            src is merged into target/src if target/src exists
+            # src is copied into, or merged with, target
+            src.cp(target) # cp -R src target/
+
+            # src.basename is copied to target if target exists
+            # src is copied into target if target does not exist
+            # src is merged into target/src if target/src exists
+            src.cp(target, recursive=True, into=False) # cp -R src target
 
         :param target: Dirpath|str, the destination directory
         :param recursive: bool, True if copy files in this dir and all subdirs,
             false to only copy files in self
+        :param into: bool, copy into target instead of to target/{self.basename}
+            if target exists, check the example for more details
         :returns: Dirpath, the target directory
         """
         target = self.create_dir(target)
 
         if recursive:
-            if target.is_dir():
-                target = target.child_dir(self.basename)
+            if not into:
+                if target.is_dir():
+                    target = target.child_dir(self.basename)
 
             shutil.copytree(self.path, target, dirs_exist_ok=True)
 
@@ -1975,16 +1968,43 @@ class Filepath(Path):
     def joinpath(self, *other):
         raise NotImplementedError()
 
-    def cp(self, target):
-        """copy self to/into target"""
+    def cp(self, target, recursive=True, **kwargs):
+        """copy self to/into target
+
+        uses this under the hood:
+            https://docs.python.org/3/library/shutil.html#shutil.copy
+
+        :param target: str|Path, if a directory then self.basename will be the 
+            target's basename. If the target is ambiguous this will make a best
+            effort to guess if it was a file or a folder
+        :param recursive: bool, if True then create any intermediate directories
+            if they are missing. If False then this will fail if all the folders
+            don't already exist
+        :returns: Filpath, the target file path where self. was copied to
+        """
         target = self.create(target)
         if target.is_dir():
             target = self.create_file(target, self.basename)
 
+        else:
+            if not target.exists():
+                if not target.is_file_instance():
+                    # let's try our best to infer if this is a directory or not
+                    if not target.ext and self.ext:
+                        # target doesn't have an extension but this file does, so let's
+                        # assume target is a directory
+                        target = self.create_dir(target).child_file(self.basename)
+
+                if recursive:
+                    if isinstance(target, self.file_class()):
+                        target.parent.touch()
+                    else:
+                        target.touch()
+
         shutil.copy(self.path, target)
         return target.as_file()
 
-    def copy_into(self, target):
+    def copy_into(self, target, **kwargs):
         """Copy this file to target directory
 
         Moved from bang.path on 1-3-2023
@@ -1992,7 +2012,7 @@ class Filepath(Path):
         :param target: directory, the target directory
         :returns: the new file
         """
-        return self.cp(target)
+        return self.cp(target, **kwargs)
 
     def mv(self, target):
         target = self.create(target)
@@ -2177,7 +2197,6 @@ class PathIterator(ListIterator):
         # iterate through all the paths relative to dirpath
         for relpath in PathIterator(dirpath).relative_to(dirpath):
             print(relpath)
-
     """
     def __init__(self, path: Dirpath):
         """
@@ -2218,7 +2237,11 @@ class PathIterator(ListIterator):
         # it's a tuple (args, kwargs)
         self._yield_property_args = None
 
-        self._yield_dirwalk_modify_callback = None
+        # Holds the filenames/basenames callbacks that will filter the os.walk filenames
+        self._yield_filename_callbacks = []
+
+        # Holds the dirnames/basenames callbacks that will filter the os.walk dirnames
+        self._yield_dirname_callbacks = []
 
     def files(self, v=True):
         """Iterate only files (this excludes directories)"""
@@ -2278,7 +2301,13 @@ class PathIterator(ListIterator):
         return self.pattern(pattern)
 
     def glob(self, pattern):
-        """alias of .pattern() but will set recursive=True if pattern starts with **/"""
+        """alias of .pattern() but will set recursive=True if pattern starts with **/
+
+        I attempted to mimic Pathlib's glob, but there is the glob module also:
+
+            https://docs.python.org/3/library/glob.html#glob.glob
+            https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
+        """
         self.pattern(pattern)
         return self.recursive("**/" in pattern)
 
@@ -2325,28 +2354,60 @@ class PathIterator(ListIterator):
         """Inverse the callback return, same as calling .callback(cb, inverse=True)"""
         return self.callback(cb, inverse=True)
 
+    def filenames(self, cb, **kwargs):
+        """Set callback to filter os.walk's filenames in place
 
-#     def not_basename(self, 
+        This is more advanced functionality, these callbacks are fired regardless
+        of .files()/.dirs() setting
 
-
-    def dirwalk(self, cb):
-        """Set a callback that takes the list of dirnames from os.walk and
-        modifies the list in place
-
-        From os.walk docs:
-            https://docs.python.org/3/library/os.html#os.walk
-
-            When topdown is True, the caller can modify the dirnames list in-place
-            (perhaps using del or slice assignment), and walk() will only recurse
-            into the subdirectories whose names remain in dirnames; this can be used
-            to prune the search, impose a specific order of visiting, or even to
-            inform walk() about directories the caller creates or renames before
-            it resumes walk() again.
-
-        :param cb: callable, signature of cb(dirnames) and modifies dirnames in place
+        :param cb: callable, a callable that takes a basename, returns True if that
+            basename should be yielded
         """
-        self._yield_dirwalk_modify_callback = cb
+        self._yield_filename_callbacks.append((cb, kwargs))
         return self
+
+    def not_filenames(self, cb):
+        """Inverses .filenames()"""
+        return self.filenames(cb, inverse=True)
+
+    def dirnames(self, cb, **kwargs):
+        """Set callback to filter os.walk's dirnames in place
+
+        This is more advanced functionality, these callbacks are fired regardless
+        of .files()/.dirs() setting
+
+        :param cb: callable, a callable that takes a basename, returns True if that
+            basename should be yielded
+        """
+        self._yield_dirname_callbacks.append((cb, kwargs))
+        return self
+
+    def not_dirnames(self, cb):
+        """Inverses .dirnames()"""
+        return self.dirnames(cb, inverse=True)
+
+    def basenames(self, cb, **kwargs):
+        """Set callback to filter os.walk's dirnames/filenames in place
+
+        This is more advanced functionality, these callbackes will be fired on
+        both dirnames and filenames regardless of .files()/.dirs() settings and
+        are fired before any iteration has taken place
+
+        :Example:
+            # ignore any files/folders that start with an underscore
+            p = PathIterator(dirpath)
+            for p in PathIterator(dirpath).not_basenames(lambda bn: bn.startswith("_")):
+                print(p)
+
+        :param cb: callable, a callable that takes a basename, returns True if that
+            basename should be yielded
+        """
+        self.filenames(cb, **kwargs)
+        return self.dirnames(cb, **kwargs)
+
+    def not_basenames(self, cb):
+        """Inverses .basenames()"""
+        return self.basenames(cb, inverse=True)
 
     def _failed_match(self, matched, **kwargs):
         """internal method, this handles the inversing logic of the match and will
@@ -2357,7 +2418,7 @@ class PathIterator(ListIterator):
             * inverse: bool, inverses matched
         :returns: bool, True if the match failed, False otherwise
         """
-        inverse = kwargs.get("inverse", kwargs.get("exclude", False))
+        inverse = kwargs.get("inverse", kwargs.get("exclude", kwargs.get("ignore", False)))
         if matched:
             if inverse:
                 failed = True
@@ -2401,7 +2462,6 @@ class PathIterator(ListIterator):
 
         return should_yield
 
-
     def _iterfiles(self, path, basedir, basenames):
         """internal method that converts .walk() values to Filepath instances"""
         if self._yield_files:
@@ -2414,6 +2474,40 @@ class PathIterator(ListIterator):
             for basename in basenames:
                 yield path.create_dir(basedir, basename)
 
+    def _modify_basenames(self, basenames, callbacks):
+        """Modifies basenames returned from os.walk in place so those basenames
+        will not be walked
+
+        These callback are ran before any other filters and are ran on both dirnames
+        and filenames regardless of .files()/.dirs() settings. If dirnames are
+        filtered then those folders won't be yielded and they won't be recursed
+        either
+
+        From the os.walk docs:
+
+            https://docs.python.org/3/library/os.html#os.walk
+
+            When topdown is True, the caller can modify the dirnames list in-place
+            (perhaps using del or slice assignment), and walk() will only recurse
+            into the subdirectories whose names remain in dirnames; this can be
+            used to prune the search, impose a specific order of visiting, or even
+            to inform walk() about directories the caller creates or renames before
+            it resumes walk() again.
+
+        """
+        indexes = []
+        if callbacks:
+            for i, basename in enumerate(basenames):
+                for cb, kwargs in callbacks:
+                    if self._failed_match(cb(basename), **kwargs):
+                        indexes.append(i)
+                        break
+
+            offset = 0
+            for i in indexes:
+                basenames.pop(i - offset)
+                offset += 1
+
     def _iterpath(self, path, depth):
         """internal recursive method that yields path instances and respects depth
 
@@ -2421,12 +2515,10 @@ class PathIterator(ListIterator):
         :param depth: int, how far into path should be iterated
         """
         for basedir, dirnames, filenames in path.walk(topdown=True):
+            self._modify_basenames(dirnames, self._yield_dirname_callbacks)
+            self._modify_basenames(filenames, self._yield_filename_callbacks)
 
-            dirpaths = []
-
-            if self._yield_dirwalk_modify_callback:
-                self._yield_dirwalk_modify_callback(dirnames)
-
+            # https://docs.python.org/3/library/itertools.html#itertools.chain
             it = itertools.chain(
                 self._iterdirs(path, basedir, dirnames),
                 self._iterfiles(path, basedir, filenames),
@@ -2444,14 +2536,10 @@ class PathIterator(ListIterator):
                     else:
                         yield p
 
-                    if isinstance(p, p.dir_class()):
-                        dirpaths.append(p)
-
             if depth != 1:
                 depth = depth - 1 if depth >= 0 else depth
-                for p in dirpaths:
-#                 for basename in dirnames:
-#                     p = path.create_dir(basedir, basename)
+                for basename in dirnames:
+                    p = path.create_dir(basedir, basename)
                     for sp in self._iterpath(p, depth=depth):
                         yield sp
 
@@ -2583,13 +2671,6 @@ class Imagepath(Filepath):
     def count(self):
         """The size of the image"""
         return len(self.read_bytes())
-
-    def sizes(self):
-        sizes = []
-        info = self.get_info()
-        for width, height in info["dimensions"]:
-            sizes.append("{}x{}".format(width, height))
-        return " ".join(sizes)
 
     def get_info(self):
         info = getattr(self, "_info", None)
@@ -3185,11 +3266,11 @@ class Cachepath(Filepath):
             as a named keyword
         :returns: boolean, True if file has been modified after the seconds back
         """
-        now = datetime.datetime.now()
+        now = Datetime()
         then = self.modified()
         timedelta_kwargs["seconds"] = seconds
         td_check = datetime.timedelta(**timedelta_kwargs)
-        #pout.v(now, td_check, then)
+        #pout.v(now, td_check, now - td_check, then)
         return (now - td_check) < then
 CachePath = Cachepath
 

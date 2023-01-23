@@ -173,7 +173,7 @@ class PathTest(TestCase):
         p = self.create("/foo")
         self.assertFalse(p.is_root())
 
-    def test_relative_to(self):
+    def test_relative_to_1(self):
         p = self.create("/etc/passwd")
 
         self.assertEqual("etc/passwd", p.relative_to("/"))
@@ -181,6 +181,12 @@ class PathTest(TestCase):
 
         with self.assertRaises(ValueError):
             p.relative_to("/usr")
+
+    def test_relative_to_2(self):
+        p = self.create("foo")
+        self.assertEqual(".", p.relative_to(p))
+        self.assertEqual(".", os.path.relpath(p, p))
+        self.assertEqual("", p.relative_to(p, empty_same=True))
 
     def test_with_name(self):
         p = self.create("/foo/bar/fileroot.ext")
@@ -736,7 +742,7 @@ class DirpathTest(_PathTestCase):
         target = self.create_dir()
         self.assertTrue(target.exists())
 
-        dest = p.cp(target)
+        dest = p.cp(target, into=False)
         self.assertTrue(p.exists())
         self.assertTrue(dest.exists())
         self.assertNotEqual(target, dest)
@@ -755,7 +761,7 @@ class DirpathTest(_PathTestCase):
         self.assertTrue(target.exists())
         self.assertTrue(dest.exists())
 
-        p.cp(target)
+        p.cp(target, into=False)
         self.assertEqual(1, p.count(recursive=True))
         self.assertEqual(2, dest.count(recursive=True))
 
@@ -1107,6 +1113,31 @@ class FilepathTest(_PathTestCase):
         p.delete()
         self.assertFalse(p.exists())
         self.assertTrue(p.empty())
+
+    def test_cp_create_recursive(self):
+        """Tests cp works when the directory doesn't exist"""
+        basedir = TempDirpath()
+        src = TempFilepath("foo", "bar", "che.txt", dir=basedir)
+        self.assertTrue(src.isfile())
+
+        target = Dirpath("foo2", "bar2", dir=basedir)
+        self.assertFalse(target.isdir())
+
+        with self.assertRaises(FileNotFoundError):
+            src.cp(target, recursive=False)
+
+        r = src.cp(target, recursive=True)
+        self.assertEqual(src.basename, r.basename)
+
+        target = Filepath("foo3", "bar3", "che.md", dir=basedir)
+        self.assertFalse(target.exists())
+        r = src.cp(target, recursive=True)
+        self.assertEqual("che.md", r.basename)
+
+        target = Filepath("foo4", "bar4", "che", dir=basedir)
+        self.assertFalse(target.exists())
+        r = src.cp(target, recursive=True)
+        self.assertEqual("che", r.basename)
 
 
 class ImagepathTest(TestCase):
@@ -1948,31 +1979,28 @@ class PathIteratorTest(TestCase):
             r_count += 1
         self.assertEqual(len(r), r_count)
 
-    def test_dirwalk(self):
+    def test_basenames(self):
+        """Make sure directories get filtered correctly when recursing"""
         dirpath = testdata.create_files({
             "1.txt": "body 1",
             "bar/_2.txt": "body 2",
             "boo/3.txt": "body 3",
             "boo/_baz/4.txt": "body 4",
         })
+        nr = set(["4.txt", "_2.txt"])
+        cb = lambda basename: basename.startswith("_")
 
         it = PathIterator(dirpath)
+        r_count = 0
+        for basename in it.not_filenames(cb).not_dirnames(cb).basename:
+            self.assertFalse(basename in nr)
+            r_count += 1
+        self.assertEqual(4, r_count)
 
-        for p in it.not_callback(lambda p: p.basename.startswith("_")):
-            pout.v(p)
-
-        return
-
-
-
-        def filter_dirs(dirnames):
-            discard = []
-            for d in dirnames:
-                if d.startswith("_"):
-                    discard.append(d)
-            for d in discard:
-                dirnames.remove(d)
-
-        for p in it.dirwalk(filter_dirs):
-            pout.v(p)
+        it = PathIterator(dirpath)
+        r_count = 0
+        for basename in it.files().not_basenames(cb).basename:
+            self.assertFalse(basename in nr)
+            r_count += 1
+        self.assertEqual(2, r_count)
 
