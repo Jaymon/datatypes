@@ -1992,14 +1992,14 @@ class PathIteratorTest(TestCase):
 
         it = PathIterator(dirpath)
         r_count = 0
-        for basename in it.not_filenames(cb).not_dirnames(cb).basename:
+        for basename in it.not_callback(cb, filename=True).not_callback(cb, dirname=True).basename:
             self.assertFalse(basename in nr)
             r_count += 1
         self.assertEqual(4, r_count)
 
         it = PathIterator(dirpath)
         r_count = 0
-        for basename in it.files().not_basenames(cb).basename:
+        for basename in it.files().not_callback(cb, basename=True).basename:
             self.assertFalse(basename in nr)
             r_count += 1
         self.assertEqual(2, r_count)

@@ -41,6 +41,9 @@ class Event(Singleton):
     broadcast_class = BroadcastEvent
 
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         # this will hold any callbacks bound to an event_name through .bind
         self.bound = defaultdict(list)
 
@@ -201,9 +204,4 @@ class Event(Singleton):
             return callback
 
         return wrap
-
-    def reset(self):
-        self.bound.clear()
-        self.pushed.clear()
-
 

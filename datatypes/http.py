@@ -598,7 +598,7 @@ class HTTPClient(object):
         :returns: Request instance, a request object that can be passed to get_fetch_response
         """
         req = Request(*args, **kwargs) # compat * import
-        # https://stackoverflow.com/a/111988/5006
+        # https://stackoverflow.com/a/111988
         req.get_method = lambda: method.upper()
         return req
 
@@ -623,7 +623,10 @@ class HTTPClient(object):
         except HTTPError as e:
             ret = HTTPResponse(
                 e.code,
-                String(e),
+                # an HTTPError can also function as a non-exceptional file-like
+                # return value (the same thing that urlopen() returns).
+                # If you don't read the error it will leave a dangling socket
+                e.read(),
                 {},
                 self,
                 e

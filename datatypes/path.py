@@ -7,7 +7,7 @@ import stat
 import codecs
 import shutil
 import hashlib
-from collections import deque
+from collections import deque, defaultdict
 import zipfile
 import tarfile
 import site
@@ -2213,19 +2213,10 @@ class PathIterator(ListIterator):
         # subdirectory folder depth to iterate, see .depth()
         self._yield_depth = -1
 
-        # the glob/fnmatch patterns to filter the iteration through
-        self._yield_patterns = []
-
-        # the regex patterns to filter the iteration through
-        self._yield_regexes = []
-
-        # the callables to filter the iteration through
-        self._yield_callbacks = []
-
         # reverse the iteration?
         self._yield_reverse = False
 
-        # sor the iteration? When set this is a tuple (args, kwargs) to pass to
+        # sort the iteration? When set this is a tuple (args, kwargs) to pass to
         # sorted
         self._yield_sort = None
 
@@ -2237,11 +2228,20 @@ class PathIterator(ListIterator):
         # it's a tuple (args, kwargs)
         self._yield_property_args = None
 
-        # Holds the filenames/basenames callbacks that will filter the os.walk filenames
-        self._yield_filename_callbacks = []
+        # the following are the criteria dicts, they have the following top
+        # level keys, see ._add_criteria():
+        #   * filenames: the filenames/basenames filter criteria for the os.walk filenames
+        #   * dirnames: the filenames/basenames filter criteria for the os.walk dirnames
+        #   * paths: the filter criteria for all the paths after filenames/dirnames are filtered
 
-        # Holds the dirnames/basenames callbacks that will filter the os.walk dirnames
-        self._yield_dirname_callbacks = []
+        # the glob/fnmatch patterns to filter the iteration through
+        self._yield_patterns = defaultdict(list)
+
+        # the regex patterns to filter the iteration through
+        self._yield_regexes = defaultdict(list)
+
+        # the callables to filter the iteration through
+        self._yield_callbacks = defaultdict(list)
 
     def files(self, v=True):
         """Iterate only files (this excludes directories)"""
@@ -2293,14 +2293,13 @@ class PathIterator(ListIterator):
         :param **kwargs:
             * inverse: bool, Fail the match if pattern matches the path
         """
-        self._yield_patterns.append((pattern, kwargs))
-        return self
+        return self._add_criteria(self._yield_patterns, pattern, **kwargs)
 
-    def fnmatch(self, pattern):
+    def fnmatch(self, pattern, **kwargs):
         """alias of .pattern()"""
-        return self.pattern(pattern)
+        return self.pattern(pattern, **kwargs)
 
-    def glob(self, pattern):
+    def glob(self, pattern, **kwargs):
         """alias of .pattern() but will set recursive=True if pattern starts with **/
 
         I attempted to mimic Pathlib's glob, but there is the glob module also:
@@ -2308,17 +2307,17 @@ class PathIterator(ListIterator):
             https://docs.python.org/3/library/glob.html#glob.glob
             https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
         """
-        self.pattern(pattern)
+        self.pattern(pattern, **kwargs)
         return self.recursive("**/" in pattern)
 
-    def rglob(self, pattern):
+    def rglob(self, pattern, **kwargs):
         """alias of .pattern() but sets recursive=True"""
-        self.pattern(pattern)
+        self.pattern(pattern, **kwargs)
         return self.recursive(True)
 
-    def not_pattern(self, pattern):
+    def not_pattern(self, pattern, **kwargs):
         """Inverse the pattern match, same as calling .pattern(pattern, inverse=True)"""
-        return self.pattern(pattern, inverse=True)
+        return self.pattern(pattern, inverse=True, **kwargs)
 
     def regex(self, regex, **kwargs):
         """Only iterate paths that match regex
@@ -2329,12 +2328,11 @@ class PathIterator(ListIterator):
         :param **kwargs:
             * inverse: bool, Fail the match if regex matches the path
         """
-        self._yield_regexes.append((regex, kwargs))
-        return self
+        return self._add_criteria(self._yield_regexes, regex, **kwargs)
 
-    def not_regex(self, regex):
+    def not_regex(self, regex, **kwargs):
         """Inverse the regex match, same as calling .regex(regex, inverse=True)"""
-        return self.regex(regex, inverse=True)
+        return self.regex(regex, inverse=True, **kwargs)
 
     def callback(self, cb, **kwargs):
         """Only iterate paths that return True from cb(path)
@@ -2343,71 +2341,45 @@ class PathIterator(ListIterator):
         :param **kwargs:
             * inverse: bool, Fail the match if callback returns True
         """
-        self._yield_callbacks.append((cb, kwargs))
-        return self
+        return self._add_criteria(self._yield_callbacks, cb, **kwargs)
 
-    def ifilter(self, cb):
+    def ifilter(self, cb, **kwargs):
+        """alias of .callback()
+
+        This is named .ifilter to be consistent with py2.7 itertools.ifilter, it
+        doesn't exist anymore but I used .ifilter in other places like prom.Query
+        """
+        return self.callback(cb, **kwargs)
+
+    def filter(self, cb, **kargs):
         """alias of .callback()"""
-        return self.callback(cb)
+        return self.callback(cb, **kwargs)
 
-    def not_callback(self, cb):
+    def not_callback(self, cb, **kwargs):
         """Inverse the callback return, same as calling .callback(cb, inverse=True)"""
-        return self.callback(cb, inverse=True)
+        return self.callback(cb, inverse=True, **kwargs)
 
-    def filenames(self, cb, **kwargs):
-        """Set callback to filter os.walk's filenames in place
+    def _add_criteria(self, criteria, v, **kwargs):
+        """Adds (v, kwargs) to the criteria dict
 
-        This is more advanced functionality, these callbacks are fired regardless
-        of .files()/.dirs() setting
-
-        :param cb: callable, a callable that takes a basename, returns True if that
-            basename should be yielded
+        :param criteria: dict
+        :param v: mixed, the pattern/regex/callback
+        :param **kwargs: the named params passed to the filtering methods
         """
-        self._yield_filename_callbacks.append((cb, kwargs))
+        if kwargs.pop("filename", kwargs.pop("filenames", False)):
+            criteria["filenames"].append((v, kwargs))
+
+        elif kwargs.pop("dirname", kwargs.pop("dirnames", False)):
+            criteria["dirnames"].append((v, kwargs))
+
+        elif kwargs.pop("basename", kwargs.pop("basenames", False)):
+            criteria["filenames"].append((v, kwargs))
+            criteria["dirnames"].append((v, kwargs))
+
+        else:
+            criteria["paths"].append((v, kwargs))
+
         return self
-
-    def not_filenames(self, cb):
-        """Inverses .filenames()"""
-        return self.filenames(cb, inverse=True)
-
-    def dirnames(self, cb, **kwargs):
-        """Set callback to filter os.walk's dirnames in place
-
-        This is more advanced functionality, these callbacks are fired regardless
-        of .files()/.dirs() setting
-
-        :param cb: callable, a callable that takes a basename, returns True if that
-            basename should be yielded
-        """
-        self._yield_dirname_callbacks.append((cb, kwargs))
-        return self
-
-    def not_dirnames(self, cb):
-        """Inverses .dirnames()"""
-        return self.dirnames(cb, inverse=True)
-
-    def basenames(self, cb, **kwargs):
-        """Set callback to filter os.walk's dirnames/filenames in place
-
-        This is more advanced functionality, these callbackes will be fired on
-        both dirnames and filenames regardless of .files()/.dirs() settings and
-        are fired before any iteration has taken place
-
-        :Example:
-            # ignore any files/folders that start with an underscore
-            p = PathIterator(dirpath)
-            for p in PathIterator(dirpath).not_basenames(lambda bn: bn.startswith("_")):
-                print(p)
-
-        :param cb: callable, a callable that takes a basename, returns True if that
-            basename should be yielded
-        """
-        self.filenames(cb, **kwargs)
-        return self.dirnames(cb, **kwargs)
-
-    def not_basenames(self, cb):
-        """Inverses .basenames()"""
-        return self.basenames(cb, inverse=True)
 
     def _failed_match(self, matched, **kwargs):
         """internal method, this handles the inversing logic of the match and will
@@ -2431,7 +2403,7 @@ class PathIterator(ListIterator):
                 failed = True
         return failed
 
-    def _should_yield(self, path):
+    def _should_yield(self, criteria_key, path):
         """internal method, returns True if path should be yielded by the iterator
 
         This runs path through all filtering cases (patterns, regexes, callbacks)
@@ -2442,20 +2414,23 @@ class PathIterator(ListIterator):
         """
         should_yield = True
 
-        for pattern, kwargs in self._yield_patterns:
-            haystack = path if pattern.startswith("*") else path.basename
+        for pattern, kwargs in self._yield_patterns[criteria_key]:
+            haystack = path
+            if not pattern.startswith("*"):
+                haystack = getattr(path, "basename", path)
+
             if self._failed_match(fnmatch.fnmatch(haystack, pattern), **kwargs):
                 should_yield = False
                 break
 
         if should_yield:
-            for regex, kwargs in self._yield_regexes:
+            for regex, kwargs in self._yield_regexes[criteria_key]:
                 if self._failed_match(re.search(regex, path, flags=kwargs.get("flags", 0)), **kwargs):
                     should_yield = False
                     break
 
         if should_yield:
-            for cb, kwargs in self._yield_callbacks:
+            for cb, kwargs in self._yield_callbacks[criteria_key]:
                 if self._failed_match(cb(path), **kwargs):
                     should_yield = False
                     break
@@ -2474,7 +2449,7 @@ class PathIterator(ListIterator):
             for basename in basenames:
                 yield path.create_dir(basedir, basename)
 
-    def _modify_basenames(self, basenames, callbacks):
+    def _modify_basenames(self, criteria_key, basenames):
         """Modifies basenames returned from os.walk in place so those basenames
         will not be walked
 
@@ -2496,17 +2471,15 @@ class PathIterator(ListIterator):
 
         """
         indexes = []
-        if callbacks:
-            for i, basename in enumerate(basenames):
-                for cb, kwargs in callbacks:
-                    if self._failed_match(cb(basename), **kwargs):
-                        indexes.append(i)
-                        break
+        for i, basename in enumerate(basenames):
+            if not self._should_yield(criteria_key, basename):
+                indexes.append(i)
 
-            offset = 0
-            for i in indexes:
-                basenames.pop(i - offset)
-                offset += 1
+        # modify the basenames list in place
+        offset = 0
+        for i in indexes:
+            basenames.pop(i - offset)
+            offset += 1
 
     def _iterpath(self, path, depth):
         """internal recursive method that yields path instances and respects depth
@@ -2515,8 +2488,8 @@ class PathIterator(ListIterator):
         :param depth: int, how far into path should be iterated
         """
         for basedir, dirnames, filenames in path.walk(topdown=True):
-            self._modify_basenames(dirnames, self._yield_dirname_callbacks)
-            self._modify_basenames(filenames, self._yield_filename_callbacks)
+            self._modify_basenames("dirnames", dirnames)
+            self._modify_basenames("filenames", filenames)
 
             # https://docs.python.org/3/library/itertools.html#itertools.chain
             it = itertools.chain(
@@ -2524,7 +2497,7 @@ class PathIterator(ListIterator):
                 self._iterfiles(path, basedir, filenames),
             )
             for p in it:
-                if self._should_yield(p):
+                if self._should_yield("paths", p):
                     if self._yield_property_name:
                         if self._yield_property_args:
                             args, kwargs = self._yield_property_args
