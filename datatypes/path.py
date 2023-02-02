@@ -2197,18 +2197,18 @@ class PathIterator(ListIterator):
         # iterate through all the paths relative to dirpath
         for relpath in PathIterator(dirpath).relative_to(dirpath):
             print(relpath)
+
+        # ignore directories/files that start with an underscore
+        PathIterator(dirpath).not_regex(r"^_", basename=True)
+
+        # return all directories named foo
+        PathIterator(dirpath).dirs(regex=r"foo")
     """
     def __init__(self, path: Dirpath):
         """
         :param path: Dirpath, the directory to iterate
         """
         self.path = path
-
-        # True if files should be iterated
-        self._yield_files = True
-
-        # True if directories should be iterated
-        self._yield_dirs = True
 
         # subdirectory folder depth to iterate, see .depth()
         self._yield_depth = -1
@@ -2228,11 +2228,25 @@ class PathIterator(ListIterator):
         # it's a tuple (args, kwargs)
         self._yield_property_args = None
 
+        # the following 2 counters are incremented/decremented in .files() and
+        # .dirs(), the idea is that you could do self.files().dirs() and that
+        # really would iterate files and folders because .files() would increment
+        # _yield_files and decrement _yield_dirs, while .dirs() would do the 
+        # opposite, so the net change to the counters would be 0
+
+        # if value is >0 then iterate files
+        self._yield_files = 1
+
+        # if value is >0 then iterate directories
+        self._yield_dirs = 1
+
         # the following are the criteria dicts, they have the following top
         # level keys, see ._add_criteria():
         #   * filenames: the filenames/basenames filter criteria for the os.walk filenames
         #   * dirnames: the filenames/basenames filter criteria for the os.walk dirnames
         #   * paths: the filter criteria for all the paths after filenames/dirnames are filtered
+        #   * files: all files will be filtered through these
+        #   * directories: all directories will be filtered through these
 
         # the glob/fnmatch patterns to filter the iteration through
         self._yield_patterns = defaultdict(list)
@@ -2243,25 +2257,52 @@ class PathIterator(ListIterator):
         # the callables to filter the iteration through
         self._yield_callbacks = defaultdict(list)
 
-    def files(self, v=True):
+    def files(self, v=True, **kwargs):
         """Iterate only files (this excludes directories)"""
-        self._yield_files = v
-        return self.not_dirs()
+        if v:
+            self._yield_files += 1
+            self._yield_dirs -= 1
+        else:
+            self._yield_files -= 1
+            self._yield_dirs += 1
 
-    def not_files(self, v=True):
+        criteria = kwargs.pop("criteria", {})
+        criteria.update({
+            "files": True
+        })
+        return self._add_kwargs(criteria, **kwargs)
+
+    def not_files(self, v=True, **kwargs):
         """Don't iterate files"""
-        self._yield_files = not v
-        return self
+        criteria = {"inverse": True}
+        return self.files(not v, criteria=criteria, **kwargs)
+#         self._yield_files = not v
+#         self._add_kwargs(inverse=True, files=True, **kwargs)
+#         return self
 
-    def dirs(self, v=True):
+    def dirs(self, v=True, **kwargs):
         """Iterate only directories (this excludes files)"""
-        self._yield_dirs = v
-        return self.not_files()
+        if v:
+            self._yield_dirs += 1
+            self._yield_files -= 1
+        else:
+            self._yield_dirs -= 1
+            self._yield_files += 1
 
-    def not_dirs(self, v=True):
+        criteria = kwargs.pop("criteria", {})
+        criteria.update({
+            "dirs": True
+        })
+        return self._add_kwargs(criteria, **kwargs)
+        #self._add_kwargs(criteria, **kwargs)
+        #return self.files(False)
+
+    def not_dirs(self, v=True, **kwargs):
         """Don't iterate directories"""
-        self._yield_dirs = not v
-        return self
+        criteria = {"inverse": True}
+        return self.dirs(not v, criteria=criteria, **kwargs)
+        #self._yield_dirs = not v
+        #return self
 
     def recursive(self, recursive=True):
         """Only iterate current directory all current and all subdirectories
@@ -2359,6 +2400,27 @@ class PathIterator(ListIterator):
         """Inverse the callback return, same as calling .callback(cb, inverse=True)"""
         return self.callback(cb, inverse=True, **kwargs)
 
+    def _add_kwargs(self, criteria, **kwargs):
+        """Certain methods allow passthrough kwargs, this will take those kwargs
+        and add them to the instance. Basically, it takes the kwargs and if the
+        key in the kwarg is a method on self it will call getattr(self, key)(value)
+
+        :Example:
+            # filter files by a pattern
+            self.files(pattern="*.txt")
+
+        :param criteria: dict, these will also be passed to the callback found
+            in the kwarg keys
+        :param **kwargs: keys are method names and values will be passed to the
+            method named in key
+        """
+        for k, v in kwargs.items():
+            cb = getattr(self, k, None)
+            if callable(cb):
+                cb(v, **criteria)
+
+        return self
+
     def _add_criteria(self, criteria, v, **kwargs):
         """Adds (v, kwargs) to the criteria dict
 
@@ -2375,6 +2437,12 @@ class PathIterator(ListIterator):
         elif kwargs.pop("basename", kwargs.pop("basenames", False)):
             criteria["filenames"].append((v, kwargs))
             criteria["dirnames"].append((v, kwargs))
+
+        elif kwargs.pop("dirs", False):
+            criteria["dirs"].append((v, kwargs))
+
+        elif kwargs.pop("files", False):
+            criteria["files"].append((v, kwargs))
 
         else:
             criteria["paths"].append((v, kwargs))
@@ -2437,49 +2505,55 @@ class PathIterator(ListIterator):
 
         return should_yield
 
-    def _iterfiles(self, path, basedir, basenames):
+    def _iterfiles(self, path, basedir, basenames, **kwargs):
         """internal method that converts .walk() values to Filepath instances"""
-        if self._yield_files:
+        if kwargs.get("_yield_files", self._yield_files) > 0:
             for basename in basenames:
-                yield path.create_file(basedir, basename)
+                if self._should_yield("filenames", basename):
+                    fp = path.create_file(basedir, basename)
+                    if self._should_yield("files", fp):
+                        yield fp
 
-    def _iterdirs(self, path, basedir, basenames):
+    def _iterdirs(self, path, basedir, basenames, **kwargs):
         """internal method that converts .walk() values to Dirpath instances"""
-        if self._yield_dirs:
+        if kwargs.get("_yield_dirs", self._yield_dirs) > 0:
             for basename in basenames:
-                yield path.create_dir(basedir, basename)
+                if self._should_yield("dirnames", basename):
+                    dp = path.create_dir(basedir, basename)
+                    if self._should_yield("dirs", dp):
+                        yield dp
 
-    def _modify_basenames(self, criteria_key, basenames):
-        """Modifies basenames returned from os.walk in place so those basenames
-        will not be walked
-
-        These callback are ran before any other filters and are ran on both dirnames
-        and filenames regardless of .files()/.dirs() settings. If dirnames are
-        filtered then those folders won't be yielded and they won't be recursed
-        either
-
-        From the os.walk docs:
-
-            https://docs.python.org/3/library/os.html#os.walk
-
-            When topdown is True, the caller can modify the dirnames list in-place
-            (perhaps using del or slice assignment), and walk() will only recurse
-            into the subdirectories whose names remain in dirnames; this can be
-            used to prune the search, impose a specific order of visiting, or even
-            to inform walk() about directories the caller creates or renames before
-            it resumes walk() again.
-
-        """
-        indexes = []
-        for i, basename in enumerate(basenames):
-            if not self._should_yield(criteria_key, basename):
-                indexes.append(i)
-
-        # modify the basenames list in place
-        offset = 0
-        for i in indexes:
-            basenames.pop(i - offset)
-            offset += 1
+#     def _modify_basenames(self, criteria_key, basenames):
+#         """Modifies basenames returned from os.walk in place so those basenames
+#         will not be walked
+# 
+#         These callback are ran before any other filters and are ran on both dirnames
+#         and filenames regardless of .files()/.dirs() settings. If dirnames are
+#         filtered then those folders won't be yielded and they won't be recursed
+#         either
+# 
+#         From the os.walk docs:
+# 
+#             https://docs.python.org/3/library/os.html#os.walk
+# 
+#             When topdown is True, the caller can modify the dirnames list in-place
+#             (perhaps using del or slice assignment), and walk() will only recurse
+#             into the subdirectories whose names remain in dirnames; this can be
+#             used to prune the search, impose a specific order of visiting, or even
+#             to inform walk() about directories the caller creates or renames before
+#             it resumes walk() again.
+# 
+#         """
+#         indexes = []
+#         for i, basename in enumerate(basenames):
+#             if not self._should_yield(criteria_key, basename):
+#                 indexes.append(i)
+# 
+#         # modify the basenames list in place
+#         offset = 0
+#         for i in indexes:
+#             basenames.pop(i - offset)
+#             offset += 1
 
     def _iterpath(self, path, depth):
         """internal recursive method that yields path instances and respects depth
@@ -2488,8 +2562,8 @@ class PathIterator(ListIterator):
         :param depth: int, how far into path should be iterated
         """
         for basedir, dirnames, filenames in path.walk(topdown=True):
-            self._modify_basenames("dirnames", dirnames)
-            self._modify_basenames("filenames", filenames)
+            #self._modify_basenames("dirnames", dirnames)
+            #self._modify_basenames("filenames", filenames)
 
             # https://docs.python.org/3/library/itertools.html#itertools.chain
             it = itertools.chain(
@@ -2511,15 +2585,18 @@ class PathIterator(ListIterator):
 
             if depth != 1:
                 depth = depth - 1 if depth >= 0 else depth
+                #for p in self._iterdirs(path, basedir, dirnames, _yield_dirs=1):
                 for basename in dirnames:
-                    p = path.create_dir(basedir, basename)
-                    for sp in self._iterpath(p, depth=depth):
-                        yield sp
+                    if self._should_yield("dirnames", basename):
+                        p = path.create_dir(basedir, basename)
+                        for sp in self._iterpath(p, depth=depth):
+                            yield sp
 
             break
 
     def __iter__(self):
         """list interface compatibility"""
+        #pout.v(vars(self))
         it = self._iterpath(self.path, depth=self._yield_depth)
 
         if self._yield_reverse:

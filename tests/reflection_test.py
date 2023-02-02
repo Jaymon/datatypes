@@ -427,3 +427,38 @@ class ReflectModuleTest(TestCase):
         for modpart in ["foo", "bar", "che"]:
             self.assertFalse(modpart in import_path)
 
+    def test_get_find_data(self):
+        modpath = "gdrm"
+        dp = testdata.create_modules({
+            f"{modpath}.foo": "",
+            f"{modpath}.foo.bar": "",
+            f"{modpath}.che.baz.boo": "",
+        })
+
+        dp.child_file(modpath, "data", "one.txt").write_text("1")
+        dp.child_file(modpath, "foo", "bar", "data", "two.txt").write_text("2")
+        dp.child_file(modpath, "che", "data", "three.txt").write_text("3")
+
+        rm = ReflectModule(modpath)
+
+        data = rm.get_data("data/one.txt")
+        self.assertEqual(b"1", data)
+
+        data = rm.get_data("foo/bar/data/two.txt")
+        self.assertEqual(b"2", data)
+
+        data = rm.get_data("che/data/three.txt")
+        self.assertEqual(b"3", data)
+
+        with self.assertRaises(FileNotFoundError):
+            rm.get_data("four.txt")
+
+        data = rm.find_data("one.txt")
+        self.assertEqual(b"1", data)
+
+        data = rm.find_data("two.txt")
+        self.assertEqual(b"2", data)
+
+        data = rm.find_data("data/three.txt")
+        self.assertEqual(b"3", data)
+

@@ -13,6 +13,7 @@ import pkgutil
 from .compat import *
 from .decorators import property
 from .string import String
+from .path import Dirpath
 
 
 class OrderedSubclasses(list):
@@ -209,8 +210,8 @@ class ReflectMethod(object):
     Reflects a method on a class. This is kind of a strange situation where this
     class is entirely dependant on ReflectClass for its information. This is because
     this figures out all the decorators that were defined on this method and that
-    information is only available in the full code of the class, so this really
-    wraps ReflectClass.get_info()
+    information is only available in the full actual python code of the class, as
+    retrieved using the ast module, so this really wraps ReflectClass.get_info()
 
     Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
     """
@@ -623,7 +624,7 @@ class ReflectModule(object):
     @property
     def modpath(self):
         """Return the full qualified python path of the module (eg, foo.bar.che)"""
-        return self.module.__name__
+        return self.module().__name__
 
     @classmethod
     def find_module_names(cls, path, prefix="", ignore_private=True):
@@ -659,6 +660,12 @@ class ReflectModule(object):
 
     @classmethod
     def find_module_package(cls, module_name):
+        """This will attempt to find the package if module_name is relative
+
+        :param module_name: str, if relative (starts with dot) then try and find
+            the calling package which you can pass into importlib.import_module()
+        :returns: str, the calling package modpath
+        """
         module_package = None
         if module_name.startswith("."):
             frames = inspect.stack()
@@ -707,12 +714,25 @@ class ReflectModule(object):
             if part.startswith("_"):
                 return True
 
-    def module(self):
-        """return the actual python module"""
-        if self._module:
+    def reflect_module(self, *parts):
+        """Returns a reflect module instance for a submodule"""
+        return type(self)(self.module(*parts))
+
+    def module(self, *parts):
+        """return the actual python module
+
+        :param *parts: modpath parts relative to this module
+        :returns: ModuleType, the module or the submodule
+        """
+        if self._module and not parts:
             ret = self._module
+
         else:
-            ret = importlib.import_module(self.module_name, self.module_package)
+            module_name = self.module_name
+            if parts:
+                module_name += "." + ".".join(parts)
+
+            ret = importlib.import_module(module_name, self.module_package)
         return ret
 
     def module_names(self):
@@ -779,4 +799,62 @@ class ReflectModule(object):
         master_module = sys.modules[master_modname]
         path = os.path.dirname(os.path.dirname(inspect.getsourcefile(master_module)))
         return path
+
+    def get_data(self, resource):
+        """This is just a wrapper around pkgutil.get_data, so you will need to use
+        the full path from this module
+
+        :Example:
+            foo/
+              __init__.py
+              data/
+                one.txt
+              bar/
+                __init__.py
+                che.py
+                data/
+                  two.txt
+
+            rm = ReflectModule("foo")
+            rm.get_data("data/one.txt")
+            rm.get_data("bar/data/two.txt")
+
+        * https://docs.python.org/3/library/pkgutil.html#pkgutil.get_data
+        * https://stackoverflow.com/questions/6028000/how-to-read-a-static-file-from-inside-a-python-package/58941536#58941536
+        * https://setuptools.pypa.io/en/latest/userguide/datafiles.html
+        * https://stackoverflow.com/questions/779495/access-data-in-package-subdirectory
+
+        :param resource: the full relative path from self.modpath of the file you want
+        :returns: bytes, the file contents
+        """
+        return pkgutil.get_data(self.modpath, resource)
+
+    def find_data(self, resource):
+        """Similar to .get_data() but you don't need to specify the full path because
+        this will traverse the whole module directory so it will only work with
+        traditional packages
+
+        :param resource: the relative path of the file hopefully somewhere in the package
+        :returns: bytes, the file contents
+        """
+        basedir = Dirpath(self.path, self.modpath.split("."))
+        for fp in basedir.files():
+            if fp.endswith(resource):
+                return fp.read_bytes()
+
+        raise FileNotFoundError(f"No such file or directory found: {resource}")
+
+    def find_data_dirs(self, basename="data"):
+        """Find the data directories in this module
+
+        A directory is considered a data directory if it matches basename or if
+        it doesn't contain an __init__.py file
+
+        :param basename: the data directory basename
+        :returns: generator, yields all the found module data directories
+        """
+        basedir = Dirpath(self.path)
+        for dp in basedir.dirs():
+            if not dp.has_file("__init__.py") or dp.endswith(basename):
+                yield dp
 

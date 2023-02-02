@@ -2004,3 +2004,23 @@ class PathIteratorTest(TestCase):
             r_count += 1
         self.assertEqual(2, r_count)
 
+    def test_passthrough(self):
+        dirpath = testdata.create_files({
+            "1.txt": "body 1",
+            "bar/data/_2.txt": "body 2",
+            "boo/3.txt": "body 3",
+            "boo/_baz/data/4.txt": "body 4",
+        })
+
+        # return all files and any directories named data
+        it = PathIterator(dirpath)
+        for count, fp in enumerate(it.dirs(regex=r"data$").files(), 1):
+            pass
+        self.assertEqual(6, count)
+
+        # any directories named data
+        it = PathIterator(dirpath)
+        for count, fp in enumerate(it.dirs(regex=r"data$"), 1):
+            pout.v(fp)
+        self.assertEqual(2, count)
+
