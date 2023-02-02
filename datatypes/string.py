@@ -407,9 +407,11 @@ class NamingConvention(String):
     """Class that makes it easy to handle the different types of names that can
     be defined and passed in.
 
-    For example, python convention is snake case (underscores), but you would want
-    to pass in values on the commandline using dashes, so this class makes it easy
-    to go from `--foo-bar=1` to `foo_bar=1`
+    For example, python convention for variables is snake case (lower case with
+    underscores between words: foo_bar), but class names are camel case (title case
+    words scrunched together: FooBar) and you would want to pass in values on the
+    commandline using dashes, so this class makes it easy to go from `foo-bar`
+    to `foo_bar` to `FooBar`
 
     Moved here from Captain.reflection.Name on 12-19-2022, also moved all the case
     methods from String into here
@@ -417,67 +419,126 @@ class NamingConvention(String):
     https://en.wikipedia.org/wiki/Naming_convention_(programming)
     """
     def splitcamel(self):
+        """Split self on camel casing boundaries (capital letters)
+
+        :Example:
+            NamingConvention("FooBar").splitcamel() # ["Foo", "Bar"]
+
+        :returns: list, a list of parts
+        """
         # https://stackoverflow.com/a/37697078/5006
         return re.sub('([A-Z][a-z]+)', r' \1', re.sub('([A-Z]+)', r' \1', self)).split()
 
     def splitdash(self):
+        """Split self on dashes
+
+        :Example:
+            NamingConvention("foo-bar").splitdash() # ["foo", "bar"]
+
+        :returns: list, a list of parts
+        """
         return self.split("-")
 
     def splitunderscore(self):
+        """Split self on underscores
+
+        :Example:
+            NamingConvention("foo_bar").splitunderscore() # ["foo", "bar"]
+
+        :returns: list, a list of parts
+        """
         return self.split("_")
 
     def split(self, *args, **kwargs):
+        """Overrides the normal string split to also split on camelcasing, dashes,
+        or underscores. If you pass in a value then it will act like the normal
+        split
+        """
         if args or kwargs:
             ret = super().split(*args, **kwargs)
 
         else:
-            ret = self.splitunderscore()
-            if len(ret) == 1:
-                ret = self.splitdash()
-                if len(ret) == 1:
-                    ret = self.splitcamel()
+            ret = []
+            for p in re.split(r"[\s_-]", self):
+                ret.extend(type(self)(p).splitcamel())
 
         return ret
 
     def underscore(self):
+        """changes the separators to underscore
+
+        :Example:
+            NamingConvention("foo-bar").underscore() # foo_bar
+        """
         return "_".join(self.split())
 
     def dash(self):
+        """changes the separators to dashes
+
+        :Example:
+            NamingConvention("foo_bar").underscore() # foo-bar
+        """
         return "-".join(self.split())
 
-    def aliases(self): return self.variations()
     def variations(self):
+        """Returns python naming convention variations in self
+
+        :Example:
+            NamingConvention("foo-bar").variations() # ["foo-bar", "foo_bar"]
+
+        :returns: list, all the python specific naming variations of self
+        """
         s = set()
         for n in [self, self.underscore(), self.dash()]:
             s.add(n)
             s.add(n.lower())
         return s
+    def aliases(self): return self.variations()
 
     def varname(self):
-        """Return the typical python variable name for self"""
+        """Return the typical python variable name for self
+
+        :Example:
+            NamingConvention("FooBar").varname() # foo_bar
+        """
         return self.snakecase()
     variable_name = varname
     variable = varname
     var_name = varname
 
     def classname(self):
-        """Return the typical python class name for self"""
+        """Return the typical python class name for self
+
+        :Example:
+            NamingConvention("foo_bar").classname() # FooBar
+        """
         return self.camelcase()
     class_name = classname
 
     def constantname(self):
-        """Return the typical constant name for self"""
+        """Return the typical constant name for self
+
+        :Example:
+            NamingConvention("foo_bar").constantname() # FOO_BAR
+        """
         return self.screaming_snakecase()
     constant = constantname
 
     def keyname(self):
-        """Return the typical key name for self"""
+        """Return the typical key name for self
+
+        :Example:
+            NamingConvention("FooBar").keyname() # foo-bar
+        """
         return self.kebabcase()
 
     def camelcase(self):
         """Convert a string to use camel case (spaces removed and capital letters)
 
         CamelCase
+
+        :Example:
+            NamingConvention("foo-bar").camelcase() # FooBar
 
         this method and snakecase come from pout.utils.String, they were moved
         here on March 8, 2022
@@ -486,44 +547,35 @@ class NamingConvention(String):
         https://stackoverflow.com/questions/17326185/what-are-the-different-kinds-of-cases
         https://en.wikipedia.org/wiki/Naming_convention_(programming)#Examples_of_multiple-word_identifier_formats
         """
-        return "".join(map(lambda s: s.title(), re.split(r"[\s_-]+", self)))
-
+        return "".join(map(lambda s: s.title(), self.split()))
     def upper_camelcase(self):
-        """aliase of camel case
-
-        CamelCase"""
+        """aliase of camel case"""
         return self.camelcase()
-
     def pascalcase(self):
-        """alias of camel case
-
-        CamelCase"""
+        """alias of camel casee"""
         return self.camelcase()
-
     def studlycase(self):
-        """alias of camel case
-
-        CamelCase"""
+        """alias of camel case"""
         return self.camelcase()
 
     def lower_camelcase(self):
-        """camel case but first letter is lowercase
+        """camel case but first letter is lowercase (eg camelCase)
 
-        camelCase"""
+        :Example:
+            NamingConvention("foo-bar").lower_camelcase() # fooBar
+        """
         cc = self.camelcase()
         return cc[0].lower() + cc[1:]
-
     def dromedarycase(self):
-        """camel case but first letter is lowercase
-
-        camelCase"""
+        """camel case but first letter is lowercase"""
         return self.lower_camelcase()
 
     def snakecase(self):
         """Convert a string to use snake case (lowercase with underscores in place
-        of spaces)
+        of spaces: snake_case)
 
-        snake_case
+        :Example:
+            NamingConvention("FooBar").snakecase() # foo_bar
 
         https://en.wikipedia.org/wiki/Snake_case
         """
@@ -556,25 +608,22 @@ class NamingConvention(String):
         #return re.sub(r"[\s-]+", "_", "".join(s)).lower()
 
     def screaming_snakecase(self):
-        """snake case but all capital letters instead of lowercase
+        """snake case but all capital letters instead of lowercase (eg, SCREAMING_SNAKE_CASE)
 
-        SCREAMING_SNAKE_CASE
+        :Example:
+            NamingConvention("FooBar").screaming_snakecase() # FOO_BAR
         """
         return self.snakecase().upper()
 
     def kebabcase(self):
-        """snake case but with dashes instead of underscores
-
-        kebab-case
+        """snake case but with dashes instead of underscores (eg kebab-case)
 
         https://en.wikipedia.org/wiki/Letter_case#Kebab_case
         """
         return self.snakecase().replace("_", "-")
 
     def screaming_kebabcase(self):
-        """snake case but with dashes and all caps
-
-        SCREAMING-KEBAB-CASE
+        """snake case but with dashes and all caps (eg SCREAMING-KEBAB-CASE)
         """
         return self.kebabcase().upper()
 

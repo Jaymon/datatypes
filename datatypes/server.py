@@ -11,7 +11,7 @@ import weakref
 from .compat import *
 from . import environ
 from .url import Host, Url
-from .string import String
+#from .string import String
 from .path import Dirpath
 from .decorators import property as cachedproperty
 
@@ -19,24 +19,19 @@ from .decorators import property as cachedproperty
 logger = logging.getLogger(__name__)
 
 
-class ServerThread(String):
-    """This is the Webserver master class, it masquerades as a string whose value
-    is the url scheme://hostname:port but adds helper methods to manage the webserver
+class ServerThread(Url):
+    """This makes it easy to run a Server in another thread, it masquerades as a
+    Url instance whose value is the url scheme://hostname:port but adds helper
+    methods to start/stop the passed in Server instance and clean up after it
+
+    Moved from testdata.server on 1-24-2023
 
     :Example:
-        s = Server()
+        s = ServerThread(PathServer("/some/path"))
         with s:
             # make an http request to <SERVER-HOST>/foo/bar.txt
-            requests.get(s.url("foo", "bar.txt"))
+            requests.get(s.child("foo", "bar.txt"))
     """
-    @property
-    def hostname(self):
-        return self.server_address.hostname
-
-    @property
-    def port(self):
-        return self.server_address.port
-
     @property
     def started(self):
         """Returns True if the webserver has been started"""
@@ -46,17 +41,12 @@ class ServerThread(String):
             ret = False
         return ret
 
-    @classmethod
-    def get_server_address(self, hostname, port)
-        if not hostname: hostname = environ.HOSTNAME
-        if port is None: port = environ.HOSTPORT
-        return Host(hostname, port)
-
     def __new__(cls, server, **kwargs):
-        instance = super().__new__(cls, server.server_address.full(), **kwargs)
+        instance = super().__new__(cls, server.get_url())
 
         instance.server = server
         instance.server_address = server.server_address
+        instance.poll_interval = kwargs.get("poll_interval", 0.5)
 
         # enables cleanup of open sockets even if the object isn't correctly
         # garbage collected
@@ -79,25 +69,13 @@ class ServerThread(String):
         """Allows webserver to be used with "with" keyword"""
         self.stop()
 
-    def url(self, *parts, **kwargs):
-        """Use this method to get a full url for the file you want
-
-        :example:
-            s = WebServer("/some/path")
-            print(s.url("foo.txt")) # http://localhost:PORT/foo.txt
-
-        :param *parts: list, the path parts you will add to the scheme://netloc
-        :returns: the full url scheme://netloc/parts
-        """
-        return self.server.get_url(*parts, **kwargs)
-
     def start(self):
         """Start the webserver"""
         if self.started: return
         server = self.server
 
         def target():
-            server.serve_forever()
+            server.serve_forever(poll_interval=self.poll_interval)
 
         #from threading import Thread
         thread = Thread(target=target)
@@ -115,19 +93,30 @@ class ServerThread(String):
 
 class BaseServer(HTTPServer):
     """Base class for all the other servers that contains common functionality"""
-    def __init__(self, server_address=None, encoding=environ.ENCODING, **kwargs):
+    def __init__(self, server_address=None, encoding="", **kwargs):
+        """
+        :param server_address: tuple, (hostname, port), if None this will use ("", None)
+            which will cause the parent to use 0.0.0.0 and to find an available free
+            port
+        :param encoding: str, if empty then environment setting will be used
+        :param **kwargs: passed to parent
+            RequestHandlerClass: will be set to children's handler_class param
+        """
         if server_address:
             server_address = Host(*server_address)
         else:
             server_address = Host("", None)
 
-        self.encoding = encoding
-
+        self.encoding = encoding or environ.ENCODING
         kwargs.setdefault("RequestHandlerClass", self.handler_class)
         super().__init__(server_address, **kwargs)
 
     def get_url(self, *args, **kwargs):
         """Create a url using the server's server_address information
+
+        :example:
+            s = PathServer("/some/path")
+            print(s.get_url("foo.txt")) # http://localhost:PORT/foo.txt
 
         :param *args: passed through to Url
         :param **kwargs: passed throught to Url, scheme, hostname, and port will
@@ -142,7 +131,7 @@ class BaseServer(HTTPServer):
             hostname=hostname,
             port=self.server_port
         ))
-        kwargs.setefault("scheme", "http")
+        kwargs.setdefault("scheme", "http")
 
         return Url(*args, **kwargs)
 
@@ -178,6 +167,8 @@ class PathHandler(SimpleHTTPRequestHandler):
 
 class PathServer(BaseServer):
     """A server that serves files from a path
+
+    Moved from testdata.server on 1-24-2023
 
     :Example:
         basedir = "/some/path/to/directory/containing/files/to/server"
@@ -314,6 +305,8 @@ class CallbackHandler(SimpleHTTPRequestHandler):
 class CallbackServer(BaseServer):
     """A server where you can pass in the handlers for the different HTTP methods
 
+    Moved from testdata.server on 1-24-2023
+
     :Example:
         def do_GET(handler):
             return "GET REQUEST"
@@ -345,6 +338,8 @@ class CallbackServer(BaseServer):
 class WSGIServer(BaseServer, WSGIHTTPServer):
     """Starts a wsgi server using a wsgifile, the wsgifile is a python file that
     has an application property
+
+    Moved from testdata.server on 1-24-2023
 
     https://docs.python.org/3/library/wsgiref.html
 

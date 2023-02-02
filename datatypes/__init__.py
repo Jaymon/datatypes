@@ -97,6 +97,8 @@ from .profile import (
 from .reflection import (
     OrderedSubclasses,
     Extend,
+    ReflectModule,
+    ReflectClass,
 )
 from .event import (
     Event,

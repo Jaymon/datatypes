@@ -411,6 +411,11 @@ class Url(String):
         # REGEX = re.compile(r"^(?:https?:\/\/|\/\/)", re.I)
         return cls.is_full_url(urlstring) or cls.is_relative_url(urlstring)
 
+    @classmethod
+    def create_instance(cls, *args, **kwargs):
+        #return type(self)(*args, **kwargs)
+        return Url(*args, **kwargs)
+
     def __new__(cls, urlstring=None, *args, **kwargs):
         parts = cls.merge(urlstring, *args, **kwargs)
         urlstring = parts.pop("urlstring")
@@ -420,7 +425,7 @@ class Url(String):
         return instance
 
     def create(self, *args, **kwargs):
-        return type(self)(*args, **kwargs)
+        return self.create_instance(*args, **kwargs)
 
     def add(self, **kwargs):
         """Just a shortcut to change the current url, equivalent to Url(self, **kwargs)"""

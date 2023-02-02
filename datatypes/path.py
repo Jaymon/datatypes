@@ -3466,3 +3466,18 @@ class SitePackagesDirpath(Dirpath):
 
         return super(SitePackagesDirpath, cls).__new__(cls, basepath)
 
+
+class DataDirpath(Dirpath):
+    """Wrapper class to make working with the module's data directory easier to
+    work with
+
+    * https://stackoverflow.com/questions/6028000/how-to-read-a-static-file-from-inside-a-python-package/58941536#58941536
+    * https://setuptools.pypa.io/en/latest/userguide/datafiles.html
+    * https://stackoverflow.com/questions/779495/access-data-in-package-subdirectory
+    """
+    def __new__(cls, modpath=""):
+        if not modpath:
+            modpath = __name__.split(".")[0]
+        base_dir = os.path.dirname(sys.modules[modpath].__file__)
+        return super().__new__(cls, base_dir, "data")
+

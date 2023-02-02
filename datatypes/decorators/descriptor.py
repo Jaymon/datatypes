@@ -227,7 +227,7 @@ class property(FuncDecorator):
         * setter -- string, set this to variable name (similar to cached) if you want the decorated
             method to act as the setter instead of the getter, this will cause a default
             getter to be created that just returns variable name
-        * deleter -- string, same as setter, but the descorated method will be the deleter and default
+        * deleter -- string, same as setter, but the decorated method will be the deleter and default
             setters and getters will be created
         * readonly -- string, the decorated method will be the getter and set the value 
             into the name defined in readonly, and no setter or deleter will be allowed
@@ -241,7 +241,7 @@ class property(FuncDecorator):
             self.__doc__ = doc
 
         self.name = ""
-        for k in ["cached", "cache", "setter", "deleter"]:
+        for k in ["cached", "cache", "name", "setter", "deleter"]:
             if k in kwargs:
                 self.name = kwargs[k]
                 break

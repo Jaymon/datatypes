@@ -191,7 +191,7 @@ class DatetimeTest(TestCase):
         self.assertEqual(4, d.second)
         self.assertEqual(546000, d.microsecond)
 
-    def test_timestamp(self):
+    def test_timestamp_1(self):
         d = Datetime()
         ts = d.timestamp()
         self.assertTrue(isinstance(ts, float))
@@ -204,6 +204,26 @@ class DatetimeTest(TestCase):
             d.strftime(Datetime.FORMAT_PRECISION_SECONDS),
             d3.strftime(Datetime.FORMAT_PRECISION_SECONDS)
         )
+
+    def test_timestamp_2(self):
+        epoch = datetime.datetime(1970, 1, 1)
+        timestamp = (datetime.datetime.utcnow() - epoch).total_seconds()
+
+        dt = Datetime(timestamp)
+        self.assertEqual(timestamp, dt.timestamp())
+
+        dt = Datetime(String(timestamp))
+        self.assertEqual(timestamp, dt.timestamp())
+
+        utc = dt.datetime()
+        self.assertEqual(utc, dt)
+
+    def test_timestamp_3(self):
+        with self.assertRaises(ValueError):
+            dt = Datetime(10775199116899)
+
+        with self.assertRaises(ValueError):
+            dt = Datetime(-62167219200)
 
     def test_strings(self):
         d = Datetime(2018, 10, 5, 23, 35, 4)
@@ -300,5 +320,4 @@ class DatetimeTest(TestCase):
         stop = datetime.timedelta(seconds=1000)
         self.assertTrue(now.within(start, stop))
         self.assertTrue(now.within(Datetime(start), Datetime(stop)))
-
 

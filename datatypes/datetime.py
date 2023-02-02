@@ -81,14 +81,14 @@ class Datetime(datetime.datetime):
         dt = None
         if re.match(r"^\-?\d+\.\d+$", d):
             # account for unix timestamps with microseconds
-            logger.debug("Date: {} parsed with integer unix timestamp regex".format(d))
-            dt = cls.fromtimestamp(float(d))
+            logger.debug("Date: {} parsed with float unix timestamp regex".format(d))
+            dt = cls.utcfromtimestamp(float(d))
 
         elif re.match(r"^\-?\d+$", d):
             # account for unix timestamps without microseconds
-            logger.debug("Date: {} parsed with float unix timestamp regex".format(d))
+            logger.debug("Date: {} parsed with integer unix timestamp regex".format(d))
             val = int(d)
-            dt = cls.fromtimestamp(val)
+            dt = cls.utcfromtimestamp(val)
 
         else:
             # ISO 8601 is not very strict with the date format and this tries to
@@ -184,7 +184,11 @@ class Datetime(datetime.datetime):
                 )
 
             elif isinstance(args[0], (int, float)):
-                instance = cls.utcfromtimestamp(args[0])
+                try:
+                    instance = cls.utcfromtimestamp(args[0])
+
+                except ValueError as e:
+                    raise ValueError(f"timestamp {args[0]} is out of bounds") from e
 
             else:
                 if args[0]:
@@ -515,4 +519,6 @@ class Datetime(datetime.datetime):
             self.minute,
             self.second,
             self.microsecond,
-        )
+            tzinfo=datetime.timezone.utc,
+        ).replace(tzinfo=None)
+

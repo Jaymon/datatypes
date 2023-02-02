@@ -6,8 +6,6 @@ from datatypes.string import (
     String,
     ByteString,
     Base64,
-    HTMLCleaner,
-    HTMLParser,
     Character,
     Codepoint,
     NamingConvention,
@@ -184,6 +182,17 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("Foo Bar")
         self.assertEqual("foo_bar", s.varname())
 
+    def test_lower_camelcase(self):
+        s = NamingConvention("FooBar")
+        self.assertEqual("fooBar", s.lower_camelcase())
+
+    def test_split(self):
+        s = NamingConvention("FooBar")
+        self.assertEqual(["Foo", "Bar"], s.split())
+
+        s = NamingConvention("FooBar Che-Baz")
+        self.assertEqual(["Foo", "Bar", "Che", "Baz"], s.split())
+
 
 class ByteStringTest(TestCase):
     def test_conversion(self):
@@ -223,75 +232,6 @@ class ByteStringTest(TestCase):
         su = testdata.get_unicode()
         s = ByteString(su)
         self.assertEqual(su, s.unicode())
-
-
-class HTMLCleanerTest(TestCase):
-    def test_lifecycle(self):
-        s = HTMLCleaner.strip_tags("foo<br />bar")
-        self.assertEqual("foo\nbar", s)
-
-        s = HTMLCleaner.strip_tags("&lt;:‑|<br />&gt;:)")
-        self.assertEqual("<:‑|\n>:)", s)
-
-    def test_images(self):
-        html = 'foo <IMG src="bar.jpeg" /> che'
-        s_keep = HTMLCleaner.strip_tags(html, keep_img_src=True)
-        s = HTMLCleaner.strip_tags(html, keep_img_src=False)
-        self.assertNotEqual(s, s_keep)
-
-    def test_whitespace(self):
-        html = 'Sideways <a href="/wiki/Latin_1" class="mw-redirect" title="Latin 1">Latin</a>-only emoticons'
-        s = HTMLCleaner.strip_tags(html)
-        self.assertEqual("Sideways Latin-only emoticons", s)
-
-    def test_unescape(self):
-        s = "&lt;:‑|&gt;:)"
-
-        s = HTMLCleaner.unescape(s)
-        self.assertEqual("<:‑|>:)", s)
-
-        s = HTMLCleaner.unescape(s)
-        self.assertEqual("<:‑|>:)", s)
-
-
-class HTMLParserTest(TestCase):
-    def test_no_end_tag(self):
-        html = '<div><h1 class="foo">h1 full</h1><p>this is somethign <b>bold</b> and stuff</p>'
-        #html = '<body>body data before <h1 class="foo">h1 data</h1> body data after</body>'
-        t = HTMLParser(html)
-        self.assertEqual(1, len(t))
-        self.assertEqual("div", t.next()["tagname"])
-
-    def test_tagnames(self):
-        html = "\n".join([
-            '<div>',
-            '<p>one</p>'
-            '<p>two with <a href="#">link</a></p>'
-            '<p>three with <img src="foobar.jpg" /></p>'
-            '<p>four with <img src="foobar.jpg" /> and <a href="#2">link</a></p>'
-            '<p>five</p>'
-            '</div>',
-        ])
-        t = HTMLParser(html, "p")
-        self.assertEqual(5, len(t))
-        self.assertEqual(2, len(t.tags[1]["body"]))
-        self.assertEqual(2, len(t.tags[2]["body"]))
-        self.assertEqual(4, len(t.tags[3]["body"]))
-        self.assertEqual(1, len(t.tags[4]["body"]))
-
-    def test_notagnames(self):
-        html = '<div><h1 class="foo">h1 full</h1><p>this is something <b>bold</b> and stuff</p></div>'
-        #html = '<body>body data before <h1 class="foo">h1 data</h1> body data after</body>'
-        t = HTMLParser(html)
-        self.assertEqual(1, len(t))
-        self.assertEqual(2, len(t.tags[0]["body"]))
-
-    def test_empty_tags(self):
-        html = '<div><span><img src=""><p>p data</p><br></span></div>'
-        t = HTMLParser(html)
-        self.assertEqual(1, len(t))
-        self.assertEqual(1, len(t.tags[0]["body"]))
-        self.assertEqual(3, len(t.tags[0]["body"][0]["body"]))
 
 
 class CharacterTest(TestCase):

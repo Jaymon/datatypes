@@ -11,6 +11,10 @@ from .base import FuncDecorator, Decorator
 class once(FuncDecorator):
     """run the decorated function only once for the given arguments
 
+    in python 3+ it's better to use functools.cache or functools.lru_cache
+
+    https://docs.python.org/3/library/functools.html#functools.cache
+
     :Example:
         @once
         def func(x):

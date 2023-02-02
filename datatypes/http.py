@@ -211,6 +211,15 @@ class HTTPResponse(object):
             encoding = em.get_content_charset()
 
             # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
+            # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
+            # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The default encoding is UTF-8
+            #
+            # https://www.rfc-editor.org/rfc/rfc2616
+            # HTTP when no explicit charset parameter is provided by the sender,
+            # media subtypes of the "text" type are defined to have a default charset
+            # value of "ISO-8859-1" when received via HTTP. (rfc2616 is
+            # superceded by rfc7231, which doesn't have this default charset but
+            # I'm going to keep it right now)
             if not encoding:
                 if self.http.is_json(self.headers):
                     encoding = "UTF-8"
@@ -227,17 +236,12 @@ class HTTPResponse(object):
         # https://gist.github.com/Ostrovski/c8d16ce16759eddf6664
         if "set-cookie" in self.headers:
             # for some reason SimpleCookie leaves commas in the value
-            if is_py2:
-                cookie_headers = self.headers.get("set-cookie", "")
-                cookie_headers = cookie_headers.split(b", ")
-                cs = cookies.SimpleCookie(b"\r\n".join(cookie_headers))
-            else:
-                cookie_headers = self.headers.get_all("set-cookie", "")
-                cs = cookies.SimpleCookie("\r\n".join(cookie_headers))
-            cookies = {cs[k].key:cs[k].value for k in cs}
+            cookie_headers = self.headers.get_all("set-cookie", "")
+            cs = cookies.SimpleCookie("\r\n".join(cookie_headers))
+            ret = {cs[k].key:cs[k].value for k in cs}
         else:
-            cookies = {}
-        return cookies
+            ret = {}
+        return ret
 
     @property
     def content(self):
@@ -515,7 +519,7 @@ class HTTPClient(object):
 
         return ua
 
-    def get_fetch_headers(self, method, headers, cookies):
+    def get_fetch_headers(self, method, headers, http_cookies):
         """merge class headers with passed in headers
 
         you can see what headers browsers are sending: http://httpbin.org/headers
@@ -530,7 +534,7 @@ class HTTPClient(object):
         :param method: string, (eg, GET or POST), this is passed in so you can customize
             headers based on the method that you are calling
         :param headers: dict, all the headers passed into the fetch method
-        :param cookies: dict, all the cookies
+        :param http_cookies: dict, all the cookies
         :returns: passed in headers merged with global class headers
         """
         fetch_headers = HTTPHeaders({
@@ -561,9 +565,9 @@ class HTTPClient(object):
         if headers:
             fetch_headers.update(headers)
 
-        if cookies:
+        if http_cookies:
             cl = []
-            for k, v in cookies.items():
+            for k, v in http_cookies.items():
                 c = cookies.SimpleCookie()
                 c[k] = v
                 cl.append(c[k].OutputString())

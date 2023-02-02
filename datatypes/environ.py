@@ -18,42 +18,15 @@ class Environ(object):
     become `FOO_`, if you want to set the namespace explicitely, you could do:
 
         environ = Environ("FOO_")
-    """
-#     @classmethod
-#     def load(cls, modname, envmodname="", clobber=False):
-#         """Load the variables found using a namespace generated from modname into
-#         the module found using envmodname
-# 
-#         This is designed to be called from a library's environ.py file
-# 
-#         :Example:
-#             # <LIBRARY>/environ.py
-#             from datatypes.environ import Environ
-#             Environ.load(__name__)
-# 
-#         :param modname: str, this will be used to generate the modname
-#         :param envmodname: str, this is the modpath used to pull the module from
-#             sys.modules
-#         :param clobber: bool, True if you want to clobber previously set values,
-#             False if you skip values that have already been set
-#         :returns: module, the module found via envmodname
-#         """
-#         if not modname:
-#             raise ValueError("Pass in something like __name__")
-# 
-#         if not envmodname:
-#             envmodname = modname
-# 
-#         envmod = sys.modules[envmodname]
-# 
-#         instance = cls(modname)
-#         for k in instance.keys():
-#             ek = instance.ekey(k)
-#             if clobber or not hasattr(envmod, ek):
-#                 setattr(envmod, ek, instance.get(k))
-# 
-#         return envmod
 
+    And if you want a separate environment prefix than your module:
+
+        # environ.py
+        environ = Environ("FOO_", __name__)
+        # merge FOO_* environment variables into __name__ module and strip FOO_
+        # from those variables (ie FOO_BAR would become BAR)
+        environ.update() 
+    """
     @classmethod
     def find_namespace(cls, modname):
         namespace = modname.split(".")[0].upper()
@@ -62,6 +35,12 @@ class Environ(object):
         return namespace
 
     def __init__(self, modname="", envmodname=""):
+        """
+        :param modname: str, usually __name__ from the calling module but can also
+            be "PREFIX_" or something like that
+        :param envmodname: str, if modname is "PREFIX_" then this would be __name__
+            or the module path
+        """
         self.namespace = self.find_namespace(modname) if modname else ""
         self.envmodname = envmodname if envmodname else modname
 
