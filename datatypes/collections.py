@@ -70,6 +70,99 @@ class Pool(dict):
             self[k] = v
 
 
+class MembershipSet(set):
+    """A set with all the AND, OR, and UNION operations disabled, making it really
+    only handy for testing membership
+
+    This is really more of a skeleton for the few times I've had to do this in a
+    project, usually we are implementing custom functionality that acts like a set
+    and so it will be nice to just be able to extend this and not have to worry
+    about disabling the unsupported methods
+
+    If you need a readonly set, use frozenset:
+        https://docs.python.org/3/library/stdtypes.html#frozenset
+    """
+    def __init__(self, iterable=None):
+        if not iterable:
+            iterable = []
+
+        super(MembershipSet, self).__init__(iterable)
+
+    def add(self, elem):
+        super(MembershipSet, self).add(perm)
+
+    def remove(self, elem):
+        super(MembershipSet, self).remove(perm)
+
+    def discard(self, elem):
+        try:
+            self.remove(elem)
+        except KeyError:
+            pass
+
+    def clear(self):
+        super(MembershipSet, self).clear()
+
+    def update(self, *others):
+        for iterable in others:
+            super(MembershipSet, self).update(iterable)
+
+    def noimp(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    pop = noimp
+    __sub__ = noimp
+    __and__ = noimp
+    __or__ = noimp
+    __xor__ = noimp
+    __isub__ = noimp
+    __iand__ = noimp
+    __ior__ = noimp
+    __ixor__ = noimp
+    intersection_update = noimp
+    difference_update = noimp
+    symmetric_difference_update = noimp
+    symmetric_difference = noimp
+    difference = noimp
+    intersection = noimp
+    union = noimp = noimp
+
+
+class HotSet(MembershipSet):
+    """Similar to Pool, this holds maxsize elems and keeps it at that size"""
+    def __init__(self, maxsize=0):
+        super().__init__()
+        self.pq = PriorityQueue(maxsize, key=lambda value: value)
+
+    def add(self, elem):
+        super().add(elem)
+        try:
+            self.pq.put(elem)
+
+        except OverflowError:
+            self.pop()
+            self.pq.put(elem)
+
+    def remove(self, elem):
+        if elem in self:
+            self.pq.remove(elem)
+        super().remove(elem)
+
+    def clear(self):
+        self.pq.clear()
+        super().clear()
+
+    def update(self, *others):
+        for iterable in others:
+            for elem in iterable:
+                self.add(elem)
+
+    def pop(self):
+        elem = self.pq.get()
+        self.discard(elem)
+        return elem
+
+
 class PriorityQueue(object):
     """A generic priority queue
 
@@ -110,18 +203,22 @@ class PriorityQueue(object):
         :param priority: callable, a callback that will be passed value on every
             call to .put() that doesn't have a priority passed in
         """
-        self.pq = []
-        self.item_finder = {}
-        self.key_counter = itertools.count()
-        self.priority_counter = itertools.count()
+        self.clear()
+
         self.maxsize = maxsize
-        self.removed_count = 0
 
         if key:
             self.key = key
 
         if priority:
             self.priority = priority
+
+    def clear(self):
+        self.pq = []
+        self.item_finder = {}
+        self.key_counter = itertools.count()
+        self.priority_counter = itertools.count()
+        self.removed_count = 0
 
     def key(self, value):
         """If key isn't passed into the constructor then this method will be called"""
@@ -304,6 +401,105 @@ class Dict(dict):
         for v in self.rvalues(key):
             break
         return v
+
+    def gets(self, keys, default=None):
+        """Check every key in the keys list, first found key is returned, if none
+        of the keys exist then return default
+
+        :Example:
+            d = Dict({
+                "foo": 1,
+                "bar": 2,
+                "che": 3,
+            })
+
+            d.get(["does", "not", "exist", "foo"], 5) # 1
+            d.get(["does", "bar", "exist", "foo"], 5) # 2
+
+        :param keys: list, a list of keys to check in the order they should be checked
+        :param *default: mixed, what to return if none of the keys exist
+        :returns: mixed, either the value of the first key that exists or default_val
+        """
+        for k in keys:
+            if k in self:
+                return self[k]
+        return default
+
+    def pops(self, keys, *default):
+        """Check every key in the keys list, first found key will be returned, if none
+        of the keys exist then return default, all keys in the keys list will be
+        popped, even the ones after a value is found
+
+        :Example:
+            d = Dict({
+                "foo": 1,
+                "bar": 2,
+                "che": 3,
+            })
+
+            d.pop(["foo"], 5) # 1
+            d.pop(["foo", "bar"], 5) # 2
+
+        :param keys: list, a list of keys to check in the order they should be checked
+        :param *default: mixed, what to return if none of the keys exist
+        :returns: mixed, either the value of the first key that exists or default_val
+        """
+        ret = None
+        key = None
+        for k in keys:
+            if k in self:
+                if key is None:
+                    key = k
+                    ret = self.pop(k)
+
+                else:
+                    self.pop(k)
+
+        if key is None:
+            if default:
+                ret = default[0]
+            else:
+                raise KeyError(", ".join(keys))
+
+        return ret
+
+    def merge(self, other):
+        """Very similar to .update() but merges the dicts instead of overriding
+
+        :Example:
+            d = {
+                "foo": {
+                    "bar": 1
+                }
+            }
+            d2 = {
+                "foo": {
+                    "che": 2
+                }
+            }
+
+            d.merge(d2)
+            print(d["foo"]["che"]) # 2
+            print(d["foo"]["bar"]) # 1
+
+        :param other: Mapping, the other dict to merge into this dict, if self[key]
+            is not a Mapping, then other[key] will override, if both self[key] and
+            other[key] are Mapping instances then they will be merged
+        """
+        for k in other.keys():
+            if isinstance(other[k], Mapping) and (k in self):
+                if isinstance(self[k], Dict):
+                    self[k].merge(other[k])
+
+                elif isinstance(self[k], Mapping):
+                    self[k] = Dict(self[k])
+                    self[k].merge(other[k])
+
+                else:
+                    self[k] = other[k]
+
+            else:
+                self[k] = other[k]
 
 
 class NormalizeDict(Dict):
@@ -814,66 +1010,6 @@ class OrderedList(list):
         raise NotImplementedError()
     def sort(self):
         raise NotImplementedError()
-
-
-class MembershipSet(set):
-    """A set with all the AND, OR, and UNION operations disabled, making it really
-    only handy for testing membership
-
-    This is really more of a skeleton for the few times I've had to do this in a
-    project, usually we are implementing custom functionality that acts like a set
-    and so it will be nice to just be able to extend this and not have to worry
-    about disabling the unsupported methods
-
-    I thought of the name HotSet also
-
-    If you need a readonly set, use frozenset:
-        https://docs.python.org/3/library/stdtypes.html#frozenset
-    """
-    def __init__(self, iterable=None):
-        if not iterable:
-            iterable = []
-
-        super(MembershipSet, self).__init__(iterable)
-
-    def add(self, elem):
-        super(MembershipSet, self).add(perm)
-
-    def remove(self, elem):
-        super(MembershipSet, self).remove(perm)
-
-    def discard(self, elem):
-        try:
-            self.remove(elem)
-        except KeyError:
-            pass
-
-    def clear(self):
-        super(MembershipSet, self).clear()
-
-    def update(self, *others):
-        for iterable in others:
-            super(MembershipSet, self).update(iterable)
-
-    def noimp(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    pop = noimp
-    __sub__ = noimp
-    __and__ = noimp
-    __or__ = noimp
-    __xor__ = noimp
-    __isub__ = noimp
-    __iand__ = noimp
-    __ior__ = noimp
-    __ixor__ = noimp
-    intersection_update = noimp
-    difference_update = noimp
-    symmetric_difference_update = noimp
-    symmetric_difference = noimp
-    difference = noimp
-    intersection = noimp
-    union = noimp = noimp
 
 
 class ListIterator(list):

@@ -66,6 +66,7 @@ if is_py2:
         Callable,
         MutableSequence,
         Sequence,
+        Collection,
     )
 
 
@@ -142,6 +143,7 @@ else:
         Callable,
         MutableSequence,
         Sequence,
+        Collection,
     )
 
 

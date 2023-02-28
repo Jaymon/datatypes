@@ -1139,6 +1139,20 @@ class FilepathTest(_PathTestCase):
         r = src.cp(target, recursive=True)
         self.assertEqual("che", r.basename)
 
+    def test_flock(self):
+        one = TempFilepath()
+        two = Filepath(one)
+
+        with one.flock("r+") as fp:
+            self.assertTrue(fp)
+            with two.flock("r+") as fp2:
+                self.assertIsNone(fp2)
+
+        with two.flock_text("r+") as fp2:
+            self.assertTrue(fp2)
+            with one.flock_text("r+") as fp:
+                self.assertIsNone(fp)
+
 
 class ImagepathTest(TestCase):
     def test_dimensions(self):
@@ -2021,6 +2035,29 @@ class PathIteratorTest(TestCase):
         # any directories named data
         it = PathIterator(dirpath)
         for count, fp in enumerate(it.dirs(regex=r"data$"), 1):
-            pout.v(fp)
+            pass
         self.assertEqual(2, count)
+
+    def test_finish(self):
+        modpath = "firm"
+        dp = testdata.create_modules({
+            f"{modpath}.foo": "",
+            f"{modpath}.foo.bar.__init__": "",
+            f"{modpath}.che.baz.boo": "",
+        })
+
+        dp.child_file(modpath, "data", "one.txt").write_text("1")
+        dp.child_file(modpath, "foo", "bar", "data", "two.txt").write_text("2")
+        dp.child_file(modpath, "che", "other_name", "one_dir", "three.txt").write_text("3")
+        dp.child_file(modpath, "che", "other_name", "two_dir", "four.txt").write_text("4")
+
+        count = 0
+        it = dp.dirs()
+        nr = set([f"{modpath}/data", f"{modpath}/che/other_name", f"{modpath}/foo/bar/data"])
+        for p in it:
+            if not p.has_file("__init__.py") or p.endswith("data"):
+                count += 1
+                self.assertTrue(p.relative_to(dp) in nr)
+                it.finish(p)
+        self.assertEqual(3, count)
 

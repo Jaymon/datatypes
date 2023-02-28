@@ -2,11 +2,15 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 
 from . import logging
+from .logging import (
+    LogMixin,
+)
 from .string import (
     String,
     ByteString,
     Base64,
     NamingConvention,
+    EnglishWord,
 )
 from .html import (
     HTMLCleaner,
@@ -31,6 +35,7 @@ from .collections import (
     Trie,
     Namespace,
     ContextNamespace,
+    HotSet,
 )
 from .csv import (
     CSV,

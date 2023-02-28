@@ -51,7 +51,7 @@ def make_list(*args):
                     if isinstance(val, basestring):
                         ret.append(val)
 
-                    elif isinstance(val, (list, tuple)):
+                    elif isinstance(val, (list, tuple, Sequence, Collection)):
                         ret.extend(val)
 
                     else:
@@ -83,6 +83,8 @@ def make_dict(*args):
     ret = {}
 
     for d in args:
+        if not d: continue
+
         if isinstance(d, Mapping):
             ret.update(d)
 

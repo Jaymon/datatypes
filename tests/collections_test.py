@@ -228,6 +228,42 @@ class DictTest(TestCase):
         v = d.rget("foo")
         self.assertEqual([1, 2, 3], v)
 
+    def test_merge(self):
+        d = Dict({
+            "foo": {
+                "bar": 1,
+            },
+            "che": 1,
+            "baz": {
+                "boo": {
+                    "bah": 1,
+                    "cha": 1,
+                },
+            },
+        })
+
+        d.merge({
+            "foo": {
+                "bar2": 2
+            },
+            "baz": {
+                "boo": {
+                    "bah": 2
+                },
+                "boo2": 2
+            },
+            "new": 2,
+            "che": {
+                "che2": 2
+            }
+        })
+        self.assertEqual(2, d["foo"]["bar2"])
+        self.assertEqual(1, d["foo"]["bar"])
+        self.assertEqual(2, d["baz"]["boo"]["bah"])
+        self.assertEqual(1, d["baz"]["boo"]["cha"])
+        self.assertEqual(2, d["che"]["che2"])
+        self.assertEqual(2, d["new"])
+
 
 class IdictTest(TestCase):
     def test_ritems(self):
@@ -364,14 +400,14 @@ class NamespaceTest(TestCase):
         self.assertEqual(1, n.bar)
         self.assertEqual(1, n["bar"])
         del n.bar
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             n.bar
 
         n["foo"] = 2
         self.assertEqual(2, n.foo)
         self.assertEqual(2, n["foo"])
         del n["foo"]
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             n.foo
 
     def test___missing__(self):

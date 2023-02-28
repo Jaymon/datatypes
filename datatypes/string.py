@@ -145,6 +145,14 @@ class String(Str, StringMixin):
     PRINTABLE = string.printable
     WHITESPACE = string.whitespace
 
+    ASCII_VOWELS_LOWERCASE = "aeiou"
+    ASCII_VOWELS_UPPERCASE = "AEIOU"
+    ASCII_VOWELS = ASCII_VOWELS_LOWERCASE + ASCII_VOWELS_UPPERCASE
+
+    ASCII_CONSONANTS_LOWERCASE = "bcdfghjklmnpqrstvwxyz"
+    ASCII_CONSONANTS_UPPERCASE = "BCDFGHJKLMNPQRSTVWXYZ"
+    ASCII_CONSONANTS = ASCII_CONSONANTS_LOWERCASE + ASCII_CONSONANTS_UPPERCASE
+
     def __new__(cls, val="", encoding="", errors=""):
         """
         :param val: mixed, the value you are casting to a string
@@ -557,6 +565,8 @@ class NamingConvention(String):
     def studlycase(self):
         """alias of camel case"""
         return self.camelcase()
+    def CamelCase(self):
+        return self.camelcase()
 
     def lower_camelcase(self):
         """camel case but first letter is lowercase (eg camelCase)
@@ -568,6 +578,8 @@ class NamingConvention(String):
         return cc[0].lower() + cc[1:]
     def dromedarycase(self):
         """camel case but first letter is lowercase"""
+        return self.lower_camelcase()
+    def camelCase(self):
         return self.lower_camelcase()
 
     def snakecase(self):
@@ -606,6 +618,8 @@ class NamingConvention(String):
 
         return "".join(s).lower()
         #return re.sub(r"[\s-]+", "_", "".join(s)).lower()
+    def snake_case(self):
+        return self.snakecase()
 
     def screaming_snakecase(self):
         """snake case but all capital letters instead of lowercase (eg, SCREAMING_SNAKE_CASE)
@@ -640,6 +654,96 @@ class NamingConvention(String):
         https://en.wikipedia.org/wiki/Naming_convention_(programming)#Examples_of_multiple-word_identifier_formats
         """
         raise NotImplementedError()
+
+
+class EnglishWord(String):
+    def plural(self):
+        """Pluralize a singular word
+
+        the purpose of this method is not to be right 100% of the time but to be
+        good enough for my purposes, for example, it won't return words that
+        have the same singular and plural, so it would return sheeps for sheep, this
+        is because I usually need the plural to be different. If that isn't the case
+        in the future I should pass a flag in to keep that "always different"
+        functionality
+
+        teh algo is based off of this:
+            https://www.grammarly.com/blog/plural-nouns/
+
+        :returns: string, the plural version of the word
+        """
+        singular = self
+        v = self.lower()
+
+        # http://www.esldesk.com/vocabulary/irregular-nouns
+        irregular = {
+            "child": "children",
+            "goose": "geese",
+            "man": "men",
+            "woman": "women",
+            "tooth": "teeth",
+            "foot": "feet",
+            "mouse": "mice",
+            "person": "people",
+        }
+
+        if v in irregular:
+            plural = irregular[v]
+
+        elif v[-2:] in set(["ss", "sh", "ch"]):
+            plural = singular + "es"
+
+        elif v.endswith("fe"):
+            plural = singular[:-2] + "ves"
+
+#         elif v.endswith("us"):
+#             if len(self.syllables()) > 1:
+#                 plural = singular[:-2] + "i"
+#             else:
+#                 plural = singular + "es"
+
+        elif v.endswith("is"):
+            plural = singular[:-2] + "es"
+
+        elif v.endswith("on") and not v.endswith("ion"):
+            plural = singular[:-2] + "a"
+
+        elif v[-1] == "f":
+            if v in set(["roof", "belief", "chef", "chief"]):
+                plural = singular + "s"
+            else:
+                plural = singular[:-1] + "ves"
+
+        elif v[-1] == "y" and v[-2:-1] in self.ASCII_CONSONANTS_LOWERCASE:
+            plural = singular[:-1] + "ies"
+
+        elif v[-1] == "o":
+            if v in set(["photo", "piano", "halo", "volcano"]):
+                plural = singular + "s"
+            else:
+                plural = singular + "es"
+
+        #elif v[-1] in set(["s", "x", "z"]):
+        elif v[-1] in set(["s", "x"]):
+            plural = singular + "es"
+
+        elif v[-1] in set(["z"]):
+            if v[-2:-1] in self.ASCII_VOWELS_LOWERCASE:
+                # https://www.dictionary.com/e/word-finder/words-that-end-with-z/
+                plural = singular + "zes"
+
+            else:
+                plural = singular + "es"
+
+        else:
+            plural = singular + "s"
+
+        return plural
+
+    def syllables(self):
+        """return the syllables of the word"""
+        # https://stackoverflow.com/a/49407494
+        return re.findall(r"[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?", self, flags=re.I)
 
 
 class Character(String):

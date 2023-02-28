@@ -9,9 +9,61 @@ from datatypes.reflection import (
     ReflectClass,
     ReflectMethod,
     ReflectDecorator,
+    OrderedSubclasses,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
+
+
+class OrderedSubclassesTest(TestCase):
+    def test_edges_1(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Base): pass
+        class Che(Foo): pass
+
+        scs = OrderedSubclasses(classes=[Che, Foo, Base, Bar])
+
+        r = set([Bar, Che])
+        for count, c in enumerate(scs.edges(), 1):
+            self.assertTrue(c in r)
+        self.assertEqual(2, count)
+
+    def test_edges_2(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Base): pass
+        class Che(Foo): pass
+        class Baz(Foo, Bar): pass
+
+        scs = OrderedSubclasses(classes=[Che, Foo, Base, Bar, Baz])
+
+        r = set([Baz, Che])
+        for count, c in enumerate(scs.edges(), 1):
+            self.assertTrue(c in r)
+        self.assertEqual(2, count)
+
+    def test_edges_3(self):
+        class Base1(object): pass
+        class Base2(Base1): pass
+        class Base3(Base2): pass
+        class Foo(Base2): pass
+        class Bar(Base3): pass
+        class Che(Base3): pass
+
+        scs = OrderedSubclasses(classes=[Base2, Base3, Foo, Bar, Che])
+
+        r = set([Che, Bar, Foo])
+        for count, c in enumerate(scs.edges(), 1):
+            self.assertTrue(c in r)
+        self.assertEqual(3, count)
+
+    def test_edges_4(self):
+        class Foo(object): pass
+        class Bar(Foo): pass
+
+        scs = OrderedSubclasses(classes=[Bar])
+        self.assertEqual([Bar], list(scs.edges()))
 
 
 class ExtendTest(TestCase):
@@ -257,6 +309,20 @@ class ReflectClassTest(TestCase):
         self.assertFalse(info["one"]["keywords"])
         self.assertEqual(sys.modules[__name__], rc.module())
 
+    def test_get_class(self):
+        r = testdata.create_module([
+            "def foo():",
+            "    class FooCannotBeFound(object): pass",
+        ])
+
+
+        with self.assertRaises(AttributeError):
+            ReflectClass.get_class(f"{r}:FooCannotBeFound")
+            # this would be the object once you have the module: m.foo.__code__.co_consts
+            # but I can't find anyway to take a code object and turn it into the
+            # actual type instance. I tried eval() and exec() but they executed but
+            # I couldn't get the class after running them
+
 
 class ReflectModuleTest(TestCase):
     def test_relative(self):
@@ -461,4 +527,23 @@ class ReflectModuleTest(TestCase):
 
         data = rm.find_data("data/three.txt")
         self.assertEqual(b"3", data)
+
+    def test_data_dirs(self):
+        modpath = "fddrm"
+        dp = testdata.create_modules({
+            f"{modpath}.foo": "",
+            f"{modpath}.foo.bar.__init__": "",
+            f"{modpath}.che.baz.boo": "",
+        })
+
+        dp.child_file(modpath, "data", "one.txt").write_text("1")
+        dp.child_file(modpath, "foo", "bar", "data", "two.txt").write_text("2")
+        dp.child_file(modpath, "che", "other_name", "one_dir", "three.txt").write_text("3")
+        dp.child_file(modpath, "che", "other_name", "two_dir", "four.txt").write_text("4")
+
+        rm = ReflectModule(modpath)
+
+        nr = set([f"{modpath}/data", f"{modpath}/che/other_name", f"{modpath}/foo/bar/data"])
+        for p in rm.data_dirs():
+            self.assertTrue(p.relative_to(dp) in nr)
 

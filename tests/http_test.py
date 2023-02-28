@@ -144,7 +144,7 @@ class HTTPClientTest(TestCase):
         def do_PUT(handler):
             return "PUT"
 
-        server = testdata.CallbackServer({
+        server = testdata.create_callbackserver({
             "PUT": do_PUT,
         })
         with server:
@@ -177,7 +177,6 @@ class HTTPClientTest(TestCase):
         r = HTTPResponse(200, ByteString(content), {}, None, None)
         rc = ""
         for rch in r.iter_content(100):
-            pout.v(rch)
             rc += rch
         self.assertEqual(content, rc)
 

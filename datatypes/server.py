@@ -7,7 +7,6 @@ import runpy
 from threading import Thread
 import weakref
 
-
 from .compat import *
 from . import environ
 from .url import Host, Url
@@ -69,16 +68,22 @@ class ServerThread(Url):
         """Allows webserver to be used with "with" keyword"""
         self.stop()
 
+    def target(self):
+        self.server.serve_forever(poll_interval=self.poll_interval)
+
     def start(self):
         """Start the webserver"""
         if self.started: return
-        server = self.server
 
-        def target():
-            server.serve_forever(poll_interval=self.poll_interval)
+#         server = self.server
+# 
+#         def target():
+#             server.serve_forever(poll_interval=self.poll_interval)
 
+        #from multiprocessing import Process
         #from threading import Thread
-        thread = Thread(target=target)
+        #thread = Process(target=self.target)
+        thread = Thread(target=self.target)
         thread.daemon = True
         thread.start()
         self.thread = thread

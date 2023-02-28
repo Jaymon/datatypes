@@ -4,6 +4,7 @@ import shlex
 from collections import defaultdict
 
 from .compat import *
+from .string import String
 
 
 class ArgvParser(dict):
@@ -20,7 +21,7 @@ class ArgvParser(dict):
     """
     def __init__(self, argv):
         """
-        :param argv: list, the argv list or the extra args returned from parse_known_args
+        :param argv: list<str>, the argv list or the extra args returned from parse_known_args
             https://docs.python.org/3/library/sys.html#sys.argv
             https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.parse_known_args
         :returns: dict, key is the arg name (* for non positional args) and value is
@@ -31,6 +32,7 @@ class ArgvParser(dict):
         i = 0
         length = len(argv)
         while i < length:
+            argv[i] = String(argv[i])
             if argv[i].startswith("-"):
                 s = argv[i].lstrip("-")
                 bits = s.split("=", 1)
@@ -41,6 +43,7 @@ class ArgvParser(dict):
 
                 else:
                     if i + 1 < length:
+                        argv[i + 1] = String(argv[i + 1])
                         if argv[i + 1].startswith("-"):
                             d[s].append(True)
 
@@ -90,7 +93,7 @@ class ArgParser(ArgvParser):
         print(d["bar"]) # ["che"]
 
     all values will be lists, this is for uniformity, if you want to squash lists
-    that only contain one value to just have the value then call the .unwrap()
+    that only contain one value to just have the value then call .unwrap()
 
     References:
         * https://stackoverflow.com/questions/44945815/

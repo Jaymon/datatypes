@@ -22,6 +22,9 @@ import struct
 import imghdr
 from pathlib import Path as Pathlib
 import pickle
+from contextlib import contextmanager
+import fcntl
+import errno
 
 from .compat import *
 from . import environ
@@ -1773,11 +1776,11 @@ class Dirpath(Path):
         """Return a new instance with parts added onto self.path"""
         return self.path_class()(self.path, *parts)
 
-    def child_file(self, *parts):
-        return self.file_class()(self.path, *parts)
+    def child_file(self, *parts, **kwargs):
+        return self.file_class()(self.path, *parts, **kwargs)
 
-    def child_dir(self, *parts):
-        return self.dir_class()(self.path, *parts)
+    def child_dir(self, *parts, **kwargs):
+        return self.dir_class()(self.path, *parts, **kwargs)
 
     def file_text(self, *parts):
         """return the text of the basename file in this directory"""
@@ -1800,6 +1803,50 @@ class Filepath(Path):
             st = self.stat()
             ret = False if st.st_size else True
         return ret
+
+    @contextmanager
+    def flock(self, mode="", operation=fcntl.LOCK_EX | fcntl.LOCK_NB, **kwargs):
+        """similar to open but will also lock the file resource and will release
+        the resource when the context manager is done
+
+        :Example:
+            filepath = Filepath("<PATH>")
+            with filepath.lock("r") as fp:
+                if fp:
+                    # fp exists so we got the lock
+                    pass
+
+                else:
+                    # fp is None so we didn't get the lock
+                    pass
+
+        :param mode: see .open()
+        :param operation: defaults to exclusive lock, see fcntl module
+        :param **kwargs: will be passed to .open()
+        :returns: file descriptor with an active lock, it will return None if
+            the lock wasn't successfully acquired
+        """
+        try:
+            with self.open(mode, **kwargs) as fp:
+                fcntl.flock(fp, operation)
+                try:
+                    yield fp
+
+                finally:
+                    fcntl.flock(fp, fcntl.LOCK_UN)
+
+        except OSError as e:
+            if e.errno == errno.EACCES or e.errno == errno.EAGAIN:
+                yield None
+
+            else:
+                raise
+
+
+    def flock_text(self, mode="", **kwargs):
+        kwargs.setdefault("encoding", self.encoding)
+        kwargs.setdefault("errors", self.errors)
+        return self.flock(mode, **kwargs)
 
     def open(self, mode="", buffering=-1, encoding=None, errors=None, newline=None):
         """Open the file pointed to by the path, like the built-in open() function does
@@ -1831,12 +1878,12 @@ class Filepath(Path):
 
         return fp
 
-    def open_text(self, mode="", encoding=None, errors=None, **kwargs):
+    def open_text(self, mode="", **kwargs):
         """Just like .open but will set encoding and errors to class values
         if they aren't passed in"""
-        encoding = encoding or self.encoding
-        errors = errors or self.errors
-        return self.open(mode, encoding=encoding, errors=errors, **kwargs)
+        kwargs.setdefault("encoding", self.encoding)
+        kwargs.setdefault("errors", self.errors)
+        return self.open(mode, **kwargs)
 
     def __call__(self, mode="", **kwargs):
         """Allow an easier interface for opening a writing file descriptor
@@ -2203,6 +2250,12 @@ class PathIterator(ListIterator):
 
         # return all directories named foo
         PathIterator(dirpath).dirs(regex=r"foo")
+
+        # stop traversing a directory if that directory contains "stop.txt"
+        it = PathIterator(dirpath).dirs()
+        for dp in it:
+            if dp.has_file("stop.txt"):
+                it.finish(dp)
     """
     def __init__(self, path: Dirpath):
         """
@@ -2257,6 +2310,9 @@ class PathIterator(ListIterator):
         # the callables to filter the iteration through
         self._yield_callbacks = defaultdict(list)
 
+        # contains paths that should be ignored on subsequant iterations, see .finish()
+        self._finished = set()
+
     def files(self, v=True, **kwargs):
         """Iterate only files (this excludes directories)"""
         if v:
@@ -2276,9 +2332,6 @@ class PathIterator(ListIterator):
         """Don't iterate files"""
         criteria = {"inverse": True}
         return self.files(not v, criteria=criteria, **kwargs)
-#         self._yield_files = not v
-#         self._add_kwargs(inverse=True, files=True, **kwargs)
-#         return self
 
     def dirs(self, v=True, **kwargs):
         """Iterate only directories (this excludes files)"""
@@ -2294,15 +2347,11 @@ class PathIterator(ListIterator):
             "dirs": True
         })
         return self._add_kwargs(criteria, **kwargs)
-        #self._add_kwargs(criteria, **kwargs)
-        #return self.files(False)
 
     def not_dirs(self, v=True, **kwargs):
         """Don't iterate directories"""
         criteria = {"inverse": True}
         return self.dirs(not v, criteria=criteria, **kwargs)
-        #self._yield_dirs = not v
-        #return self
 
     def recursive(self, recursive=True):
         """Only iterate current directory all current and all subdirectories
@@ -2399,6 +2448,24 @@ class PathIterator(ListIterator):
     def not_callback(self, cb, **kwargs):
         """Inverse the callback return, same as calling .callback(cb, inverse=True)"""
         return self.callback(cb, inverse=True, **kwargs)
+
+    def finish(self, path):
+        """When recursively iterating through a directory you might sometimes want
+        to cease recurssing into a directory, you can do that by passing the path
+        into here, that will stop it from recurssing into the directory any more
+
+        :Example:
+            it = PathIterator(dirpath).dirs()
+            for dp in it:
+                if dp.has_file("sentinal"):
+                    # we've found a sentinal file so we don't need to recurse
+                    # this directory anymore
+                    it.finish(dp)
+
+        :param path: Path, the path to stop traversing
+        """
+        self._finished.add(path)
+        return self
 
     def _add_kwargs(self, criteria, **kwargs):
         """Certain methods allow passthrough kwargs, this will take those kwargs
@@ -2523,38 +2590,6 @@ class PathIterator(ListIterator):
                     if self._should_yield("dirs", dp):
                         yield dp
 
-#     def _modify_basenames(self, criteria_key, basenames):
-#         """Modifies basenames returned from os.walk in place so those basenames
-#         will not be walked
-# 
-#         These callback are ran before any other filters and are ran on both dirnames
-#         and filenames regardless of .files()/.dirs() settings. If dirnames are
-#         filtered then those folders won't be yielded and they won't be recursed
-#         either
-# 
-#         From the os.walk docs:
-# 
-#             https://docs.python.org/3/library/os.html#os.walk
-# 
-#             When topdown is True, the caller can modify the dirnames list in-place
-#             (perhaps using del or slice assignment), and walk() will only recurse
-#             into the subdirectories whose names remain in dirnames; this can be
-#             used to prune the search, impose a specific order of visiting, or even
-#             to inform walk() about directories the caller creates or renames before
-#             it resumes walk() again.
-# 
-#         """
-#         indexes = []
-#         for i, basename in enumerate(basenames):
-#             if not self._should_yield(criteria_key, basename):
-#                 indexes.append(i)
-# 
-#         # modify the basenames list in place
-#         offset = 0
-#         for i in indexes:
-#             basenames.pop(i - offset)
-#             offset += 1
-
     def _iterpath(self, path, depth):
         """internal recursive method that yields path instances and respects depth
 
@@ -2562,9 +2597,6 @@ class PathIterator(ListIterator):
         :param depth: int, how far into path should be iterated
         """
         for basedir, dirnames, filenames in path.walk(topdown=True):
-            #self._modify_basenames("dirnames", dirnames)
-            #self._modify_basenames("filenames", filenames)
-
             # https://docs.python.org/3/library/itertools.html#itertools.chain
             it = itertools.chain(
                 self._iterdirs(path, basedir, dirnames),
@@ -2585,12 +2617,12 @@ class PathIterator(ListIterator):
 
             if depth != 1:
                 depth = depth - 1 if depth >= 0 else depth
-                #for p in self._iterdirs(path, basedir, dirnames, _yield_dirs=1):
                 for basename in dirnames:
                     if self._should_yield("dirnames", basename):
                         p = path.create_dir(basedir, basename)
-                        for sp in self._iterpath(p, depth=depth):
-                            yield sp
+                        if p not in self._finished:
+                            for sp in self._iterpath(p, depth=depth):
+                                yield sp
 
             break
 
@@ -2610,7 +2642,10 @@ class PathIterator(ListIterator):
             kwargs.setdefault("reverse", self._yield_reverse)
             it.sort(*args, **kwargs)
 
-        return it
+        for p in it:
+            yield p
+
+        self._finished = set()
 
     def __call__(self, *args, **kwargs):
         """Makes it possible to yield method calls of the yielded paths"""
@@ -2675,12 +2710,14 @@ class PathIterator(ListIterator):
         """list interface compatibility, this is O(n*n)"""
         #return reversed([p for p in self])
         self._yield_reverse = True
+        return self
 
 
     def sort(self, *args, **kwargs):
         """list interface compatibility, this is O(n*n)"""
         #return sorted([p for p in self])
         self._yield_sort = (args, kwargs)
+        return self
 
     def copy(self):
         """Makes a copy of the iterator"""

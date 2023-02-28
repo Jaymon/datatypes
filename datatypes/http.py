@@ -380,6 +380,8 @@ class HTTPClient(object):
             kwargs.get("headers", {}),
             kwargs.get("cookies", {}),
         )
+        if "timeout" in kwargs:
+            fetch_kwargs["timeout"] = kwargs["timeout"]
 
         if body:
             fetch_kwargs["data"] = self.get_fetch_body(fetch_kwargs["headers"], body)
@@ -398,14 +400,11 @@ class HTTPClient(object):
         :param **kwargs: mixed, any arguments to pass to the backend client
         :returns: HTTPResponse, a response instance
         """
-        orig_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(self.timeout)
+        timeout = kwargs.pop("timeout", self.timeout)
 
         # this block actually performs the request
         req = self.get_fetch_request(method, fetch_url, **kwargs)
-        res = self.get_fetch_response(req)
-
-        socket.setdefaulttimeout(orig_timeout)
+        res = self.get_fetch_response(req, timeout=timeout)
 
         return res
 
@@ -421,6 +420,7 @@ class HTTPClient(object):
         """
         if not isinstance(uri, basestring):
             # allow ["foo", "bar"] to be converted to "/foo/bar"
+            pout.v(uri)
             uri = "/".join(uri)
 
         if re.match(r"^\S+://\S", uri):
@@ -606,16 +606,18 @@ class HTTPClient(object):
         req.get_method = lambda: method.upper()
         return req
 
-    def get_fetch_response(self, req):
+    def get_fetch_response(self, req, timeout):
         """Given a Request instance make a call and return the response
 
         This is used in self._fetch
+
+        https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
 
         :param req: Request instance, the request instance created by self.get_fetch_request
         :returns: HTTPResponse instance, this looks like a requests Response object
         """
         try:
-            res = urlopen(req)
+            res = urlopen(req, timeout=timeout)
             ret = HTTPResponse(
                 res.code,
                 res.read(),

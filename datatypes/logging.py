@@ -64,3 +64,213 @@ def quick_config(**kwargs):
 basic_logging = quick_config
 
 
+def project_config(config, **kwargs):
+    """I have a tendency to set up projects roughly the same way, and I've been
+    copy/pasting some version of this dict_config for years, this is an effort
+    to DRY this config a little bit
+
+    This will set loggers for some of the modules I use the most, moved here
+    on 2-11-2023
+
+    :param config: dict, this dict will override the default configuration
+    :param **kwargs: any specific keys will override passed in config dict
+    """
+    config.update(kwargs)
+
+    # avoid circular dependency
+    from .collections import Dict
+
+    dict_config = Dict({
+        'version': 1,
+        'formatters': {
+            'shortformatter': {
+                #'format': '[%(levelname).1s|%(asctime)s|%(process)d.%(thread)d|%(filename)s:%(lineno)s] %(message)s',
+                #'format': '[%(levelname).1s|%(filename)s:%(lineno)s] %(message)s',
+                'format': '[%(levelname).1s] %(message)s',
+            },
+            'longformatter': {
+                'format': '[%(levelname).1s|%(asctime)s|%(process)d.%(thread)d|%(filename)s:%(lineno)s] %(message)s',
+            }
+        },
+        'handlers': {
+            'streamhandler': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'shortformatter',
+                'filters': [],
+            },
+        },
+        'root': {
+            'level': 'DEBUG',
+            'filters': [],
+            'handlers': ['streamhandler'],
+        },
+        'loggers': {
+    #         'botocore': {
+    #             'level': 'ERROR',
+    #         },
+    #         'boto3': {
+    #             'level': 'ERROR',
+    #         },
+    #         'boto': {
+    #             'level': 'ERROR',
+    #         },
+    #         'paramiko': {
+    #             'level': 'WARNING',
+    #         },
+            'prom': {
+                #'level': 'CRITICAL',
+                #'level': 'WARNING',
+                #'level': 'DEBUG',
+                'level': 'INFO',
+            },
+            'morp': {
+                'level': 'INFO',
+                #'level': 'DEBUG',
+            },
+            'decorators': {
+                'level': 'WARNING',
+                #'level': 'DEBUG',
+            },
+            'datatypes': {
+                'level': 'WARNING',
+                #'level': 'DEBUG',
+            },
+            'caches': {
+                'level': 'WARNING',
+                #'level': 'DEBUG',
+            },
+            'requests': {
+                'level': 'WARNING',
+            },
+        },
+        'incremental': False,
+        'disable_existing_loggers': False,
+    })
+
+    dict_config.merge(config)
+    logging.config.dictConfig(dict_config)
+
+
+class LogMixin(object):
+    """A mixin object that can be added to classes to add some logging methods
+
+    This was inspired by .log() methods in both morp and prom, I wanted to add
+    .log_for() to prom and then thought it would be nice to have it in morp also
+    so I moved the functionality into here on 2-11-2023
+    """
+    @classmethod
+    def get_logger_instance(cls, instance_name="logger", **kwargs):
+        """Get the logger class for this class
+
+        :param instance_name: str, the name of the module level variable defined
+            in the module that the child class resides. If this doesn't exist then
+            a new instance will be created using the module classpath
+        :returns: Logger instance
+        """
+        module_name = cls.__module__
+        module = sys.modules[module_name]
+        return getattr(module, instance_name, None) or getLogger(module_name)
+
+    @classmethod
+    def get_logging_module(cls, module_name="logging", **kwargs):
+        """get the logging module defined in classes module
+
+        :param module_name: the logging module you want to get
+        :returns: module
+        """
+        module = sys.modules[cls.__module__]
+        return sys.modules[module_name]
+
+    @classmethod
+    def get_log_level(cls, level=NOTSET, **kwargs):
+        """Get the log level for class's logger
+
+        :param level_name: str, the name of the logger level (eg, "DEBUG")
+        :returns: int, the internal logging log level
+        """
+        if level == NOTSET:
+            default_level = kwargs.get("default_level", "DEBUG")
+            level = kwargs.get("level_name", kwargs.get("level_name", default_level))
+
+        if not isinstance(level, int):
+            logmod = cls.get_logging_module(**kwargs)
+            # getLevelName() returns int if passed in arg is string
+            level = logmod.getLevelName(level.upper())
+        return level
+
+    @classmethod
+    def is_logging(cls, level, **kwargs):
+        """Wrapper around logger.isEnabledFor
+
+        :param level: str|int, the logging level we want to check
+        :param **kwargs:
+        :returns: bool, True if the level has logging enabled
+        """
+        if not isinstance(level, int):
+            level = cls.get_log_level(level, **kwargs)
+
+        logger = cls.get_logger_instance(**kwargs)
+        return logger.isEnabledFor(level)
+
+    def log_for(self, **kwargs):
+        """set different logging messages for different log levels
+
+        :Example:
+            self.log_for(
+                debug=(["debug log message {}", debug_msg], {}),
+                INFO=(["info log message {}", info_msg],),
+                warning=(["warning message"], {}),
+                ERROR=(["error message"],),
+            )
+
+        :param **kwargs: each key can have a tuple of (args, kwargs) that will
+            be passed to .log(), the key should be a log level name and can be
+            either upper or lower case
+        """
+        logger = self.get_logger_instance(**kwargs)
+        logmod = self.get_logging_module(**kwargs)
+        level_name = logmod.getLevelName(logger.getEffectiveLevel())
+
+        if level_name not in kwargs:
+            level_name = level_name.lower()
+
+        if level_name in kwargs:
+            arguments = kwargs[level_name]
+            log_args = arguments[0]
+            log_kwargs = {}
+            if len(arguments) > 1:
+                log_kwargs = arguments[1]
+
+            log_kwargs["level"] = level_name
+            self.log(*log_args, **log_kwargs)
+
+    def log(self, format_str, *format_args, **kwargs):
+        """wrapper around the module's logger
+
+        :param format_str: str, the message to log
+        :param *format_args: list, if format_str is a string containing {},
+            then format_str.format(*format_args) is ran
+        :param **kwargs:
+            level: str|int, something like logging.DEBUG or "DEBUG"
+        """
+        logger = self.get_logger_instance(**kwargs)
+        if isinstance(format_str, Exception):
+            level = self.get_log_level(default_level="ERROR", **kwargs)
+            if self.is_logging(level):
+                #logger.exception(format_str)
+                #logger.log(level, f"{format_str}", *format_args, exc_info=format_str)
+                logger.log(level, f"{format_str}", *format_args)
+
+        else:
+            level = self.get_log_level(**kwargs)
+            if self.is_logging(level):
+                try:
+                    if format_args:
+                        logger.log(level, format_str.format(*format_args))
+                    else:
+                        logger.log(level, format_str)
+
+                except UnicodeError as e:
+                    logger.exception(e)
+

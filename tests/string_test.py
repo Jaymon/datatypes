@@ -9,6 +9,7 @@ from datatypes.string import (
     Character,
     Codepoint,
     NamingConvention,
+    EnglishWord,
 )
 
 from . import TestCase, testdata
@@ -153,6 +154,9 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("FooBar").snakecase()
         self.assertEqual("foo_bar", s)
 
+        s = NamingConvention("foo_bar_FooBar").snakecase()
+        self.assertEqual("foo_bar_foo_bar", s)
+
     def test_name(self):
         s = NamingConvention("FooBar")
         self.assertEqual("Foo_Bar", s.underscore())
@@ -192,6 +196,67 @@ class NamingConventionTest(TestCase):
 
         s = NamingConvention("FooBar Che-Baz")
         self.assertEqual(["Foo", "Bar", "Che", "Baz"], s.split())
+
+
+class EnglishWordTest(TestCase):
+    def test_syllables(self):
+        w = EnglishWord("bus")
+        self.assertEqual(1, len(w.syllables()))
+
+        w = EnglishWord("potato")
+        self.assertEqual(3, len(w.syllables()))
+
+    def test_plural(self):
+        tests = {
+            "cat": "cats",
+            "house": "houses",
+            "bus": "buses",
+            "truss": "trusses",
+            "marsh": "marshes",
+            "lunch": "lunches",
+            "tax": "taxes",
+            "blitz": "blitzes",
+            "class": "classes",
+            "wife": "wives",
+            "wolf": "wolves",
+            "roof": "roofs",
+            "belief": "beliefs",
+            "chef": "chefs",
+            "chief": "chiefs",
+            "city": "cities",
+            "puppy": "puppies",
+            "ray": "rays",
+            "boy": "boys",
+            "potato": "potatoes",
+            "tomato": "tomatoes",
+            "photo": "photos",
+            "piano": "pianos",
+            "halo": "halos",
+            "gas": "gases",
+            "volcano": "volcanos",
+            "cactus": "cactuses", # cacti
+            "focus": "focuses", # foci
+            "analysis": "analyses",
+            "ellipsis": "ellipses",
+            "phenomenon": "phenomena",
+            "child": "children",
+            "goose": "geese",
+            "man": "men",
+            "woman": "women",
+            "tooth": "teeth",
+            "foot": "feet",
+            "mouse": "mice",
+            "person": "people",
+        }
+
+        for singular, plural in tests.items():
+            self.assertEqual(plural, EnglishWord(singular).plural(), f"{singular} -> {plural}")
+
+
+
+
+
+
 
 
 class ByteStringTest(TestCase):

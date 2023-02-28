@@ -11,7 +11,7 @@ import collections
 import pkgutil
 
 from .compat import *
-from .decorators import property
+from .decorators import property as cachedproperty
 from .string import String
 from .path import Dirpath
 
@@ -24,18 +24,19 @@ class OrderedSubclasses(list):
     so if you want your ChildClass to be before ParentClass, you would just have
     ChildClass extend ParentClass
 
-    You'd think this would be a niche thing and not worth being in a common lib
-    of things, but I've actually had to do this exact thing multiple times, so
-    I'm finally moving this from Pout and Bang into here so I can standardize it
+    You'd think this would be a niche thing and not worth being in a common library
+    but I've actually had to do this exact thing multiple times, so I'm finally
+    moving this from Pout and Bang into here so I can standardize it
     """
-    def __init__(self, cutoff_classes=None):
+    def __init__(self, cutoff_classes=None, classes=None):
         """
         :param cutoff_classes: [type, ...], you should ignore anything before these
             classes when working out order
+        :param classes: list, any classes you want to insert right away
         """
         super().__init__()
 
-        self.indexes = {}
+        self.info = {}
 
         # make sure we have a tuple of type objects
         if cutoff_classes:
@@ -48,6 +49,13 @@ class OrderedSubclasses(list):
 
         self.cutoff_classes = cutoff_classes
 
+        if classes:
+            self.extend(classes)
+
+    def extend(self, classes):
+        for klass in classes:
+            self.insert(klass)
+
     def insert(self, klass):
         """Insert class into the ordered list
 
@@ -57,15 +65,22 @@ class OrderedSubclasses(list):
         """
         index = len(self)
         cutoff_classes = self.cutoff_classes
+        klasses = inspect.getmro(klass)
 
-        for subclass in reversed(inspect.getmro(klass)):
+        for offset, subclass in enumerate(reversed(klasses), 1):
             if issubclass(subclass, cutoff_classes):
-                index_name = f"{subclass.__module__}.{subclass.__name__}"
-                if index_name in self.indexes:
-                    index = min(index, self.indexes[index_name])
+                rc = ReflectClass(subclass)
+                index_name = rc.classpath
+                if index_name in self.info:
+                    self.info[index_name]["child_count"] += 1
+                    index = min(index, self.info[index_name]["index"])
 
                 else:
-                    self.indexes[index_name] = len(self)
+                    self.info[index_name] = {
+                        "index": len(self), # children should be inserted at least before this index
+                        "child_count": len(klasses) - offset, # how many children in self
+                    }
+
                     super().insert(index, subclass)
 
     def insert_module(self, module):
@@ -81,6 +96,38 @@ class OrderedSubclasses(list):
         """Runs through sys.modules and inserts all classes matching .cutoff_classes"""
         for m in list(sys.modules.values()):
             self.insert_module(m)
+
+    def edges(self):
+        """Iterate through the absolute children and only the absolute children,
+        no intermediate classes.
+
+        :Example:
+            class Foo(object): pass
+            class Bar(Foo): pass
+            class Che(object): pass
+
+            classes = OrderedSubclasses()
+            classes.extend([Foo, Bar, Che])
+
+            for c in classes.edges():
+                print(c)
+
+            # this would print out Bar and Che because object and Foo are parents
+
+        :returns: generator, only the absolute children who are not parents
+        """
+        for klass in self:
+            rc = ReflectClass(klass)
+            index_name = rc.classpath
+            if self.info[index_name]["child_count"] == 0:
+                yield klass
+
+#         active_class = None
+#         for current_class in self:
+#             #pout.v(current_class, active_class)
+#             if active_class is None or not issubclass(active_class, current_class):
+#                 active_class = current_class
+#                 yield current_class
 
 
 class Extend(object):
@@ -173,7 +220,7 @@ class ReflectDecorator(object):
 
     Moved from endpoints.reflection.ReflectDecorator on Jan 31, 2023
     """
-    @property(cached="_parents")
+    @cachedproperty(cached="_parents")
     def parents(self):
         """If this decorator is a class then this will return all the parents"""
         ret = []
@@ -215,7 +262,7 @@ class ReflectMethod(object):
 
     Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
     """
-    @property(cached="_required_args")
+    @cachedproperty(cached="_required_args")
     def required_args(self):
         """return the *args that are needed to call the method"""
         ret = []
@@ -261,12 +308,12 @@ class ReflectMethod(object):
 
         return list(filter(lambda x: x is not None, ret))
 
-    @property(cached="_name")
+    @cachedproperty(cached="_name")
     def name(self):
         """return the method name"""
         return self.method_name
 
-    @property(cached="_desc")
+    @cachedproperty(cached="_desc")
     def desc(self):
         """return the description of this method"""
         doc = None
@@ -348,18 +395,67 @@ class ReflectClass(object):
 
         :returns: str, "modpath.Classname"
         """
-        return "{}.{}".format(self.modpath, self.class_name)
+        return "{}:{}".format(self.modpath, self.class_name)
 
     @property
     def reflect_module(self):
         """Returns the reflected module"""
         return self._reflect_module or ReflectModule(self.cls.__module__)
 
-    @property(cached="_desc")
+    @cachedproperty(cached="_desc")
     def desc(self):
         """return the description of this class"""
         doc = inspect.getdoc(self.cls) or ""
         return doc
+
+    @classmethod
+    def get_class(cls, full_python_class_path):
+        """
+        take something like some.full.module.Path and return the actual Path class object
+
+        https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
+
+        Note -- this will fail when the object isn't accessible from the module, that means
+        you can't define your class object in a function and expect this function to work, the
+        reason why this doesn't work is because the class is on the local stack of
+        the function, so it only exists when that function is running, so there's
+        no way to get the class obect outside of the function, and you can't really
+        separate it from the class (like using the code object to create the class
+        object) because it might use local variables and things like that
+
+        :Example:
+            # -- THIS IS BAD --
+            def foo():
+                class FooCannotBeFound(object): pass
+                # this will fail
+                get_class("path.to.module.FooCannotBeFound")
+
+        moved here from morp.reflection.get_class on 2-5-2023
+        """
+        parts = full_python_class_path.rsplit(':', 1)
+        if len(parts) == 1:
+            module_name, class_name = full_python_class_path.rsplit('.', 1)
+
+        else:
+            module_name, class_name = parts
+
+        m = ReflectModule.import_module(module_name)
+        return getattr(m, class_name)
+
+    @classmethod
+    def get_classpath(cls, obj):
+        """return the full classpath of obj
+
+        :param obj: type|instance
+        :returns: str, the full classpath (eg, foo.bar.che:Classname)
+        """
+        parts = [obj.__module__]
+        if isinstance(obj, type):
+            parts.append(obj.__name__)
+        else:
+            parts.append(obj.__class__.__name__)
+
+        return ":".join(parts)
 
     def __init__(self, cls, reflect_module=None):
         self.cls = cls
@@ -372,6 +468,11 @@ class ReflectClass(object):
     def module(self):
         """returns the actual module this class is defined in"""
         return self.reflect_module.module()
+
+    def instance_methods(self, *args, **kwargs):
+        instance = self.cls(*args, **kwargs)
+        for method_name, method in inspect.getmembers(instance, inspect.ismethod):
+            yield method_name, method
 
     def reflect_methods(self):
         """Yield all the methods defined in this class
@@ -607,6 +708,27 @@ class ReflectClass(object):
             ret[method_name] = method
         return ret
 
+    def parents(self, cutoff_class=object):
+        for parent_class in self.classes(cutoff_class=cutoff_class):
+            if parent_class is not self.cls:
+                yield parent_class
+
+    def reflect_parents(self, cutoff_class=object):
+        for parent_class in self.parents(cutoff_class=cutoff_class):
+            yield type(self)(parent_class)
+
+    def classes(self, cutoff_class=object):
+        for klass in inspect.getmro(self.cls):
+            if cutoff_class and klass is cutoff_class:
+                break
+
+            else:
+                yield klass
+
+    def reflect_classes(self, cutoff_class=object):
+        for klass in self.classes(cutoff_class=cutoff_class):
+            yield type(self)(klass)
+
 
 class ReflectModule(object):
     """Introspect on a given module_name/modulepath (eg foo.bar.che)
@@ -625,6 +747,17 @@ class ReflectModule(object):
     def modpath(self):
         """Return the full qualified python path of the module (eg, foo.bar.che)"""
         return self.module().__name__
+
+    @property
+    def modroot(self):
+        """Return the aboslute root module"""
+        if self.module_package:
+            module_name = self.module_package.split(".", maxsplit=1)[0]
+
+        else:
+            module_name = self.module_name.split(".", maxsplit=1)[0]
+
+        return module_name
 
     @classmethod
     def find_module_names(cls, path, prefix="", ignore_private=True):
@@ -680,6 +813,11 @@ class ReflectModule(object):
 
         return module_package
 
+    @classmethod
+    def import_module(cls, module_name, module_package=None):
+        """passthrough for importlib importing functionality"""
+        return importlib.import_module(module_name, module_package)
+
     def __init__(self, module_name, module_package=None):
         """
         :param module_name: str|ModuleType, the module path of the module to introspect
@@ -718,6 +856,14 @@ class ReflectModule(object):
         """Returns a reflect module instance for a submodule"""
         return type(self)(self.module(*parts))
 
+    def basemodule(self):
+        """Returns the root-most module of this module's path (eg, if this module was
+        foo.bar.che then this would return foo module)"""
+        return self.import_module(self.modroot)
+
+    def rootmodule(self):
+        return self.basemodule()
+
     def module(self, *parts):
         """return the actual python module
 
@@ -732,7 +878,8 @@ class ReflectModule(object):
             if parts:
                 module_name += "." + ".".join(parts)
 
-            ret = importlib.import_module(module_name, self.module_package)
+            ret = self.import_module(module_name, self.module_package)
+
         return ret
 
     def module_names(self):
@@ -844,7 +991,7 @@ class ReflectModule(object):
 
         raise FileNotFoundError(f"No such file or directory found: {resource}")
 
-    def find_data_dirs(self, basename="data"):
+    def data_dirs(self, basename="data"):
         """Find the data directories in this module
 
         A directory is considered a data directory if it matches basename or if
@@ -854,7 +1001,11 @@ class ReflectModule(object):
         :returns: generator, yields all the found module data directories
         """
         basedir = Dirpath(self.path)
-        for dp in basedir.dirs():
+        # once we find a matching directory we stop traversing it, so data
+        # directories can have folders and stuff in them
+        it = basedir.dirs()
+        for dp in it:
             if not dp.has_file("__init__.py") or dp.endswith(basename):
+                it.finish(dp)
                 yield dp
 

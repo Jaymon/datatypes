@@ -560,7 +560,7 @@ class UrlTest(TestCase):
     def test_child(self):
         u = Url("http://example.com")
         u2 = u.child("/foo/bar")
-        self.assertEqual("http://example.com/foo/bar")
+        self.assertEqual("http://example.com/foo/bar", u2)
 
 
 class HostTest(TestCase):

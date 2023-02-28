@@ -51,7 +51,7 @@ class AggregateProfilerTest(TestCase):
     def test___new__(self):
         ap = AggregateProfiler()
         ap2 = AggregateProfiler()
-        self.assertEqual(ap is ap2)
+        self.assertTrue(ap is ap2)
 
     def test_count(self):
         p = AggregateProfiler()

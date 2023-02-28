@@ -133,30 +133,30 @@ class DatetimeTest(TestCase):
 
         self.assertEqual(d, d2)
 
-    def test_create(self):
-        d1 = Datetime.utcnow()
-        self.assertTrue(isinstance(d1, Datetime))
-
-        d2 = Datetime()
-
-        self.assertEqual(
-            d1.strftime(Datetime.FORMAT_PRECISION_SECONDS),
-            d2.strftime(Datetime.FORMAT_PRECISION_SECONDS)
-        )
-
-        d3 = Datetime(2018, 10, 5)
-        d4 = Datetime(String(d3))
-        self.assertEqual(
-            d3.strftime(Datetime.FORMAT_PRECISION_DAY),
-            d4.strftime(Datetime.FORMAT_PRECISION_DAY)
-        )
-
     def test_has_time(self):
         d = Datetime(2019, 11, 5)
         self.assertFalse(d.has_time())
 
         d = Datetime()
         self.assertTrue(d.has_time())
+
+    def test_create_1(self):
+        d1 = Datetime.utcnow()
+        self.assertTrue(isinstance(d1, Datetime))
+
+        d2 = Datetime()
+
+        self.assertEqual(
+            d1.strftime(Datetime.FORMAT_ISO8601_SECONDS),
+            d2.strftime(Datetime.FORMAT_ISO8601_SECONDS)
+        )
+
+        d3 = Datetime(2018, 10, 5)
+        d4 = Datetime(String(d3))
+        self.assertEqual(
+            d3.strftime(Datetime.FORMAT_ISO8601_SECONDS),
+            d4.strftime(Datetime.FORMAT_ISO8601_SECONDS)
+        )
 
     def test_create_precision(self):
         d = Datetime("2019-11-5")
@@ -201,8 +201,8 @@ class DatetimeTest(TestCase):
 
         d3 = Datetime(int(ts))
         self.assertEqual(
-            d.strftime(Datetime.FORMAT_PRECISION_SECONDS),
-            d3.strftime(Datetime.FORMAT_PRECISION_SECONDS)
+            d.strftime(Datetime.FORMAT_ISO8601_SECONDS),
+            d3.strftime(Datetime.FORMAT_ISO8601_SECONDS)
         )
 
     def test_timestamp_2(self):
@@ -309,7 +309,6 @@ class DatetimeTest(TestCase):
         dt = Datetime(s)
         self.assertEqual("2020-03-19T00:00:00.000000Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
 
-
     def test_within(self):
         now = Datetime()
 
@@ -320,4 +319,68 @@ class DatetimeTest(TestCase):
         stop = datetime.timedelta(seconds=1000)
         self.assertTrue(now.within(start, stop))
         self.assertTrue(now.within(Datetime(start), Datetime(stop)))
+
+    def test_timezone_from_naive(self):
+        d = datetime.datetime.now()
+        d2 = Datetime(d)
+        self.assertEqual(d.astimezone(datetime.timezone.utc), d2)
+
+    def test_timezone_formats(self):
+        d = Datetime('2011-11-04T00:05:23+00')
+        self.assertEqual('2011-11-04T00:05:23Z', d.isoformat())
+
+        d = Datetime('2011-11-04')
+        self.assertEqual('2011-11-04', d.isoformat())
+
+        d = Datetime('2011-11-04T01Z')
+        self.assertEqual('2011-11-04T01:00:00Z', d.isoformat())
+
+        d = Datetime('2011-11-04T01:30+05')
+        self.assertEqual('2011-11-03T20:30:00Z', d.isoformat())
+
+        d = Datetime('2011-11-04T01+05')
+        self.assertEqual('2011-11-03T20:00:00Z', d.isoformat())
+
+        d = Datetime('2011-11-04T01')
+        self.assertEqual('2011-11-04T01:00:00Z', d.isoformat())
+
+        d = Datetime('2011-11-04T00:05:23.601')
+        self.assertEqual('2011-11-04T00:05:23.601000Z', d.isoformat())
+
+        d = Datetime('2011-11-04T00:05:23.601-04:00')
+        self.assertEqual('2011-11-04T04:05:23.601000Z', d.isoformat())
+
+        d = Datetime('2011-11-04T00:05:23.601Z')
+        self.assertEqual('2011-11-04T00:05:23.601000Z', d.isoformat())
+
+    def test_timezone_all(self):
+        d = Datetime(2021, 8, 16)
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime(2021, 8, 30, weeks=-2)
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime()
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime(None)
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime("")
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime(datetime.datetime.now())
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime(datetime.datetime.now().date())
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime(int(Datetime().timestamp()))
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime(Datetime().timestamp())
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+        d = Datetime('2011-11-04T00:05:23Z')
+        self.assertEqual(datetime.timezone.utc, d.tzinfo)
 
