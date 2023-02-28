@@ -12,19 +12,6 @@ from .string import String
 logger = logging.getLogger(__name__)
 
 
-# timezone.utc = timezone._create(timedelta(0))
-class UTC(datetime.tzinfo):
-    def tzname(self, dt):
-        return "Z"
-
-    def utcoffset(self, dt):
-        return datetime.timedelta(0)
-
-    def dst(self, dt):
-        # a fixed-offset class:  doesn't account for DST
-        return datetime.timedelta(0)
-
-
 class Datetime(datetime.datetime):
     """Wrapper around standard datetime.datetime class that assures UTC time and
     full ISO8601 date strings with Z timezone.
@@ -43,10 +30,6 @@ class Datetime(datetime.datetime):
     FORMAT_ISO8601_SECONDS = "%Y-%m-%dT%H:%M:%S"
     FORMAT_ISO8601_SECONDS_TZ = "%Y-%m-%dT%H:%M:%S%Z"
     FORMAT_ISO8601_SECONDS_OFFSET = "%Y-%m-%dT%H:%M:%S%z"
-
-    #FORMAT_ISO8601 = "%Y-%m-%dT%H:%M:%S.%fZ"
-    #FORMAT_PRECISION_SECONDS = "%Y-%m-%dT%H:%M:%SZ"
-    #FORMAT_PRECISION_DAY = "%Y-%m-%d"
     FORMAT_ISO8601_DAY = "%Y-%m-%d"
 
     @property
@@ -91,7 +74,6 @@ class Datetime(datetime.datetime):
                     d,
                     f,
                 ))
-                #return cls.strptime(d, f).astimezone(UTC)
 
                 ret = cls.strptime(d, f)
                 if ("%z" in f) or ("%Z" in f):
@@ -99,8 +81,6 @@ class Datetime(datetime.datetime):
 
                 else:
                     ret = ret.replace(tzinfo=datetime.timezone.utc)
-
-                #ret = cls.strptime(d, f).astimezone(datetime.timezone.utc)
 
                 logger.debug(f"Date: {d} parsed with format: {f}")
                 return ret
@@ -115,16 +95,12 @@ class Datetime(datetime.datetime):
         if re.match(r"^\-?\d+\.\d+$", d):
             # account for unix timestamps with microseconds
             logger.debug("Date: {} parsed with float unix timestamp regex".format(d))
-            #dt = cls.utcfromtimestamp(float(d))
-            #dt = cls.fromtimestamp(float(d), tz=UTC())
             dt = cls.fromtimestamp(float(d), tz=datetime.timezone.utc)
 
         elif re.match(r"^\-?\d+$", d):
             # account for unix timestamps without microseconds
             logger.debug("Date: {} parsed with integer unix timestamp regex".format(d))
             val = int(d)
-            #dt = cls.utcfromtimestamp(val)
-            #dt = cls.fromtimestamp(val, tz=UTC())
             dt = cls.fromtimestamp(val, tz=datetime.timezone.utc)
 
         else:
@@ -136,7 +112,6 @@ class Datetime(datetime.datetime):
             # date must be in UTC
             # https://en.wikipedia.org/wiki/ISO_8601
             m = re.match(
-                #r"^(\d{4}).?(\d{2}).?(\d{2}).(\d{2}):?(\d{2}):?(\d{2})(?:\.(\d+))?Z?$",
                 r"""
                     ^               # match from the beginning of the string
                     (\d{4})         # 0 - YYYY (year)
@@ -153,17 +128,12 @@ class Datetime(datetime.datetime):
                 d,
                 flags=re.X
             )
-#             pout.v(m, m.groups(), d[m.regs[m.lastindex][1]:])
-#             tz = d[m.regs[m.lastindex][1]:]
-#             dt = cls.strptime("%Z", tz)
-#             pout.v(tz, dt)
 
             if m:
                 logger.debug("Date: {} parsed with ISO regex".format(d))
 
                 parsed_dateparts = m.groups()
                 dateparts = list(map(lambda x: int(x) if x else 0, parsed_dateparts[:6]))
-                #dt = cls(*dateparts, tzinfo=UTC())
                 dt = cls(*dateparts, tzinfo=datetime.timezone.utc)
 
                 # account for ms with leading zeros
@@ -245,13 +215,10 @@ class Datetime(datetime.datetime):
         args, kwargs, kw = cls.parse_args(args, kwargs)
 
         if not args and not kwargs:
-            #instance = cls.utcnow()
-            #instance = cls.now(UTC())
             instance = cls.now(datetime.timezone.utc)
 
         elif len(args) == 1 and not kwargs:
             if isinstance(args[0], datetime.datetime):
-                #dt = args[0].astimezone(UTC())
                 dt = args[0].astimezone(datetime.timezone.utc)
                 instance = super().__new__(
                     cls,
@@ -275,14 +242,11 @@ class Datetime(datetime.datetime):
                     0,
                     0,
                     0,
-                    #tzinfo=UTC(),
                     tzinfo=datetime.timezone.utc,
                 )
 
             elif isinstance(args[0], (int, float)):
                 try:
-                    #instance = cls.utcfromtimestamp(args[0])
-                    #instance = cls.fromtimestamp(args[0], tz=UTC())
                     instance = cls.fromtimestamp(args[0], tz=datetime.timezone.utc)
 
                 except ValueError as e:
@@ -304,8 +268,6 @@ class Datetime(datetime.datetime):
                             instance = fs
 
                 else:
-                    #instance = cls.utcnow()
-                    #instance = cls.now(UTC())
                     instance = cls.now(datetime.timezone.utc)
 
         else:
@@ -318,18 +280,6 @@ class Datetime(datetime.datetime):
 
     def __str__(self):
         return self.isoformat()
-
-#     def __str__(self):
-#         pout.v(self.strftime("%Z %z"))
-#         if self.has_time():
-#             if self.microsecond == 0:
-#                 return self.strftime(self.FORMAT_PRECISION_SECONDS)
-# 
-#             else:
-#                 return self.strftime(self.FORMAT_ISO8601)
-# 
-#         else:
-#             return self.strftime(self.FORMAT_ISO8601_DAY)
 
     def __add__(self, other):
         return type(self)(super().__add__(other))
@@ -401,33 +351,28 @@ class Datetime(datetime.datetime):
 
         # this returns microsecond precision
         # http://bugs.python.org/msg180110
-        #epoch = datetime.datetime(1970, 1, 1, tzinfo=UTC())
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
         return (self - epoch).total_seconds()
 
-    def iso_date(self):
+    def isodate(self):
         """returns datetime as ISO-8601 string with just YYYY-MM-DD"""
         return self.strftime(self.FORMAT_ISO8601_DAY)
-    iso_day = iso_date
-    isoday = iso_date
-    isodate = iso_date
+    iso_day = isodate
+    isoday = isodate
+    iso_date = isodate
 
-    def iso_seconds(self):
+    def isoseconds(self):
         """returns datetime as ISO-8601 string with no milliseconds"""
         return self.isoformat(timespec="seconds")
-    isoseconds = iso_seconds
+    iso_seconds = isoseconds
 
-    def iso_8601(self):
+    def iso8601(self):
         """returns datetime as a full ISO-8601 string with milliseconds"""
         return self.isoformat(timespec="microseconds")
-    iso8601 = iso_8601
+    iso_8601 = iso8601
 
     def isofull(self):
         return self.isoformat(timespec="microseconds")
-
-#     def _tzstr(self):
-#         pout.h()
-#         return super()._tzstr() if self.utcoffset() else "Z"
 
     def isoformat(self, sep="T", timespec="auto"):
         """provides python 3 compatible isoformat even for py2
@@ -444,27 +389,12 @@ class Datetime(datetime.datetime):
         :returns: string, the iso8601 date
         """
         if self.has_time():
-            #ret = self.astimezone(None).isoformat(sep, timespec)
             if self.utcoffset():
                 ret = super().isoformat(sep, timespec)
 
             else:
                 ret = self.datetime().replace(tzinfo=None).isoformat(sep, timespec)
-                #ret = self.astimezone(None).isoformat(sep, timespec)
                 ret += "Z"
-
-
-#             ret = self.datetime().replace(tzinfo=None).isoformat(sep, timespec)
-#             ret += self.tzinfo.tzname(self)
-
-            #ret = super().isoformat(sep, timespec)
-
-#             from datetime import _format_offset
-#             pout.v(_format_offset(self.utcoffset()))
-# 
-#             if self.utcoffset():
-#                 pout.v(datetime._format_offset(self.utcoffset()))
-
 
         else:
             if timespec == "auto":
@@ -472,32 +402,8 @@ class Datetime(datetime.datetime):
             else:
                 ret = self.datetime().replace(tzinfo=None).isoformat(sep, timespec)
                 ret += "Z"
-                #ret = super().isoformat(sep, timespec)
-
-            #ret = self.strftime(self.FORMAT_ISO8601_DAY)
 
         return ret
-
-
-
-
-
-#         add_tz = True
-#         if timespec == "auto":
-#             if self.has_time():
-#                 ret = super().isoformat(sep, timespec)
-#             else:
-#                 add_tz = False
-#                 ret = self.strftime(self.FORMAT_ISO8601_DAY)
-# 
-#         else:
-#             ret = super().isoformat(sep, timespec)
-# 
-#         if add_tz and not self.tzinfo:
-#             if not ret.endswith("Z"):
-#                 ret += "Z"
-# 
-#         return ret
 
     def within(self, start, stop, now=None):
         """return True if this datetime is within start and stop dates
@@ -628,7 +534,6 @@ class Datetime(datetime.datetime):
             self.minute,
             self.second,
             self.microsecond,
-            #tzinfo=UTC(),
             tzinfo=datetime.timezone.utc,
-        ) #.replace(tzinfo=None)
+        )
 
