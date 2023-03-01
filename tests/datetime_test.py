@@ -326,6 +326,9 @@ class DatetimeTest(TestCase):
         self.assertEqual(d.astimezone(datetime.timezone.utc), d2)
 
     def test_timezone_formats(self):
+        d = Datetime('2019-10-08 20:18:59.')
+        self.assertEqual('2019-10-08T20:18:59Z', d.isoformat())
+
         d = Datetime('2011-11-04T00:05:23+00')
         self.assertEqual('2011-11-04T00:05:23Z', d.isoformat())
 

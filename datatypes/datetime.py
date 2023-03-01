@@ -290,45 +290,69 @@ class Datetime(datetime.datetime):
         else:
             return super(Datetime, self).__sub__(other)
 
-    def __gt__(self, other):
+    def __eq__(self, other):
         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
-            return self.date() > other
+            return self.date() == other
         else:
-            return super(Datetime, self).__gt__(other)
+            return super().__eq__(other.astimezone(self.tzinfo))
 
     def __lt__(self, other):
         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
             return self.date() < other
         else:
-            return super(Datetime, self).__lt__(other)
+            return super(Datetime, self).__lt__(other.astimezone(self.tzinfo))
+
+    def __gt__(self, other):
+        return not self.__lt__(other) and not self.__eq__(other)
 
     def __ge__(self, other):
-        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
-            return self.date() >= other
-        else:
-            return super(Datetime, self).__ge__(other)
+        return not self.__lt__(other) or self.__eq__(other)
 
     def __le__(self, other):
-        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
-            return self.date() <= other
-        else:
-            return super(Datetime, self).__le__(other)
+        return self.__lt__(other) or self.__eq__(other)
 
     def __ne__(self, other):
-        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
-            return self.date() != other
-        else:
-            return super(Datetime, self).__ne__(other)
+        return not self.__eq__(other)
 
-    def __eq__(self, other):
-        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
-            return self.date() == other
-        else:
-            return super().__eq__(other)
+#     def __gt__(self, other):
+#         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+#             return self.date() > other
+#         else:
+#             return super(Datetime, self).__gt__(other)
+# 
+#     def __lt__(self, other):
+#         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+#             return self.date() < other
+#         else:
+#             return super(Datetime, self).__lt__(other)
+# 
+#     def __ge__(self, other):
+#         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+#             return self.date() >= other
+#         else:
+#             return super(Datetime, self).__ge__(other)
+# 
+#     def __le__(self, other):
+#         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+#             return self.date() <= other
+#         else:
+#             return super(Datetime, self).__le__(other)
+# 
+#     def __ne__(self, other):
+#         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+#             return self.date() != other
+#         else:
+#             return super(Datetime, self).__ne__(other)
+# 
+#     def __eq__(self, other):
+#         if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+#             return self.date() == other
+#         else:
+#             return super().__eq__(other)
 
     def __hash__(self):
         # https://stackoverflow.com/questions/10254594/what-makes-a-user-defined-class-unhashable
-        return super(Datetime, self).__hash__()
+        return super().__hash__()
 
     def has_time(self):
         return not (
