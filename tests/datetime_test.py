@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 import pickle
 import datetime
+import time
 
 from datatypes.compat import *
 from datatypes.datetime import (
@@ -386,4 +387,23 @@ class DatetimeTest(TestCase):
 
         d = Datetime('2011-11-04T00:05:23Z')
         self.assertEqual(datetime.timezone.utc, d.tzinfo)
+
+    def test_time_ns(self):
+        ts = time.time_ns()
+        d = Datetime(ts)
+        self.assertEqual(ts, d.timestamp_ns())
+
+    def test_datehash(self):
+        d = Datetime(microsecond=0)
+        pout.v(d)
+        return
+
+
+        pout.v(d.datehash())
+
+        h = d.datehash()
+        d2 = Datetime.fromdatehash(h)
+        pout.v(d2)
+
+
 

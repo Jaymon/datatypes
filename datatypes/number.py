@@ -36,7 +36,7 @@ class Shorten(object):
         return ret
 
     @classmethod
-    def encode(cls, integer, encoding=""):
+    def encode(cls, integer, encoding="", baselist=None):
         base = cls.BASE_LIST
         length = len(base)
         ret = ''
@@ -46,7 +46,7 @@ class Shorten(object):
         return String(ret)
 
     @classmethod
-    def decode(cls, s, encoding=""):
+    def decode(cls, s, encoding="", basedict=None):
         reverse_base = cls.BASE_DICT
         length = len(reverse_base)
         ret = 0
