@@ -214,13 +214,24 @@ class Datetime(datetime.datetime):
             "seconds": ["seconds", "secs"],
             "microseconds": ["microseconds", "usecs"],
             "milliseconds": ["milliseconds", "msecs"],
-            "timedelta": ["timedelta"],
         }
-        for nk, ks in delta_names.items():
+        for nk, ks in timedelta_names.items():
             for k in ks:
                 if k in kwargs:
                     timedelta_kwargs.setdefault(nk, 0)
                     timedelta_kwargs[nk] += kwargs.pop(k)
+
+        if timedelta := kwargs.pop("timedelta", None):
+            timedelta_kwargs["timedelta"] = timedelta
+
+        if args and isinstance(args[0], datetime.timedelta):
+            if "timedelta" in timedelta_kwargs:
+                timedelta_kwargs["timedelta"] += args[0]
+
+            else:
+                timedelta_kwargs["timedelta"] = args[0]
+
+            args = args[1:]
 
         replace_names = {
             "year": ["year", "yr", "y", "Y"],
@@ -237,6 +248,7 @@ class Datetime(datetime.datetime):
                 if k in kwargs:
                     replace_kwargs.setdefault(nk, 0)
                     replace_kwargs[nk] += kwargs.pop(k)
+
 
 #         date_keywords = {
 #             "years": ["years", "year", "yr"],
@@ -256,15 +268,6 @@ class Datetime(datetime.datetime):
 #                     kw.setdefault(nk, 0)
 #                     kw[nk] += kwargs.pop(k)
 
-        if args and isinstance(args[0], datetime.timedelta):
-            if "timedelta" in timedelta_kwargs:
-                timedelta_kwargs["timedelta"] += args[0]
-
-            else:
-                timedelta_kwargs["timedelta"] = args[0]
-
-            args = args[1:]
-
 #         if not args and replace_kwargs:
 #             if "year" in replace_kwargs and "month" in replace_kwargs and "day" in replace_kwargs:
 #                 args = [
@@ -281,17 +284,25 @@ class Datetime(datetime.datetime):
 
         #kw["_date_keywords"] = date_keywords
         #pout.v(args, kwargs, kw)
+
+        if len(args) < 8:
+            replace_kwargs.setdefault("tzinfo", kwargs.pop("tzinfo", datetime.timezone.utc))
+
+        else:
+            if tzinfo := kwargs.pop("tzinfo", None):
+                replace_kwargs["tzinfo"] = tzinfo
+
         return args, replace_kwargs, timedelta_kwargs
         #return args, kwargs, kw
 
     def __new__(cls, *args, **kwargs):
         # remove any custom keywords
-        args, kwargs, timedelta_kwargs = cls.parse_args(args, kwargs)
+        args, replace_kwargs, timedelta_kwargs = cls.parse_args(args, kwargs)
 
-        if not args and not kwargs:
+        if not args:
             instance = cls.now(datetime.timezone.utc)
 
-        elif len(args) == 1 and not kwargs:
+        elif len(args) == 1:
             if isinstance(args[0], datetime.datetime):
                 dt = args[0].astimezone(datetime.timezone.utc)
                 instance = super().__new__(
@@ -361,13 +372,13 @@ class Datetime(datetime.datetime):
                     instance = cls.now(datetime.timezone.utc)
 
         else:
-            if len(args) < 8:
-                kwargs.setdefault("tzinfo", datetime.timezone.utc)
-            instance = super().__new__(cls, *args, **kwargs)
+            instance = super().__new__(cls, *args, **replace_kwargs)
+            replace_kwargs = {} # we've consumed them
 
         #instance = instance.replace_timedelta(**kw)
-        if timedelta_kwargs:
-            instance = instance.replace(**timedleta_kwargs)
+        if replace_kwargs or timedelta_kwargs:
+            instance = instance.replace(**replace_kwargs, **timedelta_kwargs)
+
         return instance
 
     def __str__(self):
@@ -702,58 +713,29 @@ class Datetime(datetime.datetime):
         """
         args, replace_kwargs, timedelta_kwargs = self.parse_args(args, kwargs)
 
-        pout.b()
-        #dt = super().replace(*args) if args else self
-        #dt = self
-
-        replace_keywords = set([
-            "year",
-            "month",
-            "day",
-            "hour",
-            "minute",
-            "second",
-            "microsecond",
-            "millisecond",
-        ])
-        if replace_kws := {k: v for k, v in kwargs.items() if k in replace_keywords}:
-            pout.v(replace_kws)
-            dt = super().replace(*args, **replace_kws)
+        if replace_kwargs:
+            dt = super().replace(*args, **replace_kwargs)
 
         else:
             dt = super().replace(*args)
 
-        if timedelta := kwargs.pop("timedelta", None):
-            pout.v(timedelta)
+        if timedelta := timedelta_kwargs.pop("timedelta", None):
             dt = dt + timedelta
 
-        timedelta_keywords = set([
-            "years",
-            "months",
-            "weeks",
-            "days",
-            "hours",
-            "minutes",
-            "seconds",
-            "microseconds",
-            "milliseconds",
-        ])
-        if delta_kws := {k: v for k, v in kwargs.items() if k in timedelta_keywords}:
-            pout.v(delta_kws)
-            if "years" in delta_kws:
-                year = int(delta_kws.pop("years"))
+        if timedelta_kwargs:
+            if "years" in timedelta_kwargs:
+                year = int(timedelta_kwargs.pop("years"))
                 dt = dt.replace(self.year + year)
-                pout.v(dt)
 
-            if "months" in delta_kws:
-                months = int(delta_kws.pop("months"))
+            if "months" in timedelta_kwargs:
+                months = int(timedelta_kwargs.pop("months"))
                 # https://stackoverflow.com/a/546354/5006
                 year = self.year + (((self.month + (months - 1 if months else months)) or -1) // 12)
                 month = ((self.month + months) % 12) or 12
                 day = self.day - 1
                 dt = dt.replace(year, month, 1) + datetime.timedelta(days=day)
 
-            dt += datetime.timedelta(**delta_kws)
+            dt += datetime.timedelta(**timedelta_kwargs)
 
         return dt
 

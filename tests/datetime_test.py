@@ -394,16 +394,10 @@ class DatetimeTest(TestCase):
         self.assertEqual(ts, d.timestamp_ns())
 
     def test_datehash(self):
-        d = Datetime(microsecond=0)
-        pout.v(d)
-        return
+        d1 = Datetime(microsecond=0)
+        h = d1.datehash()
+        self.assertIsInstance(h, str)
 
-
-        pout.v(d.datehash())
-
-        h = d.datehash()
         d2 = Datetime.fromdatehash(h)
-        pout.v(d2)
-
-
+        self.assertEqual(d1, d2)
 
