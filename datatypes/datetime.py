@@ -249,42 +249,6 @@ class Datetime(datetime.datetime):
                     replace_kwargs.setdefault(nk, 0)
                     replace_kwargs[nk] += kwargs.pop(k)
 
-
-#         date_keywords = {
-#             "years": ["years", "year", "yr"],
-#             "months": ["months", "month"],
-#             "weeks": ["weeks", "week"],
-#             "days": ["days", "day"],
-#             "hours": ["hours", "hour", "hr"],
-#             "minutes": ["minutes", "minute", "min"],
-#             "seconds": ["seconds", "second", "secs", "sec"],
-#             "microseconds": ["microseconds", "microsecond", "ms"],
-#             "milliseconds": ["milliseconds", "millisecond"],
-#         }
-#         kw = {}
-#         for nk, ks in date_keywords.items():
-#             for k in ks:
-#                 if k in kwargs:
-#                     kw.setdefault(nk, 0)
-#                     kw[nk] += kwargs.pop(k)
-
-#         if not args and replace_kwargs:
-#             if "year" in replace_kwargs and "month" in replace_kwargs and "day" in replace_kwargs:
-#                 args = [
-#                     replace_kwargs.pop("year"),
-#                     replace_kwargs.pop("month"),
-#                     replace_kwargs.pop("day"),
-#                 ]
-# 
-#             else:
-#                 # move everything to replace since we don't have everything we need
-#                 # to instantiate an object
-#                 kw.update(kwargs)
-#                 kwargs = {}
-
-        #kw["_date_keywords"] = date_keywords
-        #pout.v(args, kwargs, kw)
-
         if len(args) < 8:
             replace_kwargs.setdefault("tzinfo", kwargs.pop("tzinfo", datetime.timezone.utc))
 
@@ -293,7 +257,6 @@ class Datetime(datetime.datetime):
                 replace_kwargs["tzinfo"] = tzinfo
 
         return args, replace_kwargs, timedelta_kwargs
-        #return args, kwargs, kw
 
     def __new__(cls, *args, **kwargs):
         # remove any custom keywords
@@ -458,14 +421,26 @@ class Datetime(datetime.datetime):
         return int("{{:0<{}}}".format(size).format(timestamp))
 
     def datehash(self):
+        """Return a datehash, kind of similar to a geohash where each character
+        represents a more exact time
+
+        This is something I've noodled on since Plancast days, and I wanted to finally
+        have a canonical place where I could mess with it and track changes
+
+        :returns: str, A 7 character string, with indexes that represent:
+            0,1 - the year
+            2 - month
+            3 - day
+            4 - hour
+            5 - minute
+            6 - second
+        """
         h = ""
         chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
         # year
         h += chars[self.year // 100]
         h += chars[self.year % 100]
-        #h += chars[int(str(self.year)[:2])]
-        #h += chars[int(str(self.year)[2:])]
 
         # month
         h += chars[self.month]
@@ -474,7 +449,6 @@ class Datetime(datetime.datetime):
         h += chars[self.day]
 
         if self.has_time():
-            # hour
             h += chars[self.hour]
             h += chars[self.minute]
             h += chars[self.second]
@@ -501,7 +475,6 @@ class Datetime(datetime.datetime):
                     second = indexes[h[6]]
 
         return cls(year, month, day, hour, minute, second)
-
 
     def isodate(self):
         """returns datetime as ISO-8601 string with just YYYY-MM-DD"""
@@ -620,96 +593,17 @@ class Datetime(datetime.datetime):
 
         return String(val)
 
-#     def replace_timedelta(self, timedelta=None, **kwargs):
-#         """Returns a new datetime instance with any time deltas applied
-# 
-#         :param timedelta: datetime.timedelta
-#         :param **kwargs:
-#             can have keyword values for months, weeks, days, hours, seconds that
-#             will be applied to self
-#         :returns: Datetime
-#         """
-#         dt = self
-#         if timedelta:
-#             dt = self + timedelta
-# 
-#         delta_keywords = set([
-#             "years",
-#             "months",
-#             "weeks",
-#             "days",
-#             "hours",
-#             "minutes",
-#             "seconds",
-#             "microseconds",
-#             "milliseconds",
-#         ])
-# 
-#         if delta_kws := {k: v for k, v in kwargs.items() if k in delta_keywords}:
-#             dt += datetime.timedelta(**delta_kws)
-# 
-#         replace_keywords = set([
-#             "year",
-#             "month",
-#             "day",
-#             "hour",
-#             "minute",
-#             "second",
-#             "microsecond",
-#             "millisecond",
-#         ])
-# 
-#         if replace_kws := {k: v for k, v in kwargs.items() if k in replace_keywords}:
-#             pout.v(replace_kws)
-#             dt = dt.replace(**replace_kws)
-# 
-# #         if "years" in kwargs:
-# #             year = int(kwargs.pop("years"))
-# #             dt = self.replace(self.year + year)
-# # 
-# #         if "months" in kwargs:
-# #             months = int(kwargs.pop("months"))
-# #             # https://stackoverflow.com/a/546354/5006
-# #             year = self.year + (((self.month + (months - 1 if months else months)) or -1) // 12)
-# #             month = ((self.month + months) % 12) or 12
-# #             day = self.day - 1
-# #             dt = self.replace(year, month, 1) + datetime.timedelta(days=day)
-# # 
-# #         if "weeks" in kwargs:
-# #             weeks = int(kwargs.pop("weeks"))
-# #             dt = self + datetime.timedelta(days=weeks * 7)
-# # 
-# #         if "days" in kwargs:
-# #             days = int(kwargs.pop("days"))
-# #             dt = self + datetime.timedelta(days=days)
-# # 
-# #         if "hours" in kwargs:
-# #             hours = int(kwargs.pop("hours"))
-# #             dt = self + datetime.timedelta(hours=hours)
-# # 
-# #         if "minutes" in kwargs:
-# #             s = int(kwargs.pop("minutes"))
-# #             dt = self + datetime.timedelta(minutes=s)
-# # 
-# #         if "seconds" in kwargs:
-# #             s = int(kwargs.pop("seconds"))
-# #             dt = self + datetime.timedelta(seconds=s)
-# # 
-# #         if "microseconds" in kwargs:
-# #             s = int(kwargs.pop("microseconds"))
-# #             dt = self + datetime.timedelta(microseconds=s)
-# # 
-# #         if "milliseconds" in kwargs:
-# #             s = int(kwargs.pop("milliseconds"))
-# #             dt = self + datetime.timedelta(milliseconds=s)
-# 
-#         pout.v(kwargs, dt)
-#         return dt
-
     def replace(self, *args, **kwargs):
         """Overrides default behavior to account for custom behavior
 
         https://docs.python.org/3/library/datetime.html#datetime.datetime.replace
+
+        Returns a new datetime instance with any time deltas applied
+
+        :param timedelta: datetime.timedelta
+        :param **kwargs: besides the standard keywords, this can also have keyword
+            values for: months, weeks, days, hours, seconds, and timedelta
+        :returns: Datetime
         """
         args, replace_kwargs, timedelta_kwargs = self.parse_args(args, kwargs)
 
@@ -739,15 +633,6 @@ class Datetime(datetime.datetime):
 
         return dt
 
-
-
-
-
-        # remove any custom keywords
-#         args, kwargs, kw = self.parse_args(args, kwargs)
-#         dt = super().replace(*args, **kwargs)
-#         return dt.replace_timedelta(**kw) if kw else dt
-
     def datetime(self):
         """Similar to .date() but returns vanilla datetime instance"""
         return datetime.datetime(
@@ -758,6 +643,6 @@ class Datetime(datetime.datetime):
             self.minute,
             self.second,
             self.microsecond,
-            tzinfo=datetime.timezone.utc,
+            tzinfo=self.tzinfo,
         )
 
