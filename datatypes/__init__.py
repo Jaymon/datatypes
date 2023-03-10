@@ -36,6 +36,7 @@ from .collections import (
     Namespace,
     ContextNamespace,
     HotSet,
+    Stack,
 )
 from .csv import (
     CSV,

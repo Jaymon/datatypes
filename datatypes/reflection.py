@@ -469,6 +469,14 @@ class ReflectClass(object):
         """returns the actual module this class is defined in"""
         return self.reflect_module.module()
 
+    def method_names(self):
+        for method_name in self.get_info().keys():
+            yield method_name
+
+    def methods(self):
+        for method_name, method_info in self.get_info().items():
+            yield method_name, method_info["method"]
+
     def instance_methods(self, *args, **kwargs):
         instance = self.cls(*args, **kwargs)
         for method_name, method in inspect.getmembers(instance, inspect.ismethod):

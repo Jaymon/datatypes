@@ -15,7 +15,7 @@ def null_config(name):
     logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 
-def quick_config(**kwargs):
+def quick_config(levels=None, **kwargs):
     """Lots of times I have to add a basic logger, it's basically the
     same code over and over again, this will just make that a little easier to do
 
@@ -24,6 +24,13 @@ def quick_config(**kwargs):
     :example:
         from datatypes import logging
         logging.quick_config() # near top of file
+
+        # fine-tune the levels
+        testdata.basic_logging(
+            levels={
+                "datatypes": "WARNING",
+            }
+        )
 
     this basically does this:
         import sys, logging
@@ -34,9 +41,11 @@ def quick_config(**kwargs):
         log_handler.setFormatter(log_formatter)
         logger.addHandler(log_handler)
 
+    :param levels: dict[str, str], the key is the logger name and the value is
+        the level. This can also be a list[tuple] where the tuple is (name, level)
     :param **kwargs: key/val, these will be passed into logger.basicConfig method
     """
-    levels = kwargs.pop("levels", [])
+    levels = levels or {}
 
     # configure root logger
     kwargs.setdefault("format", "[%(levelname).1s] %(message)s")
@@ -48,6 +57,7 @@ def quick_config(**kwargs):
     # https://github.com/Jaymon/testdata/issues/34
     if isinstance(levels, dict):
         levels = levels.items()
+
     for logger_name, logger_level in levels:
         l = logging.getLogger(logger_name)
         if isinstance(logger_level, str):
@@ -248,7 +258,8 @@ class LogMixin(object):
     def log(self, format_str, *format_args, **kwargs):
         """wrapper around the module's logger
 
-        :param format_str: str, the message to log
+        :param format_str: str|list[str], the message to log, if this is a list
+            then it will be joined with a space
         :param *format_args: list, if format_str is a string containing {},
             then format_str.format(*format_args) is ran
         :param **kwargs:
@@ -263,6 +274,9 @@ class LogMixin(object):
                 logger.log(level, f"{format_str}", *format_args)
 
         else:
+            if isinstance(format_str, list):
+                format_str = " ".join(filter(None, format_str))
+
             level = self.get_log_level(**kwargs)
             if self.is_logging(level):
                 try:
@@ -273,4 +287,34 @@ class LogMixin(object):
 
                 except UnicodeError as e:
                     logger.exception(e)
+
+    def log_warning(self, *args, **kwargs):
+        kwargs["level"] = "WARNING"
+        return self.log(*args, **kwargs)
+
+    def logw(self, *args, **kwargs): return self.log_warning(*args, **kwargs)
+
+    def log_info(self, *args, **kwargs):
+        kwargs["level"] = "INFO"
+        return self.log(*args, **kwargs)
+
+    def logi(self, *args, **kwargs): return self.log_info(*args, **kwargs)
+
+    def log_debug(self, *args, **kwargs):
+        kwargs["level"] = "DEBUG"
+        return self.log(*args, **kwargs)
+
+    def logd(self, *args, **kwargs): return self.log_debug(*args, **kwargs)
+
+    def log_error(self, *args, **kwargs):
+        kwargs["level"] = "ERROR"
+        return self.log(*args, **kwargs)
+
+    def loge(self, *args, **kwargs): return self.log_error(*args, **kwargs)
+
+    def log_critical(self, *args, **kwargs):
+        kwargs["level"] = "CRITICAL"
+        return self.log(*args, **kwargs)
+
+    def logc(self, *args, **kwargs): return self.log_critical(*args, **kwargs)
 
