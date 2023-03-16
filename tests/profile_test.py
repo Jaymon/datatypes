@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, division, print_function, absolute_import
+import time
 
 from datatypes.compat import *
 from datatypes.profile import (
@@ -9,6 +10,14 @@ from datatypes.profile import (
 )
 
 from . import TestCase, testdata
+
+
+class ProfileTest(TestCase):
+    def test_output(self):
+        p = Profile()
+        p.start = time.time()
+        p.stop = p.start + 1000.65787
+        self.assertEqual("16m40s65ms", p.total)
 
 
 class ProfilerTest(TestCase):
@@ -26,7 +35,8 @@ class ProfilerTest(TestCase):
 
         with p:
             pass
-        self.assertTrue(str(p).startswith("> "))
+        #self.assertTrue(str(p).startswith("> "))
+        self.assertTrue(str(p))
 
         with Profiler("create with") as p:
             pass

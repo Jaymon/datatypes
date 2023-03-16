@@ -872,6 +872,12 @@ class ReflectModule(object):
     def rootmodule(self):
         return self.basemodule()
 
+    def reflect_rootmodule(self):
+        return self.reflect_basemodule()
+
+    def reflect_basemodule(self):
+        return type(self)(self.modroot)
+
     def module(self, *parts):
         """return the actual python module
 

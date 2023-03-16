@@ -130,7 +130,7 @@ from .server import (
 )
 
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)

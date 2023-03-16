@@ -15,7 +15,52 @@ class Profile(Namespace):
 
     @property
     def total(self):
-        return "{:.1f} ms".format(self.elapsed)
+        s = ""
+        seconds = self.stop - self.start
+        if seconds > 60:
+            rundown = self.rundown
+            if hours := rundown["hours"]:
+                s += f"{hours}h"
+
+            if mins := rundown["minutes"]:
+                s += f"{mins}m"
+
+            if seconds := rundown["seconds"]:
+                s += f"{seconds}s"
+
+            if ms := rundown["ms"]:
+                s += f"{ms}ms"
+
+            s = s.strip()
+
+        else:
+            s = "{:.1f} ms".format(self.elapsed)
+
+        return s
+
+    @property
+    def rundown(self):
+        """Breaks down start and stop into hours, minutes, seconds, and ms"""
+        elapsed = self.stop - self.start
+        hours = minutes = seconds = 0
+        if elapsed > 60:
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed - (minutes * 60))
+
+        if minutes > 60:
+            hours = int(minutes // 60)
+            minutes = int(minutes - (hours * 60))
+
+
+        ms = elapsed - (minutes * 60) - seconds
+        ms = int(ms * 1000.0) // 10
+
+        return {
+            "hours": hours,
+            "minutes": minutes,
+            "seconds": seconds,
+            "ms": ms,
+        }
 
     def get_elapsed(self, start, stop, multiplier=1000, rnd=2):
         return round(abs(stop - start) * float(multiplier), rnd)
@@ -30,7 +75,9 @@ class Profile(Namespace):
             name = ns.get("name", "")
             if name:
                 s += name + " "
-            s += "> "
+
+            if s:
+                s += "> "
             ns = ns.get("child", None)
 
         s += self.total
@@ -67,15 +114,18 @@ class Profiler(object):
     """The class that is used to track the actual profiling. An instance of this
     class is returned from the context manager"""
 
-    def __init__(self, name=""):
+    def __init__(self, name="", logmethod=None):
         self.last = None
         self.stack = []
         self.name = name
+        self.logmethod = logmethod
 
-    def __call__(self, name=""):
+    def __call__(self, name="", logmethod=None):
         """Allows you to set a name when using the context manager on an existing
         instance. This must return self or the context manager won't run"""
         self.name = name
+        if logmethod:
+            self.logmethod = logmethod
         return self
 
     def __enter__(self):
@@ -86,6 +136,8 @@ class Profiler(object):
 
     def __exit__(self, exception_type, exception_val, trace):
         self.stop()
+        if self.logmethod:
+            self.logmethod(self.output)
 
     def __str__(self):
         return self.output()
