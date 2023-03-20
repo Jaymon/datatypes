@@ -137,7 +137,7 @@ class Profiler(object):
     def __exit__(self, exception_type, exception_val, trace):
         self.stop()
         if self.logmethod:
-            self.logmethod(self.output)
+            self.logmethod(self)
 
     def __str__(self):
         return self.output()
