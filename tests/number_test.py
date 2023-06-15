@@ -5,6 +5,7 @@ from datatypes.compat import *
 from datatypes.number import (
     Integer,
     Shorten,
+    Exponential,
     #Hex,
     #Binary,
 )
@@ -104,4 +105,24 @@ class IntegerTest(TestCase):
 
         self.assertEqual(ib, ia)
         self.assertNotEqual(ih, ia)
+
+    def test_sub(self):
+        i = Integer("830")
+        self.assertEqual(830, i)
+
+        i = Integer("3,265")
+        self.assertEqual(3265, i)
+
+        i = Integer("10K")
+        self.assertEqual(10000, i)
+
+
+class ExponentialTest(TestCase):
+    def test_decay(self):
+        exp = Exponential(97, 0.1)
+        self.assertEqual(696, int(sum(exp.decay(12))))
+
+    def test_rate(self):
+        exp = Exponential(10, 25)
+        self.assertEqual(0.25, exp.rate)
 

@@ -1842,7 +1842,6 @@ class Filepath(Path):
             else:
                 raise
 
-
     def flock_text(self, mode="", **kwargs):
         kwargs.setdefault("encoding", self.encoding)
         kwargs.setdefault("errors", self.errors)
@@ -1937,6 +1936,26 @@ class Filepath(Path):
         errors = errors or self.errors
         with self.open(encoding=encoding, errors=errors) as fp:
             return fp.read()
+
+    def splitlines(self, keepends=False, encoding=None, errors=None):
+        """iterate through all the lines"""
+        encoding = encoding or self.encoding
+        errors = errors or self.errors
+        with self.open("r", encoding=encoding, errors=errors) as f:
+            for line in f:
+                yield line if keepends else line.rstrip()
+
+    def __iter__(self):
+        for line in self.splitlines():
+            yield line
+
+    def chunklines(self, linecount=1, keepends=False, encoding=None, errors=None):
+        chunk = []
+        for i, line in enumerate(self.splitlines(keepends=keepends, encoding=encoding, errors=errors), 1):
+            chunk.append(line)
+            if i % linecount == 0:
+                yield chunk
+                chunk = []
 
     def prepare_bytes(self, data, **kwargs):
         """Internal method used to prepare the data to be written
@@ -2167,16 +2186,6 @@ class Filepath(Path):
         else:
             ret = deque(self.splitlines(), maxlen=count)
         return ret
-
-    def splitlines(self, keepends=False):
-        """iterate through all the lines"""
-        with self.open("r", encoding=self.encoding, errors=self.errors) as f:
-            for line in f:
-                yield line if keepends else line.rstrip()
-
-    def __iter__(self):
-        for line in self.splitlines():
-            yield line
 
     def has(self, pattern=""):
         """Check for pattern in the body of the file

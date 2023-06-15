@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from logging import * # allow using this module as a passthrough for builtin logging
 import logging
+import logging.config
+from logging import config
 import sys
 
 

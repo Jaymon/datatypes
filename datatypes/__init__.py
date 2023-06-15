@@ -23,6 +23,7 @@ from .number import (
     Integer,
     Hex,
     Binary,
+    Exponential,
 )
 from .collections import (
     Pool,
@@ -130,7 +131,7 @@ from .server import (
 )
 
 
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 
 
 # get rid of "No handler found" warnings (cribbed from requests)
