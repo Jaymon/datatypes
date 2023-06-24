@@ -120,7 +120,7 @@ class BaseServer(HTTPServer):
         """Create a url using the server's server_address information
 
         :example:
-            s = PathServer("/some/path")
+            s = BaseServer()
             print(s.get_url("foo.txt")) # http://localhost:PORT/foo.txt
 
         :param *args: passed through to Url
@@ -139,6 +139,14 @@ class BaseServer(HTTPServer):
         kwargs.setdefault("scheme", "http")
 
         return Url(*args, **kwargs)
+
+    def serve_forever(self, *args, **kwargs):
+        # wrapped to call server close to avoid unclosed socket warnings
+        try:
+            super().serve_forever()
+
+        finally:
+            self.server_close()
 
 
 class PathHandler(SimpleHTTPRequestHandler):
@@ -177,7 +185,6 @@ class PathServer(BaseServer):
 
     :Example:
         basedir = "/some/path/to/directory/containing/files/to/server"
-
         s = PathServer(basedir)
 
     https://docs.python.org/3/library/http.server.html
