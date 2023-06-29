@@ -23,8 +23,14 @@ import imghdr
 from pathlib import Path as Pathlib
 import pickle
 from contextlib import contextmanager
-import fcntl
 import errno
+
+# not available on Windows
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
 
 from .compat import *
 from . import environ
@@ -1805,7 +1811,7 @@ class Filepath(Path):
         return ret
 
     @contextmanager
-    def flock(self, mode="", operation=fcntl.LOCK_EX | fcntl.LOCK_NB, **kwargs):
+    def flock(self, mode="", operation=None, **kwargs):
         """similar to open but will also lock the file resource and will release
         the resource when the context manager is done
 
@@ -1826,6 +1832,13 @@ class Filepath(Path):
         :returns: file descriptor with an active lock, it will return None if
             the lock wasn't successfully acquired
         """
+        if fcntl:
+            if operation is None:
+                operation = fcntl.LOCK_EX | fcntl.LOCK_NB
+
+        else:
+            raise ValueError("flock does not work because fcntl module is unavailable")
+
         try:
             with self.open(mode, **kwargs) as fp:
                 fcntl.flock(fp, operation)

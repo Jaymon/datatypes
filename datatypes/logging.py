@@ -95,14 +95,26 @@ def project_config(config, **kwargs):
     dict_config = Dict({
         'version': 1,
         'formatters': {
+            # https://docs.python.org/3/library/logging.html#logrecord-attributes
             'shortformatter': {
-                #'format': '[%(levelname).1s|%(asctime)s|%(process)d.%(thread)d|%(filename)s:%(lineno)s] %(message)s',
-                #'format': '[%(levelname).1s|%(filename)s:%(lineno)s] %(message)s',
                 'format': '[%(levelname).1s] %(message)s',
             },
             'longformatter': {
-                'format': '[%(levelname).1s|%(asctime)s|%(process)d.%(thread)d|%(filename)s:%(lineno)s] %(message)s',
-            }
+                'format': "|".join(['[%(levelname).1s',
+                    '%(asctime)s',
+                    '%(process)d.%(thread)d',
+                    '%(filename)s:%(lineno)s] %(message)s',
+                ])
+            },
+            'verboseformatter': {
+                'format': "|".join([
+                    '[%(levelname).1s',
+                    '%(asctime)s',
+                    '%(process)d.%(thread)d',
+                    '%(name)s', # logger name
+                    '%(pathname)s:%(lineno)s] %(message)s',
+                ])
+            },
         },
         'handlers': {
             'streamhandler': {
