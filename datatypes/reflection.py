@@ -932,6 +932,15 @@ class ReflectModule(object):
                     continue
                 yield rc
 
+    def classes(self, ignore_private=True):
+        """yields classes (type instances) that are found in only this module (not submodules)
+
+        :param ignore_private: bool, if True then ignore classes considered private
+        :returns: a generator of type instances
+        """
+        for rc in self.reflect_classes(ignore_private=ignore_private):
+            yield rc.cls
+
     def reflect_class(self, name, *default_val):
         """Get a ReflectClass instance of name"""
         try:

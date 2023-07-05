@@ -4,6 +4,11 @@ import logging
 import logging.config
 from logging import config
 import sys
+from collections.abc import (
+    Mapping,
+    Sequence,
+)
+from string import Formatter
 
 
 def null_config(name):
@@ -260,11 +265,37 @@ class LogMixin(object):
             level_name = level_name.lower()
 
         if level_name in kwargs:
-            arguments = kwargs[level_name]
-            log_args = arguments[0]
-            log_kwargs = {}
-            if len(arguments) > 1:
-                log_kwargs = arguments[1]
+            args = kwargs[level_name]
+            if isinstance(args, str):
+                # debug="a string value"
+                log_args = [args]
+                log_kwargs = {}
+
+            elif isinstance(args, Sequence):
+                if len(args) == 2:
+                    if isinstance(args[0], Sequence) and isinstance(args[1], Mapping):
+                        # debug=("a string value", {})
+                        # debug=(["a", "list", "value"], {})
+                        log_args = [args[0]]
+                        log_kwargs = args[1]
+
+                    else:
+                        # debug=["a list", "value"]
+                        log_args = args
+                        log_kwargs = {}
+
+                else:
+                    log_args = args
+                    log_kwargs = {}
+
+            else:
+                raise ValueError(f"Unknown value for {level_name}")
+
+            if len(log_args) == 1 and isinstance(log_args[0], list):
+                # https://docs.python.org/3/library/string.html#string.Formatter
+                parts = list(Formatter().parse(log_args[0][0]))
+                if len(parts) > 1 or parts[0][1] is not None:
+                    log_args = log_args[0] 
 
             log_kwargs["level"] = level_name
             self.log(*log_args, **log_kwargs)
@@ -278,13 +309,21 @@ class LogMixin(object):
             then format_str.format(*format_args) is ran
         :param **kwargs:
             level: str|int, something like logging.DEBUG or "DEBUG"
+            sentinel: callable|bool, if evaluates to False then the log will be
+                ignored
         """
+        sentinel = kwargs.pop("sentinel", None)
+        if sentinel is None:
+            sentinel = True
+
+        else:
+            if callable(sentinel):
+                sentinel = sentinel()
+
         logger = self.get_logger_instance(**kwargs)
         if isinstance(format_str, Exception):
             level = self.get_log_level(default_level="ERROR", **kwargs)
-            if self.is_logging(level):
-                #logger.exception(format_str)
-                #logger.log(level, f"{format_str}", *format_args, exc_info=format_str)
+            if self.is_logging(level) and sentinel:
                 logger.log(level, f"{format_str}", *format_args)
 
         else:
@@ -292,7 +331,7 @@ class LogMixin(object):
                 format_str = " ".join(filter(None, format_str))
 
             level = self.get_log_level(**kwargs)
-            if self.is_logging(level):
+            if self.is_logging(level) and sentinel:
                 try:
                     if format_args:
                         logger.log(level, format_str.format(*format_args))
