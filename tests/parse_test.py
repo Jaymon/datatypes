@@ -41,6 +41,18 @@ class ArgvParserTest(TestCase):
         self.assertEqual(["1"], d["foo"])
         self.assertEqual(["2"], d["bar"])
 
+    def test_hyphen_to_underscore(self):
+        extra_args = [
+            "--foo-bar=1",
+            "--che-bar",
+            "2",
+            "--baz-bar",
+        ]
+        d = ArgvParser(extra_args, hyphen_to_underscore=True)
+        self.assertEqual(3, len(d))
+        for k in ["foo_bar", "che_bar", "baz_bar"]:
+            self.assertTrue(k in d)
+
 
 class ArgParserTest(TestCase):
     def test_parse(self):
