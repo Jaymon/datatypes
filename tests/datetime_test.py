@@ -402,8 +402,14 @@ class DatetimeTest(TestCase):
         self.assertEqual(d1, d2)
 
     def test_since(self):
+        d = Datetime(seconds=-30)
+        self.assertEqual("30 seconds", d.since())
+
         d = Datetime(months=-5, days=-10)
         self.assertEqual("5 months, 1 week", d.since())
+
+        d = Datetime(months=-5, days=-3)
+        self.assertEqual("5 months, 3 days", d.since())
 
     def test_now(self):
         d = Datetime()

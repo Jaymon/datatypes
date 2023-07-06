@@ -421,62 +421,49 @@ class Datetime(datetime.datetime):
         timestamp = str(self.timestamp()).replace(".", "")
         return int("{{:0<{}}}".format(size).format(timestamp))
 
-    def since(self, now=None):
+    def since(self, now=None, chunks=2):
         """Returns a description of the amount of time that has passed from self
         to now
 
-        This is a python translation of Plancast's Formatting.php timeSince method
+        This is based on Plancast's Formatting.php timeSince method
 
         :param now: datetime, if None will default to the current datetime
-        :returns: str, the elapsed time in english
+        :param chunks: int, if a postive value only that many chunks will be
+            returned, if None or -1 then all found chunks will be returned
+        :returns: str, the elapsed time in english (eg, x years, xx months, or 
+            x days, xx hours)
         """
+        output = []
+
         # time period chunks
-        chunks = [
+        period_chunks = [
             (60 * 60 * 24 * 365 , 'year', 'years'),
             (60 * 60 * 24 * 30 , 'month', 'months'),
             (60 * 60 * 24 * 7, 'week', 'weeks'),
             (60 * 60 * 24 , 'day', 'days'),
             (60 * 60 , 'hour', 'hours'),
             (60 , 'minute', 'minutes'),
+            (1 , 'second', 'seconds'),
         ]
 
         # now will equal None if we want to know the time elapsed between self
         # and the current time, otherwise it will be between self and now
         now = now or self.now(self.tzinfo)
+        if chunks is None:
+            chunks = 0
 
         # difference in seconds
         since = (now - self).total_seconds()
 
-        # we only want to output two chunks of time here, eg:
-        # x years, xx months
-        # x days, xx hours
-        # so there's only two bits of calculation below:
-
-        # step one: the first chunk
-        j = len(chunks)
-        for i in range(j):
-            seconds = chunks[i][0]
-            name = chunks[i][1]
-            name_plural = chunks[i][2]
-
-            # finding the biggest chunk (if the chunk fits, break)
+        for seconds, name, names in period_chunks:
             if count := math.floor(since / seconds):
-                break
+                output.append(f"1 {name}" if count == 1 else f"{count} {names}")
+                since -= (seconds * count)
+                chunks -= 1
+                if since <= 0 or chunks == 0:
+                    break
 
-        # set output var
-        output = f"1 {name}" if count == 1 else f"{count} {name_plural}"
-
-        # step two: the second chunk
-        if (i + 1) < j:
-            seconds2 = chunks[i + 1][0]
-            name2 = chunks[i + 1][1]
-            name2_plural = chunks[i + 1][2]
-
-            if count2 := math.floor((since - (seconds * count)) / seconds2):
-                # add to output var
-                output += f", 1 {name2}" if count2 == 1 else f", {count2} {name2_plural}"
-
-        return output
+        return ", ".join(output) if output else ""
 
     def datehash(self):
         """Return a datehash, kind of similar to a geohash where each character
