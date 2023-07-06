@@ -235,7 +235,7 @@ class String(Str, StringMixin):
         r = binascii.hexlify(h) # convert hash to easier to consume hex
         return String(r)
 
-    def truncate(self, size, postfix='...'):
+    def truncate(self, size, postfix=""):
         """similar to a normal string slice but it actually will split on a word boundary
 
         :Example:

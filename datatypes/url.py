@@ -7,6 +7,7 @@ import os
 
 from .compat import *
 from .string import String, ByteString
+from .token import StopWordTokenizer
 
 
 class Url(String):
@@ -761,4 +762,33 @@ class Host(tuple):
             netloc += ":{}".format(port)
         return netloc
 
+
+class SlugWords(StopWordTokenizer):
+    """Internal class used by Slug to find all the valid slug words"""
+
+    NON_ASCII_REGEX = re.compile(r'[^\x00-\x7F]+')
+    """non-ascii characters
+
+    https://stackoverflow.com/a/2759009/5006
+    """
+
+    def normalize(self, token):
+        word = token.text
+        word = self.NON_ASCII_REGEX.sub("", word)
+        return word.lower()
+
+    def is_valid(self, word):
+        return word and (word not in self.STOP_WORDS)
+
+
+class Slug(String):
+    """Given a string, convert it into a slug that can be used in a url path"""
+    def __new__(cls, val, **kwargs):
+        val = cls.normalize(val, **kwargs)
+        return super().__new__(cls, val)
+
+    @classmethod
+    def normalize(cls, val, **kwargs):
+        words = SlugWords(val)
+        return "-".join(words)
 

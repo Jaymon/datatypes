@@ -314,8 +314,15 @@ class TokenizerTest(TestCase):
         t.reset()
         self.assertEqual(2, len(t.readall()))
 
-    def test_unicode(self):
+    def test_unicode_pure(self):
         text = testdata.get_unicode_words(100)
+        t = self.create_instance(text)
+        # really, we just need .readall() not to raise an error and we know it worked
+        self.assertGreaterEqual(100, len(t.readall()))
+
+    def test_unicode_mixed(self):
+        """make sure mixed unicode and ascii work as expected"""
+        text = testdata.get_words(100)
         t = self.create_instance(text)
         # really, we just need .readall() not to raise an error and we know it worked
         self.assertGreaterEqual(100, len(t.readall()))
@@ -335,12 +342,12 @@ class TokenizerTest(TestCase):
     def test_word_sizes_1(self):
         s = "I is the have steps foobar"
         t = self.create_instance(s)
-        self.assertEqual(6, len(list(w for w in t)))
+        self.assertEqual(6, len(list(t)))
 
     def test_word_sizes_2(self):
         s = "foo I bar"
         t = self.create_instance(s)
-        self.assertEqual(3, len(list(w for w in t)))
+        self.assertEqual(3, len(list(t)))
 
 
 class StopWordTokenizerTest(TestCase):
@@ -351,11 +358,11 @@ class StopWordTokenizerTest(TestCase):
     def test_words_1(self):
         s = "this IS something I hAVe tO do"
         t = self.create_instance(s)
-        self.assertEqual(1, len(list(w for w in t)))
+        self.assertEqual(1, len(list(t)))
 
     def test_words_2(self):
         s = "foo-bar <there is che>"
         t = self.create_instance(s)
-        words = list(w for w in t)
+        words = list(t)
         self.assertEqual(3, len(words))
 

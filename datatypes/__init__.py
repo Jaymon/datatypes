@@ -64,6 +64,7 @@ from .environ import (
 from .url import (
     Url,
     Host,
+    Slug,
 )
 from .copy import (
     Deepcopy,
@@ -135,5 +136,5 @@ from .server import (
 )
 
 
-__version__ = "0.9.6"
+__version__ = "0.10.0"
 

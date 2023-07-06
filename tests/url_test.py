@@ -5,6 +5,7 @@ from datatypes.compat import *
 from datatypes.url import (
     Url,
     Host,
+    Slug,
 )
 
 from . import TestCase, testdata
@@ -609,4 +610,28 @@ class HostTest(TestCase):
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
 
+
+class SlugTest(TestCase):
+    def test_words(self):
+        s = Slug("Foo is BAR the cHE")
+        self.assertEqual("foo-bar-che", s)
+
+    def test_slugs(self):
+        ts = [
+            ("Generation: Habibi Mk II", "generation-habibi-mk-ii"),
+            ("The Squab HQ: PLANT", "squab-hq-plant"),
+            ("Monarchs.Art", "monarchs-art"),
+            ("TinyFaces NFT (Official)", "tinyfaces-nft-official"),
+            ("Wolf Game - Wool Pouch", "wolf-game-wool-pouch"),
+            ("CLONE X - X TAKASHI MURAKAMI", "clone-x-x-takashi-murakami"),
+        ]
+        for inwords, outwords in ts:
+            r = Slug(inwords)
+            self.assertEqual(outwords, r)
+
+    def test_unicode(self):
+        one = self.get_words()
+        two = self.get_hash()[2:8]
+        s = Slug(f"{one} {two}")
+        self.assertTrue(two.lower() in s)
 

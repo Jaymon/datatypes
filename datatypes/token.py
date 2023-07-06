@@ -184,9 +184,7 @@ class StreamTokenizer(io.IOBase):
         """
         ldelim = token = rdelim = None
 
-#         pout.b()
         start = self.tell_ldelim()
-#         pout.v(start)
 
         # find the left deliminator
         if start >= 0:
@@ -238,11 +236,6 @@ class StreamTokenizer(io.IOBase):
         token.ldelim = ldelim
         token.rdelim = rdelim
 
-#         if token.ldelim:
-#             pout.v(token.ldelim, token.ldelim.start, token.ldelim.stop)
-#         pout.v(token, token.start, token.stop)
-#         if token.rdelim:
-#             pout.v(token.rdelim, token.rdelim.start, token.rdelim.stop)
         return token
 
     def __next__(self):
@@ -251,7 +244,8 @@ class StreamTokenizer(io.IOBase):
     def prev(self):
         """Returns the previous Token
 
-        :returns: Token, the previous token found in the stream
+        :returns: Token, the previous token found in the stream, None if there are
+            no previous tokens
         """
         token = None
         try:
@@ -460,14 +454,28 @@ class ValidTokenizer(NormalizeTokenizer):
     the validity of the token, this will allow you to skip tokens that are
     invalid"""
     def next(self):
-        while t := super().next():
+        while True:
+            t = super().next()
             if self.is_valid(t):
                 return t
 
+#         while t := super().next():
+#             if self.is_valid(t):
+#                 return t
+# 
+#         # if we ever get through the while loop without returning we're done with
+#         # iteration
+#         raise StopIteration()
+
     def prev(self):
-        while t := super().prev():
-            if self.is_valid(t):
+        while True:
+            t = super().prev()
+            if (t is None) or self.is_valid(t):
                 return t
+
+#         while t := super().prev():
+#             if self.is_valid(t):
+#                 return t
 
     def is_valid(self, t):
         """Return True if the token is valid or False to skip it"""
@@ -494,45 +502,6 @@ class StopWordTokenizer(ValidTokenizer):
         'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'you', 'your',
         'yours', 'yourself', 'yourselves',
     ])
-
-    # Standard english stop words taken from Lucene's StopAnalyzer
-#     STOP_WORDS = [
-#         "a",
-#         "an",
-#         "and",
-#         "are",
-#         "as",
-#         "at",
-#         "be",
-#         "but",
-#         "by",
-#         "for",
-#         "if",
-#         "in",
-#         "into",
-#         "is",
-#         "it",
-#         "no",
-#         "not",
-#         "of",
-#         "on",
-#         "or",
-#         "s",
-#         "such",
-#         "t",
-#         "that",
-#         "the",
-#         "their",
-#         "then",
-#         "there",
-#         "these",
-#         "they",
-#         "this",
-#         "to",
-#         "was",
-#         "will",
-#         "with",
-#     ]
 
     def is_valid(self, t):
         word = t.text.lower()
