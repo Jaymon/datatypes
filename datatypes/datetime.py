@@ -5,6 +5,7 @@ import inspect
 import logging
 import re
 import time
+import math
 
 from .compat import *
 from .string import String
@@ -420,6 +421,63 @@ class Datetime(datetime.datetime):
         timestamp = str(self.timestamp()).replace(".", "")
         return int("{{:0<{}}}".format(size).format(timestamp))
 
+    def since(self, now=None):
+        """Returns a description of the amount of time that has passed from self
+        to now
+
+        This is a python translation of Plancast's Formatting.php timeSince method
+
+        :param now: datetime, if None will default to the current datetime
+        :returns: str, the elapsed time in english
+        """
+        # time period chunks
+        chunks = [
+            (60 * 60 * 24 * 365 , 'year', 'years'),
+            (60 * 60 * 24 * 30 , 'month', 'months'),
+            (60 * 60 * 24 * 7, 'week', 'weeks'),
+            (60 * 60 * 24 , 'day', 'days'),
+            (60 * 60 , 'hour', 'hours'),
+            (60 , 'minute', 'minutes'),
+        ]
+
+        # now will equal None if we want to know the time elapsed between self
+        # and the current time, otherwise it will be between self and now
+        now = now or self.now(self.tzinfo)
+
+        # difference in seconds
+        since = (now - self).total_seconds()
+
+        # we only want to output two chunks of time here, eg:
+        # x years, xx months
+        # x days, xx hours
+        # so there's only two bits of calculation below:
+
+        # step one: the first chunk
+        j = len(chunks)
+        for i in range(j):
+            seconds = chunks[i][0]
+            name = chunks[i][1]
+            name_plural = chunks[i][2]
+
+            # finding the biggest chunk (if the chunk fits, break)
+            if count := math.floor(since / seconds):
+                break
+
+        # set output var
+        output = f"1 {name}" if count == 1 else f"{count} {name_plural}"
+
+        # step two: the second chunk
+        if (i + 1) < j:
+            seconds2 = chunks[i + 1][0]
+            name2 = chunks[i + 1][1]
+            name2_plural = chunks[i + 1][2]
+
+            if count2 := math.floor((since - (seconds * count)) / seconds2):
+                # add to output var
+                output += f", 1 {name2}" if count2 == 1 else f", {count2} {name2_plural}"
+
+        return output
+
     def datehash(self):
         """Return a datehash, kind of similar to a geohash where each character
         represents a more exact time
@@ -475,6 +533,24 @@ class Datetime(datetime.datetime):
                     second = indexes[h[6]]
 
         return cls(year, month, day, hour, minute, second)
+
+    @classmethod
+    def now(cls, tz=datetime.timezone.utc):
+        """Passthrough but sets timezone to utc by default instead of None, so
+        by default this now returns a timezone aware instance
+
+        https://docs.python.org/3/library/datetime.html#datetime.datetime.now
+        """
+        return super().now(tz)
+
+    @classmethod
+    def utcnow(cls):
+        """Overrides parent to return a timezone aware datetime instance with
+        the timezone UTC set
+
+        https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow
+        """
+        return cls.now(datetime.timezone.utc)
 
     def isodate(self):
         """returns datetime as ISO-8601 string with just YYYY-MM-DD"""

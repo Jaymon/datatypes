@@ -401,3 +401,15 @@ class DatetimeTest(TestCase):
         d2 = Datetime.fromdatehash(h)
         self.assertEqual(d1, d2)
 
+    def test_since(self):
+        d = Datetime(months=-5, days=-10)
+        self.assertEqual("5 months, 1 week", d.since())
+
+    def test_now(self):
+        d = Datetime()
+        d2 = Datetime.now()
+        self.assertEqual(d.tzinfo, d2.tzinfo)
+
+        d3 = Datetime.utcnow()
+        self.assertEqual(d.tzinfo, d3.tzinfo)
+
