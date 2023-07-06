@@ -81,6 +81,10 @@ from .token import (
     # then import it directly from the submodule
     StreamTokenizer,
     Tokenizer,
+    StringTokenizer,
+    NormalizeTokenizer,
+    ValidTokenizer,
+    StopWordTokenizer,
 )
 from .email import (
     Email,
@@ -132,9 +136,4 @@ from .server import (
 
 
 __version__ = "0.9.6"
-
-
-# get rid of "No handler found" warnings (cribbed from requests)
-# DEPRECATED 7-15-2022, doesn't seem to be needed in python3
-logging.getLogger(__name__).addHandler(logging.NullHandler())
 

@@ -3,7 +3,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 
 from datatypes.compat import *
 from datatypes.string import String
-from datatypes.token import Tokenizer
+from datatypes.token import Tokenizer, StopWordTokenizer
 
 from . import TestCase, testdata
 
@@ -332,4 +332,30 @@ class TokenizerTest(TestCase):
         self.assertEqual(total, t.total())
         self.assertEqual(total, len(t))
 
+    def test_word_sizes_1(self):
+        s = "I is the have steps foobar"
+        t = self.create_instance(s)
+        self.assertEqual(6, len(list(w for w in t)))
+
+    def test_word_sizes_2(self):
+        s = "foo I bar"
+        t = self.create_instance(s)
+        self.assertEqual(3, len(list(w for w in t)))
+
+
+class StopWordTokenizerTest(TestCase):
+    def create_instance(self, s):
+        tokenizer = StopWordTokenizer(s)
+        return tokenizer
+
+    def test_words_1(self):
+        s = "this IS something I hAVe tO do"
+        t = self.create_instance(s)
+        self.assertEqual(1, len(list(w for w in t)))
+
+    def test_words_2(self):
+        s = "foo-bar <there is che>"
+        t = self.create_instance(s)
+        words = list(w for w in t)
+        self.assertEqual(3, len(words))
 

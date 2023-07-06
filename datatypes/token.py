@@ -71,7 +71,7 @@ class StreamTokenizer(io.IOBase):
     DEFAULT_DELIMS = WHITESPACE + PUNCTUATION
     """IF no deliminators are passed into the constructor then use these"""
 
-    token_class = Token
+    token_class = StreamToken
     """The token class this class will use to create Token instances"""
 
     def __init__(self, stream, delims=None):
@@ -92,6 +92,30 @@ class StreamTokenizer(io.IOBase):
 
         self.reset()
 
+    def reset(self):
+        delims = self.delims
+        if not delims:
+            delims = self.DEFAULT_DELIMS
+        if delims and not callable(delims):
+            delims = set(delims)
+        self.delims = delims
+
+        self.stream.seek(0)
+
+    def __iter__(self):
+        self.reset()
+        return self
+
+    def peek(self):
+        """Return the next token but don't increment the cursor offset"""
+        ret = None
+        with self.temporary() as it:
+            try:
+                ret = it.next()
+            except StopIteration:
+                pass
+        return ret
+
     def is_delim(self, ch):
         ret = False
         delims = self.delims
@@ -111,6 +135,7 @@ class StreamTokenizer(io.IOBase):
         """
         pos = self.stream.tell()
         ch = self.stream.read(1)
+#         pout.v(pos, ch)
         if not ch:
             # EOF, stream is exhausted
             raise StopIteration()
@@ -152,30 +177,6 @@ class StreamTokenizer(io.IOBase):
 
         return pos
 
-    def reset(self):
-        delims = self.delims
-        if not delims:
-            delims = self.DEFAULT_DELIMS
-        if delims and not callable(delims):
-            delims = set(delims)
-        self.delims = delims
-
-        self.stream.seek(0)
-
-    def __iter__(self):
-        self.reset()
-        return self
-
-    def peek(self):
-        """Return the next token but don't increment the cursor offset"""
-        ret = None
-        with self.temporary() as it:
-            try:
-                ret = it.next()
-            except StopIteration:
-                pass
-        return ret
-
     def next(self):
         """Get the next Token
 
@@ -183,8 +184,11 @@ class StreamTokenizer(io.IOBase):
         """
         ldelim = token = rdelim = None
 
+#         pout.b()
         start = self.tell_ldelim()
+#         pout.v(start)
 
+        # find the left deliminator
         if start >= 0:
             text = ""
             self.stream.seek(start)
@@ -203,6 +207,7 @@ class StreamTokenizer(io.IOBase):
             self.stream.seek(start)
             ch = self.stream.read(1)
 
+        # find the actual token
         if ch:
             text = ""
             while ch and not self.is_delim(ch):
@@ -213,6 +218,7 @@ class StreamTokenizer(io.IOBase):
             token = self.token_class(self, text, start, stop)
             start = stop
 
+        # find the right deliminator
         if ch:
             text = ""
             while self.is_delim(ch):
@@ -220,14 +226,23 @@ class StreamTokenizer(io.IOBase):
                 ch = self.stream.read(1)
 
             stop = self.stream.tell() - 1
+
+            # we're one character ahead, so we want to move back one
+            self.stream.seek(stop)
+
             rdelim = self.token_class(self, text, start, stop)
 
-        #if not ldelim and not token and not rdelim:
         if not token:
             raise StopIteration()
 
         token.ldelim = ldelim
         token.rdelim = rdelim
+
+#         if token.ldelim:
+#             pout.v(token.ldelim, token.ldelim.start, token.ldelim.stop)
+#         pout.v(token, token.start, token.stop)
+#         if token.rdelim:
+#             pout.v(token.rdelim, token.rdelim.start, token.rdelim.stop)
         return token
 
     def __next__(self):
@@ -417,6 +432,113 @@ class Tokenizer(StreamTokenizer):
         super(Tokenizer, self).__init__(mixed, delims)
 
 
+class NormalizeTokenizer(Tokenizer):
+    """A tokenizer that calls a .normalize method that can be overridden by a
+    child class so you can manipulate the token before returning it"""
+    def next(self):
+        t = super().next()
+        return self.normalize(t)
+
+    def prev(self):
+        t = super().prev()
+        return self.normalize(t)
+
+    def normalize(self, t):
+        """Override this in a child class to customize functionality"""
+        return t
+
+
+class StringTokenizer(NormalizeTokenizer):
+    """A tokenizer that returns str instances instead of tokens because sometimes
+    that's all you want"""
+    def normalize(self, t):
+        return t.text
+
+
+class ValidTokenizer(NormalizeTokenizer):
+    """Similar to NormalizeTokenizer but also calls an .is_valid method to check
+    the validity of the token, this will allow you to skip tokens that are
+    invalid"""
+    def next(self):
+        while t := super().next():
+            if self.is_valid(t):
+                return t
+
+    def prev(self):
+        while t := super().prev():
+            if self.is_valid(t):
+                return t
+
+    def is_valid(self, t):
+        """Return True if the token is valid or False to skip it"""
+        return True
+
+
+class StopWordTokenizer(ValidTokenizer):
+    """Strips stop words from a string"""
+
+    # This list comes from Plancast's Formatting.php library (2010-2-4)
+    STOP_WORDS = set([
+        'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an',
+        'and', 'any', 'are', 'as', 'at', 'be', 'because', 'been', 'before',
+        'being', 'below', 'between', 'both', 'but', 'by', 'did', 'do', 'does',
+        'doing', 'down', 'during', 'each', 'few', 'for', 'from', 'further',
+        'had', 'has', 'have', 'having', 'he', 'her', 'here', 'hers', 'herself',
+        'him', 'himself', 'his', 'how', 'i', 'if', 'in', 'into', 'is', 'it',
+        'its', 'itself', 'me', 'more', 'most', 'my', 'myself', 'no', 'nor',
+        'not', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'our', 'ours',
+        'ourselves', 'out', 'over', 'own', 'same', 'she', 'so', 'some', 'such',
+        'than', 'that', 'the', 'their', 'theirs', 'them', 'themselves', 'then',
+        'there', 'these', 'they', 'this', 'those', 'through', 'to', 'too',
+        'under', 'until', 'up', 'very', 'was', 'we', 'were', 'what', 'when',
+        'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'you', 'your',
+        'yours', 'yourself', 'yourselves',
+    ])
+
+    # Standard english stop words taken from Lucene's StopAnalyzer
+#     STOP_WORDS = [
+#         "a",
+#         "an",
+#         "and",
+#         "are",
+#         "as",
+#         "at",
+#         "be",
+#         "but",
+#         "by",
+#         "for",
+#         "if",
+#         "in",
+#         "into",
+#         "is",
+#         "it",
+#         "no",
+#         "not",
+#         "of",
+#         "on",
+#         "or",
+#         "s",
+#         "such",
+#         "t",
+#         "that",
+#         "the",
+#         "their",
+#         "then",
+#         "there",
+#         "these",
+#         "they",
+#         "this",
+#         "to",
+#         "was",
+#         "will",
+#         "with",
+#     ]
+
+    def is_valid(self, t):
+        word = t.text.lower()
+        return word not in self.STOP_WORDS
+
+
 class Scanner(object):
     """Python implementation of Obj-c Scanner
 
@@ -449,5 +571,4 @@ class Scanner(object):
     def __nonzero__(self): return self.__bool__() # py <3
     def __bool__(self):
         return self.offset < self.length
-
 
