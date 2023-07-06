@@ -245,11 +245,13 @@ class String(Str, StringMixin):
             print s2.truncate(5) # "foo"
 
         truncate a string by word breaks instead of just length
-        this will guarrantee that the string is not longer than length, but it could be shorter
+        this will guarrantee that the string is not longer than length, but it
+        could be shorter
 
-        http://stackoverflow.com/questions/250357/smart-truncate-in-python/250373#250373
-
-        This was originally a method called word_truncate by Cahlan Sharp for Undrip
+        * http://stackoverflow.com/questions/250357/smart-truncate-in-python/250373#250373
+        * This was originally a method called word_truncate by Cahlan Sharp for Undrip.
+        * There is also a Plancast Formatting.php substr method that does something
+        similar
 
         :param size: int, the size you want to truncate to at max
         :param postfix: string, what you would like to be appended to the truncated

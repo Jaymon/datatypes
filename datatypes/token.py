@@ -459,23 +459,11 @@ class ValidTokenizer(NormalizeTokenizer):
             if self.is_valid(t):
                 return t
 
-#         while t := super().next():
-#             if self.is_valid(t):
-#                 return t
-# 
-#         # if we ever get through the while loop without returning we're done with
-#         # iteration
-#         raise StopIteration()
-
     def prev(self):
         while True:
             t = super().prev()
             if (t is None) or self.is_valid(t):
                 return t
-
-#         while t := super().prev():
-#             if self.is_valid(t):
-#                 return t
 
     def is_valid(self, t):
         """Return True if the token is valid or False to skip it"""
