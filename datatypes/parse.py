@@ -4,7 +4,7 @@ import shlex
 from collections import defaultdict
 
 from .compat import *
-from .string import String
+from .string import String, NormalizeString
 
 
 class ArgvParser(dict):
@@ -139,4 +139,106 @@ class ArgParser(ArgvParser):
         # https://docs.python.org/3/library/shlex.html#shlex.split
         argv = shlex.split(argline)
         super().__init__(argv, **kwargs)
+
+
+class Version(NormalizeString):
+    """This is a lightweight quick and dirty version parser, it is not trying
+    to replace the one in setuptools and is not PEP440 compliant
+
+    https://peps.python.org/pep-0440/
+    https://stackoverflow.com/a/11887885/5006
+    """
+    @classmethod
+    def instance_normalize(cls, instance, **kwargs):
+        parts = []
+        for part in instance.split("."):
+            if part.isdigit():
+                parts.append(int(part))
+
+            else:
+                parts.append(part)
+
+        instance.parts = parts
+        return instance
+
+    def __eq__(self, other):
+        ov = type(self)(other)
+        for i, part in enumerate(self.parts):
+            if i >= len(ov.parts):
+                return False
+
+            elif part != ov.parts[i]:
+                if part == "*" or ov.parts[i] == "*":
+                    pass
+
+                else:
+                    return False
+
+        return True
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __ge__(self, other):
+        return self == other or self > other
+
+    def __gt__(self, other):
+        return not (self == other) and not (self < other)
+
+    def __le__(self, other):
+        return self == other or self < other
+
+    def __lt__(self, other):
+        ov = type(self)(other)
+        for i, part in enumerate(self.parts):
+            #pout.v(part, ov.parts[i])
+            if i >= len(ov.parts):
+                return False
+
+            else:
+                if isinstance(part, int) and isinstance(ov.parts[i], int):
+                    if part > ov.parts[i]:
+                        return False
+
+                    elif part < ov.parts[i]:
+                        return True
+
+                elif isinstance(part, int) and isinstance(ov.parts[i], str):
+                    if ov.parts[i].startswith(str(part)):
+                        return True
+
+                    elif ov.parts[i] == "*":
+                        pass
+
+                    else:
+                        return False
+
+                elif isinstance(part, str) and isinstance(ov.parts[i], int):
+                    if part.startswith(str(ov.parts[i])):
+                        return False
+
+                    elif part == "*":
+                        pass
+
+                    else:
+                        if part[0].isdigit():
+                            return part < str(ov.parts[i])
+
+                        else:
+                            return True
+
+                elif isinstance(part, str) and isinstance(ov.parts[i], str):
+                    if part > ov.parts[i]:
+                        return False
+
+                    elif part == "*" or ov.parts[i] == "*":
+                        pass
+
+                    elif part < ov.parts[i]:
+                        return True
+
+        if len(self.parts) < len(ov.parts):
+            return True
+
+        return False
 

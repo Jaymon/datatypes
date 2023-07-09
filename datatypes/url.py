@@ -6,7 +6,7 @@ from socket import gethostname
 import os
 
 from .compat import *
-from .string import String, ByteString
+from .string import String, ByteString, NormalizeString
 from .token import StopWordTokenizer
 
 
@@ -764,7 +764,9 @@ class Host(tuple):
 
 
 class SlugWords(StopWordTokenizer):
-    """Internal class used by Slug to find all the valid slug words"""
+    """Internal class used by Slug to find all the valid slug words
+
+    """
 
     NON_ASCII_REGEX = re.compile(r'[^\x00-\x7F]+')
     """non-ascii characters
@@ -781,14 +783,24 @@ class SlugWords(StopWordTokenizer):
         return word and (word not in self.STOP_WORDS)
 
 
-class Slug(String):
-    """Given a string, convert it into a slug that can be used in a url path"""
-    def __new__(cls, val, **kwargs):
-        val = cls.normalize(val, **kwargs)
-        return super().__new__(cls, val)
+class Slug(NormalizeString):
+    """Given a string, convert it into a slug that can be used in a url path
 
+    This tokenizes the passed in string, strips non-ascii, punctuation, and stop
+    words and then returns the remaining words joined by delim (default is a hyphen)
+    """
     @classmethod
     def normalize(cls, val, **kwargs):
+        """
+        :param val: str, the prospective slug
+        :param **kwargs:
+            * delim: str, default is a hyphen
+            * size: int, the max size you want the slug
+        """
+        delim = kwargs.get("delim", "-")
         words = SlugWords(val)
-        return "-".join(words)
+        slug = delim.join(words)
+        if size := kwargs.get("size", 0):
+            slug = String(slug).truncate(size, sep=delim)
+        return slug
 

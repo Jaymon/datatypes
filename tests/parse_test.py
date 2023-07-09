@@ -5,6 +5,7 @@ from datatypes.compat import *
 from datatypes.parse import (
     ArgvParser,
     ArgParser,
+    Version,
 )
 
 from . import TestCase, testdata
@@ -63,4 +64,53 @@ class ArgParserTest(TestCase):
         self.assertEqual(["3"], d["z"])
         self.assertEqual(["this=that"], d["baz"])
         self.assertEqual([True], d["che"])
+
+
+class VersionParser(TestCase):
+    def test_parts(self):
+        v = Version("2.3.1")
+        self.assertEqual([2, 3, 1], v.parts)
+
+        v = Version("2.3.a1")
+        self.assertEqual([2, 3, "a1"], v.parts)
+
+    def test_compare(self):
+        self.assertTrue(Version("6.2.7") > "6.2")
+        self.assertFalse(Version("6.2.7") == "6.2")
+        self.assertTrue("6.2" < Version("6.2.7"))
+        self.assertTrue(Version("6.2") < Version("6.2.7"))
+
+        self.assertTrue(Version("1.0.1-beta.1") > "1.0.0")
+        self.assertTrue(Version("0.1.1rc1") < "0.1.1rc2")
+        self.assertFalse(Version("0.34~") < "0.33")
+        self.assertTrue(Version("0.2.2") == "0.2.*")
+        self.assertTrue("0.2.*" == Version("0.2.2"))
+
+        self.assertFalse(Version("1.3.a4") > "1.3.dev-1")
+        self.assertFalse("1.3.dev-1" < Version("1.3.a4"))
+
+        self.assertTrue(Version("2.3.1") < "10.1.2")
+        self.assertTrue("10.1.2" > Version("2.3.1"))
+
+        self.assertTrue(Version("1.3.a4") < "10.1.2")
+        self.assertTrue("10.1.2" > Version("1.3.a4"))
+
+        self.assertTrue(Version("1.3.a4") < "1.3.xy123")
+        self.assertTrue("1.3.xy123" > Version("1.3.a4"))
+
+        self.assertTrue(Version("1.3.10") > "1.3.dev-1")
+        self.assertTrue("1.3.dev-1" < Version("1.3.10"))
+
+        self.assertTrue(Version("1.3.10") >= "1.3.10")
+        self.assertTrue("1.3.10" <= Version("1.3.10"))
+
+        self.assertTrue(Version("1.3.10") <= "1.3.10")
+        self.assertTrue("1.3.10" >= Version("1.3.10"))
+
+        self.assertTrue(Version("1.3.10") == "1.3.10")
+        self.assertTrue("1.3.10" == Version("1.3.10"))
+
+        self.assertTrue(Version("1.a3.1") < "1.a3.2")
+        self.assertTrue("1.a3.2" > Version("1.a3.1"))
+        self.assertTrue(Version("1.a3.2") > Version("1.a3.1"))
 

@@ -235,7 +235,7 @@ class String(Str, StringMixin):
         r = binascii.hexlify(h) # convert hash to easier to consume hex
         return String(r)
 
-    def truncate(self, size, postfix=""):
+    def truncate(self, size, postfix="", sep=None):
         """similar to a normal string slice but it actually will split on a word boundary
 
         :Example:
@@ -267,7 +267,7 @@ class String(Str, StringMixin):
         postfix = type(self)(postfix)
         ret = self[0:size - len(postfix)]
         # if rsplit sep is None, any whitespace string is a separator
-        ret = ret[:-1].rsplit(None, 1)[0].rstrip()
+        ret = ret[:-1].rsplit(sep, 1)[0].rstrip()
         return type(self)(ret + postfix)
 
     def indent(self, indent, count=1):
@@ -411,6 +411,28 @@ class String(Str, StringMixin):
             "'": "&apos;",
             "\"": "&quot;"
         })
+
+
+class NormalizeString(String):
+    """Triggers a .normalize(val, **kwargs) call before creating the String
+    instance
+    """
+    def __new__(cls, val, **kwargs):
+        """
+        :param val: str, the prospective slug
+        :param **kwargs: passed through to .normalize() method
+        """
+        val = cls.normalize(val, **kwargs)
+        instance = super().__new__(cls, val)
+        return cls.instance_normalize(instance, **kwargs)
+
+    @classmethod
+    def normalize(cls, val, **kwargs):
+        return val
+
+    @classmethod
+    def instance_normalize(cls, instance, **kwargs):
+        return instance
 
 
 class NamingConvention(String):
