@@ -135,6 +135,29 @@ class CallbackServerTest(ServerTestCase):
             res = testdata.fetch(s.child(path="/foo/bar/head"), method="HEAD")
             self.assertEqual(500, res.status_code)
 
+    def test_multi_start_stop(self):
+
+        s = self.create_server({
+            "GET": lambda handler: "get"
+        })
+
+        s.start()
+        r = testdata.fetch(s)
+        self.assertEqual(200, r.status_code)
+        s.stop()
+
+        with s:
+            r = testdata.fetch(s)
+            self.assertEqual(200, r.status_code)
+
+        s.start()
+        r = testdata.fetch(s)
+        self.assertEqual(200, r.status_code)
+        s.stop()
+
+
+
+
 
 class WSGIServerTest(ServerTestCase):
 

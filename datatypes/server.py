@@ -36,8 +36,10 @@ class ServerThread(Url):
         """Returns True if the webserver has been started"""
         try:
             ret = True if self.thread else False
+
         except AttributeError:
             ret = False
+
         return ret
 
     def __new__(cls, server, **kwargs):
@@ -98,6 +100,12 @@ class ServerThread(Url):
 
 class BaseServer(HTTPServer):
     """Base class for all the other servers that contains common functionality"""
+
+#     allow_reuse_address = True
+#     allow_reuse_port = True
+    #bind_and_activate = False
+
+
     def __init__(self, server_address=None, encoding="", **kwargs):
         """
         :param server_address: tuple, (hostname, port), if None this will use ("", None)
@@ -114,6 +122,7 @@ class BaseServer(HTTPServer):
 
         self.encoding = encoding or environ.ENCODING
         kwargs.setdefault("RequestHandlerClass", self.handler_class)
+        #kwargs["bind_and_activate"] = self.bind_and_activate
         super().__init__(server_address, **kwargs)
 
     def get_url(self, *args, **kwargs):
@@ -142,11 +151,22 @@ class BaseServer(HTTPServer):
 
     def serve_forever(self, *args, **kwargs):
         # wrapped to call server close to avoid unclosed socket warnings
+
+#         if not self.bind_and_activate:
+#             try:
+#                 self.server_bind()
+#                 self.server_activate()
+# 
+#             except:
+#                 self.server_close()
+#                 raise
+
         try:
             super().serve_forever()
 
         finally:
-            self.server_close()
+            #self.server_close()
+            pass
 
 
 class PathHandler(SimpleHTTPRequestHandler):
