@@ -345,6 +345,15 @@ class Stack(list):
 
 
 class Dict(dict):
+    def __init__(self, *args, **kwargs):
+        if len(args) > 1:
+            super().__init__(args[0], **kwargs)
+            for arg in args[1:]:
+                self.update(arg)
+
+        else:
+            super().__init__(*args, **kwargs)
+
     def ritems(self, *keys):
         """Iterate through the dict and all sub dicts
 

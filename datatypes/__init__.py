@@ -135,7 +135,11 @@ from .server import (
     CallbackServer,
     WSGIServer,
 )
+from .command import (
+    Command,
+    AsyncCommand,
+)
 
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 
