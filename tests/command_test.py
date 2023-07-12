@@ -6,6 +6,8 @@ from datatypes.compat import *
 from datatypes.command import (
     Command,
     AsyncCommand,
+    ModuleCommand,
+    FileCommand,
     CalledProcessError,
 )
 
@@ -94,7 +96,7 @@ class AsyncCommandTest(TestCase):
         start = time.time()
 
         c = AsyncCommand("sleep 1.0")
-        c.run()
+        c.start()
 
         mid = time.time()
 
@@ -107,14 +109,14 @@ class AsyncCommandTest(TestCase):
 
         s = "foo-bar-che"
         c = AsyncCommand(f"echo {s}")
-        c.run()
+        c.start()
         r = c.wait()
         self.assertEqual(s, r.strip())
 
     def test_quit(self):
         start = time.time()
         c = AsyncCommand("sleep 5.0")
-        c.run()
+        c.start()
         time.sleep(0.1)
         c.quit()
         c.wait()
@@ -124,7 +126,7 @@ class AsyncCommandTest(TestCase):
     def test_kill(self):
         start = time.time()
         c = AsyncCommand("sleep 5.0")
-        c.run()
+        c.start()
         time.sleep(0.1)
         c.kill()
         c.join()
@@ -134,7 +136,7 @@ class AsyncCommandTest(TestCase):
     def test_terminate(self):
         start = time.time()
         c = AsyncCommand("sleep 5.0")
-        c.run()
+        c.start()
         time.sleep(0.1)
         c.terminate()
         c.join()
@@ -144,7 +146,7 @@ class AsyncCommandTest(TestCase):
     def test_murder(self):
         start = time.time()
         c = AsyncCommand("sleep 15")
-        c.run()
+        c.start()
         c.murder(5)
         stop = time.time()
         self.assertTrue((stop - start) < 10)
@@ -163,4 +165,32 @@ class AsyncCommandTest(TestCase):
         stop = time.time()
         self.assertTrue("5" in r)
         self.assertTrue((stop - start) < 1)
+
+
+class ModuleCommandTest(TestCase):
+    def test_unicode_output(self):
+        modpath = self.create_module(modpath="foo.__main__", data=[
+            "import testdata",
+            "print('foo')",
+            "print(testdata.get_unicode_words().encode('utf8'))",
+        ])
+
+        c = ModuleCommand("foo", cwd=modpath.basedir)
+        r = c.run()
+        self.assertTrue("foo" in r)
+
+    def test_run_module(self):
+        modpath = self.create_module(modpath="foo.bar.__main__", data="print(1)")
+        c = ModuleCommand("foo.bar", cwd=modpath.basedir)
+        r = c.run()
+        self.assertTrue("1" in r)
+
+
+class FileCommandTest(TestCase):
+    def test_run_file(self):
+        path = self.create_file(data="print(1)")
+
+        c = FileCommand(path)
+        r = c.run()
+        self.assertTrue("1" in path)
 

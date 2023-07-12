@@ -301,15 +301,29 @@ class Command(object):
 
 
 class AsyncCommand(Command):
-    thread_class = threading.Thread
-    """the threading class to use when .run is called
+    """Runs a command in a thread when you call .start
 
     Could I switch to using ThreadPoolExecutor instead?
     https://docs.python.org/3/library/concurrent.futures.html
 
     :Example:
         c = AsyncCommand("<SOME COMMAND>")
-        c.run()
+        c.start()
+        while r := c.wait(1):
+            if "<SOME SENTINAL STRING>" in r:
+                break
+    """
+
+
+    thread_class = threading.Thread
+    """the threading class to use when .start is called
+
+    Could I switch to using ThreadPoolExecutor instead?
+    https://docs.python.org/3/library/concurrent.futures.html
+
+    :Example:
+        c = AsyncCommand("<SOME COMMAND>")
+        c.start()
         while r := c.wait(1):
             if "<SOME SENTINAL STRING>" in r:
                 break
@@ -365,8 +379,7 @@ class AsyncCommand(Command):
 
         return "".join(ret)
 
-    def start(self, *args, **kwargs): return self.run(*args, **kwargs)
-    def run(self, arg_str="", **kwargs):
+    def start(self, arg_str="", **kwargs):
         """Run the command asyncronously, see parent's .run"""
         self.process = self.create_process(arg_str, **kwargs)
 
@@ -448,4 +461,114 @@ class AsyncCommand(Command):
                 break
 
         return haystack
+
+
+class ModuleCommand(AsyncCommand):
+    """This sets the client up so you can just pass the module name and have everything
+    just work
+
+    Moved here from testdata.client.Command on 7-12-2023
+
+    :Example:
+        #You can setup this command 2 ways
+
+        # 1 - pass in the module name
+        c = ModuleCommand("module_name")
+
+        # 2 - have the parent set it
+        class MyCommand(ModuleCommand):
+            name = "module_name"
+        c = MyCommand()
+    """
+    cmd_prefix = "{} -m".format(sys.executable)
+    """this is what will be used to invoke captain from the command line when run()
+    is called"""
+
+    name = ""
+    """This is the module name you want to run"""
+
+    def __init__(self, name="", cwd="", environ=None, **kwargs):
+        if name:
+            self.name = name
+
+        if not self.name:
+            raise ValueError("No name specified")
+
+        super(ModuleCommand, self).__init__(
+            None,
+            cwd=cwd,
+            environ=environ,
+            **kwargs
+        )
+
+    def create_cmd(self, command, arg_str):
+        if isinstance(command, basestring):
+            ret = "{} {} {}".format(self.cmd_prefix, self.name, command)
+
+        else:
+            ret = re.split(r"\s+", self.cmd_prefix)
+            ret.append(self.name)
+            if command:
+                ret.extend(command)
+
+        return super(ModuleCommand, self).create_cmd(ret, arg_str)
+
+
+class FileCommand(ModuleCommand):
+    """This will add the .py to a script so you don't have to
+
+    Moved here from testdata.client.Command on 7-12-2023
+
+    an example might be best to understand how the command gets put together
+
+    Let's say you wanted to run this path:
+
+        /foo/bar/program.py
+
+    You could configure this class like this:
+
+        class ProgamCommand(FileCommand):
+            script_prefix = "/foo/bar"
+            script_postfix = ".py"
+            name = "program"
+
+    Then when you need to run program.py, you only need to do:
+
+        p = ProgramCommand()
+        p.run() # runs "python /foo/bar/program.py"
+
+    But you also could run it:
+
+        p = FileCommand("/foo/bar/program.py")
+
+    or:
+        class ProgamCommand(FileCommand):
+            script_prefix = "/foo/bar"
+
+        p = ProgramCommand("program.py")
+    """
+    cmd_prefix = sys.executable
+    """If you have a space in the executable path that might be really bad"""
+
+    script_prefix = ""
+    """this will be prepended to the passed in script on initialization"""
+
+    script_postfix = ""
+    """this will be appended to the passed in script on initialization"""
+
+    def __init__(self, fileroot="", cwd="", environ=None, **kwargs):
+        if fileroot:
+            self.name = fileroot
+
+        if not self.name:
+            raise ValueError("no name found")
+
+        path = self.name
+        if self.script_prefix and not fileroot.startswith(self.script_prefix):
+            path = os.path.join(self.script_prefix.rstrip("/"), fileroot)
+
+        if self.script_postfix and not path.endswith(self.script_postfix):
+            path += self.script_postfix
+
+        super().__init__(path, cwd=cwd, environ=environ, **kwargs)
 

@@ -27,6 +27,7 @@ class ServerThread(Url):
 
     :Example:
         s = ServerThread(PathServer("/some/path"))
+        print(s) # https://<SERVER-HOST>
         with s:
             # make an http request to <SERVER-HOST>/foo/bar.txt
             requests.get(s.child("foo", "bar.txt"))
@@ -77,14 +78,6 @@ class ServerThread(Url):
         """Start the webserver"""
         if self.started: return
 
-#         server = self.server
-# 
-#         def target():
-#             server.serve_forever(poll_interval=self.poll_interval)
-
-        #from multiprocessing import Process
-        #from threading import Thread
-        #thread = Process(target=self.target)
         thread = Thread(target=self.target)
         thread.daemon = True
         thread.start()
@@ -93,19 +86,24 @@ class ServerThread(Url):
     def stop(self):
         """stop the webserver"""
         if self.started:
+            # we do server shutdown here instead of server_close because 
+            # server_close closes the socket where shutdown only stops the handler
+            # loop but keeps the socket open. The shutdown method can only be
+            # called while server is running in a thread otherwise it will
+            # deadlock
             self.server.shutdown()
             self.thread.join()
             self.thread = None
 
 
 class BaseServer(HTTPServer):
-    """Base class for all the other servers that contains common functionality"""
+    """Base class for all the other servers that contains common functionality
 
-#     allow_reuse_address = True
-#     allow_reuse_port = True
-    #bind_and_activate = False
-
-
+    Class hierarchy:
+        * https://docs.python.org/3/library/http.server.html#http.server.HTTPServer
+        * https://docs.python.org/3/library/socketserver.html#socketserver.TCPServer
+        * https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer
+    """
     def __init__(self, server_address=None, encoding="", **kwargs):
         """
         :param server_address: tuple, (hostname, port), if None this will use ("", None)
@@ -122,7 +120,6 @@ class BaseServer(HTTPServer):
 
         self.encoding = encoding or environ.ENCODING
         kwargs.setdefault("RequestHandlerClass", self.handler_class)
-        #kwargs["bind_and_activate"] = self.bind_and_activate
         super().__init__(server_address, **kwargs)
 
     def get_url(self, *args, **kwargs):
@@ -148,25 +145,6 @@ class BaseServer(HTTPServer):
         kwargs.setdefault("scheme", "http")
 
         return Url(*args, **kwargs)
-
-    def serve_forever(self, *args, **kwargs):
-        # wrapped to call server close to avoid unclosed socket warnings
-
-#         if not self.bind_and_activate:
-#             try:
-#                 self.server_bind()
-#                 self.server_activate()
-# 
-#             except:
-#                 self.server_close()
-#                 raise
-
-        try:
-            super().serve_forever()
-
-        finally:
-            #self.server_close()
-            pass
 
 
 class PathHandler(SimpleHTTPRequestHandler):
