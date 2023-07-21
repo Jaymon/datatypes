@@ -136,8 +136,9 @@ from .server import (
     WSGIServer,
 )
 from .command import (
+    SimpleCommand,
     Command,
-    AsyncCommand,
+    Command as AsyncCommand, # DEPRECATED, use Command instead
     ModuleCommand,
     FileCommand,
 )

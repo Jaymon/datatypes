@@ -207,14 +207,16 @@ class Email(object):
             index = 0
             for part in self.msg.walk():
                 # multipart/* are just containers
-                mptype=part.get_content_maintype()
-                if mptype == "multipart": continue
+                if part.is_multipart():
+#                 mptype=part.get_content_maintype()
+#                 if mptype == "multipart":
+                    continue
 
                 # NOTE -- I'm not sure the lower is needed here, but just in case
                 content_type = part.get_content_type().lower()
                 encoding = part.get_content_charset()
                 filename = part.get_filename()
-                part_contents = part.get_payload(decode=1)
+                part_contents = part.get_payload(decode=True)
                 index += 1
 
                 self.parts[content_type].append(self.part_class(

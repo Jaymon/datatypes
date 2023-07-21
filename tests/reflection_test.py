@@ -279,7 +279,6 @@ class ReflectClassTest(TestCase):
         self.assertEqual(1, len(rc.reflect_method("HEAD").reflect_decorators()))
         self.assertEqual(3, len(rc.reflect_method("GET").reflect_decorators()))
 
-
     def test_get_info(self):
         class Foo(object):
             def one(self, *args, **kwargs): pass

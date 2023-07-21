@@ -753,7 +753,8 @@ class Host(tuple):
         """Url can technically hold a hostname like 0.0.0.0, this will compensate
         for that, useful for test clients
 
-        :returns: a netloc (host:port) that a client can use to make a request
+        :returns: str, a netloc (eg "host:port") that a client can use to make a
+        request
         """
         netloc = ""
         domain, port = self

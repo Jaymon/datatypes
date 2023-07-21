@@ -115,7 +115,7 @@ class CaptureProcess(subprocess.Popen):
 #                 )
 
 
-class Command(object):
+class SimpleCommand(object):
     """makes running a command from a non CLI environment easy peasy
 
     This is handy when you need to test some CLI functionality of your python
@@ -300,37 +300,29 @@ class Command(object):
         return ret
 
 
-class AsyncCommand(Command):
-    """Runs a command in a thread when you call .start
+class Command(SimpleCommand):
+    """Runs a command in a thread when you call .start and syncronously when
+    .run is called
 
-    Could I switch to using ThreadPoolExecutor instead?
+    ??? - Could I switch to using ThreadPoolExecutor instead?
     https://docs.python.org/3/library/concurrent.futures.html
 
     :Example:
-        c = AsyncCommand("<SOME COMMAND>")
+        c = Command("<SOME COMMAND>")
         c.start()
         while r := c.wait(1):
             if "<SOME SENTINAL STRING>" in r:
                 break
     """
-
+    process = None
+    """Will hold the process that's started when .start() is called"""
 
     thread_class = threading.Thread
-    """the threading class to use when .start is called
+    """the threading class to use when .start is called"""
 
-    Could I switch to using ThreadPoolExecutor instead?
-    https://docs.python.org/3/library/concurrent.futures.html
-
-    :Example:
-        c = AsyncCommand("<SOME COMMAND>")
-        c.start()
-        while r := c.wait(1):
-            if "<SOME SENTINAL STRING>" in r:
-                break
-    """
     def is_running(self):
         """True if the process is running"""
-        return self.process.poll() is None
+        return (self.process.poll() is None) if self.process else False
 
     def quit(self, timeout=1):
         """same as .terminate but uses signals"""
@@ -339,6 +331,11 @@ class AsyncCommand(Command):
     def kill(self, timeout=1):
         """kill -9 the script running asyncronously"""
         return self.finish("kill", timeout=timeout)
+
+    def stop(self, timeout=1):
+        """This is just here because I use .start/.stop a lot and so it's strange
+        not having a .stop method"""
+        self.kill()
 
     def terminate(self, timeout=1):
         """terminate the script running asyncronously"""
@@ -463,7 +460,7 @@ class AsyncCommand(Command):
         return haystack
 
 
-class ModuleCommand(AsyncCommand):
+class ModuleCommand(Command):
     """This sets the client up so you can just pass the module name and have everything
     just work
 

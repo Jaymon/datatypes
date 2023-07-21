@@ -632,3 +632,19 @@ class PropertyTest(TestCase):
         self.assertEqual([], f.che)
         self.assertEqual([], f.che)
 
+    def test_onget(self):
+        class Foo(object):
+            @property(cached="_che", onget=False)
+            def che(self):
+                return 1
+
+        f = Foo()
+        for _ in range(10):
+            self.assertEqual(1, f.che)
+
+        f.che = 5
+        self.assertEqual(5, f.che)
+
+        del f.che
+        self.assertEqual(1, f.che)
+

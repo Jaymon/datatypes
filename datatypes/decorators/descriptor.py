@@ -166,11 +166,12 @@ class classproperty(property):
     allow a readonly class property to exist on a class with a similar interface
     to the built-in property decorator
 
-    NOTE -- because of Python's architecture, this can only be read only, you can't
-        create a setter or deleter
+    NOTE -- because of Python's architecture, this can only be read only, you
+        can't create a setter or deleter
 
     https://docs.python.org/3/library/functions.html#classmethod
-        Changed in version 3.9: Class methods can now wrap other descriptors such as property()
+        Changed in version 3.9: Class methods can now wrap other descriptors
+        such as property()
 
     :Example:
         class Foo(object):
@@ -221,16 +222,24 @@ class property(FuncDecorator):
 
     Options you can pass into the decorator to customize the property
 
-        * allow_empty -- boolean (default True) -- False to not cache empty values (eg, None, "")
-        * cached -- string, pass in the variable name (eg, "_foo") that the value
+        * allow_empty: bool (default True), False to not cache empty values
+            (eg, None, "")
+        * cached: str, pass in the variable name (eg, "_foo") that the value
             returned from the getter will be cached to
-        * setter -- string, set this to variable name (similar to cached) if you want the decorated
-            method to act as the setter instead of the getter, this will cause a default
-            getter to be created that just returns variable name
-        * deleter -- string, same as setter, but the decorated method will be the deleter and default
-            setters and getters will be created
-        * readonly -- string, the decorated method will be the getter and set the value 
-            into the name defined in readonly, and no setter or deleter will be allowed
+        * setter: str, set this to variable name (similar to cached) if you want
+            the decorated method to act as the setter instead of the getter,
+            this will cause a default getter to be created that just returns
+            variable name
+        * deleter: str, same as setter, but the decorated method will be the
+            deleter and default setters and getters will be created
+        * readonly: str, the decorated method will be the getter and set the
+            value into the name defined in readonly, and no setter or deleter
+            will be allowed
+        * onget: bool, cache the value on read, if this is False then it won't
+            cache the value on read but only when you explicitely set the value.
+            This means that you can call get as many times as you want and it
+            will always call the method, but then if you set a value, when you
+            get it again it will use the cached value
     """
     def __init__(self, fget=None, fset=None, fdel=None, doc=None, **kwargs):
         self.getter(fget)
@@ -253,6 +262,8 @@ class property(FuncDecorator):
 
         self.cached = True if self.name else False
         self.allow_empty = kwargs.pop('allow_empty', True)
+
+        self.onget = kwargs.pop("onget", True)
 
     def log(self, format_str, *format_args, **log_options):
         fget = getattr(self, "fget", None)
@@ -287,12 +298,6 @@ class property(FuncDecorator):
                 if hasattr(instance, "__getattr__"):
                     self.log(e)
                 raise
-                # swallowed and so let's reraise it as a ValueError
-#                     exc_info = sys.exc_info()
-#                     reraise(ValueError, e, exc_info[2])
-# 
-#                 else:
-#                     raise
 
         else:
             raise AttributeError("Unreadable attribute")
@@ -320,7 +325,7 @@ class property(FuncDecorator):
 
             else:
                 value = self.get_value(instance)
-                if value or self.allow_empty:
+                if (value or self.allow_empty) and self.onget:
                     self.log("Caching value in {}", self.name)
                     self.__set__(instance, value)
 

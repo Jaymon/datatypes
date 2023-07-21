@@ -131,8 +131,7 @@ class OrderedSubclasses(list):
 
 
 class Extend(object):
-    """you can use this decorator to extend instances in the bangfile with custom
-    functionality
+    """you can use this decorator to extend instances with custom functionality
 
     Moved from bang.event.Extend on 1-18-2023
 
@@ -411,17 +410,19 @@ class ReflectClass(object):
     @classmethod
     def get_class(cls, full_python_class_path):
         """
-        take something like some.full.module.Path and return the actual Path class object
+        take something like some.full.module.Path and return the actual Path
+        class object
 
         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
-        Note -- this will fail when the object isn't accessible from the module, that means
-        you can't define your class object in a function and expect this function to work, the
-        reason why this doesn't work is because the class is on the local stack of
-        the function, so it only exists when that function is running, so there's
-        no way to get the class obect outside of the function, and you can't really
-        separate it from the class (like using the code object to create the class
-        object) because it might use local variables and things like that
+        Note -- this will fail when the object isn't accessible from the module,
+        that means you can't define your class object in a function and expect
+        this function to work, the reason why this doesn't work is because the
+        class is on the local stack of the function, so it only exists when that
+        function is running, so there's no way to get the class object outside
+        of the function, and you can't really separate it from the class (like
+        using the code object to create the class object) because it might use
+        local variables and things like that
 
         :Example:
             # -- THIS IS BAD --
@@ -906,7 +907,10 @@ class ReflectModule(object):
 
         if hasattr(module, "__path__"):
             # path attr exists so this is a package
-            module_names.update(self.find_module_names(module.__path__[0], module_name))
+            module_names.update(self.find_module_names(
+                module.__path__[0],
+                module_name
+            ))
 
         return module_names
 

@@ -98,6 +98,32 @@ class HTTPHeaders(BaseHeaders, Mapping):
         name = self._convert_string_name(name)
         return super(HTTPHeaders, self).get(name, default)
 
+    def parse(self, name):
+        """Parses the name header and returns main, params
+
+        :Example:
+            h = HTTPHeaders()
+            h.add_header("Content-Type", 'application/json; charset="utf8"')
+            main, params = h.parse("Content-Type")
+            print(main) # application/json
+            print(params["charset"]) # utf8
+
+        :param name: str, the header to parse
+        :returns: tuple[str, dict], returns a tuple of (main, params)
+        """
+        if h := self.get(name, ""):
+            em = email.message.Message()
+            em[name] = h
+            # get_params looks to be an internal method, it's not publicly
+            # documented in the official docs
+            ps = em.get_params(header=name)
+            main = ps[0][0]
+            params = {p[0]: p[1] for p in ps[1:]}
+            return main, params
+
+        else:
+            return "", {}
+
     def __delitem__(self, name):
         name = self._convert_string_name(name)
         return super(HTTPHeaders, self).__delitem__(name)
@@ -122,6 +148,20 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
     def keys(self):
         return [k for k, v in self._headers]
+
+    def asgi(self):
+        """Returns each header as a tuple of byte strings with the name as all
+        lowercase
+
+        From the ASGI spec: https://asgi.readthedocs.io/en/latest/specs/www.html
+            An iterable of [name, value] two-item iterables, where name is the
+            header name, and value is the header value. Order must be preserved
+            in the HTTP response. Header names must be lowercased.
+
+        :returns: generator of tuple[bytes, bytes]
+        """
+        for k, v in self.items():
+            yield ByteString(k.lower()), ByteString(v)
 
     def items(self):
         for k, v in self._headers:
@@ -187,6 +227,30 @@ class HTTPHeaders(BaseHeaders, Mapping):
     def list(self):
         """Return all the headers as a list of headers instead of a dict"""
         return [": ".join(h) for h in self.items() if h[1]]
+
+    def is_plain(self):
+        """return True if body's content-type is text/plain"""
+        ct = self.get("Content-Type", "")
+        return "plain" in ct
+
+    def is_json(self):
+        """return True if body's content-type is application/json"""
+        ct = self.get("Content-Type", "")
+        return "json" in ct
+
+    def is_urlencoded(self):
+        """return True if body's content-type is application/x-www-form-urlencoded"""
+        ct = self.get("Content-Type", "")
+        return "form-urlencoded" in ct
+
+    def is_multipart(self):
+        """return True if body's content-type is multipart/form-data"""
+        ct = self.get("Content-Type", "")
+        return "multipart" in ct
+
+    def is_chunked(self):
+        """Return True if this set of headers is chunked"""
+        return self.get('transfer-encoding', "").lower().startswith("chunked")
 
 
 class HTTPEnviron(HTTPHeaders):

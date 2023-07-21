@@ -138,6 +138,55 @@ class HTTPHeadersTest(TestCase):
         h.update({"foo": "2"})
         self.assertEqual("2", h["foo"])
 
+    def test_parse(self):
+        h = HTTPHeaders()
+        h["foo-bar"] = "application/json; charset=\"utf8\"; che=1; bar=2"
+        main, params = h.parse("foo-BAR")
+        self.assertEqual("application/json", main)
+        self.assertEqual(3, len(params))
+        self.assertEqual("1", params["che"])
+
+        h["content-type"] = "application/json; charset=\"utf8\""
+        main, params = h.parse("CONTENT_TYPE")
+        self.assertEqual("application/json", main)
+        self.assertEqual(1, len(params))
+
+        h["content-type"] = "application/json"
+        main, params = h.parse("CONTENT_TYPE")
+        self.assertEqual("application/json", main)
+        self.assertEqual(0, len(params))
+
+        main, params = h.parse("Does-Not-Exist")
+        self.assertEqual("", main)
+        self.assertEqual(0, len(params))
+
+    def test_is_methods(self):
+        h = HTTPHeaders()
+
+        h["Content-Type"] = "application/x-www-form-urlencoded"
+        self.assertTrue(h.is_urlencoded())
+        self.assertFalse(h.is_multipart())
+        self.assertFalse(h.is_plain())
+        self.assertFalse(h.is_json())
+
+        h["Content-Type"] = "multipart/form-data; boundary=ab4b2773b"
+        self.assertFalse(h.is_urlencoded())
+        self.assertTrue(h.is_multipart())
+        self.assertFalse(h.is_plain())
+        self.assertFalse(h.is_json())
+
+        h["Content-Type"] = "application/json"
+        self.assertFalse(h.is_urlencoded())
+        self.assertFalse(h.is_multipart())
+        self.assertFalse(h.is_plain())
+        self.assertTrue(h.is_json())
+
+        h["Content-Type"] = "text/plain"
+        self.assertFalse(h.is_urlencoded())
+        self.assertFalse(h.is_multipart())
+        self.assertTrue(h.is_plain())
+        self.assertFalse(h.is_json())
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):

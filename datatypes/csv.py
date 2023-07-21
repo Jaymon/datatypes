@@ -72,6 +72,7 @@ class CSV(object):
         self.reader = None
         self.context_depth = 0 # protection against multiple context managers
         self.strict = kwargs.pop("strict", False)
+        self.writer_mode = kwargs.pop("writer_mode", "wb+")
 
         if not encoding:
             encoding = environ.ENCODING
@@ -118,22 +119,19 @@ class CSV(object):
         :param mode: string, the open mode
         :returns: file pointer
         """
-        if is_py2:
-            if not mode:
-                mode = "rb"
-            return open(self.path, mode=mode)
-
-        else:
-            if not mode:
-                mode = "r"
-            return codecs.open(self.path, encoding=self.encoding, mode=mode)
+        if not mode:
+            mode = "r"
+        return codecs.open(self.path, encoding=self.encoding, mode=mode)
 
     def __enter__(self):
         """Enables with context manager for writing"""
         self.context_depth += 1
         if not self.writer:
-            logger.debug("Writing csv file: {}".format(self.path))
-            f = self.open("ab+")
+            logger.debug("Writing csv file: {} using mode: {}".format(
+                self.path,
+                self.writer_mode,
+            ))
+            f = self.open(self.writer_mode)
             self.writer = self.create_writer(f)
         return self
 
@@ -206,9 +204,6 @@ class CSV(object):
 
     def normalize_reader_row(self, row):
         """prepare row for reading, meant to be overridden in child classes if needed"""
-        if is_py2:
-            row = {String(k): String(v) for k, v in row.items()}
-
         if self.reader_row_class:
             row = self.reader_row_class(row)
 
@@ -216,7 +211,6 @@ class CSV(object):
 
     def normalize_writer_row(self, row):
         """prepare row for writing, meant to be overridden in child classes if needed"""
-
         row = {String(k): ByteString(v) for k, v in row.items()}
 
         if self.strict:
@@ -303,6 +297,5 @@ class TempCSV(CSV):
     def __init__(self, fieldnames=None, **kwargs):
         path = TempFilepath(kwargs.pop("path", ""), dir=kwargs.pop("dir", ""))
         kwargs["fieldnames"] = fieldnames
-        super(TempCSV, self).__init__(path, **kwargs)
-
+        super().__init__(path, **kwargs)
 

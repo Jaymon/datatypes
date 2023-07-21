@@ -14,13 +14,13 @@ class Environ(Mapping):
 
         environ = Environ("PREFIX_")
 
-    Then you can access any environment variables with that prefix from the `environ`
-    instance.
+    Then you can access any environment variables with that prefix from the
+    `environ` instance.
 
     :Example:
         # in your environment
-        PREFIX_FOOBAR=1
-        PREFIX_CHE="this is the che value"
+        export PREFIX_FOOBAR=1
+        export PREFIX_CHE="this is the che value"
 
         # in your python code
         environ = Environ("PREFIX_")
@@ -45,10 +45,10 @@ class Environ(Mapping):
 
     def __init__(self, namespace="", environ=None):
         """
-        :param modname: str, usually __name__ from the calling module but can also
-            be "PREFIX_" or something like that
-        :param envmodname: str, if modname is "PREFIX_" then this would be __name__
-            or the module path
+        :param namespace: str, usually __name__ from the calling module but can
+            also be "PREFIX_" or something like that
+        :param environ: str, the environment you want this instance to wrap, it
+            defualts to os.environ
         """
         self.__dict__["namespace"] = self.find_namespace(namespace)
         self.__dict__["defaults"] = {}
