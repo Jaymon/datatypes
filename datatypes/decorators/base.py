@@ -40,7 +40,7 @@ class Decorator(object):
     arg to wrap with the decorator as inferred by this class"""
 
     def __new__(cls, *args, **kwargs):
-        instance = super(Decorator, cls).__new__(cls)
+        instance = super().__new__(cls)
 
         instance.decorator_args = args
         instance.decorator_kwargs = kwargs

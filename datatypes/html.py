@@ -16,8 +16,6 @@ class HTML(String):
         return HTMLCleaner.strip_tags(self, *args, **kwargs)
 
     def tags(self, tagnames=None):
-        from .token import HTMLTokenizer # avoid circular dep
-
         tokenizer = HTMLTokenizer(self, tagnames)
         for t in tokenizer:
             yield t
@@ -384,13 +382,21 @@ class HTMLToken(Token):
             return self.taginfo[k]
 
         else:
+            # support foo-bar and foo_bar
+            ks = set([
+                k.replace("-", "_"),
+                k.replace("_", "-"),
+            ])
+
             ret = None
             for attr_name, attr_val in self.taginfo.get("attrs", []):
-                if attr_name == k:
+                if attr_name in ks:
                     return attr_val
 
         raise AttributeError(k)
-        #return super(HTMLToken, self).__getattr__(k)
+
+    def __getitem__(self, k):
+        return self.__getattr__(k)
 
     def attrs(self):
         ret = {}

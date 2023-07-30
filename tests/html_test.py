@@ -19,6 +19,23 @@ class HTMLTest(TestCase):
         r = html.inject_into_head("foo")
         self.assertEqual("<html><head>foo</head><body></body></html>", r)
 
+    def test_tags(self):
+        html = HTML("\n".join([
+            "<p class=\"one\">one body</p>",
+            "<p class=\"two\">two body</p>",
+        ]))
+
+        self.assertEqual(2, len(list(html.tags())))
+
+        tags = html.tags()
+        tag = next(tags)
+        self.assertEqual("one", tag["class"])
+        self.assertEqual("one body", tag.text)
+
+        tag = next(tags)
+        self.assertEqual("two", tag["class"])
+        self.assertEqual("two body", tag.text)
+
 
 class HTMLCleanerTest(TestCase):
     def test_lifecycle(self):
