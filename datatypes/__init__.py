@@ -110,8 +110,10 @@ from .profile import (
 from .reflection import (
     OrderedSubclasses,
     Extend,
+    ReflectName,
     ReflectModule,
     ReflectClass,
+    ReflectMethod,
 )
 from .event import (
     Event,

@@ -401,15 +401,43 @@ class DatetimeTest(TestCase):
         d2 = Datetime.fromdatehash(h)
         self.assertEqual(d1, d2)
 
-    def test_since(self):
-        d = Datetime(seconds=-30)
-        self.assertEqual("30 seconds", d.since())
+    def test_since_1(self):
+        now = Datetime(month=8, day=1, year=2023)
 
-        d = Datetime(months=-5, days=-10)
-        self.assertEqual("5 months, 1 week", d.since())
+        d = Datetime(now, months=-24)
+        self.assertEqual(
+            "1 year, 23 months, 4 weeks, 3 days",
+            d.since(now, chunks=0)
+        )
 
-        d = Datetime(months=-5, days=-3)
-        self.assertEqual("5 months, 3 days", d.since())
+        d = Datetime(now, seconds=-30)
+        self.assertEqual("30 seconds", d.since(now))
+
+        d = Datetime(now, months=-5, days=-3)
+        self.assertEqual("5 months, 3 days", d.since(now))
+
+        d = Datetime(now, months=-5, days=-10)
+        self.assertEqual("5 months, 1 week", d.since(now))
+
+        now = Datetime(month=8, day=1, year=2023)
+
+        d = Datetime(now, months=-24, hours=12, minutes=30, seconds=14)
+        self.assertEqual(
+            "1 year, 23 months, 4 weeks, 2 days, 11 hours, 29 minutes, 46 seconds",
+            d.since(now, chunks=0)
+        )
+
+    def test_estsince(self):
+        now = Datetime(month=8, day=1, year=2023)
+
+        d = Datetime(now, months=-5, days=-3)
+        self.assertEqual("5 months, 6 days", d.estsince(now))
+
+        d = Datetime(now, seconds=-30)
+        self.assertEqual("30 seconds", d.estsince(now))
+
+        d = Datetime(now, months=-5, days=-10)
+        self.assertEqual("5 months, 1 week", d.estsince(now))
 
     def test_now(self):
         d = Datetime()
@@ -418,4 +446,58 @@ class DatetimeTest(TestCase):
 
         d3 = Datetime.utcnow()
         self.assertEqual(d.tzinfo, d3.tzinfo)
+
+    def test_next_month(self):
+        d = Datetime(2023, 12, 1)
+        d2 = d.next_month()
+        self.assertEqual(2024, d2.year)
+        self.assertEqual(1, d2.month)
+        self.assertEqual(1, d2.day)
+
+        d = Datetime(2023, 8, 1)
+        d2 = d.next_month()
+        self.assertEqual(2023, d2.year)
+        self.assertEqual(9, d2.month)
+        self.assertEqual(1, d2.day)
+
+    def test_current_month(self):
+        d = Datetime(2023, 8, 10)
+        d2 = d.current_month()
+        self.assertEqual(2023, d2.year)
+        self.assertEqual(8, d2.month)
+        self.assertEqual(1, d2.day)
+
+    def test_prev_month(self):
+        d = Datetime(2023, 1, 10)
+        d2 = d.prev_month()
+        self.assertEqual(2022, d2.year)
+        self.assertEqual(12, d2.month)
+        self.assertEqual(1, d2.day)
+
+        d = Datetime(2023, 8, 1)
+        d2 = d.prev_month()
+        self.assertEqual(2023, d2.year)
+        self.assertEqual(7, d2.month)
+        self.assertEqual(1, d2.day)
+
+    def test_months_1(self):
+        d = Datetime()
+
+        count = len(list(d.months(d)))
+        self.assertEqual(1, count)
+
+        count = len(list(d.months(d, inclusive=False)))
+        self.assertEqual(0, count)
+
+    def test_months_2(self):
+        d = Datetime(month=1, year=2023)
+        now = Datetime(month=8, year=2023)
+
+        count = len(list(d.months(now, inclusive=False)))
+        self.assertEqual(6, count)
+
+        count = 0
+        for month in d.months(now):
+            count += 1
+        self.assertEqual(8, count)
 

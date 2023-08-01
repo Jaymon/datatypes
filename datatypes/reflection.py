@@ -9,6 +9,7 @@ import importlib
 import ast
 import collections
 import pkgutil
+import re
 
 from .compat import *
 from .decorators import property as cachedproperty
@@ -24,14 +25,14 @@ class OrderedSubclasses(list):
     so if you want your ChildClass to be before ParentClass, you would just have
     ChildClass extend ParentClass
 
-    You'd think this would be a niche thing and not worth being in a common library
-    but I've actually had to do this exact thing multiple times, so I'm finally
-    moving this from Pout and Bang into here so I can standardize it
+    You'd think this would be a niche thing and not worth being in a common
+    library but I've actually had to do this exact thing multiple times, so I'm
+    finally moving this from Pout and Bang into here so I can standardize it
     """
     def __init__(self, cutoff_classes=None, classes=None):
         """
-        :param cutoff_classes: [type, ...], you should ignore anything before these
-            classes when working out order
+        :param cutoff_classes: [type, ...], you should ignore anything before
+            these classes when working out order
         :param classes: list, any classes you want to insert right away
         """
         super().__init__()
@@ -77,8 +78,10 @@ class OrderedSubclasses(list):
 
                 else:
                     self.info[index_name] = {
-                        "index": len(self), # children should be inserted at least before this index
-                        "child_count": len(klasses) - offset, # how many children in self
+                        # children should be inserted at least before this index
+                        "index": len(self),
+                        # how many children in self
+                        "child_count": len(klasses) - offset,
                     }
 
                     super().insert(index, subclass)
@@ -93,7 +96,8 @@ class OrderedSubclasses(list):
                 self.insert(klass)
 
     def insert_modules(self):
-        """Runs through sys.modules and inserts all classes matching .cutoff_classes"""
+        """Runs through sys.modules and inserts all classes matching
+        .cutoff_classes"""
         for m in list(sys.modules.values()):
             self.insert_module(m)
 
@@ -121,13 +125,6 @@ class OrderedSubclasses(list):
             index_name = rc.classpath
             if self.info[index_name]["child_count"] == 0:
                 yield klass
-
-#         active_class = None
-#         for current_class in self:
-#             #pout.v(current_class, active_class)
-#             if active_class is None or not issubclass(active_class, current_class):
-#                 active_class = current_class
-#                 yield current_class
 
 
 class Extend(object):
@@ -211,6 +208,196 @@ class Extend(object):
             setattr(o, name, types.MethodType(callback, o))
 
 
+class ReflectName(String):
+    """A relfection object similar to python's built-in resolve_name
+
+    https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
+
+    foo.bar.che:FooBar.baz
+    \_________/ \____/ \_/
+         |         |    |
+    module_name    |    |
+                   |    |
+            class_name  |
+                |       |
+                |  method_name
+                |      |
+    foo/bar.py:FooBar.baz
+    \________/
+        |
+      filepath
+
+    TODO -- add support for cwd, so this would be valid:
+
+        /some/base/directory:module.path:ClassName.method_name
+
+    and /some/base/directory would become .cwd
+    """
+
+    @property
+    def module(self):
+        return self.get_module()
+
+    @property
+    def cls(self):
+        return self.get_class()
+
+    @property
+    def method(self):
+        return self.get_method()
+
+    def __new__(cls, name):
+        name, properties = cls.normalize(name)
+
+        instance = super().__new__(cls, name)
+
+        for k, v in properties.items():
+            setattr(instance, k, v)
+
+        return instance
+
+    @classmethod
+    def normalize(cls, name):
+        ret = ""
+        filepath = modpath = classname = methodname = ""
+        classnames = []
+
+        parts = name.split(":")
+        if len(parts) > 1:
+            if parts[0].endswith(".py") or "/" in parts[0]:
+                # foo/bar/che.py:Classname.methodname
+                filepath = parts[0]
+
+            else:
+                modpath = parts[0]
+
+            parts = parts[1].split(".")
+            if len(parts) == 1:
+                classnames = [parts[0]]
+                classname = parts[0]
+
+            elif len(parts) == 2:
+                classnames = [parts[0]]
+                classname = parts[0]
+                methodname = parts[1]
+
+            else:
+                if re.search(r'^[A-Z]', parts[-1]):
+                    classnames = parts
+                    classname = parts[-1]
+
+                else:
+                    classnames = parts[:-1]
+                    classname = classnames[-1]
+                    methodname = parts[-1]
+
+        else:
+            # this is old syntax of module_name.class_name(s).method_name and
+            # so it will assume module_name is everything to the left of a part
+            # that starts with a capital letter, then every part that starts
+            # with a capital letter are the class_name(s) and a lowercase
+            # part after is the method_name
+            if name.endswith(".py") or "/" in name:
+                # foo/bar/che.py
+                filepath = name
+
+            else:
+                # this can be just module_name, module_name.class_name(s), and
+                # module_name.class_name(s).method_name
+                #
+                # TODO -- if everything is lowercase it now assumes everything
+                # is a module_name, but it should probably actually resolve it
+                # and find out if there is a class or method in there
+                parts = name.split(".")
+
+                modparts = []
+                while parts:
+                    if re.search(r'^[A-Z]', parts[0]):
+                        break
+
+                    else:
+                        modparts.append(parts[0])
+                        parts.pop(0)
+
+                modpath = ".".join(modparts)
+
+                classnames = []
+                while parts:
+                    if re.search(r'^[A-Z]', parts[0]):
+                        classname = parts.pop(0)
+                        classnames.append(classname)
+
+                    else:
+                        break
+
+                if parts:
+                    methodname = parts[0]
+
+        if filepath:
+            ret = filepath
+
+        elif modpath:
+            ret = modpath
+
+        if classnames:
+            if ret:
+                ret += ":"
+
+            ret += ".".join(classnames)
+
+        if methodname:
+            ret += f".{methodname}"
+
+        return ret, {
+            "filepath": filepath,
+            "module_name": modpath,
+            "class_names": classnames,
+            "class_name": classname,
+            "method_name": methodname,
+        }
+
+    def reflect_module(self):
+        if not self.module_name:
+            return None
+
+        return ReflectModule(self.module_name)
+
+    def reflect_class(self):
+        if self.class_names:
+            rm = self.reflect_module()
+            if rm:
+                o = rm.get_module()
+                for classname in self.class_names:
+                    o = getattr(o, classname)
+
+                return ReflectClass(o)
+
+    def reflect_method(self):
+        if not self.method_name:
+            return None
+
+        rc = self.reflect_class()
+        return rc.reflect_method(self.method_name)
+
+    def get_module(self):
+        rm = self.reflect_module()
+        if rm:
+            return rm.get_module()
+
+    def get_class(self):
+        rc = self.reflect_class()
+        if rc:
+            return rc.get_class()
+
+    def get_method(self):
+        rm = self.reflect_method()
+        if rm:
+            return rm.get_method()
+
+    def resolve(self):
+        return pkgutil.resolve_name(self)
+
+
 class ReflectDecorator(object):
     """Internal class used by ReflectClass
 
@@ -254,10 +441,11 @@ class ReflectMethod(object):
     """Internal class used by ReflectClass
 
     Reflects a method on a class. This is kind of a strange situation where this
-    class is entirely dependant on ReflectClass for its information. This is because
-    this figures out all the decorators that were defined on this method and that
-    information is only available in the full actual python code of the class, as
-    retrieved using the ast module, so this really wraps ReflectClass.get_info()
+    class is entirely dependant on ReflectClass for its information. This is 
+    because this figures out all the decorators that were defined on this method
+    and that information is only available in the full actual python code of the
+    class, as retrieved using the ast module, so this really wraps
+    ReflectClass.get_info()
 
     Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
     """
@@ -317,7 +505,9 @@ class ReflectMethod(object):
         """return the description of this method"""
         doc = None
         def visit_FunctionDef(node):
-            """ https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit """
+            """
+            https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
+            """
             if node.name != self.method_name:
                 return
 
@@ -340,10 +530,14 @@ class ReflectMethod(object):
         self.method = method
         self.reflect_class = reflect_class
 
+    def get_method(self):
+        return self.method
+
     def get_info(self):
         """Gets info about this method using ReflectClass.get_info()
 
-        :returns: dict, the information the class was able to gather about this method
+        :returns: dict, the information the class was able to gather about this
+        method
         """
         info = self.reflect_class.get_info()
         return info[self.name][self.method_name]
@@ -387,8 +581,8 @@ class ReflectClass(object):
     def classpath(self):
         """The full classpath
 
-        should this use the currently suggested syntax of modpath:Classname? instead
-        of the backwards compatible modpath.Classname?
+        should this use the currently suggested syntax of modpath:Classname?
+        instead of the backwards compatible modpath.Classname?
 
         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
@@ -400,6 +594,11 @@ class ReflectClass(object):
     def reflect_module(self):
         """Returns the reflected module"""
         return self._reflect_module or ReflectModule(self.cls.__module__)
+
+    @property
+    def module(self):
+        """returns the actual module this class is defined in"""
+        return self.reflect_module.get_module()
 
     @cachedproperty(cached="_desc")
     def desc(self):
@@ -466,9 +665,8 @@ class ReflectClass(object):
         """return True if this class is considered private"""
         return self.class_name.startswith('_')
 
-    def module(self):
-        """returns the actual module this class is defined in"""
-        return self.reflect_module.module()
+    def get_module(self):
+        return self.module
 
     def method_names(self):
         for method_name in self.get_info().keys():
@@ -499,7 +697,8 @@ class ReflectClass(object):
         """Returns information about the method_name on this class
 
         :param method_name: str, the name of the method
-        :param *default_val: mixed, if passed in return this instead of raising error
+        :param *default_val: mixed, if passed in return this instead of raising
+            error
         :returns: ReflectMethod, the reflection information about the method
         """
         try:
@@ -515,7 +714,9 @@ class ReflectClass(object):
                 return default_val[0]
 
             else:
-                raise AttributeError(f"No {self.classpath}.{method_name} method") from e
+                raise AttributeError(
+                    f"No {self.classpath}.{method_name} method"
+                ) from e
 
     def get(self, name, *default_val):
         """Get a value on the class
@@ -542,7 +743,8 @@ class ReflectClass(object):
             """given an inspect type argument figure out the actual real python
             value and return that
             :param na: ast.expr instanct
-            :param default: sets the default value for na if it can't be resolved
+            :param default: sets the default value for na if it can't be
+                resolved
             :returns: type, the found value as a valid python type
             """
             ret = None
@@ -562,18 +764,26 @@ class ReflectClass(object):
                     ret = na.id
                     if ret == 'True':
                         ret = True
+
                     elif ret == 'False':
                         ret = False
 
             elif isinstance(na, ast.Dict):
                 if na.keys:
-                    ret = {get_val(na_[0]): get_val(na_[1]) for na_ in zip(na.keys, na.values)}
+                    ret = {
+                        get_val(na_[0]): get_val(na_[1]) for na_ in zip(
+                            na.keys,
+                            na.values
+                        )
+                    }
+
                 else:
                     ret = {}
 
             elif isinstance(na, (ast.List, ast.Tuple)):
                 if na.elts:
                     ret = [get_val(na_) for na_ in na.elts]
+
                 else:
                     ret = []
 
@@ -605,6 +815,7 @@ class ReflectClass(object):
 
         def visit_FunctionDef(node):
             """as the code is parsed any found methods will call this function
+
             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
             """
             # if there is a super call in the method body we want to add the
@@ -625,7 +836,12 @@ class ReflectClass(object):
 
                     # is this a call like @decorator or like @decorator(...)
                     if isinstance(n, ast.Call):
-                        name = n.func.attr if isinstance(n.func, ast.Attribute) else n.func.id
+                        if isinstance(n.func, ast.Attribute):
+                            name = n.func.attr
+
+                        else:
+                            name = n.func.id
+
                         for an in n.args:
                             args.append(get_val(an))
 
@@ -645,14 +861,16 @@ class ReflectClass(object):
                     # or from the global builtins
                     decor = None
                     if self.reflect_module:
-                        m = self.reflect_module.module()
+                        m = self.reflect_module.get_module()
                         decor = getattr(m, name, None)
 
                     if not decor:
                         decor = getattr(builtins, name, None)
 
                     if not decor:
-                        raise RuntimeError("Could not find {} decorator class".format(name))
+                        raise RuntimeError(
+                            "Could not find {} decorator class".format(name)
+                        )
 
                     d["decorator"] = decor
 
@@ -711,7 +929,8 @@ class ReflectClass(object):
         return ret
 
     def members(self, *args, **kwargs):
-        """Get all the actual members of this class, passthrough for inspect.getmembers"""
+        """Get all the actual members of this class, passthrough for
+        inspect.getmembers"""
         ret = {}
         for method_name, method in inspect.getmembers(self.cls, *args, **kwargs):
             ret[method_name] = method
@@ -754,8 +973,9 @@ class ReflectModule(object):
 
     @property
     def modpath(self):
-        """Return the full qualified python path of the module (eg, foo.bar.che)"""
-        return self.module().__name__
+        """Return the full qualified python path of the module (eg, foo.bar.che)
+        """
+        return self.get_module().__name__
 
     @property
     def modroot(self):
@@ -773,9 +993,10 @@ class ReflectModule(object):
         """recursive method that will find all the modules of the given path
 
         :param path: str, the path to scan for modules/submodules
-        :param prefix: str, if you want found modules to be prefixed with a certain
-            module path
-        :param ignore_private: bool, if True then ignore modules considered private
+        :param prefix: str, if you want found modules to be prefixed with a
+            certain module path
+        :param ignore_private: bool, if True then ignore modules considered
+            private
         :returns: set, a set of submodule names under path prefixed with prefix
         """
         module_names = set()
@@ -783,18 +1004,24 @@ class ReflectModule(object):
         # https://docs.python.org/2/library/pkgutil.html#pkgutil.iter_modules
         for module_info in pkgutil.iter_modules([path]):
             # we want to ignore any "private" modules
-            if module_info[1].startswith('_') and ignore_private: continue
+            if module_info[1].startswith('_') and ignore_private:
+                continue
 
             if prefix:
                 module_prefix = ".".join([prefix, module_info[1]])
+
             else:
                 module_prefix = module_info[1]
 
             if module_info[2]:
                 # module is a package
                 module_names.add(module_prefix)
-                submodule_names = cls.find_module_names(os.path.join(path, module_info[1]), module_prefix)
+                submodule_names = cls.find_module_names(
+                    os.path.join(path, module_info[1]),
+                    module_prefix
+                )
                 module_names.update(submodule_names)
+
             else:
                 module_names.add(module_prefix)
 
@@ -829,20 +1056,23 @@ class ReflectModule(object):
 
     def __init__(self, module_name, module_package=None):
         """
-        :param module_name: str|ModuleType, the module path of the module to introspect
-            or the actual module
-        :param module_package: the prefix that will be used to load module_name if
-            module_name is relative
+        :param module_name: str|ModuleType, the module path of the module to
+        introspect or the actual module
+
+        :param module_package: the prefix that will be used to load module_name
+            if module_name is relative
         """
         if isinstance(module_name, types.ModuleType):
-            self._module = module_name
+            self.module = module_name
             self.module_name = module_name.__name__
             self.module_package = module_package
 
         else:
-            self._module = None
+            self.module = None
             self.module_name = module_name
-            self.module_package = module_package or self.find_module_package(module_name)
+            self.module_package = module_package or self.find_module_package(
+                module_name
+            )
 
     def __iter__(self):
         """This will iterate through this module and all its submodules
@@ -863,11 +1093,11 @@ class ReflectModule(object):
 
     def reflect_module(self, *parts):
         """Returns a reflect module instance for a submodule"""
-        return type(self)(self.module(*parts))
+        return type(self)(self.get_submodule(*parts))
 
     def basemodule(self):
-        """Returns the root-most module of this module's path (eg, if this module was
-        foo.bar.che then this would return foo module)"""
+        """Returns the root-most module of this module's path (eg, if this
+        module was foo.bar.che then this would return foo module)"""
         return self.import_module(self.modroot)
 
     def rootmodule(self):
@@ -879,14 +1109,23 @@ class ReflectModule(object):
     def reflect_basemodule(self):
         return type(self)(self.modroot)
 
-    def module(self, *parts):
+    def get_submodule(self, *parts):
         """return the actual python module
 
         :param *parts: modpath parts relative to this module
         :returns: ModuleType, the module or the submodule
         """
-        if self._module and not parts:
-            ret = self._module
+        if not parts:
+            raise ValueError("No submodule parts")
+
+        return self.get_module(*parts)
+
+    def submodule(self, *parts):
+        return self.get_submodule(*parts)
+
+    def get_module(self, *parts):
+        if self.module and not parts:
+            ret = self.module
 
         else:
             module_name = self.module_name
@@ -901,7 +1140,7 @@ class ReflectModule(object):
         """return all the module names that this module encompasses
         :returns: set, a set of string module names
         """
-        module = self.module()
+        module = self.get_module()
         module_name = module.__name__
         module_names = set([module_name])
 
@@ -918,16 +1157,18 @@ class ReflectModule(object):
     def get_info(self):
         """Get information about the module"""
         ret = {}
-        module = self.module()
+        module = self.get_module()
         classes = inspect.getmembers(module, inspect.isclass)
         for class_name, class_type in classes:
             ret[class_name] = self.reflect_class_class(class_type, self)
         return ret
 
     def reflect_classes(self, ignore_private=True):
-        """yields ReflectClass instances that are found in only this module (not submodules)
+        """yields ReflectClass instances that are found in only this module
+        (not submodules)
 
-        :param ignore_private: bool, if True then ignore classes considered private
+        :param ignore_private: bool, if True then ignore classes considered
+            private
         :returns: a generator of ReflectClass instances
         """
         for class_name, rc in self.get_info(): 
@@ -937,9 +1178,11 @@ class ReflectModule(object):
                 yield rc
 
     def classes(self, ignore_private=True):
-        """yields classes (type instances) that are found in only this module (not submodules)
+        """yields classes (type instances) that are found in only this module
+        (not submodules)
 
-        :param ignore_private: bool, if True then ignore classes considered private
+        :param ignore_private: bool, if True then ignore classes considered
+            private
         :returns: a generator of type instances
         """
         for rc in self.reflect_classes(ignore_private=ignore_private):
@@ -955,7 +1198,9 @@ class ReflectModule(object):
                 return default_val[0]
 
             else:
-                raise AttributeError(f"{self.module().__name__}.{name} does not exist") from e
+                raise AttributeError(
+                    f"{self.get_module().__name__}.{name} does not exist"
+                ) from e
 
     def get(self, name, *default_val):
         """Get a value of the module
@@ -964,19 +1209,21 @@ class ReflectModule(object):
         :param *default_val: mixed, return this if name doesn't exist
         :returns: mixed, the raw python attribute value
         """
-        return getattr(self.module(), name, *default_val)
+        return getattr(self.get_module(), name, *default_val)
 
     def find_module_import_path(self):
         """find and return the importable path for the module"""
-        module_name = self.module().__name__
+        module_name = self.get_module().__name__
         master_modname = module_name.split(".", 1)[0]
         master_module = sys.modules[master_modname]
-        path = os.path.dirname(os.path.dirname(inspect.getsourcefile(master_module)))
+        path = os.path.dirname(
+            os.path.dirname(inspect.getsourcefile(master_module))
+        )
         return path
 
     def get_data(self, resource):
-        """This is just a wrapper around pkgutil.get_data, so you will need to use
-        the full path from this module
+        """This is just a wrapper around pkgutil.get_data, so you will need to
+        use the full path from this module
 
         :Example:
             foo/
@@ -998,17 +1245,19 @@ class ReflectModule(object):
         * https://setuptools.pypa.io/en/latest/userguide/datafiles.html
         * https://stackoverflow.com/questions/779495/access-data-in-package-subdirectory
 
-        :param resource: the full relative path from self.modpath of the file you want
+        :param resource: the full relative path from self.modpath of the file
+            you want
         :returns: bytes, the file contents
         """
         return pkgutil.get_data(self.modpath, resource)
 
     def find_data(self, resource):
-        """Similar to .get_data() but you don't need to specify the full path because
-        this will traverse the whole module directory so it will only work with
-        traditional packages
+        """Similar to .get_data() but you don't need to specify the full path
+        because this will traverse the whole module directory so it will only
+        work with traditional packages
 
-        :param resource: the relative path of the file hopefully somewhere in the package
+        :param resource: the relative path of the file hopefully somewhere in
+            the package
         :returns: bytes, the file contents
         """
         basedir = Dirpath(self.path, self.modpath.split("."))

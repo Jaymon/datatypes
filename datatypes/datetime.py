@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import math
+import calendar
 
 from .compat import *
 from .string import String
@@ -194,8 +195,8 @@ class Datetime(datetime.datetime):
 
     @classmethod
     def parse_args(self, args, kwargs):
-        """Parse out custom arguments so you can pass *args, **kwargs to the standard
-        datetime class initializer
+        """Parse out custom arguments so you can pass *args, **kwargs to the
+        standard datetime class initializer
 
         :param args: tuple, the *args passed to a function
         :param kwargs: dict, the **kwargs passed to a function
@@ -205,7 +206,6 @@ class Datetime(datetime.datetime):
         replace_kwargs = {}
 
         timedelta_names = {
-        #delta_keywords = {
             "years": ["years", "yrs"],
             "months": ["months"],
             "weeks": ["weeks", "week"],
@@ -251,11 +251,17 @@ class Datetime(datetime.datetime):
                     replace_kwargs[nk] += kwargs.pop(k)
 
         if len(args) < 8:
-            replace_kwargs.setdefault("tzinfo", kwargs.pop("tzinfo", datetime.timezone.utc))
+            replace_kwargs.setdefault(
+                "tzinfo",
+                kwargs.pop("tzinfo", datetime.timezone.utc)
+            )
 
         else:
             if tzinfo := kwargs.pop("tzinfo", None):
                 replace_kwargs["tzinfo"] = tzinfo
+
+        if not args and "now" in kwargs:
+            args = [kwargs.pop("now")]
 
         return args, replace_kwargs, timedelta_kwargs
 
@@ -296,10 +302,15 @@ class Datetime(datetime.datetime):
 
             elif isinstance(args[0], (int, float)):
                 try:
-                    instance = cls.fromtimestamp(args[0], tz=datetime.timezone.utc)
+                    instance = cls.fromtimestamp(
+                        args[0],
+                        tz=datetime.timezone.utc
+                    )
 
                 except ValueError as e:
-                    raise ValueError(f"timestamp {args[0]} is out of bounds") from e
+                    raise ValueError(
+                        f"timestamp {args[0]} is out of bounds"
+                    ) from e
 
                 except OSError:
                     if isinstance(args[0], int):
@@ -320,8 +331,8 @@ class Datetime(datetime.datetime):
             else:
                 if args[0]:
                     try:
-                        # if the object is pickled we would get the pickled string
-                        # as our one passed in value
+                        # if the object is pickled we would get the pickled
+                        # string as our one passed in value
                         instance = super().__new__(cls, *args)
 
                     except TypeError:
@@ -358,14 +369,18 @@ class Datetime(datetime.datetime):
             return super(Datetime, self).__sub__(other)
 
     def __eq__(self, other):
-        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+        if isinstance(other, datetime.date) and \
+            not isinstance(other, datetime.datetime):
             return self.date() == other
+
         else:
             return super().__eq__(other.astimezone(self.tzinfo))
 
     def __lt__(self, other):
-        if isinstance(other, datetime.date) and not isinstance(other, datetime.datetime):
+        if isinstance(other, datetime.date) and \
+            not isinstance(other, datetime.datetime):
             return self.date() < other
+
         else:
             return super(Datetime, self).__lt__(other.astimezone(self.tzinfo))
 
@@ -410,8 +425,8 @@ class Datetime(datetime.datetime):
         return (self - epoch).total_seconds()
 
     def timestamp_ns(self):
-        """Similar to .timestamp() but returns time as an integer number of nanoseconds
-        since the epoch
+        """Similar to .timestamp() but returns time as an integer number of
+        nanoseconds since the epoch
 
         see time.time_ns()
 
@@ -423,9 +438,75 @@ class Datetime(datetime.datetime):
 
     def since(self, now=None, chunks=2):
         """Returns a description of the amount of time that has passed from self
-        to now
+        to now. This is more exact than .estsince() but does a lot more
+        computation to make it accurate
+
+        :param now: datetime, if None will default to the current datetime
+        :param chunks: int, if a postive value only that many chunks will be
+            returned, if None or -1 then all found chunks will be returned
+        :returns: str, the elapsed time in english (eg, x years, xx months, or 
+            x days, xx hours)
+        """
+        output = []
+
+        # time period chunks that aren't variable
+        period_chunks = [
+            (60 * 60 * 24 * 7, 'week', 'weeks'),
+            (60 * 60 * 24 , 'day', 'days'),
+            (60 * 60 , 'hour', 'hours'),
+            (60 , 'minute', 'minutes'),
+            (1 , 'second', 'seconds'),
+        ]
+
+        # now will equal None if we want to know the time elapsed between self
+        # and the current time, otherwise it will be between self and now
+        if not chunks or chunks < 0:
+            chunks = len(period_chunks) + 2
+
+        now = Datetime(now)
+        months = 0
+        month_days = 0
+        for month in self.months(now, inclusive=False):
+            months += 1
+            month_days += month.days_in_month()
+
+        if months:
+            years = months // 12
+            if years:
+                name = "year" if years == 1 else "years"
+                output.append(f"{years} {name}")
+                chunks -= 1
+
+            if chunks > 0:
+                name = "month" if months == 1 else "months"
+                output.append(f"{months} {name}")
+                chunks -= 1
+
+        # difference in seconds
+        since = (now - self).total_seconds()
+        since -= (period_chunks[1][0] * month_days)
+
+        for seconds, name, names in period_chunks:
+            if count := math.floor(since / seconds):
+                output.append(f"1 {name}" if count == 1 else f"{count} {names}")
+                since -= (seconds * count)
+                chunks -= 1
+                if since <= 0 or chunks <= 0:
+                    break
+
+        return ", ".join(output) if output else ""
+
+    def estsince(self, now=None, chunks=2):
+        """Returns a ballpark/estimate description of the amount of time that
+        has passed from self to now
 
         This is based on Plancast's Formatting.php timeSince method
+
+        NOTE -- this can drift since it uses 30 days for the months, you can see
+        this by doing:
+
+            d = Datetime(months=-5, days=-3)
+            d.since(now=Datetime(month=8, day=1, year=2023)) # 5 months, 6 days
 
         :param now: datetime, if None will default to the current datetime
         :param chunks: int, if a postive value only that many chunks will be
@@ -449,8 +530,8 @@ class Datetime(datetime.datetime):
         # now will equal None if we want to know the time elapsed between self
         # and the current time, otherwise it will be between self and now
         now = now or self.now(self.tzinfo)
-        if chunks is None:
-            chunks = 0
+        if not chunks or chunks < 0:
+            chunks = len(period_chunks)
 
         # difference in seconds
         since = (now - self).total_seconds()
@@ -460,7 +541,7 @@ class Datetime(datetime.datetime):
                 output.append(f"1 {name}" if count == 1 else f"{count} {names}")
                 since -= (seconds * count)
                 chunks -= 1
-                if since <= 0 or chunks == 0:
+                if since <= 0 or chunks <= 0:
                     break
 
         return ", ".join(output) if output else ""
@@ -469,8 +550,9 @@ class Datetime(datetime.datetime):
         """Return a datehash, kind of similar to a geohash where each character
         represents a more exact time
 
-        This is something I've noodled on since Plancast days, and I wanted to finally
-        have a canonical place where I could mess with it and track changes
+        This is something I've noodled on since Plancast days, and I wanted to
+        finally have a canonical place where I could mess with it and track
+        changes
 
         :returns: str, A 7 character string, with indexes that represent:
             0,1 - the year
@@ -578,14 +660,21 @@ class Datetime(datetime.datetime):
                 ret = super().isoformat(sep, timespec)
 
             else:
-                ret = self.datetime().replace(tzinfo=None).isoformat(sep, timespec)
+                ret = self.datetime().replace(tzinfo=None).isoformat(
+                    sep,
+                    timespec
+                )
                 ret += "Z"
 
         else:
             if timespec == "auto":
                 ret = self.date().isoformat()
+
             else:
-                ret = self.datetime().replace(tzinfo=None).isoformat(sep, timespec)
+                ret = self.datetime().replace(tzinfo=None).isoformat(
+                    sep,
+                    timespec
+                )
                 ret += "Z"
 
         return ret
@@ -687,7 +776,13 @@ class Datetime(datetime.datetime):
             if "months" in timedelta_kwargs:
                 months = int(timedelta_kwargs.pop("months"))
                 # https://stackoverflow.com/a/546354/5006
-                year = self.year + (((self.month + (months - 1 if months else months)) or -1) // 12)
+                year = self.year + (
+                    (
+                        (
+                            self.month + (months - 1 if months else months)
+                        ) or -1
+                    ) // 12
+                )
                 month = ((self.month + months) % 12) or 12
                 day = self.day - 1
                 dt = dt.replace(year, month, 1) + datetime.timedelta(days=day)
@@ -708,4 +803,84 @@ class Datetime(datetime.datetime):
             self.microsecond,
             tzinfo=self.tzinfo,
         )
+
+    def days_in_month(self):
+        """Return how many days there are in self.month
+
+        Months with 28 or 20 days:
+            * February
+
+        Months with 30 days:
+            * April
+            * June
+            * September
+            * November
+
+        Months with 31 days:
+            * January
+            * March
+            * May
+            * July
+            * August
+            * October
+            * December
+        """
+        _, monthlen = calendar.monthrange(self.year, self.month)
+        return monthlen
+
+    def next_month(self):
+        """Returns the first day of the next month from self"""
+        month = self.month
+        year = self.year
+        if month == 12:
+            month = 1
+            year += 1
+
+        else:
+            month += 1
+
+        return Datetime(year, month, 1)
+
+    def prev_month(self):
+        """Returns the first day of the previous month from self"""
+        month = self.month
+        year = self.year
+        if month == 1:
+            month = 12
+            year -= 1
+
+        else:
+            month -= 1
+
+        return Datetime(year, month, 1)
+
+    def current_month(self):
+        """Returns the first day of the current month from self"""
+        return Datetime(self.year, self.month, 1)
+
+    def months(self, now=None, inclusive=True):
+        """Returns all the months between self and now
+
+        :param now: datetime, if None then defaults to now
+        :param inclusive: bool, by default, if self was Jan and now was Aug and
+            you iterated through the months it would be: Jan, Feb, Mar, Apr, May
+            June, July, Aug, because it includes the edges. If inclusive is 
+            False then it would be: Feb, Mar, Apr, May, june, July
+        :returns: generator[datetime], each datetime instance will be midnight
+            on the first day of that month
+        """
+        now = Datetime(now)
+        month = self.current_month() if inclusive else self.next_month()
+        now_month = now.current_month() if inclusive else now.prev_month()
+
+        if month >= now_month:
+            if inclusive:
+                yield self.current_month()
+
+        else:
+            while month < now_month:
+                yield month
+                month = month.next_month()
+
+            yield month
 

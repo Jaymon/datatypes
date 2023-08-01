@@ -5,6 +5,7 @@ import sys
 from datatypes.compat import *
 from datatypes.reflection import (
     Extend,
+    ReflectName,
     ReflectModule,
     ReflectClass,
     ReflectMethod,
@@ -139,6 +140,36 @@ class ExtendTest(TestCase):
 
         f = Foo()
         self.assertEqual(3, f.bar(1, 2))
+
+
+class ReflectNameTest(TestCase):
+    def test_current_syntax(self):
+        p = ReflectName("foo.bar.che:FooBar.baz")
+        self.assertEqual("foo.bar.che", p.module_name)
+        self.assertEqual("", p.filepath)
+        self.assertEqual("FooBar", p.class_name)
+        self.assertEqual("baz", p.method_name)
+
+        p = ReflectName("foo/bar/che.py:FooBar.baz")
+        self.assertEqual("", p.module_name)
+        self.assertEqual("foo/bar/che.py", p.filepath)
+        self.assertEqual("FooBar", p.class_name)
+        self.assertEqual("baz", p.method_name)
+
+    def test_previous_syntax_1(self):
+        p = ReflectName("foo.bar.che.FooBar.baz")
+        self.assertEqual("foo.bar.che:FooBar.baz", p)
+        self.assertEqual("foo.bar.che", p.module_name)
+        self.assertEqual("", p.filepath)
+        self.assertEqual("FooBar", p.class_name)
+        self.assertEqual("baz", p.method_name)
+
+    def test_previous_syntax_2(self):
+        p = ReflectName("foo.bar.che.baz")
+        self.assertEqual("foo.bar.che.baz", p.module_name)
+        self.assertEqual("", p.filepath)
+        self.assertEqual("", p.class_name)
+        self.assertEqual("", p.method_name)
 
 
 class ReflectMethodTest(TestCase):
@@ -306,7 +337,7 @@ class ReflectClassTest(TestCase):
         self.assertTrue("two" in info)
         self.assertFalse(info["one"]["positionals"])
         self.assertFalse(info["one"]["keywords"])
-        self.assertEqual(sys.modules[__name__], rc.module())
+        self.assertEqual(sys.modules[__name__], rc.get_module())
 
     def test_get_class(self):
         r = testdata.create_module([
@@ -346,7 +377,7 @@ class ReflectModuleTest(TestCase):
 
         b = bar_class()
         rm = b.reflect_foo_module()
-        m = rm.module()
+        m = rm.get_module()
         self.assertTrue(getattr(m, "Foo"))
 
     def test_mixed_modules_packages(self):
