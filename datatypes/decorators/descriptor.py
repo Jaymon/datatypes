@@ -326,7 +326,6 @@ class property(FuncDecorator):
             else:
                 value = self.get_value(instance)
                 if (value or self.allow_empty) and self.onget:
-                    self.log("Caching value in {}", self.name)
                     self.__set__(instance, value)
 
         else:

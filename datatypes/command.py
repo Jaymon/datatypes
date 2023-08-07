@@ -491,8 +491,9 @@ class ModuleCommand(Command):
         if not self.name:
             raise ValueError("No name specified")
 
-        super(ModuleCommand, self).__init__(
-            None,
+        kwargs.setdefault("command", None)
+
+        super().__init__(
             cwd=cwd,
             environ=environ,
             **kwargs
@@ -508,7 +509,7 @@ class ModuleCommand(Command):
             if command:
                 ret.extend(command)
 
-        return super(ModuleCommand, self).create_cmd(ret, arg_str)
+        return super().create_cmd(ret, arg_str)
 
 
 class FileCommand(ModuleCommand):

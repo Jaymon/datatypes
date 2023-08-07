@@ -648,3 +648,42 @@ class PropertyTest(TestCase):
         del f.che
         self.assertEqual(1, f.che)
 
+    def test_multiple_one_with_setter(self):
+        class Foo(object):
+            bar_count = 0
+            baz_count = 0
+            che_count = 0
+
+            @property(cached="_bar")
+            def bar(self):
+                self.bar_count += 1
+                return self.bar_count
+
+            @builtins.property
+            def che(self):
+                self.che_count += 1
+                return self.che_count
+
+            @property(cached="_baz")
+            def baz(self):
+                self.baz_count += 1
+                return self.baz_count
+
+            @baz.setter
+            def baz(self, v):
+                self.baz_count = v
+                self._baz = v
+
+        f = Foo()
+        r1 = f.bar
+        r2 = f.bar
+        self.assertEqual(r1, r2)
+
+        r1 = f.che
+        r2 = f.che
+        self.assertNotEqual(r1, r2)
+
+        r1 = f.baz
+        r2 = f.baz
+        self.assertEqual(r1, r2)
+

@@ -3,7 +3,11 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 
 from datatypes.compat import *
 from datatypes.string import String
-from datatypes.token import Tokenizer, StopWordTokenizer
+from datatypes.token import (
+    Tokenizer,
+    StopWordTokenizer,
+    Scanner,
+)
 
 from . import TestCase, testdata
 
@@ -365,4 +369,41 @@ class StopWordTokenizerTest(TestCase):
         t = self.create_instance(s)
         words = list(t)
         self.assertEqual(3, len(words))
+
+
+class ScannerTest(TestCase):
+    def create_instance(self, s):
+        return Scanner(s)
+
+    def test_escaped(self):
+        s = self.create_instance("foo bar \\\[[che]] baz")
+        self.assertEqual("foo bar \\\[[", s.read_until_delim("[["))
+
+        s = self.create_instance("foo bar \\[[che]] baz")
+        self.assertEqual("foo bar \\[[che]] baz", s.read_until_delim("[["))
+
+        s = self.create_instance("foo bar \\\" che \" baz")
+        self.assertEqual("foo bar \\\" che \"", s.read_until_delim("\""))
+
+        s = self.create_instance("foo bar \\\" che \" baz")
+        self.assertEqual("foo bar \\\" che ", s.read_to_delim("\""))
+
+    def test_multichar_delim(self):
+        text = "before [[foo bar ]] middle [[ che baz]] after"
+        s = self.create_instance(text)
+
+        subtext = s.read_to_delim("[[")
+        self.assertEqual("before ", subtext)
+
+        subtext = s.read_until_delim("]]")
+        self.assertEqual("[[foo bar ]]", subtext)
+
+        subtext = s.read_to_delim("[[")
+        self.assertEqual(" middle ", subtext)
+
+        subtext = s.read_until_delim("]]")
+        self.assertEqual("[[ che baz]]", subtext)
+
+        subtext = s.read_to_delim("[[")
+        self.assertEqual(" after", subtext)
 

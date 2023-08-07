@@ -12,9 +12,12 @@ import pkgutil
 import re
 
 from .compat import *
-from .decorators import property as cachedproperty
+from .decorators import (
+    property as cachedproperty,
+    classproperty,
+)
 from .string import String
-from .path import Dirpath
+from .path import Dirpath, Path
 
 
 class OrderedSubclasses(list):
@@ -208,8 +211,41 @@ class Extend(object):
             setattr(o, name, types.MethodType(callback, o))
 
 
+class ReflectPath(Path):
+    @classproperty
+    def reflect_module_class(self):
+        return ReflectModule
+
+    def reflect_modules(self, depth=-1):
+        if not depth:
+            depth = -1
+
+        if self.is_file():
+            modname = self.fileroot
+            path = self.basedir
+            yield self.reflect_module_class(modname, path=path)
+
+        else:
+            path = self
+            for modname in self.reflect_module_class.find_module_names(path):
+                if depth <= 0 or modname.count(".") < depth:
+                    yield self.reflect_module_class(modname, path=path)
+
+    def get_modules(self, depth=-1, ignore_errors=False):
+        for rm in self.reflect_modules(depth=depth):
+            try:
+                yield rm.get_module()
+
+            except (SyntaxError, ImportError):
+                if not ignore_errors:
+                    raise
+
+
 class ReflectName(String):
     """A relfection object similar to python's built-in resolve_name
+
+    take something like some.full.module.Path and return the actual Path
+    class object
 
     https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
@@ -232,7 +268,31 @@ class ReflectName(String):
         /some/base/directory:module.path:ClassName.method_name
 
     and /some/base/directory would become .cwd
+
+    NOTE -- this will fail when the object isn't accessible from the module,
+    that means you can't define your class object in a function and expect
+    this function to work, the reason why this doesn't work is because the
+    class is on the local stack of the function, so it only exists when that
+    function is running, so there's no way to get the class object outside
+    of the function, and you can't really separate it from the class (like
+    using the code object to create the class object) because it might use
+    local variables and things like that
+
+    :Example:
+        # -- THIS IS BAD --
+        def foo():
+            class FooCannotBeFound(object): pass
+            # this will fail
+            get_class("path.to.module.FooCannotBeFound")
+
+    moved to ReflectClass.get_class from morp.reflection.get_class on 2-5-2023
+    and then moved to here on 7-31-2023
+
+    This is loosely based on pyt.path:PathGuesser.set_possible
     """
+    @classproperty
+    def reflect_module_class(self):
+        return ReflectModule
 
     @property
     def module(self):
@@ -360,7 +420,7 @@ class ReflectName(String):
         if not self.module_name:
             return None
 
-        return ReflectModule(self.module_name)
+        return self.reflect_module_class(self.module_name)
 
     def reflect_class(self):
         if self.class_names:
@@ -370,7 +430,7 @@ class ReflectName(String):
                 for classname in self.class_names:
                     o = getattr(o, classname)
 
-                return ReflectClass(o)
+                return rm.reflect_class_class(o)
 
     def reflect_method(self):
         if not self.method_name:
@@ -393,6 +453,9 @@ class ReflectName(String):
         rm = self.reflect_method()
         if rm:
             return rm.get_method()
+
+    def has_class(self):
+        return bool(self.class_name)
 
     def resolve(self):
         return pkgutil.resolve_name(self)
@@ -533,6 +596,12 @@ class ReflectMethod(object):
     def get_method(self):
         return self.method
 
+    def get_class(self):
+        return self.reflect_class.get_class()
+
+    def get_module(self):
+        return self.reflect_class.get_module()
+
     def get_info(self):
         """Gets info about this method using ReflectClass.get_info()
 
@@ -591,11 +660,6 @@ class ReflectClass(object):
         return "{}:{}".format(self.modpath, self.class_name)
 
     @property
-    def reflect_module(self):
-        """Returns the reflected module"""
-        return self._reflect_module or ReflectModule(self.cls.__module__)
-
-    @property
     def module(self):
         """returns the actual module this class is defined in"""
         return self.reflect_module.get_module()
@@ -607,7 +671,7 @@ class ReflectClass(object):
         return doc
 
     @classmethod
-    def get_class(cls, full_python_class_path):
+    def resolve_class(cls, full_python_class_path):
         """
         take something like some.full.module.Path and return the actual Path
         class object
@@ -632,15 +696,8 @@ class ReflectClass(object):
 
         moved here from morp.reflection.get_class on 2-5-2023
         """
-        parts = full_python_class_path.rsplit(':', 1)
-        if len(parts) == 1:
-            module_name, class_name = full_python_class_path.rsplit('.', 1)
-
-        else:
-            module_name, class_name = parts
-
-        m = ReflectModule.import_module(module_name)
-        return getattr(m, class_name)
+        rn = ReflectName(full_python_class_path)
+        return rn.get_class()
 
     @classmethod
     def get_classpath(cls, obj):
@@ -667,6 +724,13 @@ class ReflectClass(object):
 
     def get_module(self):
         return self.module
+
+    def get_class(self):
+        return self.cls
+
+    def reflect_module(self):
+        """Returns the reflected module"""
+        return self._reflect_module or ReflectModule(self.cls.__module__)
 
     def method_names(self):
         for method_name in self.get_info().keys():
@@ -965,7 +1029,7 @@ class ReflectModule(object):
     """
     reflect_class_class = ReflectClass
 
-    @property
+    @cachedproperty(cached="_path")
     def path(self):
         """Return the importable path for this module, this is not the filepath
         of the module but the directory the module could be imported from"""
@@ -1005,7 +1069,8 @@ class ReflectModule(object):
         for module_info in pkgutil.iter_modules([path]):
             # we want to ignore any "private" modules
             if module_info[1].startswith('_') and ignore_private:
-                continue
+                if not module_info[1] == "__main__":
+                    continue
 
             if prefix:
                 module_prefix = ".".join([prefix, module_info[1]])
@@ -1050,17 +1115,32 @@ class ReflectModule(object):
         return module_package
 
     @classmethod
-    def import_module(cls, module_name, module_package=None):
-        """passthrough for importlib importing functionality"""
-        return importlib.import_module(module_name, module_package)
+    def import_module(cls, module_name, module_package=None, path=None):
+        """passthrough for importlib importing functionality
 
-    def __init__(self, module_name, module_package=None):
+        :param module_name: str, the module name/path (eg foo.bar)
+        :param module_package: str, if module_name is relative (eg ..foo) then
+            this will be used to resolve the relative path
+        :param path: str, if passed in then this will be added to the importable
+            paths and removed after the module is imported
+        """
+        if path:
+            sys.path.append(path)
+
+        m = importlib.import_module(module_name, module_package)
+
+        if path:
+            sys.path.pop(-1)
+
+        return m
+
+    def __init__(self, module_name, module_package=None, path=None):
         """
         :param module_name: str|ModuleType, the module path of the module to
-        introspect or the actual module
-
+            introspect or the actual module
         :param module_package: the prefix that will be used to load module_name
             if module_name is relative
+        :param path: str, the importable path for module_name
         """
         if isinstance(module_name, types.ModuleType):
             self.module = module_name
@@ -1073,6 +1153,9 @@ class ReflectModule(object):
             self.module_package = module_package or self.find_module_package(
                 module_name
             )
+
+        if path:
+            self.path = path
 
     def __iter__(self):
         """This will iterate through this module and all its submodules
@@ -1089,7 +1172,17 @@ class ReflectModule(object):
         parts.extend(self.module_name.split("."))
         for part in parts:
             if part.startswith("_"):
-                return True
+                if not part.startswith("__") and not part.endswith("__"):
+                    return True
+
+    def is_package(self):
+        if self.module:
+            # if path attr exists then this is a package
+            return hasattr(self.module, "__path__")
+
+        else:
+            p = pkgutil.get_loader(self.module_name)
+            return p.path.endswith("__init__.py")
 
     def reflect_module(self, *parts):
         """Returns a reflect module instance for a submodule"""
@@ -1123,6 +1216,25 @@ class ReflectModule(object):
     def submodule(self, *parts):
         return self.get_submodule(*parts)
 
+    def reflect_submodules(self, depth=-1):
+        module = self.get_module()
+        if not depth:
+            depth = -1
+
+        if self.is_package():
+            submodule_names = self.find_module_names(
+                module.__path__[0],
+                self.module_name
+            )
+
+            for subname in submodule_names:
+                if depth <= 0 or count(subname) < depth:
+                    yield type(self)(subname)
+
+    def get_submodules(self, depth=-1):
+        for rm in self.reflect_submodules(depth=depth):
+            yield rm.get_module()
+
     def get_module(self, *parts):
         if self.module and not parts:
             ret = self.module
@@ -1132,7 +1244,15 @@ class ReflectModule(object):
             if parts:
                 module_name += "." + ".".join(parts)
 
-            ret = self.import_module(module_name, self.module_package)
+            # self.path uses find_module_import_path which calls this method
+            # so we should only use path if we have a cache
+            path = getattr(self, "_path", None)
+
+            ret = self.import_module(
+                module_name,
+                self.module_package,
+                path=path
+            )
 
         return ret
 
@@ -1144,8 +1264,7 @@ class ReflectModule(object):
         module_name = module.__name__
         module_names = set([module_name])
 
-        if hasattr(module, "__path__"):
-            # path attr exists so this is a package
+        if self.is_package():
             module_names.update(self.find_module_names(
                 module.__path__[0],
                 module_name
@@ -1177,7 +1296,7 @@ class ReflectModule(object):
                     continue
                 yield rc
 
-    def classes(self, ignore_private=True):
+    def get_classes(self, ignore_private=True):
         """yields classes (type instances) that are found in only this module
         (not submodules)
 
@@ -1201,6 +1320,11 @@ class ReflectModule(object):
                 raise AttributeError(
                     f"{self.get_module().__name__}.{name} does not exist"
                 ) from e
+
+    def get_members(self, *args, **kwargs):
+        module = self.get_module()
+        for name, value in inspect.getmembers(module, *args, **kwargs):
+            yield name, value
 
     def get(self, name, *default_val):
         """Get a value of the module
@@ -1276,12 +1400,13 @@ class ReflectModule(object):
         :param basename: the data directory basename
         :returns: generator, yields all the found module data directories
         """
-        basedir = Dirpath(self.path)
-        # once we find a matching directory we stop traversing it, so data
-        # directories can have folders and stuff in them
-        it = basedir.dirs()
-        for dp in it:
-            if not dp.has_file("__init__.py") or dp.endswith(basename):
-                it.finish(dp)
-                yield dp
+        if self.is_package():
+            basedir = Dirpath(self.path, self.modpath.split("."))
+            # once we find a matching directory we stop traversing it, so data
+            # directories can have folders and stuff in them
+            it = basedir.dirs()
+            for dp in it:
+                if not dp.has_file("__init__.py") or dp.endswith(basename):
+                    it.finish(dp)
+                    yield dp
 

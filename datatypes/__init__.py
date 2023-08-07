@@ -136,6 +136,7 @@ from .server import (
     PathServer,
     CallbackServer,
     WSGIServer,
+    ThreadingWSGIServer,
 )
 from .command import (
     SimpleCommand,

@@ -6,6 +6,8 @@ from datatypes.parse import (
     ArgvParser,
     ArgParser,
     Version,
+    ABNFParser,
+    ABNFScanner,
 )
 
 from . import TestCase, testdata
@@ -113,4 +115,27 @@ class VersionParser(TestCase):
         self.assertTrue(Version("1.a3.1") < "1.a3.2")
         self.assertTrue("1.a3.2" > Version("1.a3.1"))
         self.assertTrue(Version("1.a3.2") > Version("1.a3.1"))
+
+
+class ABNFScannerTest(TestCase):
+    def test_read_statement(self):
+        buffer = "\n".join([
+            "foo = bar / che",
+            "  / baz",
+            "  / boo",
+            "bar = cheboo",
+        ])
+
+        s = ABNFScanner(buffer)
+        self.assertEqual("foo = bar / che / baz / boo", s.read_statement())
+        self.assertEqual("bar = cheboo", s.read_statement())
+        self.assertEqual("", s.read_statement())
+
+
+
+class ABNFParserTest(TestCase):
+    def test_parse(self):
+        p = ABNFParser()
+        p.loads('dict = "{" statement *( "," statement ) "}"')
+
 

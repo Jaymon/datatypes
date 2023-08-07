@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from .compat import *
 from .string import String, NormalizeString
+from .token import Scanner
 
 
 class ArgvParser(dict):
@@ -241,4 +242,62 @@ class Version(NormalizeString):
             return True
 
         return False
+
+
+
+
+class ABNFScanner(Scanner):
+    def read_statement(self):
+        lines = []
+        line = self.readline()
+        if line and not line[0].isspace():
+            lines.append(line.strip())
+            offset = self.tell()
+
+            line = self.readline()
+            while line and line[0].isspace():
+                lines.append(line.strip())
+                offset = self.tell()
+                line = self.readline()
+
+            self.seek(offset)
+
+        return " ".join(lines)
+
+    def read_rule(self):
+        rule = definition = comment = ""
+
+        stmt = self.read_statement()
+        if stmt:
+            s = Scanner(stmt)
+
+
+class ABNFParser(object):
+    """
+
+    https://en.wikipedia.org/wiki/Augmented_Backus%E2%80%93Naur_form
+
+    A parser takes the stream of tokens from the lexer and gives it some sort
+    of structure that was represented by the original text
+    """
+    def loads(self, buffer):
+        s = Scanner(buffer)
+        pout.v(s.read_statement())
+
+
+
+
+
+# 
+# class BlockParser(object):
+#     def __init__(self, left_delim, right_delim, **kwargs):
+#         self.max_size = [len(left_delim), len(right_delim)]
+#         self.left_delim = left_delim
+#         self.right_delim = right_delim
+# 
+#     def parse(self, body):
+# 
+#         for i in range(len(body)):
+#             substr = body[i:i + self.max_size[0]]
+#             pout.v(substr)
 

@@ -545,6 +545,8 @@ class Datetime(datetime.datetime):
                     break
 
         return ", ".join(output) if output else ""
+    def esince(self, *args, **kwargs):
+        return self.estsince(*args, **kwargs)
 
     def datehash(self):
         """Return a datehash, kind of similar to a geohash where each character

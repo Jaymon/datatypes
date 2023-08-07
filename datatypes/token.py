@@ -30,67 +30,21 @@ class Token(object):
         self.tokenizer = tokenizer
 
     def __str__(self):
-        return ByteString(self.__unicode__()) if is_py2 else self.__unicode__()
+        return self.text
 
     def __unicode__(self):
         return self.text
 
 
-class StreamToken(Token):
-    """This is what is returned from the Tokenizer and contains pointers to the
-    left deliminator and the right deliminator, and also the actual token
-
-        .ldelim - the deliminators to the left of the token
-        .text - the actual token value that was found
-        .rdelim - the deliminators to the right of the token
-    """
-    def __init__(self, tokenizer, text, start, stop, ldelim=None, rdelim=None):
-        super(StreamToken, self).__init__(tokenizer, text, start, stop)
-        self.ldelim = ldelim
-        self.rdelim = rdelim
-
-    def __pout__(self):
-        """used by pout python external library
-
-        https://github.com/Jaymon/pout
-        """
-        tokens = (
-            '"{}"'.format(self.ldelim.text) if self.ldelim else None,
-            '"{}"'.format(self.text),
-            '"{}"'.format(self.rdelim.text) if self.rdelim else None,
-        )
-
-        return "{}, {}, {}".format(tokens[0], tokens[1], tokens[2])
-
-
-class StreamTokenizer(io.IOBase):
-    """Tokenize a string finding tokens that are divided by passed in deliminators
-
-    https://docs.python.org/3/library/io.html#io.IOBase
-    """
-    DEFAULT_DELIMS = WHITESPACE + PUNCTUATION
-    """IF no deliminators are passed into the constructor then use these"""
-
+class Tokenizer(io.IOBase):
     token_class = StreamToken
     """The token class this class will use to create Token instances"""
 
-    def __init__(self, stream, delims=None):
-        """
-        :param stream: io.IOBase, this is the input that will be tokenized, the stream
-            has to be seekable
-        :param delims: callback|string|set, if a callback, it should have the signature:
-            callback(char) and return True if the char is a delim, False otherwise.
-            If a string then it is a string of chars that will be considered delims
-        """
-        self.delims = delims
-        self.stream = stream
+    def __init__(self, buffer):
+        if isinstance(buffer, basestring):
+            buffer = io.StringIO(String(buffer))
 
-        if not is_py2:
-            # python 2 will just raise an error when we try and seek
-            if not self.seekable():
-                raise ValueError("Unseekable streams are not supported")
-
-        self.reset()
+        self.buffer = buffer
 
     def reset(self):
         delims = self.delims
@@ -115,6 +69,74 @@ class StreamTokenizer(io.IOBase):
             except StopIteration:
                 pass
         return ret
+
+
+
+
+class StreamToken(Token):
+    """This is what is returned from the Tokenizer and contains pointers to the
+    left deliminator and the right deliminator, and also the actual token
+
+        .ldelim - the deliminators to the left of the token
+        .text - the actual token value that was found
+        .rdelim - the deliminators to the right of the token
+    """
+    def __init__(self, tokenizer, text, start, stop, ldelim=None, rdelim=None):
+        super().__init__(tokenizer, text, start, stop)
+        self.ldelim = ldelim
+        self.rdelim = rdelim
+
+    def __pout__(self):
+        """used by pout python external library
+
+        https://github.com/Jaymon/pout
+        """
+        tokens = (
+            '"{}"'.format(self.ldelim.text) if self.ldelim else None,
+            '"{}"'.format(self.text),
+            '"{}"'.format(self.rdelim.text) if self.rdelim else None,
+        )
+
+        return "{}, {}, {}".format(tokens[0], tokens[1], tokens[2])
+
+
+class StreamTokenizer(io.IOBase):
+    """Tokenize a string finding tokens that are divided by passed in deliminators
+
+    Summarized from https://stackoverflow.com/a/380487
+        A tokenizer breaks a stream of text into tokens, usually by breaking it
+        up by some deliminator, a common deliminator is whitespace (eg, tabs,
+        spaces, new lines)
+
+        A lexer is basically a tokenizer, but it usually attaches extra context
+        to the tokens (eg this token is a number or a string or a boolean)
+
+        A parser takes the stream of tokens from the lexer and gives it some
+        sort of structure that was represented by the original text
+
+    https://docs.python.org/3/library/io.html#io.IOBase
+    """
+    DEFAULT_DELIMS = WHITESPACE + PUNCTUATION
+    """IF no deliminators are passed into the constructor then use these"""
+
+    token_class = StreamToken
+    """The token class this class will use to create Token instances"""
+
+    def __init__(self, stream, delims=None):
+        """
+        :param stream: io.IOBase, this is the input that will be tokenized, the stream
+            has to be seekable
+        :param delims: callback|string|set, if a callback, it should have the signature:
+            callback(char) and return True if the char is a delim, False otherwise.
+            If a string then it is a string of chars that will be considered delims
+        """
+        self.delims = delims
+        self.stream = stream
+
+        if not self.seekable():
+            raise ValueError("Unseekable streams are not supported")
+
+        self.reset()
 
     def is_delim(self, ch):
         ret = False
@@ -411,19 +433,13 @@ class StreamTokenizer(io.IOBase):
     def readline(self, size=-1):
         raise NotImplementedError()
 
-    def readline(self, hint=-1):
-        raise NotImplementedError()
-
 
 class Tokenizer(StreamTokenizer):
     """Extends stream tokenizer to accept strings or IO streams"""
-    def __init__(self, mixed, delims=None):
-        if isinstance(mixed, basestring):
-            # you can't use the compat imported StringIO because it uses
-            # cStringIO and that fails with unicode strings on python 2.7
-            mixed = io.StringIO(String(mixed))
-
-        super(Tokenizer, self).__init__(mixed, delims)
+    def __init__(self, buffer, delims=None):
+        if isinstance(buffer, basestring):
+            buffer = io.StringIO(String(buffer))
+        super().__init__(buffer, delims)
 
 
 class NormalizeTokenizer(Tokenizer):
@@ -496,36 +512,196 @@ class StopWordTokenizer(ValidTokenizer):
         return word not in self.STOP_WORDS
 
 
-class Scanner(object):
-    """Python implementation of Obj-c Scanner
+class Scanner(io.StringIO):
+    """Python implementation of an Obj-c Scanner
+
+    This is really handy to build arbitrary parsers and tokenizers
+
+    :Example:
+        s = Scanner("before [[che baz]] middle [[foo]] after")
+        s.to("[[") # "before "
+        s.until("]]") # "[[che baz]]"
+        s.to("[[") # " middle "
+        s.until("]]") # "[[foo]]"
+        s.to("[[") # " after"
 
     Moved from bang.utils on 1-6-2023
 
-    https://github.com/Jaymon/PlusPlus/blob/master/PlusPlus/NSString%2BPlus.m
+    * https://developer.apple.com/documentation/foundation/nsscanner
+    * https://docs.python.org/3/library/io.html#io.StringIO
     """
-    def __init__(self, text):
-        self.text = text
-        self.offset = 0
-        self.length = len(self.text)
+    def __init__(self, buffer, offset=0):
+        #self.text = text
+        #self.length = len(self.text)
+        super().__init__(buffer)
+        if offset > 0:
+            self.seek(offset)
 
-    def to(self, char):
-        """scans and returns string up to char"""
+#     def seek(self, offset):
+#         self.offset = offset
+# 
+#     def tell(self):
+#         return self.text[self.offset]
+# 
+#     def close(self):
+#         pass
+# 
+#     def closed(self):
+#         return False
+# 
+#     def 
+
+#     def read(self, limit=None):
+#         """Return a segment from self.offset to offset + limit
+# 
+#         :Example:
+#             s = Scanner("foo bar [[che baz]]")
+#             s.to("[[") # "foo bar "
+#             s.read(5) # "[[che"
+# 
+#         :param limit: int, how many chars you want to return in the segment
+#         :returns: str, the segment of length limit
+#         """
+#         if limit:
+#             offset = self.offset + limit
+#             partial = self.text[self.offset:offset]
+#             self.offset = offset
+# 
+#         else:
+#             partial = self.text[self.offset:]
+#             self.offset = self.length
+# 
+#         return partial
+
+    def read_thru_chars(self, chars):
+        """Read while chars are encountered
+
+        :Example:
+            s = Scanner("12345 foo bar")
+            s.chars("1234567890") # "12345"
+
+        :param chars: str|Container, the characters that will be read, nothing
+            outside of this set of characters will be returned
+        :returns: str, a string containing the number of characters in a row
+            found in chars
+        """
         partial = ""
-        while (self.offset < self.length) and (self.text[self.offset] != char):
-            partial += self.text[self.offset]
-            self.offset += 1
+        offset = self.tell()
+        buffer = self.getvalue()
+        length = len(self)
 
+        while offset < length:
+            ch = buffer[offset]
+            if ch in chars:
+                partial += ch
+                offset += 1
+
+            else:
+                break
+
+        self.seek(offset)
         return partial
 
-    def until(self, char):
-        """similar to to() but includes the char"""
-        partial = self.to(char)
-        if self.offset < self.length:
-            partial += self.text[self.offset]
-            self.offset += 1
+    def read_thru_whitespace(self):
+        return self.read_thru_chars(WHITESPACE)
+
+    def read_to_whitespace(self):
+        return self.read_to(chars=WHITESPACE)
+
+    def read_to(self, **kwargs):
+        """scans and returns string up to delim
+
+        :Example:
+            s = Scanner("foo bar [[che baz]]")
+            s.to("[[") # "foo bar "
+
+        :param delim: str, the sentinel we're looking for
+        :returns: str, returns self.text from self.offset when this method was
+            called to the offset right before delim starts
+        """
+        partial = ""
+
+        delim = kwargs.get("delim", "")
+        chars = set(kwargs.get("chars", ""))
+        delim_len = len(delim)
+
+        buffer = self.getvalue()
+        offset = self.tell()
+        length = len(self)
+
+        while offset < length:
+            # escaped characters don't count against our delim
+            if buffer[offset] == "\\":
+                partial += buffer[offset]
+
+                # record the character and move passed it since it can't
+                # be taken into account when checking the delim because it
+                # is escaped
+                offset += 1
+                partial += buffer[offset]
+
+                offset += 1
+
+            if delim:
+                st = buffer[offset:offset + delim_len]
+
+                if st == delim:
+                    break
+
+            elif chars:
+                st = buffer[offset]
+                if st in chars:
+                    break
+
+            partial += buffer[offset]
+            offset += 1
+
+        self.seek(offset)
         return partial
 
-    def __nonzero__(self): return self.__bool__() # py <3
+
+
+
+    def read_to_delim(self, delim):
+        """scans and returns string up to delim
+
+        :Example:
+            s = Scanner("foo bar [[che baz]]")
+            s.to("[[") # "foo bar "
+
+        :param delim: str, the sentinel we're looking for
+        :returns: str, returns self.text from self.offset when this method was
+            called to the offset right before delim starts
+        """
+        return self.read_to(delim=delim)
+
+    def read_until_delim(self, delim):
+        """scans and returns string up to and including delim
+
+        :Example:
+            s = Scanner("foo bar [[che baz]]")
+            s.to("[[") # "foo bar "
+            s.until("]]") # "[[che baz]]"
+
+        :param delim: str, the sentinel we're looking for
+        :returns: str, returns self.text from self.offset when this method was
+            called to the offset right after delim ends
+        """
+        partial = self.read_to_delim(delim)
+        delim_len = len(delim)
+        buffer = self.getvalue()
+        offset = self.tell()
+
+        if self:
+            partial += buffer[offset:offset + delim_len]
+            offset += delim_len
+
+        self.seek(offset)
+        return partial
+
     def __bool__(self):
-        return self.offset < self.length
+        return self.tell() < self.__len__()
+
+    def __len__(self):
+        return len(self.getvalue())
 

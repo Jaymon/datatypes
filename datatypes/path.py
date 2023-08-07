@@ -1785,8 +1785,17 @@ class Dirpath(Path):
     def child_file(self, *parts, **kwargs):
         return self.file_class()(self.path, *parts, **kwargs)
 
+    def get_file(self, *parts, **kwargs):
+        return self.child_file(*parts, **kwargs)
+
+    def get_file(self, *parts, **kwargs):
+        return self.child_file(*parts, **kwargs)
+
     def child_dir(self, *parts, **kwargs):
         return self.dir_class()(self.path, *parts, **kwargs)
+
+    def get_dir(self, *parts, **kwargs):
+        return self.child_dir(*parts, **kwargs)
 
     def file_text(self, *parts):
         """return the text of the basename file in this directory"""
@@ -2233,10 +2242,10 @@ FilePath = Filepath
 class PathIterator(ListIterator):
     """Iterate through a path
 
-    I was not happy with all the Dirpath iteration methods I've added over the last
-    few years, they all were subtlely different and it was annoying trying to figure
-    out which one I should use. This is an attempt to fix that. This provides a
-    fluid interface to iterating a directory
+    I was not happy with all the Dirpath iteration methods I've added over the
+    last few years, they all were subtlely different and it was annoying trying
+    to figure out which one I should use. This is an attempt to fix that. This
+    provides a fluid interface to iterating a directory
 
     :Example:
         # iterate through only the files in the current directory
@@ -2255,7 +2264,8 @@ class PathIterator(ListIterator):
         for p in PathIterator(dirpath).not_pattern("*.txt").files():
             print(p)
 
-        # iterate through current directory and its subdirectories, but no farther
+        # iterate through current directory and its subdirectories, but no
+        # farther
         for p in PathIterator(dirpath).depth(2):
             print(p)
 

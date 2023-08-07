@@ -2,15 +2,18 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 import json
 import logging
-from wsgiref.simple_server import WSGIServer as WSGIHTTPServer, WSGIRequestHandler
+from wsgiref.simple_server import (
+    WSGIServer as WSGIHTTPServer,
+    WSGIRequestHandler,
+)
 import runpy
 from threading import Thread
 import weakref
+from socketserver import ThreadingMixIn
 
 from .compat import *
 from . import environ
 from .url import Host, Url
-#from .string import String
 from .path import Dirpath
 from .decorators import property as cachedproperty
 
@@ -145,6 +148,10 @@ class BaseServer(HTTPServer):
         kwargs.setdefault("scheme", "http")
 
         return Url(*args, **kwargs)
+
+    def serve_count(self, count):
+        for _ in range(count):
+            self.handle_request()
 
 
 class PathHandler(SimpleHTTPRequestHandler):
@@ -360,15 +367,33 @@ class WSGIServer(BaseServer, WSGIHTTPServer):
             start_response('200 OK', [])
             return [b"WSGI Request"] # needs to be list<bytes>
 
-        s = WSGIServer("/path/to/wsgi.py")
+        s = WSGIServer(wsgipath="/path/to/wsgi.py")
     """
     handler_class = WSGIRequestHandler
 
-    def __init__(self, wsgipath, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, server_address=None, **kwargs):
+        super().__init__(
+            server_address,
+            RequestHandlerClass=kwargs.get(
+                "RequestHandlerClass",
+                self.handler_class
+            ),
+        )
 
-        config = runpy.run_path(wsgipath)
-        self.set_app(config["application"])
-        self.config = config
-        self.wsgipath = wsgipath
+        if "wsgipath" in kwargs:
+            config = runpy.run_path(wsgipath)
+            self.set_app(config["application"])
+            self.config = config
+            self.wsgipath = kwargs["wsgipath"]
+
+        else:
+            self.set_app(kwargs["application"])
+
+
+class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
+    """This is here to make the standard wsgi server multithreaded
+
+    http://stackoverflow.com/questions/20745352/creating-a-multithreaded-server
+    """
+    pass
 
