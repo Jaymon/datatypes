@@ -1,20 +1,31 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.string import String
 from datatypes.token import (
-    Tokenizer,
+    WordTokenizer,
     StopWordTokenizer,
     Scanner,
+    ABNFTokenizer,
 )
 
-from . import TestCase, testdata
+from . import TestCase as _TestCase, testdata
 
 
-class TokenizerTest(TestCase):
-    def create_instance(self, s, delims=None):
-        tokenizer = Tokenizer(s, delims) if delims else Tokenizer(s)
+class TestCase(_TestCase):
+    def create_instance(self, buffer, **kwargs):
+        if isinstance(buffer, list):
+            buffer = "\n".join(buffer)
+
+        return self.tokenizer_class(buffer, **kwargs)
+
+
+class WordTokenizerTest(TestCase):
+    tokenizer_class = WordTokenizer
+
+    def create_instance(self, buffer, delims=None):
+        tokenizer = super().create_instance(buffer, delims=delims)
+        tokenizer.stream = tokenizer.buffer
         return tokenizer
 
     def test_tell_ldelim(self):
@@ -45,7 +56,6 @@ class TokenizerTest(TestCase):
 
         t.stream.seek(3)
         self.assertEqual(-1, t.tell_ldelim())
-
 
         t = self.create_instance("")
         t.stream.seek(0)
@@ -355,9 +365,7 @@ class TokenizerTest(TestCase):
 
 
 class StopWordTokenizerTest(TestCase):
-    def create_instance(self, s):
-        tokenizer = StopWordTokenizer(s)
-        return tokenizer
+    tokenizer_class = StopWordTokenizer
 
     def test_words_1(self):
         s = "this IS something I hAVe tO do"
@@ -372,8 +380,7 @@ class StopWordTokenizerTest(TestCase):
 
 
 class ScannerTest(TestCase):
-    def create_instance(self, s):
-        return Scanner(s)
+    tokenizer_class = Scanner
 
     def test_escaped(self):
         s = self.create_instance("foo bar \\\[[che]] baz")
@@ -406,4 +413,31 @@ class ScannerTest(TestCase):
 
         subtext = s.read_to_delim("[[")
         self.assertEqual(" after", subtext)
+
+
+class ABNFTokenizerTest(TestCase):
+    tokenizer_class = ABNFTokenizer
+
+    def test_next_simple(self):
+        t = self.create_instance("foo = \"literal1\" rule1 \"literal2\"")
+        rule = t.next()
+        pout.v(rule)
+
+        return
+
+
+
+        t = self.create_instance([
+            "foo = bar / che",
+            "  / baz",
+            "  / boo",
+            "bar = cheboo",
+        ])
+
+        rule = t.next()
+
+
+
+
+
 

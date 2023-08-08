@@ -84,13 +84,13 @@ class ByteString(Bytes, StringMixin):
             #val = val.__str__()
             val = bytearray(val, encoding)
 
-        instance = super(ByteString, cls).__new__(cls, val)
+        instance = super().__new__(cls, val)
         instance.encoding = encoding
         instance.errors = errors
         return instance
 
     def __str__(self):
-        return self if is_py2 else self.unicode()
+        return self.unicode()
 
     def unicode(self):
         s = self.decode(self.encoding, self.errors)
@@ -176,7 +176,7 @@ class String(Str, StringMixin):
         if not isinstance(val, (Str, int)):
             val = ByteString(val, encoding, errors).unicode()
 
-        instance = super(String, cls).__new__(cls, val)
+        instance = super().__new__(cls, val)
         instance.encoding = encoding
         instance.errors = errors
         return instance
@@ -236,7 +236,8 @@ class String(Str, StringMixin):
         return String(r)
 
     def truncate(self, size, postfix="", sep=None):
-        """similar to a normal string slice but it actually will split on a word boundary
+        """similar to a normal string slice but it actually will split on a word
+        boundary
 
         :Example:
             s = "foo barche"
@@ -245,13 +246,13 @@ class String(Str, StringMixin):
             print s2.truncate(5) # "foo"
 
         truncate a string by word breaks instead of just length
-        this will guarrantee that the string is not longer than length, but it
+        this will guarantee that the string is not longer than length, but it
         could be shorter
 
         * http://stackoverflow.com/questions/250357/smart-truncate-in-python/250373#250373
         * This was originally a method called word_truncate by Cahlan Sharp for Undrip.
-        * There is also a Plancast Formatting.php substr method that does something
-        similar
+        * There is also a Plancast Formatting.php substr method that does
+          something similar
 
         :param size: int, the size you want to truncate to at max
         :param postfix: string, what you would like to be appended to the truncated
@@ -291,23 +292,24 @@ class String(Str, StringMixin):
         https://docs.python.org/3/distutils/apiref.html#distutils.fancy_getopt.wrap_text
 
         :param size: int, the width you want
-        :returns: str, all text wrapped to no more than size, if there isn't a space
-            or linebreak then the middle of the word will get broken on
+        :returns: str, all text wrapped to no more than size, if there isn't a
+            space or linebreak then the middle of the word will get broken on
         """
         s = "\n".join(wrap_text(self, size))
         return type(self)(s)
 
     def stripall(self, chars):
-        """Similar to the builtin .strip() but will strip chars from anywhere in the
-        string
+        """Similar to the builtin .strip() but will strip chars from anywhere in
+        the string
 
         :Example:
             s = "foo bar che.  "
             s2 = s.stripall(" .")
             print(s2) # "foobarche"
 
-        :param chars: str|callable, either the characters to strip, or a callback
-            that takes a character and returns True if that character should be stripped
+        :param chars: str|callable, either the characters to strip, or a
+            callback that takes a character and returns True if that character
+            should be stripped
         """
         ret = ""
         if callable(chars):
@@ -321,10 +323,6 @@ class String(Str, StringMixin):
                     ret += ch
 
         return type(self)(ret)
-
-    def astrip(self, chars):
-        """alias of .stripall"""
-        return self.stripall(chars)
 
     def re(self, pattern, flags=0):
         """Provides a fluid regex interface
@@ -371,7 +369,7 @@ class String(Str, StringMixin):
         https://docs.python.org/3/library/stdtypes.html#str.isascii
         """
         try:
-            ret = super(String, self).isascii()
+            ret = super().isascii()
 
         except AttributeError:
             ret = True
@@ -383,19 +381,20 @@ class String(Str, StringMixin):
 
         return ret
 
-    def tokenize(self, delims=None, tokenizer_class=None):
+    def tokenize(self, chars=None, tokenizer_class=None):
         """Wraps the tokenizer functionality to easily tokenize a string
 
-        :param delims: same as token.Tokenizer delims argument
-        :param tokenizer_class: Tokenizer, custom class for customized functionality
+        :param chars: same as token.WordTokenizer chars argument
+        :param tokenizer_class: Tokenizer, custom class for customized
+            tokenize functionality
         :returns: generator of String instance, each token that will also have a 
             .token that contains the raw token
         """
         if not tokenizer_class:
-            from .token import Tokenizer # avoid circular dep
-            tokenizer_class = Tokenizer
+            from .token import WordTokenizer # avoid circular dep
+            tokenizer_class = WordTokenizer
 
-        tokenizer = tokenizer_class(self, delims)
+        tokenizer = tokenizer_class(self, chars)
         for t in tokenizer:
             st = String(t.text)
             st.token = t
@@ -459,7 +458,11 @@ class NamingConvention(String):
         :returns: list, a list of parts
         """
         # https://stackoverflow.com/a/37697078/5006
-        return re.sub('([A-Z][a-z]+)', r' \1', re.sub('([A-Z]+)', r' \1', self)).split()
+        return re.sub(
+            r'([A-Z][a-z]+)',
+            r' \1',
+            re.sub('([A-Z]+)', r' \1', self)
+        ).split()
 
     def splitdash(self):
         """Split self on dashes
@@ -767,12 +770,16 @@ class EnglishWord(String):
     def syllables(self):
         """return the syllables of the word"""
         # https://stackoverflow.com/a/49407494
-        return re.findall(r"[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?", self, flags=re.I)
+        return re.findall(
+            r"[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?",
+            self,
+            flags=re.I
+        )
 
 
 class Character(String):
-    """Represents a unicode (UTF-8) character, a unicode character is a set of unicode
-    codepoints
+    """Represents a unicode (UTF-8) character, a unicode character is a set of
+    unicode codepoints
 
     :Example:
         ch = Character("A")
@@ -1212,9 +1219,9 @@ class Regex(object):
 
 
 class Base64(String):
-    """This exists to normalize base64 encoding between py2 and py3, it assures that
-    you always get back a unicode string when you encode or decode and that you can
-    pass in a unicode or byte string and it just works
+    """This exists to normalize base64 encoding between py2 and py3, it assures
+    that you always get back a unicode string when you encode or decode and that
+    you can pass in a unicode or byte string and it just works
     """
     @classmethod
     def encode(cls, s, encoding=""):

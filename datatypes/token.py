@@ -21,8 +21,10 @@ class Token(object):
         """
         :param tokenizer: StreamTokenizer, the tokenizer creating this subtoken
         :param text: string, the text of this subtoken
-        :param start: int, the cursor offset this subtoken starts at in the tokenizer
-        :param stop: int, the cursor offset this subtoken ends at in the tokenizer
+        :param start: int, the cursor offset this subtoken starts at in the
+            tokenizer
+        :param stop: int, the cursor offset this subtoken ends at in the
+            tokenizer
         """
         self.text = text
         self.start = start
@@ -36,44 +38,252 @@ class Token(object):
         return self.text
 
 
+class TokenizerABC(io.IOBase):
+    def set_buffer(self, buffer):
+        raise NotImplementedError()
+
+    def next(self):
+        raise NotImplementedError()
+
+    def prev(self):
+        raise io.UnsupportedOperation()
+
+
 class Tokenizer(io.IOBase):
-    token_class = StreamToken
+    """The base class for building a tokenizer
+
+    A Tokenizer class acts like an IO object but returns tokens instead of
+    strings and all read operations return Token isntances and all setting
+    operations manipulate positions according to tokens
+
+    Summarized from https://stackoverflow.com/a/380487
+        A tokenizer breaks a stream of text into tokens, usually by breaking it
+        up by some deliminator, a common deliminator is whitespace (eg, tabs,
+        spaces, new lines)
+
+        A lexer is basically a tokenizer, but it usually attaches extra context
+        to the tokens (eg this token is a number or a string or a boolean)
+
+        A parser takes the stream of tokens from the lexer and gives it some
+        sort of structure that was represented by the original text
+
+    https://docs.python.org/3/library/io.html#io.IOBase
+    """
+    token_class = Token
     """The token class this class will use to create Token instances"""
 
     def __init__(self, buffer):
+        """
+        :param buffer: str|io.IOBase, this is the input that will be tokenized,
+            the buffer has to be seekable
+        """
+        self.set_buffer(buffer)
+
+    def __iter__(self):
+        self.seek(0)
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        return False if exception_value else True
+
+    def set_buffer(self, buffer):
         if isinstance(buffer, basestring):
             buffer = io.StringIO(String(buffer))
 
         self.buffer = buffer
 
-    def reset(self):
-        delims = self.delims
-        if not delims:
-            delims = self.DEFAULT_DELIMS
-        if delims and not callable(delims):
-            delims = set(delims)
-        self.delims = delims
+        if not self.seekable():
+            raise ValueError("Unseekable streams are not supported")
 
-        self.stream.seek(0)
-
-    def __iter__(self):
-        self.reset()
-        return self
+        self.seek(0)
 
     def peek(self):
         """Return the next token but don't increment the cursor offset"""
-        ret = None
         with self.temporary() as it:
             try:
-                ret = it.next()
+                return it.next()
+
             except StopIteration:
                 pass
+
+    def tell(self):
+        """Return the starting position of the current token but don't increment
+        the cursor offset"""
+        t = self.peek()
+        return t.start if t else self.buffer.tell() 
+
+    def __next__(self):
+        return self.next()
+
+    def read(self, count=-1):
+        """Read count tokens and return them
+
+        :param count: int, if >0 then return count tokens, if -1 then return all
+            remaining tokens
+        :returns: list, the read Token instances
+        """
+        ret = []
+        if count:
+            if count > 0:
+                while count > 0:
+                    try:
+                        ret.append(self.next())
+
+                    except StopIteration:
+                        break
+
+                    else:
+                        count -= 1
+
+            else:
+                while True:
+                    try:
+                        ret.append(self.next())
+
+                    except StopIteration:
+                        break
+
         return ret
 
+    def readall(self):
+        """Read and return all remaining tokens"""
+        return self.read()
+
+    def fileno(self):
+        return self.buffer.fileno()
+
+    def readable(self):
+        return self.buffer.readable()
+
+    def writeable(self):
+        """https://docs.python.org/3/library/io.html#io.IOBase.writable"""
+        return False
+
+    def seek(self, offset, whence=SEEK_SET):
+        """Change to the token given by offset and calculated according to the
+        whence value
+
+        Change the token position to the given offset. offset is
+        interpreted relative to the position indicated by whence.
+
+        The default value for whence is SEEK_SET. Values for whence are:
+
+            * SEEK_SET or 0 – start of the tokens (the default); offset should
+                be zero or positive
+            * SEEK_CUR or 1 – current token position; offset may be negative
+            * SEEK_END or 2 – end of the tokens; offset is usually negative
+
+        Return the new absolute buffer position.
+
+        https://docs.python.org/3/library/io.html#io.IOBase.seek
+
+        :param offset: int, the token to seek to
+        :returns: int, the starting position in the buffer of the token
+        """
+        offset = int(offset)
+
+        if whence == SEEK_SET:
+            offset = max(0, offset)
+
+        elif whence == SEEK_CUR:
+            if offset:
+                for _ in range(abs(offset)):
+                    t = self.prev()
+                    offset = t.start
+
+            else:
+                offset = self.buffer.tell()
+
+        elif whence == SEEK_END:
+            total = len(self)
+            total = max(total, total - abs(offset))
+            with self.temporary() as it:
+                it.seek(0)
+                for _ in range(total):
+                    t = it.next()
+
+                offset = t.start
+
+        else:
+            raise ValueError(f"Unknown or unsupported whence value: {whence}")
+
+        self.buffer.seek(offset)
+        return offset
+
+    def seekable(self):
+        """https://docs.python.org/3/library/io.html#io.IOBase.seekable"""
+        return self.buffer.seekable()
+
+    @contextmanager
+    def transaction(self):
+        """If an error is raised reset the cursor back to where the transaction
+        was started"""
+        start = self.buffer.tell()
+        try:
+            yield self
+
+        except Exception as e:
+            self.buffer.seek(start)
+            raise
+
+    @contextmanager
+    def temporary(self):
+        """similar to .transaction() but will always discard anything read and
+        reset the cursor back to where it started, you use this because you want
+        to check some tokens ephemerally"""
+        start = self.buffer.tell()
+        try:
+            yield self
+
+        finally:
+            self.buffer.seek(start)
+
+    def count(self):
+        """This is a terrible way to do this, but sometimes you just want to
+        know how many tokens you have left
+
+        :returns: int, how many tokens you have left
+        """
+        count = 0
+        with self.temporary() as it:
+            try:
+                while it.next():
+                    count += 1
+            except StopIteration:
+                pass
+
+        return count
+
+    def __len__(self):
+        """Returns the total number of tokens no matter where offset is positioned
+
+        WARNING -- don't use this if you can avoid it because it will parse the
+            entire buffer and then reset it so it is not efficient in any way
+
+        :returns: int, the total tokens, irrespective of current offset
+        """
+        with self.temporary() as it:
+            it.seek(0)
+            total = it.count()
+        return total
+
+    def close(self, *args, **kwargs):
+        raise io.UnsupportedOperation()
+
+    def closed(self, *args, **kwargs):
+        return self.buffer.closed()
+
+    def readline(self, size=-1):
+        raise io.UnsupportedOperation()
+
+    def readlines(self, hint=-1):
+        raise io.UnsupportedOperation()
 
 
-
-class StreamToken(Token):
+class WordToken(Token):
     """This is what is returned from the Tokenizer and contains pointers to the
     left deliminator and the right deliminator, and also the actual token
 
@@ -100,53 +310,44 @@ class StreamToken(Token):
         return "{}, {}, {}".format(tokens[0], tokens[1], tokens[2])
 
 
-class StreamTokenizer(io.IOBase):
-    """Tokenize a string finding tokens that are divided by passed in deliminators
-
-    Summarized from https://stackoverflow.com/a/380487
-        A tokenizer breaks a stream of text into tokens, usually by breaking it
-        up by some deliminator, a common deliminator is whitespace (eg, tabs,
-        spaces, new lines)
-
-        A lexer is basically a tokenizer, but it usually attaches extra context
-        to the tokens (eg this token is a number or a string or a boolean)
-
-        A parser takes the stream of tokens from the lexer and gives it some
-        sort of structure that was represented by the original text
-
-    https://docs.python.org/3/library/io.html#io.IOBase
+class WordTokenizer(Tokenizer):
+    """Tokenize a string finding tokens that are divided by passed in
+    characters
     """
-    DEFAULT_DELIMS = WHITESPACE + PUNCTUATION
+    DEFAULT_CHARS = WHITESPACE + PUNCTUATION
     """IF no deliminators are passed into the constructor then use these"""
 
-    token_class = StreamToken
+    token_class = WordToken
     """The token class this class will use to create Token instances"""
 
-    def __init__(self, stream, delims=None):
+    def __init__(self, buffer, chars=None):
         """
-        :param stream: io.IOBase, this is the input that will be tokenized, the stream
-            has to be seekable
-        :param delims: callback|string|set, if a callback, it should have the signature:
-            callback(char) and return True if the char is a delim, False otherwise.
-            If a string then it is a string of chars that will be considered delims
+        :param buffer: str|io.IOBase, passed through to parent
+        :param chars: callable|str|set, if a callback, it should have the
+            signature: callback(char) and return True if the char is a delim,
+            False otherwise. If a string then it is a string of chars that will
+            be considered delims
         """
-        self.delims = delims
-        self.stream = stream
+        if not chars:
+            chars = self.DEFAULT_CHARS
 
-        if not self.seekable():
-            raise ValueError("Unseekable streams are not supported")
+        if chars and not callable(chars):
+            chars = set(chars)
 
-        self.reset()
+        self.chars = chars
 
-    def is_delim(self, ch):
+        super().__init__(buffer)
+
+    def is_delim_char(self, ch):
         ret = False
-        delims = self.delims
-        if delims:
-            if callable(delims):
-                ret = delims(ch)
+        chars = self.chars
+        if chars:
+            if callable(chars):
+                ret = chars(ch)
 
             else:
-                ret = ch in delims
+                ret = ch in chars
+
         return ret
 
     def tell_ldelim(self):
@@ -155,20 +356,20 @@ class StreamTokenizer(io.IOBase):
         :returns: int, the cursor position of the start of the left deliminator of
             the current token
         """
-        pos = self.stream.tell()
-        ch = self.stream.read(1)
+        pos = self.buffer.tell()
+        ch = self.buffer.read(1)
 #         pout.v(pos, ch)
         if not ch:
             # EOF, stream is exhausted
             raise StopIteration()
 
-        if self.is_delim(ch):
+        if self.is_delim_char(ch):
             p = pos
-            while self.is_delim(ch):
+            while self.is_delim_char(ch):
                 p -= 1
                 if p >= 0:
-                    self.stream.seek(p)
-                    ch = self.stream.read(1)
+                    self.buffer.seek(p)
+                    ch = self.buffer.read(1)
 
                 else:
                     break
@@ -181,17 +382,17 @@ class StreamTokenizer(io.IOBase):
 
         else:
             p = pos
-            while not self.is_delim(ch):
+            while not self.is_delim_char(ch):
                 p -= 1
                 if p >= 0:
-                    self.stream.seek(p)
-                    ch = self.stream.read(1)
+                    self.buffer.seek(p)
+                    ch = self.buffer.read(1)
 
                 else:
                     break
 
             if p >= 0:
-                self.stream.seek(p)
+                self.buffer.seek(p)
                 pos = self.tell_ldelim()
 
             else:
@@ -211,44 +412,44 @@ class StreamTokenizer(io.IOBase):
         # find the left deliminator
         if start >= 0:
             text = ""
-            self.stream.seek(start)
-            ch = self.stream.read(1)
+            self.buffer.seek(start)
+            ch = self.buffer.read(1)
 
-            while self.is_delim(ch):
+            while self.is_delim_char(ch):
                 text += ch
-                ch = self.stream.read(1)
+                ch = self.buffer.read(1)
 
-            stop = self.stream.tell() - 1
+            stop = self.buffer.tell() - 1
             ldelim = self.token_class(self, text, start, stop)
             start = stop
 
         else:
             start = 0
-            self.stream.seek(start)
-            ch = self.stream.read(1)
+            self.buffer.seek(start)
+            ch = self.buffer.read(1)
 
         # find the actual token
         if ch:
             text = ""
-            while ch and not self.is_delim(ch):
+            while ch and not self.is_delim_char(ch):
                 text += ch
-                ch = self.stream.read(1)
+                ch = self.buffer.read(1)
 
-            stop = self.stream.tell() - 1
+            stop = self.buffer.tell() - 1
             token = self.token_class(self, text, start, stop)
             start = stop
 
         # find the right deliminator
         if ch:
             text = ""
-            while self.is_delim(ch):
+            while self.is_delim_char(ch):
                 text += ch
-                ch = self.stream.read(1)
+                ch = self.buffer.read(1)
 
-            stop = self.stream.tell() - 1
+            stop = self.buffer.tell() - 1
 
             # we're one character ahead, so we want to move back one
-            self.stream.seek(stop)
+            self.buffer.seek(stop)
 
             rdelim = self.token_class(self, text, start, stop)
 
@@ -259,9 +460,6 @@ class StreamTokenizer(io.IOBase):
         token.rdelim = rdelim
 
         return token
-
-    def __next__(self):
-        return self.next()
 
     def prev(self):
         """Returns the previous Token
@@ -274,219 +472,24 @@ class StreamTokenizer(io.IOBase):
             start = self.tell_ldelim()
 
         except StopIteration:
-            self.seek(self.tell() - 1)
+            self.buffer.seek(self.buffer.tell() - 1)
             start = self.tell_ldelim()
             token = self.next()
 
         else:
             if start > 0:
-                self.seek(start - 1)
+                self.buffer.seek(start - 1)
                 start = self.tell_ldelim()
                 token = self.next()
 
         if token:
             start = token.ldelim.start if token.ldelim else token.start
-            self.seek(start)
+            self.buffer.seek(start)
+
         return token
 
-    def read(self, count=-1):
-        """Read count tokens and return them
 
-        :param count: int, if >0 then return count tokens, if -1 then return all
-            remaining tokens
-        :returns: list, the read Token instances
-        """
-        ret = []
-        if count:
-            if count > 0:
-                while count > 0:
-                    try:
-                        ret.append(self.next())
-                    except StopIteration:
-                        break
-
-                    else:
-                        count -= 1
-
-            else:
-                while True:
-                    try:
-                        token = self.next()
-                        ret.append(token)
-                    except StopIteration:
-                        break
-
-        return ret
-
-    def readall(self):
-        """Read and return all remaining tokens"""
-        return self.read()
-
-    def fileno(self):
-        return self.stream.fileno()
-
-    def readable(self):
-        return self.stream.readable()
-
-    def writeable(self):
-        """https://docs.python.org/3/library/io.html#io.IOBase.writable"""
-        return False
-
-    def tell(self):
-        """Return the current stream position"""
-        return self.stream.tell()
-
-    def seek(self, offset, whence=SEEK_SET):
-        """Change the stream position to the given byte offset. offset is interpreted
-        relative to the position indicated by whence.
-
-        The default value for whence is SEEK_SET. Values for whence are:
-
-            * SEEK_SET or 0 – start of the stream (the default); offset should be zero or positive
-            * SEEK_CUR or 1 – current stream position; offset may be negative
-
-        Return the new absolute position.
-        """
-        offset = int(offset)
-
-        if whence == SEEK_SET:
-            self.stream.seek(max(0, offset))
-
-        elif whence == SEEK_CUR:
-            self.stream.seek(max(0, self.tell() + offset))
-
-        elif whence == SEEK_END:
-            self.offset = max(0, self.total() - offset)
-
-        else:
-            raise ValueError("Unknown or unsupported whence value: {}".format(whence))
-
-        return self.tell()
-
-    def seekable(self):
-        """https://docs.python.org/3/library/io.html#io.IOBase.seekable"""
-        return self.stream.seekable()
-
-    @contextmanager
-    def transaction(self):
-        """If an error is raised reset the cursor back to where the transaction
-        was started"""
-        start = self.tell()
-        try:
-            yield self
-
-        except Exception as e:
-            self.seek(start)
-            raise
-
-    @contextmanager
-    def temporary(self):
-        """similar to .transaction() but will always discard anything read and
-        reset the cursor back to where it started, you use this because you want
-        to check some tokens ephemerally"""
-        start = self.tell()
-        try:
-            yield self
-
-        finally:
-            self.seek(start)
-
-    def count(self):
-        """This is a terrible way to do this, but sometimes you just want to know
-        how many tokens you have left
-
-        :returns: int, how many tokens you have left
-        """
-        count = 0
-        with self.temporary() as it:
-            try:
-                while it.next():
-                    count += 1
-            except StopIteration:
-                pass
-
-        return count
-
-    def total(self):
-        """Returns the total number of tokens no matter where offset is positioned
-
-        :returns: int, the total tokens, irrespective of .offset
-        """
-        with self.temporary() as it:
-            it.seek(0)
-            total = it.count()
-        return total
-
-    def __len__(self):
-        """WARNING -- don't use this if you can avoid it"""
-        return self.total()
-
-    def close(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def closed(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def flush(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def readline(self, size=-1):
-        raise NotImplementedError()
-
-
-class Tokenizer(StreamTokenizer):
-    """Extends stream tokenizer to accept strings or IO streams"""
-    def __init__(self, buffer, delims=None):
-        if isinstance(buffer, basestring):
-            buffer = io.StringIO(String(buffer))
-        super().__init__(buffer, delims)
-
-
-class NormalizeTokenizer(Tokenizer):
-    """A tokenizer that calls a .normalize method that can be overridden by a
-    child class so you can manipulate the token before returning it"""
-    def next(self):
-        t = super().next()
-        return self.normalize(t)
-
-    def prev(self):
-        t = super().prev()
-        return self.normalize(t)
-
-    def normalize(self, t):
-        """Override this in a child class to customize functionality"""
-        return t
-
-
-class StringTokenizer(NormalizeTokenizer):
-    """A tokenizer that returns str instances instead of tokens because sometimes
-    that's all you want"""
-    def normalize(self, t):
-        return t.text
-
-
-class ValidTokenizer(NormalizeTokenizer):
-    """Similar to NormalizeTokenizer but also calls an .is_valid method to check
-    the validity of the token, this will allow you to skip tokens that are
-    invalid"""
-    def next(self):
-        while True:
-            t = super().next()
-            if self.is_valid(t):
-                return t
-
-    def prev(self):
-        while True:
-            t = super().prev()
-            if (t is None) or self.is_valid(t):
-                return t
-
-    def is_valid(self, t):
-        """Return True if the token is valid or False to skip it"""
-        return True
-
-
-class StopWordTokenizer(ValidTokenizer):
+class StopWordTokenizer(WordTokenizer):
     """Strips stop words from a string"""
 
     # This list comes from Plancast's Formatting.php library (2010-2-4)
@@ -506,6 +509,18 @@ class StopWordTokenizer(ValidTokenizer):
         'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'you', 'your',
         'yours', 'yourself', 'yourselves',
     ])
+
+    def next(self):
+        while True:
+            t = super().next()
+            if self.is_valid(t):
+                return t
+
+    def prev(self):
+        while True:
+            t = super().prev()
+            if (t is None) or self.is_valid(t):
+                return t
 
     def is_valid(self, t):
         word = t.text.lower()
@@ -536,6 +551,9 @@ class Scanner(io.StringIO):
         super().__init__(buffer)
         if offset > 0:
             self.seek(offset)
+
+    def peek(self):
+        return self.getvalue()[self.tell()]
 
 #     def seek(self, offset):
 #         self.offset = offset
@@ -602,11 +620,23 @@ class Scanner(io.StringIO):
         self.seek(offset)
         return partial
 
+    def read_to_chars(self, chars):
+        return self.read_to(chars=chars)
+
+    def read_until_chars(self, chars):
+        return self.read_until(chars=chars)
+
     def read_thru_whitespace(self):
         return self.read_thru_chars(WHITESPACE)
 
     def read_to_whitespace(self):
         return self.read_to(chars=WHITESPACE)
+
+    def read_to_newline(self):
+        return self.read_to(chars="\n")
+
+    def read_until_newline(self):
+        return self.read_to(chars="\n")
 
     def read_to(self, **kwargs):
         """scans and returns string up to delim
@@ -659,8 +689,21 @@ class Scanner(io.StringIO):
         self.seek(offset)
         return partial
 
+    def read_until(self, **kwargs):
+        delim = kwargs.get("delim", "")
+        chars = set(kwargs.get("chars", ""))
+        count = kwargs.get("count", 1)
 
+        partial = ""
+        for _ in range(count):
+            if delim:
+                partial += self.read_to(delim=delim)
+                partial += self.read(len(delim))
 
+            elif chars:
+                partial += self.read_to(chars=chars) + self.read(1)
+
+        return partial
 
     def read_to_delim(self, delim):
         """scans and returns string up to delim
@@ -675,7 +718,7 @@ class Scanner(io.StringIO):
         """
         return self.read_to(delim=delim)
 
-    def read_until_delim(self, delim):
+    def read_until_delim(self, delim, **kwargs):
         """scans and returns string up to and including delim
 
         :Example:
@@ -687,21 +730,96 @@ class Scanner(io.StringIO):
         :returns: str, returns self.text from self.offset when this method was
             called to the offset right after delim ends
         """
-        partial = self.read_to_delim(delim)
-        delim_len = len(delim)
-        buffer = self.getvalue()
-        offset = self.tell()
+        return self.read_until(delim=delim, **kwargs)
 
-        if self:
-            partial += buffer[offset:offset + delim_len]
-            offset += delim_len
-
-        self.seek(offset)
-        return partial
+#         partial = self.read_to_delim(delim)
+#         delim_len = len(delim)
+#         buffer = self.getvalue()
+#         offset = self.tell()
+# 
+#         if self:
+#             partial += buffer[offset:offset + delim_len]
+#             offset += delim_len
+# 
+#         self.seek(offset)
+#         return partial
 
     def __bool__(self):
         return self.tell() < self.__len__()
 
     def __len__(self):
         return len(self.getvalue())
+
+
+
+class ABNFRule(Token):
+
+    def __init__(self, tokenizer, name, definitions, comments, start, stop):
+        self.name = name
+        self.definitions = definitions
+        self.comments = comments
+
+        super().__init__(tokenizer, None, start=start, stop=stop)
+
+
+class ABNFTokenizer(Tokenizer):
+
+    token_class = ABNFRule
+
+    def set_buffer(self, buffer):
+        self.buffer = Scanner(buffer)
+
+    def next(self):
+        scanner = self.buffer
+        start = scanner.tell()
+        comments = []
+        definitions = []
+
+        name = scanner.read_to_delim("=").strip()
+
+        # move passed the equal sign and whitespace to the right of the equal
+        # sign
+        scanner.read_thru_chars("= \t")
+
+        while scanner:
+            ch = scanner.peek()
+
+            if ch == "\"":
+                literal = scanner.read_until_delim("\"", count=2)
+                literal = literal.strip("\"")
+                definitions.append(literal)
+
+            elif ch in String.ASCII_LETTERS:
+                rule = scanner.read_to_chars(String.WHITESPACE + ";")
+                definitions.append(rule)
+
+            elif ch == ";":
+                comments.append(scanner.read_to_newline())
+
+            elif ch == "\n":
+                scanner.read_thru_chars("\n")
+                ch = scanner.peek()
+                if not ch.isspace():
+                    break
+
+            else:
+                scanner.read_thru_chars(" \t")
+
+        stop = scanner.tell() - 1
+#         if stop < 0:
+#             pout.v(scanner.getvalue())
+#             stop = len(scanner.getvalue()) - 1
+
+        return self.token_class(
+            self,
+            name=name,
+            definitions=definitions,
+            comments=comments,
+            start=start,
+            stop=stop
+        )
+
+
+
+
 
