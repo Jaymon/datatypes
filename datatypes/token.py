@@ -17,25 +17,17 @@ logger = logging.getLogger(__name__)
 
 class Token(object):
     """The base for the Token and SubToken containing shared functionality"""
-    def __init__(self, tokenizer, text, start=-1, stop=-1):
+    def __init__(self, tokenizer, start=-1, stop=-1):
         """
-        :param tokenizer: StreamTokenizer, the tokenizer creating this subtoken
-        :param text: string, the text of this subtoken
-        :param start: int, the cursor offset this subtoken starts at in the
-            tokenizer
-        :param stop: int, the cursor offset this subtoken ends at in the
-            tokenizer
+        :param tokenizer: Tokenizer, the tokenizer creating this token
+        :param start: int, the cursor offset this token starts at in the
+            buffer the tokenizer is tokenizing
+        :param stop: int, the cursor offset this token ends at in the buffer the
+            tokenizer is tokenizing
         """
-        self.text = text
         self.start = start
         self.stop = stop
         self.tokenizer = tokenizer
-
-    def __str__(self):
-        return self.text
-
-    def __unicode__(self):
-        return self.text
 
 
 class TokenizerABC(io.IOBase):
@@ -292,9 +284,13 @@ class WordToken(Token):
         .rdelim - the deliminators to the right of the token
     """
     def __init__(self, tokenizer, text, start, stop, ldelim=None, rdelim=None):
-        super().__init__(tokenizer, text, start, stop)
+        super().__init__(tokenizer, start, stop)
+        self.text = text
         self.ldelim = ldelim
         self.rdelim = rdelim
+
+    def __str__(self):
+        return self.text
 
     def __pout__(self):
         """used by pout python external library
@@ -752,24 +748,174 @@ class Scanner(io.StringIO):
 
 
 
+class ABNFDefinition(object):
+    LITERAL = 1
+    RULE = 2
+    GROUP = 3
+    COMMENT = 4
+    def __init__(self, deftype, value=None):
+        self.deftype = deftype
+        self.value = value
+        self.min_count = 1
+        self.max_count = 1
+        self.or_clause = False
+
+
 class ABNFRule(Token):
 
-    def __init__(self, tokenizer, name, definitions, comments, start, stop):
+    def __init__(self, tokenizer, name, start, stop):
         self.name = name
-        self.definitions = definitions
-        self.comments = comments
+        self.definitions = []
+        #self.definitions = definitions
+        #self.comments = comments
 
-        super().__init__(tokenizer, None, start=start, stop=stop)
+        super().__init__(tokenizer, start=start, stop=stop)
+
+    def __iter__(self):
+        alternation = []
+        for definition in self.definitions:
+            if definition.or_clause:
+                alternation.append(definition)
+
+            else:
+                if alternation:
+                    alternation.append(definition)
+                    yield alternation
+
+                    alternation = []
+
+                else:
+                    yield [definition]
+
+#     def x__init__(self, tokenizer, name, definitions, comments, start, stop):
+#         self.name = name
+#         self.definitions = definitions
+#         self.comments = comments
+# 
+#         super().__init__(tokenizer, start=start, stop=stop)
 
 
 class ABNFTokenizer(Tokenizer):
 
-    token_class = ABNFRule
+    rule_class = ABNFRule
+
+    scanner_class = Scanner
+
+    definition_class = ABNFDefinition
 
     def set_buffer(self, buffer):
-        self.buffer = Scanner(buffer)
+        self.buffer = self.scanner_class(buffer)
+
+    def next_rule(self):
+        lines = []
+        scanner = self.buffer
+        start = scanner.tell()
+        line = scanner.readline()
+        if line and not line[0].isspace():
+            lines.append(line.strip())
+            offset = scanner.tell()
+
+            line = scanner.readline()
+            while line and line[0].isspace():
+                lines.append(line.strip())
+                offset = scanner.tell()
+                line = scanner.readline()
+
+            scanner.seek(offset)
+
+        stop = scanner.tell() - 1
+
+        token = self.token_class(
+            self,
+            start,
+            stop
+        )
+        token.buffer = "\n".join(lines)
+        return token
+
+    def tokenize_definition(self, rule, scanner):
+        while scanner:
+            ch = scanner.peek()
+
+            if ch == "\"":
+                literal = scanner.read_until_delim("\"", count=2)
+                literal = literal.strip("\"")
+                rule.definitions.append(self.definition_class(
+                    self.definition_class.LITERAL,
+                    literal
+                ))
+
+            elif ch in String.ALPHANUMERIC + "-":
+                rulename = scanner.read_to_chars(String.WHITESPACE + ";")
+                rule.definitions.append(self.definition_class(
+                    self.definition_class.RULE,
+                    rulename.lower()
+                ))
+
+            elif ch == "[":
+                gstart = scanner.tell()
+                gbuffer = scanner.read_until_delim("]")
+                gstop = scanner.tell()
+                grule = self.rule_class(
+                    self,
+                    "",
+                    start=gstart,
+                    stop=gstop,
+                )
+                gscanner = self.scanner_class(gbuffer[1:-1])
+                grule = self.tokenize_definition(grule, gscanner)
+
+                group = self.definition_class(
+                    self.definition_class.GROUP,
+                    grule,
+                )
+                group.min = 0
+                rule.definitions.append(group)
+
+            elif ch == "/" or ch == "|":
+                rule.definitions[-1].or_clause = True
+                scanner.read_thru_chars("/|")
+
+            elif ch == ";":
+                rule.definitions.append(self.definition_class(
+                    self.definition_class.COMMENT,
+                    scanner.read_to_newline()
+                ))
+
+            elif ch == "\n":
+                scanner.read_thru_chars("\n")
+                ch = scanner.peek()
+                if not ch.isspace():
+                    break
+
+            else:
+                scanner.read_thru_chars(" \t")
+
+        return rule
 
     def next(self):
+        rule = self.next_rule()
+        if rule:
+            scanner = self.scanner_class(rule.buffer)
+
+            rulename = scanner.read_to_delim("= \t").strip().lower()
+
+            # move passed the equal sign and whitespace to the right of the
+            # equal sign
+            scanner.read_thru_chars("= \t")
+
+            rule = self.rule_class(
+                self,
+                rulename,
+                start=stmt.start,
+                stop=stmt.stop
+            )
+            return self.tokenize_definition(rule, scanner)
+
+        else:
+            raise StopIteration()
+
+    def next2(self):
         scanner = self.buffer
         start = scanner.tell()
         comments = []

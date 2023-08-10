@@ -153,6 +153,8 @@ class String(Str, StringMixin):
     ASCII_CONSONANTS_UPPERCASE = "BCDFGHJKLMNPQRSTVWXYZ"
     ASCII_CONSONANTS = ASCII_CONSONANTS_LOWERCASE + ASCII_CONSONANTS_UPPERCASE
 
+    ALPHANUMERIC = ASCII_LETTERS + DIGITS
+
     def __new__(cls, val="", encoding="", errors=""):
         """
         :param val: mixed, the value you are casting to a string
@@ -1249,7 +1251,7 @@ class Ascii(String):
     but I added other methods in case I need to use this somewhere else"""
     def __new__(cls):
         s = list(chr(x) for x in range(0x00, 0x7F + 1))
-        instance = super(Ascii, cls).__new__(cls, s)
+        instance = super().__new__(cls, s)
         return instance
 
     def punctuation(self):

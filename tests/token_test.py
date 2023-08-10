@@ -418,6 +418,30 @@ class ScannerTest(TestCase):
 class ABNFTokenizerTest(TestCase):
     tokenizer_class = ABNFTokenizer
 
+    def test_next_statement(self):
+        t = self.create_instance([
+            "foo = bar / che",
+            "  / baz",
+            "  / boo",
+            "bar = cheboo",
+        ])
+
+        self.assertEqual(
+            "foo = bar / che / baz / boo",
+            t.next_statement().buffer
+        )
+        self.assertEqual("bar = cheboo", t.next_statement().buffer)
+        self.assertEqual("", t.next_statement().buffer)
+
+    def test_or_statement(self):
+        t = self.create_instance("foo = bar / che / baz / boo")
+        rule = t.next()
+        pout.v(rule)
+        for options in rule:
+            pout.v(options, len(options))
+
+
+
     def test_next_simple(self):
         t = self.create_instance("foo = \"literal1\" rule1 \"literal2\"")
         rule = t.next()
