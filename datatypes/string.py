@@ -138,12 +138,19 @@ class String(Str, StringMixin):
     ASCII_LETTERS = string.ascii_letters
     ASCII_LOWERCASE = string.ascii_lowercase
     ASCII_UPPERCASE = string.ascii_uppercase
+    ALPHA = ASCII_LETTERS
+
     DIGITS = string.digits
+    NUMERIC = string.digits
+
+    ALPHANUMERIC = ASCII_LETTERS + DIGITS
+
     HEXDIGITS = string.hexdigits
     OCTDIGITS = string.octdigits
     PUNCTUATION = string.punctuation
     PRINTABLE = string.printable
     WHITESPACE = string.whitespace
+    HORIZONTAL_SPACE = " \t"
 
     ASCII_VOWELS_LOWERCASE = "aeiou"
     ASCII_VOWELS_UPPERCASE = "AEIOU"
@@ -152,8 +159,6 @@ class String(Str, StringMixin):
     ASCII_CONSONANTS_LOWERCASE = "bcdfghjklmnpqrstvwxyz"
     ASCII_CONSONANTS_UPPERCASE = "BCDFGHJKLMNPQRSTVWXYZ"
     ASCII_CONSONANTS = ASCII_CONSONANTS_LOWERCASE + ASCII_CONSONANTS_UPPERCASE
-
-    ALPHANUMERIC = ASCII_LETTERS + DIGITS
 
     def __new__(cls, val="", encoding="", errors=""):
         """

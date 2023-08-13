@@ -81,9 +81,9 @@ from .token import (
     # we don't import Token because it's too generic for toplevel, if you need it
     # then import it directly from the submodule
     Tokenizer,
+    Scanner,
     WordTokenizer,
     StopWordTokenizer,
-    Scanner,
 )
 from .email import (
     Email,

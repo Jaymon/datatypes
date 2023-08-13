@@ -2,12 +2,17 @@
 
 from datatypes.compat import *
 from datatypes.string import String
-from datatypes.token import (
+from datatypes.token.base import (
+    Scanner,
+)
+from datatypes.token.word import (
     WordTokenizer,
     StopWordTokenizer,
-    Scanner,
-    ABNFTokenizer,
 )
+from datatypes.token.abnf import (
+    ABNFGrammar,
+)
+
 
 from . import TestCase as _TestCase, testdata
 
@@ -416,22 +421,7 @@ class ScannerTest(TestCase):
 
 
 class ABNFTokenizerTest(TestCase):
-    tokenizer_class = ABNFTokenizer
-
-    def test_next_statement(self):
-        t = self.create_instance([
-            "foo = bar / che",
-            "  / baz",
-            "  / boo",
-            "bar = cheboo",
-        ])
-
-        self.assertEqual(
-            "foo = bar / che / baz / boo",
-            t.next_statement().buffer
-        )
-        self.assertEqual("bar = cheboo", t.next_statement().buffer)
-        self.assertEqual("", t.next_statement().buffer)
+    tokenizer_class = ABNFGrammar
 
     def test_or_statement(self):
         t = self.create_instance("foo = bar / che / baz / boo")
@@ -462,6 +452,167 @@ class ABNFTokenizerTest(TestCase):
 
 
 
+class ABNFGrammarTest(TestCase):
+    tokenizer_class = ABNFGrammar
 
+    def test_read_rule(self):
+        t = self.create_instance([
+            "foo = bar / che",
+            "  / baz",
+            "  / boo",
+            "bar = cheboo",
+        ])
 
+        rule = t.read_rule()
+        for part in ["foo = bar / che", "/ baz", "/ boo"]:
+            self.assertTrue(part in rule)
+
+        self.assertEqual("bar = cheboo", t.read_rule())
+
+        self.assertEqual("", t.read_rule())
+
+    def test_scan_rulename(self):
+        t = self.create_instance("foobar")
+        self.assertEqual("foobar", t.scan_rulename().values[0])
+
+        t = self.create_instance("foobar = ")
+        self.assertEqual("foobar", t.scan_rulename().values[0])
+
+        t = self.create_instance("foo-bar = ")
+        self.assertEqual("foo-bar", t.scan_rulename().values[0])
+
+        t = self.create_instance("foo_bar")
+        self.assertEqual("foo", t.scan_rulename().values[0])
+
+        with self.assertRaises(ValueError):
+            self.create_instance(" = ").scan_rulename()
+
+    def test_scan_comment(self):
+        t = self.create_instance("; foo bar\n")
+        self.assertEqual("foo bar", t.scan_comment().values[0])
+
+        t = self.create_instance(";\r\n")
+        self.assertEqual("", t.scan_comment().values[0])
+
+        t = self.create_instance(";\n")
+        self.assertEqual("", t.scan_comment().values[0])
+
+        with self.assertRaises(ValueError):
+            self.create_instance("; foo bar").scan_comment()
+
+        with self.assertRaises(ValueError):
+            self.create_instance("foo bar").scan_comment()
+
+    def test_scan_cnl(self):
+        with self.assertRaises(ValueError):
+            self.create_instance(" ").scan_cnl()
+
+        self.assertTrue(
+            self.create_instance("; foo\n").scan_cnl().values[0].is_comment()
+        )
+
+        self.assertTrue(
+            self.create_instance("\r\n").scan_cnl().values[0].is_crlf()
+        )
+        self.assertTrue(
+            self.create_instance("\n").scan_cnl().values[0].is_crlf()
+        )
+
+    def test_scan_cwsp(self):
+        self.assertTrue(
+            self.create_instance("   ").scan_cwsp().is_cwsp()
+        )
+
+        cwsp = self.create_instance("; foo\n ").scan_cwsp()
+        self.assertTrue(cwsp.values[0].is_cnl())
+
+        with self.assertRaises(ValueError):
+            self.create_instance("; foo\n").scan_cwsp()
+
+    def test_scan_definedas(self):
+        with self.assertRaises(ValueError):
+            self.create_instance(" ").scan_definedas()
+
+        self.create_instance(" =").scan_definedas()
+        self.create_instance(" =/").scan_definedas()
+        self.create_instance(" =/ ").scan_definedas()
+        self.create_instance("=/ ").scan_definedas()
+        self.create_instance("= ").scan_definedas()
+
+    def test_scan_repeat(self):
+        r = self.create_instance("*").scan_repeat()
+        self.assertEqual([0, 0], r.values)
+
+        r = self.create_instance("1*").scan_repeat()
+        self.assertEqual([1, 0], r.values)
+
+        r = self.create_instance("1*2").scan_repeat()
+        self.assertEqual([1, 2], r.values)
+
+        r = self.create_instance("*2").scan_repeat()
+        self.assertEqual([0, 2], r.values)
+
+    def test_scan_quotedstring(self):
+        s = "foo bar che"
+        self.assertEqual(
+            s,
+            self.create_instance(f"\"{s}\"").scan_quotedstring().values[0]
+        )
+
+        s = ""
+        self.assertEqual(
+            s,
+            self.create_instance(f"\"{s}\"").scan_quotedstring().values[0]
+        )
+
+        with self.assertRaises(ValueError):
+            self.create_instance("foo").scan_quotedstring()
+
+    def test_scan_val(self):
+        s = "12343567890"
+        self.assertEqual(
+            s,
+            self.create_instance(f"%d{s}").scan_val().values[-1]
+        )
+
+        with self.assertRaises(ValueError):
+            self.create_instance("%d").scan_val()
+
+        s = "01101010101"
+        self.assertEqual(
+            s,
+            self.create_instance(f"%b{s}").scan_val().values[-1]
+        )
+
+        with self.assertRaises(ValueError):
+            self.create_instance("%b").scan_val()
+
+        s = "abcdefABCDEF0123456789"
+        self.assertEqual(
+            s,
+            self.create_instance(f"%x{s}").scan_val().values[-1]
+        )
+
+        with self.assertRaises(ValueError):
+            self.create_instance("%x").scan_val()
+
+        r = self.create_instance("%d10-500").scan_val()
+        self.assertEqual("10", r.values[2])
+        self.assertEqual("500", r.values[4])
+
+        r = self.create_instance("%s\"foo bar\"").scan_val()
+        self.assertEqual("foo bar", r.values[2].values[0])
+        self.assertTrue(r.values[2].options["case_sensitive"])
+
+        r = self.create_instance("%i\"foo bar\"").scan_val()
+        self.assertEqual("foo bar", r.values[2].values[0])
+        self.assertFalse(r.values[2].options["case_sensitive"])
+
+    def test_scan_proseval(self):
+        r = self.create_instance("<foo bar>").scan_proseval()
+        self.assertEqual("foo bar", r.values[0])
+
+    def test_scan_group(self):
+        r = self.create_instance("(foo bar)").scan_group()
+        pout.v(r.values[1].values[0])
 
