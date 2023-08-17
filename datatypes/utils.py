@@ -37,7 +37,8 @@ def make_list(*args):
 
     Yanked from prom.utils on 6-7-2021
 
-    :param *args: list, vals should always be a list or tuple (eg, *args passed as args)
+    :param *args: list, vals should always be a list or tuple (eg, *args passed
+        as args)
     :returns: list
     """
     ret = []
@@ -70,7 +71,8 @@ def make_list(*args):
 
 
 def make_dict(*args):
-    """Combine all key/vals in *args into one dict with later values taking precedence
+    """Combine all key/vals in *args into one dict with later values taking
+    precedence
 
     Yanked from prom.utils on 6-7-2021
 
@@ -98,8 +100,8 @@ def make_dict(*args):
 
 
 class Singleton(object):
-    """Helper class that turns your class into a singleton where the same instance
-    is always returned on each creation
+    """Helper class that turns your class into a singleton where the same
+    instance is always returned on each creation
 
     :Example:
         s = Singleton()

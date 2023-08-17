@@ -467,7 +467,8 @@ class Scanner(io.StringIO):
         return self.read_until(delim=delim, **kwargs)
 
     def __bool__(self):
-        return self.tell() < self.__len__()
+        return self.peek() != ""
+        #return self.tell() < self.__len__()
 
     def __len__(self):
         return len(self.getvalue())

@@ -5,7 +5,8 @@ from collections import defaultdict
 
 from .compat import *
 from .string import String, NormalizeString
-from .token import Scanner
+from .token.abnf import ABNFGrammar, ABNFDefinition
+from .token.base import Scanner
 
 
 class ArgvParser(dict):
@@ -245,44 +246,72 @@ class Version(NormalizeString):
 
 
 
+# class ABNFParsed(ABNFDefinition):
+#     def scan(self, buffer):
+#         scanner = Scanner(buffer)
+# 
+#         for definitions in self.definitions:
+# 
+# 
+# 
+# 
+# 
+# class ABNFParser(object):
+#     """
+# 
+#     https://en.wikipedia.org/wiki/Augmented_Backus%E2%80%93Naur_form
+# 
+#     A parser takes the stream of tokens from the lexer and gives it some sort
+#     of structure that was represented by the original text
+#     """
+#     grammar_class = ABNFGrammar
+# 
+#     definition_class = ABNFParsed
+# 
+#     def __init__(self, grammar, **kwargs):
+#         self.grammar_class = kwargs.get(
+#             "grammar_class",
+#             self.grammar_class
+#         )
+#         self.definition_class = kwargs.get(
+#             "definition_class",
+#             self.definition_class
+#         )
+# 
+#         self.grammar = self.grammar_class(
+#             grammar,
+#             definition_class=self.definition_class
+#         )
+# 
+#     def parse_grammar(self):
+#         return self.grammar.ruletree()
+# 
+#     def parse_rule(self, rule, scanner):
+#         for definition in rule.definitions:
+#             pass
+# 
+#     def parse(self, buffer):
+#         rule = self.parse_grammar()
+#         scanner = Scanner(buffer)
+#         r = self.parse_rule(rule, scanner)
 
-class ABNFScanner(Scanner):
-    def read_statement(self):
-        lines = []
-        line = self.readline()
-        if line and not line[0].isspace():
-            lines.append(line.strip())
-            offset = self.tell()
-
-            line = self.readline()
-            while line and line[0].isspace():
-                lines.append(line.strip())
-                offset = self.tell()
-                line = self.readline()
-
-            self.seek(offset)
-
-        return " ".join(lines)
-
-    def read_rule(self):
-        rule = definition = comment = ""
-
-        stmt = self.read_statement()
-        if stmt:
-            s = Scanner(stmt)
-
-
-class ABNFParser(object):
-    """
-
-    https://en.wikipedia.org/wiki/Augmented_Backus%E2%80%93Naur_form
-
-    A parser takes the stream of tokens from the lexer and gives it some sort
-    of structure that was represented by the original text
-    """
-    def loads(self, buffer):
-        s = Scanner(buffer)
-        pout.v(s.read_statement())
+        # all rule definitions have the same basic structure: [rulename, elements]
+        # And elements breaks down to: 
+        #   elements -> alternation
+        #   alternation -> concatenation
+        #   concatenation -> repetition
+        #   repetition -> repeat element
+        #
+        #   so basically every rule can eventually get to [repeat, element] and
+        #   that's what we want to iterate on. They will have to be grouped into
+        #   alternates, so each iteration will be a set of [repeat, element] that
+        #   have to be matched for buffer to be valid. Really though, it should
+        #   be a sequence of [repeat, rulename|*val].
+        #
+        #   so each alternation should break down to [repeat, rulename|*val], so
+        #   this will be really recursive, with each rule checking itself and then
+        #   bubbling up and each new rule checking the repeat value
+        #   - rule
 
 
 

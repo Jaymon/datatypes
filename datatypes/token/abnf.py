@@ -1,13 +1,31 @@
 # -*- coding: utf-8 -*-
 from contextlib import contextmanager
+from collections import defaultdict
+import itertools
+import functools
 
 from ..compat import *
+from ..logging import *
 from ..string import String
+from ..decorators import property as cachedproperty
 from .base import Token, Tokenizer, Scanner
 
 
-class Definition(object):
-    def __init__(self, name, values, start, stop, **options):
+logger = logging.getLogger(__name__)
+
+
+class ABNFDefinition(object):
+    @functools.cached_property
+    def definitions(self):
+        definitions = []
+        for value in self.values:
+            if isinstance(value, ABNFDefinition):
+                definitions.append(value)
+
+        return definitions
+
+    def __init__(self, grammar, name, values, start, stop, **options):
+        self.grammar = grammar
         self.name = self.normalize_name(name)
         self.values = values
         self.start = start
@@ -24,22 +42,170 @@ class Definition(object):
             name = self.normalize_name(name)
             return lambda *_, **__: self.name == name
 
+        else:
+            values = []
+            name = self.normalize_name(key)
+            for value in self.values:
+                if isinstance(value, ABNFDefinition):
+                    if value.name == name:
+                        values.append(value)
+
+                    else:
+                        try:
+                            values.extend(getattr(value, key))
+
+                        except AttributeError:
+                            pass
+
+            if values:
+                return values
+
         raise AttributeError(key)
+
+    def __str__(self):
+        parts = []
+
+        parts.append(f"{self.name} [{self.start}:{self.stop}]:")
+
+#         if self.is_rulename():
+#             parts.append(f"{self.name}({self.values[0]})")
+# 
+#         elif self.is_definedas():
+#             sign = self.options["sign"]
+#             parts.append(f"{self.name}({sign})")
+# 
+#         elif self.is_elements():
+#             count = len(self.alternation)
+#             parts.append(f"{self.name}({count})")
+# 
+#         else:
+        for value in self.values:
+            if isinstance(value, ABNFDefinition):
+                if value.is_rulename():
+                    parts.append(f"{value.name}({value.values[0]})")
+
+                elif value.is_definedas():
+                    sign = value.options["sign"]
+                    parts.append(f"{value.name}({sign})")
+
+                # this is useless because elements always has one alternation
+#                 elif value.is_elements():
+#                     count = len(value.alternation)
+#                     parts.append(f"{value.name}({count})")
+
+                else:
+                    parts.append(value.name)
+
+            else:
+                parts.append(str(value))
+
+        return " ".join(parts)
+
+    def is_numval(self):
+        return self.is_binval() \
+            or self.is_decval() \
+            or self.is_hexval()
+
+    def is_terminal(self):
+        return self.is_quotedstring() or self.is_numval()
+
+    def parse(self, buffer):
+        if self.is_rule():
+            for rule in itertools.chain([self.values[2]], self.values[4:]):
+                try:
+                    return rule.parse(buffer)
+
+                except ValueError:
+                    pass
+
+
+        elif self.is_alternation():
+            for rule in self.definitions:
+                try:
+                    return rule.parse(buffer)
+
+                except ValueError:
+                    pass
+
+        elif self.is_repetition():
+            # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
+            for repeat, elem in itertools.zip_longest(*[iter(self.values)] * 2):
+                #pout.v(repeat, elem)
+                p = elem.parse(buffer)
+
+        elif self.is_rulename():
+            pout.v(self.values[0])
+            rule = self.grammar.parser_rules[self.values[0]]
+            return rule.parse(buffer)
+
+        elif self.is_quotedstring():
+            pout.v(self.values)
+
+        elif self.is_numval():
+            pout.v(self.values)
+
+        else:
+            for rule in self.definitions:
+                p = rule.parse(buffer)
+
+    def merge(self, definition):
+        if self.is_rule() and definition.is_rule():
+            # we need to make sure the defined-as definition is =/
+            definedas = definition.values[1]
+            for v in definedas.values:
+                if isinstance(v, str):
+                    if v == "=/":
+                        self.values.append(definition)
+                        break
+
+                    else:
+                        raise ValueError(" ".join([
+                            f"When merging {self.rulename} the second",
+                            f"{self.rulename} must have an =/",
+                        ]))
+
+        else:
+            raise ValueError(f"Cannot have 2 {self.rulename} defined")
 
 
 class ABNFGrammar(Scanner):
     """This lexes an ABNF grammar
 
-    It's a pretty standard lexer that follows 5234:
+    It's a pretty standard lexer that follows rfc5234:
 
         https://www.rfc-editor.org/rfc/rfc5234
 
-    and the update for char-val in 7405:
+    and the update for char-val in rfc7405:
 
         https://datatracker.ietf.org/doc/html/rfc7405
 
     https://en.wikipedia.org/wiki/Augmented_Backus%E2%80%93Naur_form
     """
+    definition_class = ABNFDefinition
+
+#     @cachedproperty(cached="_parser_rules")
+    @functools.cached_property
+    def parser_rules(self):
+        rules = {}
+        #rules = defaultdict(list)
+        for rule in itertools.chain(self, self.core_rules()):
+            rulename = rule.values[0].values[0]
+            if rulename in rules:
+                rules[rulename].merge(rule)
+
+            else:
+                rules[rulename] = rule
+
+#         for rule in self.core_rules():
+#             rules[rule.values[0].values[0]].append(rule)
+
+        return rules
+
+    def __init__(self, buffer, definition_class=None):
+        if definition_class:
+            self.definition_class = definition_class
+
+        super().__init__(buffer)
 
     @contextmanager
     def optional(self):
@@ -49,6 +215,114 @@ class ABNFGrammar(Scanner):
 
         except (IndexError, ValueError) as e:
             pass
+
+    def logmethod(self, method):
+
+        def logpeek():
+            ch = self.peek()
+            if ch == "\r":
+                ch = "\\r"
+
+            elif ch == "\n":
+                ch = "\\n"
+
+            return ch
+
+        def wrapper(*args, **kwargs):
+            name = method.__name__
+            ch = logpeek()
+            start = self.tell()
+
+            logger.debug(
+                f"{name} starting at character {start}: [{ch}]"
+            )
+
+            ret = method(*args, **kwargs)
+
+            stop = self.tell()
+            ch = logpeek()
+            logger.debug(
+                f"{name} stopping at character {stop}: [{ch}]"
+            )
+
+            return ret
+
+        return wrapper
+
+    def __getattribute__(self, key):
+        if key.startswith("scan_"):
+            return self.logmethod(super().__getattribute__(key))
+
+        else:
+            return super().__getattribute__(key)
+
+    def __iter__(self):
+        """If you just iterate the grammar instance it will just iterate the
+        rules"""
+        self.seek(0)
+
+        r = self.scan_rulelist()
+        for value in r.values:
+            if isinstance(value, self.definition_class):
+                if value.name == "rule":
+                    yield value
+
+    def create_definition(self, *args, **kwargs):
+        return self.definition_class(self, *args, **kwargs)
+
+    def core_rules(self):
+        """Return the core rules defined in rfc5234 appendix B.1
+
+        We get very meta here in that we get the rules by parsing them
+
+        https://www.rfc-editor.org/rfc/rfc5234#appendix-B.1
+
+        :returns: dict, the key is the rule name and the value is the rule
+            instance
+        """
+        buffer = "\n".join([
+            "ALPHA = %x41-5A / %x61-7A   ; A-Z / a-z",
+            "BIT =  \"0\" / \"1\"",
+            "CHAR =  %x01-7F"
+            "   ; any 7-bit US-ASCII character,",
+            "   ;  excluding NUL",
+            "CR = %x0D",
+            "   ; carriage return",
+            "CRLF = CR LF",
+            "   ; Internet standard newline",
+            "CTL = %x00-1F / %x7F",
+            "   ; controls",
+            "DIGIT = %x30-39",
+            "   ; 0-9",
+            "DQUOTE = %x22",
+            "; \" (Double Quote)",
+            "HEXDIG = DIGIT / \"A\" / \"B\" / \"C\" / \"D\" / \"E\" / \"F\"",
+            "HTAB = %x09",
+            "; horizontal tab",
+            "LF = %x0A",
+            "   ; linefeed",
+            "LWSP = *(WSP / CRLF WSP)",
+            "   ; Use of this linear-white-space rule",
+            "   ;  permits lines containing only white",
+            "   ;  space that are no longer legal in",
+            "   ;  mail headers and have caused",
+            "   ;  interoperability problems in other",
+            "   ;  contexts.",
+            "   ; Do not use when defining mail",
+            "   ;  headers and use with caution in",
+            "   ;  other contexts.",
+            "OCTET = %x00-FF",
+            "   ; 8 bits of data",
+            "SP = %x20",
+            "VCHAR = %x21-7E",
+            "   ; visible (printing) characters",
+            "WSP = SP / HTAB",
+            "   ; white space",
+        ])
+
+        g = type(self)(buffer)
+        for rule in g:
+            yield rule
 
     def read_rule(self):
         lines = []
@@ -70,6 +344,34 @@ class ABNFGrammar(Scanner):
         stop = scanner.tell() - 1
         return "\n".join(lines)
 
+    def scan_rulelist(self):
+        """
+        rulelist       =  1*( rule / (*c-wsp c-nl) )
+        """
+        start = self.tell()
+        values = []
+
+        try:
+            while True:
+                try:
+                    values.append(self.scan_rule())
+
+                except ValueError:
+                    with self.optional() as scanner:
+                        values.append(scanner.scan_cwsp())
+
+                    values.append(self.scan_cnl())
+
+        except ValueError:
+            pass
+
+        return self.create_definition(
+            "rulelist",
+            values,
+            start,
+            self.tell()
+        )
+
     def scan_rule(self):
         """
         rule           =  rulename defined-as elements c-nl
@@ -77,11 +379,15 @@ class ABNFGrammar(Scanner):
                                 ;  with white space
         """
         rulename = self.scan_rulename()
+        logger.info(f"Parsing rule: {rulename.values[0]}")
+
         defined_as = self.scan_definedas()
         elements = self.scan_elements()
         cnl = self.scan_cnl()
 
-        return Definition(
+        #pout.v(self.getvalue()[rulename.start:cnl.stop])
+
+        return self.create_definition(
             "rule",
             [rulename, defined_as, elements, cnl],
             rulename.start,
@@ -94,14 +400,14 @@ class ABNFGrammar(Scanner):
         """
         start = self.tell()
         ch = self.peek()
-        if ch in String.ALPHA:
+        if ch and ch in String.ALPHA:
             rulename = self.read_thru_chars(String.ALPHANUMERIC + "-")
 
         else:
-            raise ValueError(f"{ch} was not an ALPHA character")
+            raise ValueError(f"[{ch}] was not an ALPHA character")
 
         stop = self.tell()
-        return Definition("rulename", [rulename], start, stop)
+        return self.create_definition("rulename", [rulename], start, stop)
 
     def scan_definedas(self):
         """
@@ -111,6 +417,7 @@ class ABNFGrammar(Scanner):
         """
         values = []
         start = self.tell()
+        options = {}
 
         with self.optional() as scanner:
             values.append(scanner.scan_cwsp())
@@ -118,6 +425,7 @@ class ABNFGrammar(Scanner):
         sign = scanner.read_thru_chars("=/")
         if sign in set(["=", "=/"]):
             values.append(sign)
+            options["sign"] = sign
 
         else:
             raise ValueError(f"{sign} is not = or =/")
@@ -125,11 +433,12 @@ class ABNFGrammar(Scanner):
         with self.optional() as scanner:
             values.append(scanner.scan_cwsp())
 
-        return Definition(
+        return self.create_definition(
             "defined-as",
             values,
             start,
-            self.tell()
+            self.tell(),
+            **options
         )
 
     def scan_cwsp(self):
@@ -140,7 +449,7 @@ class ABNFGrammar(Scanner):
         space = self.read_thru_hspace()
         if space:
             stop = self.tell()
-            cwsp = Definition("c-wsp", [space], start, stop)
+            cwsp = self.create_definition("c-wsp", [space], start, stop)
 
         else:
             comment = self.scan_cnl()
@@ -148,7 +457,12 @@ class ABNFGrammar(Scanner):
             space = self.read_thru_hspace()
             if space:
                 stop = self.tell()
-                cwsp = Definition("c-wsp", [comment, space], start, stop)
+                cwsp = self.create_definition(
+                    "c-wsp",
+                    [comment, space],
+                    start,
+                    stop
+                )
 
             else:
                 raise ValueError("(c-nl WSP) missing WSP")
@@ -163,7 +477,7 @@ class ABNFGrammar(Scanner):
         ch = self.peek()
         if ch == ";":
             comment = self.scan_comment()
-            cnl = Definition(
+            cnl = self.create_definition(
                 "c-nl",
                 [comment],
                 comment.start,
@@ -175,9 +489,9 @@ class ABNFGrammar(Scanner):
             start = self.tell()
             newline = self.read_until_newline()
             stop = self.tell()
-            crlf = Definition("CRLF", newline, start, stop)
+            crlf = self.create_definition("CRLF", newline, start, stop)
 
-            cnl = Definition(
+            cnl = self.create_definition(
                 "c-nl",
                 [crlf],
                 crlf.start,
@@ -202,9 +516,14 @@ class ABNFGrammar(Scanner):
             raise ValueError("Comment must end with a newline")
 
         stop = self.tell()
-        return Definition("comment", [comment.strip()], start, stop)
+        return self.create_definition(
+            "comment",
+            [comment.strip()],
+            start,
+            stop
+        )
 
-    def scan_elements(self, scanner):
+    def scan_elements(self):
         """
         elements       =  alternation *c-wsp
         """
@@ -216,7 +535,7 @@ class ABNFGrammar(Scanner):
         with self.optional() as scanner:
             values.append(scanner.scan_cwsp())
 
-        return Definition(
+        return self.create_definition(
             "elements",
             values,
             start,
@@ -238,7 +557,9 @@ class ABNFGrammar(Scanner):
                 values.append(scanner.scan_cwsp())
 
             ch = self.peek()
-            if ch == "/":
+            if ch == "/" or ch == "|":
+                values.append(self.read(1))
+
                 with self.optional() as scanner:
                     values.append(scanner.scan_cwsp())
 
@@ -247,7 +568,7 @@ class ABNFGrammar(Scanner):
             else:
                 break
 
-        return Definition(
+        return self.create_definition(
             "alternation",
             values,
             start,
@@ -272,7 +593,7 @@ class ABNFGrammar(Scanner):
             except (IndexError, ValueError):
                 break
 
-        return Definition(
+        return self.create_definition(
             "concatenation",
             values,
             start,
@@ -285,7 +606,7 @@ class ABNFGrammar(Scanner):
         """
         repeat = self.scan_repeat()
         element = self.scan_element()
-        return Definition(
+        return self.create_definition(
             "repetition",
             [repeat, element],
             repeat.start,
@@ -314,13 +635,13 @@ class ABNFGrammar(Scanner):
             max_repeat = 0
 
             ch = self.peek()
-            if ch in String.DIGITS:
+            if ch and ch in String.DIGITS:
                 max_repeat = int(self.read_thru_chars(String.DIGITS))
 
         else:
             max_repeat = min_repeat
 
-        return Definition(
+        return self.create_definition(
             "repeat",
             [min_repeat, max_repeat],
             start,
@@ -344,7 +665,7 @@ class ABNFGrammar(Scanner):
             qs = self.scan_quotedstring(case_sensitive=False)
             # we wrap it in a char-val to be rfc7405 consistent
             values.append(
-                Definition(
+                self.create_definition(
                     "char-val",
                     [qs],
                     qs.start,
@@ -365,9 +686,9 @@ class ABNFGrammar(Scanner):
             values.append(self.scan_proseval())
 
         else:
-            raise ValueError("Unknown element")
+            raise ValueError(f"Unknown element starting with [{ch}]")
 
-        return Definition(
+        return self.create_definition(
             "element",
             values,
             start,
@@ -388,7 +709,7 @@ class ABNFGrammar(Scanner):
         start = self.tell()
         charval = self.read_until_delim("\"", count=2)
         charval = charval.strip("\"")
-        return Definition(
+        return self.create_definition(
             "quoted-string",
             [charval],
             start,
@@ -474,7 +795,7 @@ class ABNFGrammar(Scanner):
         else:
             raise ValueError(f"Terminal value {ch} failed")
 
-        return Definition(
+        return self.create_definition(
             name,
             values,
             start,
@@ -495,7 +816,7 @@ class ABNFGrammar(Scanner):
             raise ValueError("prose-val begins with <")
 
         val = self.read_until_delim(">").strip(">")
-        return Definition(
+        return self.create_definition(
             "prose-val",
             [val],
             start,
@@ -529,7 +850,7 @@ class ABNFGrammar(Scanner):
 
         values.append(ch)
 
-        return Definition(
+        return self.create_definition(
             "group",
             values,
             start,
@@ -542,7 +863,7 @@ class ABNFGrammar(Scanner):
         """
         start = self.tell()
         group = self.scan_group("[", "]")
-        return Definition(
+        return self.create_definition(
             "option",
             group.values,
             group.start,
@@ -550,196 +871,62 @@ class ABNFGrammar(Scanner):
         )
 
 
+class ABNFParser(object):
+    """
+    https://en.wikipedia.org/wiki/Augmented_Backus%E2%80%93Naur_form
 
+    A parser takes the stream of tokens from the lexer and gives it some sort
+    of structure that was represented by the original text
+    """
+    grammar_class = ABNFGrammar
 
+    def __init__(self, grammar, **kwargs):
+        self.grammar = self.create_grammar(grammar, **kwargs)
 
-class ABNFElement(object):
-    CHARVAL = 1
-    RULENAME = 2
-    GROUP = 3
-    COMMENT = 4
-    def __init__(self, element_type, value=None):
-        self.element_type = element_type
-        self.value = value
-        self.min_count = 1
-        self.max_count = 1
-        self.or_clause = False
-
-
-class ABNFRule(Token):
-
-    def __init__(self, tokenizer, name, start, stop):
-        self.name = name
-        self.definitions = []
-        #self.definitions = definitions
-        #self.comments = comments
-
-        super().__init__(tokenizer, start=start, stop=stop)
-
-    def __iter__(self):
-        alternation = []
-        for definition in self.definitions:
-            if definition.or_clause:
-                alternation.append(definition)
-
-            else:
-                if alternation:
-                    alternation.append(definition)
-                    yield alternation
-
-                    alternation = []
-
-                else:
-                    yield [definition]
-
-#     def x__init__(self, tokenizer, name, definitions, comments, start, stop):
-#         self.name = name
-#         self.definitions = definitions
-#         self.comments = comments
-# 
-#         super().__init__(tokenizer, start=start, stop=stop)
-
-
-class ABNFTokenizer(Tokenizer):
-
-    rule_class = ABNFRule
-
-    scanner_class = ABNFGrammar
-
-    definition_class = Definition
-
-    def set_buffer(self, buffer):
-        self.buffer = self.scanner_class(buffer)
-
-    def next(self):
-        rule = self.next_rule()
-        if rule:
-            scanner = self.scanner_class(rule.buffer)
-            rulename = self.scan_rulename(scanner)
-            defined_as = self.scan_defined_as(scanner)
-            elements = self.scan_elements(scanner)
-            comment = self.scan_cnl(scanner)
-
-
-#             rule = self.rule_class(
-#                 self,
-#                 rulename,
-#                 start=stmt.start,
-#                 stop=stmt.stop
-#             )
-#             return self.tokenize_definition(rule, scanner)
-
-        else:
-            raise StopIteration()
-
-    def next2(self):
-        scanner = self.buffer
-        start = scanner.tell()
-        comments = []
-        definitions = []
-
-        name = scanner.read_to_delim("=").strip()
-
-        # move passed the equal sign and whitespace to the right of the equal
-        # sign
-        scanner.read_thru_chars("= \t")
-
-        while scanner:
-            ch = scanner.peek()
-
-            if ch == "\"":
-                literal = scanner.read_until_delim("\"", count=2)
-                literal = literal.strip("\"")
-                definitions.append(literal)
-
-            elif ch in String.ASCII_LETTERS:
-                rule = scanner.read_to_chars(String.WHITESPACE + ";")
-                definitions.append(rule)
-
-            elif ch == ";":
-                comments.append(scanner.read_to_newline())
-
-            elif ch == "\n":
-                scanner.read_thru_chars("\n")
-                ch = scanner.peek()
-                if not ch.isspace():
-                    break
-
-            else:
-                scanner.read_thru_chars(" \t")
-
-        stop = scanner.tell() - 1
-#         if stop < 0:
-#             pout.v(scanner.getvalue())
-#             stop = len(scanner.getvalue()) - 1
-
-        return self.token_class(
-            self,
-            name=name,
-            definitions=definitions,
-            comments=comments,
-            start=start,
-            stop=stop
+    def create_grammar(self, grammar, **kwargs):
+        grammar_class = kwargs.get(
+            "grammar_class",
+            self.grammar_class
         )
 
+        return grammar_class(
+            grammar,
+            definition_class=kwargs.get("definition_class", None)
+        )
 
-    def tokenize_definition(self, rule, scanner):
-        while scanner:
-            ch = scanner.peek()
+    def __getattr__(self, key):
+        try:
+            return self.grammar.parser_rules[key]
 
-            if ch == "\"":
-                literal = scanner.read_until_delim("\"", count=2)
-                literal = literal.strip("\"")
-                rule.definitions.append(self.definition_class(
-                    self.definition_class.LITERAL,
-                    literal
-                ))
+        except KeyError as e:
+            raise AttributeError(key) from e
 
-            elif ch in String.ALPHANUMERIC + "-":
-                rulename = scanner.read_to_chars(String.WHITESPACE + ";")
-                rule.definitions.append(self.definition_class(
-                    self.definition_class.RULE,
-                    rulename.lower()
-                ))
+#     def parse_rule(self, rule, scanner):
+#         for definition in rule.definitions:
+#             pass
+# 
+#     def parse(self, buffer):
+#         rule = self.parse_grammar()
+#         scanner = Scanner(buffer)
+#         r = self.parse_rule(rule, scanner)
 
-            elif ch == "[":
-                gstart = scanner.tell()
-                gbuffer = scanner.read_until_delim("]")
-                gstop = scanner.tell()
-                grule = self.rule_class(
-                    self,
-                    "",
-                    start=gstart,
-                    stop=gstop,
-                )
-                gscanner = self.scanner_class(gbuffer[1:-1])
-                grule = self.tokenize_definition(grule, gscanner)
+        # all rule definitions have the same basic structure: [rulename, elements]
+        # And elements breaks down to: 
+        #   elements -> alternation
+        #   alternation -> concatenation
+        #   concatenation -> repetition
+        #   repetition -> repeat element
+        #
+        #   so basically every rule can eventually get to [repeat, element] and
+        #   that's what we want to iterate on. They will have to be grouped into
+        #   alternates, so each iteration will be a set of [repeat, element] that
+        #   have to be matched for buffer to be valid. Really though, it should
+        #   be a sequence of [repeat, rulename|*val].
+        #
+        #   so each alternation should break down to [repeat, rulename|*val], so
+        #   this will be really recursive, with each rule checking itself and then
+        #   bubbling up and each new rule checking the repeat value
+        #   - rule
 
-                group = self.definition_class(
-                    self.definition_class.GROUP,
-                    grule,
-                )
-                group.min = 0
-                rule.definitions.append(group)
 
-            elif ch == "/" or ch == "|":
-                rule.definitions[-1].or_clause = True
-                scanner.read_thru_chars("/|")
-
-            elif ch == ";":
-                rule.definitions.append(self.definition_class(
-                    self.definition_class.COMMENT,
-                    scanner.read_to_newline()
-                ))
-
-            elif ch == "\n":
-                scanner.read_thru_chars("\n")
-                ch = scanner.peek()
-                if not ch.isspace():
-                    break
-
-            else:
-                scanner.read_thru_chars(" \t")
-
-        return rule
 

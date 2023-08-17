@@ -6,8 +6,7 @@ from datatypes.parse import (
     ArgvParser,
     ArgParser,
     Version,
-    ABNFParser,
-    ABNFScanner,
+#     ABNFParser,
 )
 
 from . import TestCase, testdata
@@ -117,25 +116,43 @@ class VersionParser(TestCase):
         self.assertTrue(Version("1.a3.2") > Version("1.a3.1"))
 
 
-class ABNFScannerTest(TestCase):
-    def test_read_statement(self):
-        buffer = "\n".join([
-            "foo = bar / che",
-            "  / baz",
-            "  / boo",
-            "bar = cheboo",
-        ])
-
-        s = ABNFScanner(buffer)
-        self.assertEqual("foo = bar / che / baz / boo", s.read_statement())
-        self.assertEqual("bar = cheboo", s.read_statement())
-        self.assertEqual("", s.read_statement())
-
-
-
-class ABNFParserTest(TestCase):
-    def test_parse(self):
-        p = ABNFParser()
-        p.loads('dict = "{" statement *( "," statement ) "}"')
-
-
+# class ABNFParserTest(TestCase):
+#     parser_class = ABNFParser
+# 
+#     def create_instance(self, buffer, **kwargs):
+#         if isinstance(buffer, list):
+#             if buffer[-1] != "":
+#                 buffer.append("")
+#             buffer = "\n".join(buffer)
+# 
+#         return self.parser_class(buffer, **kwargs)
+# 
+#     def test_parse_1(self):
+#         p = self.create_instance([
+#             "exp = exp \"+\" term | exp \"-\" term | term",
+#             "term = term \"*\" power | term \"/\" power | power",
+#             "power = factor \"^\" power | factor",
+#             "factor = \"(\" exp \")\" | 1*DIGIT",
+#         ])
+# 
+#         r = p.parse("6 + 3 * 4")
+#         pout.v(r)
+# 
+# 
+#     def test_parse_toml(self):
+#         from datatypes import UrlFilepath
+#         fp = UrlFilepath("https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf")
+#         p = ABNFParser(fp.read_text())
+# 
+#         pout.v(p.ruletree)
+# 
+#         return
+# 
+#         buffer = Filepath("~/Projects/Testdata/_testdata/pyproject.toml").read_text()
+# 
+#         p.parse(buffer)
+# 
+# 
+#         #p.loads('dict = "{" statement *( "," statement ) "}"')
+# 
+# 

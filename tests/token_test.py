@@ -11,6 +11,7 @@ from datatypes.token.word import (
 )
 from datatypes.token.abnf import (
     ABNFGrammar,
+    ABNFParser,
 )
 
 
@@ -20,6 +21,8 @@ from . import TestCase as _TestCase, testdata
 class TestCase(_TestCase):
     def create_instance(self, buffer, **kwargs):
         if isinstance(buffer, list):
+            if buffer[-1] != "":
+                buffer.append("")
             buffer = "\n".join(buffer)
 
         return self.tokenizer_class(buffer, **kwargs)
@@ -614,5 +617,118 @@ class ABNFGrammarTest(TestCase):
 
     def test_scan_group(self):
         r = self.create_instance("(foo bar)").scan_group()
-        pout.v(r.values[1].values[0])
+        concat = r.values[1].values[0]
+        elem = concat.values[0].values[1]
+        rulename = elem.values[0].values[0]
+        self.assertEqual("foo", rulename)
+
+    def test_scan_repetition(self):
+        r = self.create_instance("1foo").scan_repetition()
+        self.assertEqual([1, 1], r.repeat[0].values)
+        self.assertEqual("foo", r.rulename[0].values[0])
+
+    def test_scan_concatenation(self):
+        r = self.create_instance("1foo bar").scan_concatenation()
+        self.assertEqual("foo", r.rulename[0].values[0])
+        self.assertEqual("bar", r.rulename[1].values[0])
+
+    def test_scan_alternation(self):
+        r = self.create_instance("foo | bar | che").scan_alternation()
+        self.assertEqual("foo", r.rulename[0].values[0])
+        self.assertEqual("bar", r.rulename[1].values[0])
+        self.assertEqual("che", r.rulename[2].values[0])
+
+    def test_ruletree(self):
+        g = self.create_instance([
+            "exp = exp \"+\" term | exp \"-\" term | term",
+            "term = term \"*\" power | term \"/\" power | power",
+            "power = factor \"^\" power | factor",
+            "factor = \"(\" exp \")\" | int",
+            "int = 1*DIGIT",
+        ])
+
+        head = g.ruletree()
+        for rulename in ["exp", "term", "power", "factor", "int"]:
+            self.assertTrue(rulename in head.rules)
+
+    def test_scan_rulelist(self):
+        g = self.create_instance([
+            ";; first line of comment",
+            ";; second line of comment",
+            "",
+            "foo = DIGIT",
+            "",
+            ";; third comment",
+            "",
+            "bar = DIGIT",
+            "    ;; fourth comment",
+            "che = DIGIT ; fifth comment",
+        ])
+
+        r = g.scan_rulelist()
+        self.assertEqual(5, len(r.comment))
+        self.assertEqual(3, len(r.rule))
+        self.assertEqual("foo", r.rule[0].rulename[0].values[0])
+        self.assertEqual("bar", r.rule[1].rulename[0].values[0])
+        self.assertEqual("che", r.rule[2].rulename[0].values[0])
+
+    def test_core_rules(self):
+        g = self.create_instance("")
+        g.core_rules() # if there isn't an error then it's working
+
+    def test_rule_merge(self):
+        g = self.create_instance([
+            "foo = DIGIT",
+            "foo =/ ALPHA",
+        ])
+
+        foo = g.parser_rules["foo"]
+        self.assertTrue(isinstance(foo.values[-1], type(foo)))
+
+        with self.assertRaises(ValueError):
+            g = self.create_instance([
+                "foo = DIGIT",
+                "foo = ALPHA",
+            ]).parser_rules
+
+
+
+
+class ABNFParserTest(TestCase):
+    tokenizer_class = ABNFParser
+
+    def test_parse_1(self):
+        p = self.create_instance([
+            "exp = exp \"+\" term | exp \"-\" term | term",
+            "term = term \"*\" power | term \"/\" power | power",
+            "power = factor \"^\" power | factor",
+            "factor = \"(\" exp \")\" | 1*DIGIT",
+        ])
+
+
+        r = p.exp.parse("6 + 3")
+
+        return
+
+
+        r = p.exp.parse("6 + 3 * 4")
+        pout.v(r)
+
+
+    def test_parse_toml(self):
+        from datatypes import UrlFilepath
+        fp = UrlFilepath("https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf")
+        p = ABNFParser(fp.read_text())
+
+        pout.v(p.ruletree)
+
+        return
+
+        buffer = Filepath("~/Projects/Testdata/_testdata/pyproject.toml").read_text()
+
+        p.parse(buffer)
+
+
+        #p.loads('dict = "{" statement *( "," statement ) "}"')
+
 
