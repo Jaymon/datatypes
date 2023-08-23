@@ -1234,7 +1234,14 @@ class Path(String):
 
     def created(self):
         """return a datetime.datetime of when the file was created"""
-        t = os.path.getctime(self.path)
+        try:
+            # https://stackoverflow.com/a/947239
+            # https://stackoverflow.com/a/39501288
+            t = self.stat().st_birthtime
+
+        except AttributeError:
+            t = os.path.getctime(self.path)
+
         return Datetime(t)
         #return datetime.datetime.fromtimestamp(t)
 

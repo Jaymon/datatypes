@@ -183,9 +183,14 @@ class Url(String):
                 o = parse.urlsplit(String(urlstring))
 
             else:
-                # if we don't have a url so let's make it a url by putting // in
-                # front of it so it will still parse correctly
-                s = "//{}".format(String(urlstring))
+                s = String(urlstring)
+                part = s.split("/", maxsplit=1)[0]
+                if "." in part:
+                    # if we don't have a url but it looks like we have a host so
+                    # let's make it a url by putting // in front of it so it
+                    # will still parse correctly
+                    s = "//{}".format(String(urlstring))
+
                 o = parse.urlsplit(s)
 
             for k in properties:
@@ -351,7 +356,10 @@ class Url(String):
         """
         args = []
         for ps in paths:
-            if not ps: continue
+            if not ps:
+                continue
+            if ps == ".":
+                continue
 
             if isinstance(ps, int):
                 args.append(String(ps))
@@ -505,8 +513,8 @@ class Url(String):
     def base(self, *paths, **query_kwargs):
         """create a new url object using the current base path as a base
 
-        if you had requested /foo/bar, then this would append *paths and **query_kwargs
-        to /foo/bar
+        if you had requested /foo/bar, then this would append *paths and
+        **query_kwargs to /foo/bar
 
         :example:
             # current path: /foo/bar
@@ -516,7 +524,8 @@ class Url(String):
             print url.base() # http://host.com/foo/bar
             print url.base("che", boom="bam") # http://host/foo/bar/che?boom=bam
 
-        :param *paths: list, the paths to append to the current path without query params
+        :param *paths: list, the paths to append to the current path without
+            query params
         :param **query_kwargs: dict, any query string params to add
         """
         kwargs = self._normalize_params(*paths, **query_kwargs)
@@ -531,26 +540,37 @@ class Url(String):
     def host(self, *paths, **query_kwargs):
         """create a new url object using the host as a base
 
-        if you had requested http://host/foo/bar, then this would append *paths and **query_kwargs
-        to http://host
+        if you had requested http://host/foo/bar, then this would append *paths
+        and **query_kwargs to http://host
 
         :example:
             # current url: http://host/foo/bar
 
-            print url # http://host.com/foo/bar
+            print(url) # http://host.com/foo/bar
 
-            print url.host() # http://host.com/
-            print url.host("che", boom="bam") # http://host/che?boom=bam
+            print(url.host()) # http://host.com/
+            print(url.host("che", boom="bam")) # http://host/che?boom=bam
 
-        :param *paths: list, the paths to append to the current path without query params
+        :param *paths: list, the paths to append to the current path without
+            query params
         :param **query_kwargs: dict, any query string params to add
         """
         kwargs = self._normalize_params(*paths, **query_kwargs)
         return self.create(self.root, **kwargs)
 
     def child(self, *paths, **kwargs):
-        """Layers paths and kwargs on top of self, using passed in values to replace
-        anything in self
+        """Layers paths and kwargs on top of self, using passed in values to
+        replace anything in self
+
+        :Example:
+            u = Url("foo", 1)
+            print(u) # foo/1
+
+            u2 = u.child("bar", 2)
+            print(u2) # foo/1/bar/2
+
+            u3 = u.child(path=["bar", 2])
+            print(u2) # bar/2
 
         :param *paths: url path parts
         :param **kwargs: same kwargs that can be passed into creation
@@ -558,14 +578,8 @@ class Url(String):
         """
         return self.create(self, *paths, **kwargs)
 
-    def copy(self):
-        return self.__deepcopy__()
-
-    def __copy__(self):
-        return self.__deepcopy__()
-
-    def __deepcopy__(self, memodict={}):
-        return self.create(
+    def jsonable(self):
+        return dict(
             scheme=self.scheme,
             username=self.username,
             password=self.password,
@@ -575,6 +589,24 @@ class Url(String):
             query_kwargs=self.query_kwargs,
             fragment=self.fragment,
         )
+
+    def copy(self):
+        return self.__deepcopy__()
+
+    def __copy__(self):
+        return self.__deepcopy__()
+
+    def __deepcopy__(self, memodict={}):
+        return self.create(**self.jsonable())
+#             scheme=self.scheme,
+#             username=self.username,
+#             password=self.password,
+#             hostname=self.hostname,
+#             port=self.port,
+#             path=self.path,
+#             query_kwargs=self.query_kwargs,
+#             fragment=self.fragment,
+#         )
 
     def __add__(self, other):
         ret = ""

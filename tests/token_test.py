@@ -692,10 +692,55 @@ class ABNFGrammarTest(TestCase):
             ]).parser_rules
 
 
+class ABNFDefinitionTest(TestCase):
+    tokenizer_class = ABNFGrammar
+
+    def create_instance(self, name, buffer, **kwargs):
+        instance = super().create_instance(buffer, **kwargs)
+        method = getattr(instance, f"scan_{name}")
+        return method()
+
+    def test_val_range(self):
+        t = self.create_instance("val", "%xfe34-fffff")
+        self.assertEqual(65076, t.min)
+        self.assertEqual(1048575, t.max)
+
+        t = self.create_instance("val", "%xfe34")
+        self.assertEqual(65076, t.min)
+        self.assertEqual(65076, t.max)
+
+        t = self.create_instance("val", "%b110-1100")
+        self.assertEqual(6, t.min)
+        self.assertEqual(12, t.max)
+
+        t = self.create_instance("val", "%b110")
+        self.assertEqual(6, t.min)
+        self.assertEqual(6, t.max)
+
+        t = self.create_instance("val", "%d10-200")
+        self.assertEqual(10, t.min)
+        self.assertEqual(200, t.max)
+
+        t = self.create_instance("val", "%d10")
+        self.assertEqual(10, t.min)
+        self.assertEqual(10, t.max)
 
 
 class ABNFParserTest(TestCase):
     tokenizer_class = ABNFParser
+
+    def test_parse_2(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor | exp \"-\" factor | factor",
+            "factor = 1*DIGIT",
+        ])
+        p.grammar.parser_rules
+
+        pout.b()
+
+        r = p.exp.parse("6+3")
+
+
 
     def test_parse_1(self):
         p = self.create_instance([

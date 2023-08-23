@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
+import itertools
 
 from .compat import *
 
@@ -115,4 +115,28 @@ class Singleton(object):
         if not cls.instance:
             cls.instance = super().__new__(cls, *args, **kwargs)
         return cls.instance
+
+
+def batched(iterable, n):
+    """Batch data from the iterable into tuples of length n. The last batch may
+    be shorter than n
+
+    :Example:
+        # py 3.12+
+        itertools.batched('ABCDEFG', 3) --> ABC DEF G
+
+    Copy of itertools.batched in 3.12+
+
+    https://docs.python.org/3.12/library/itertools.html?highlight=batched#itertools.batched
+
+    """
+    # https://stackoverflow.com/questions/312443/how-do-i-split-a-list-into-equally-sized-chunks
+    #for repeat, elem in itertools.zip_longest(*[iter(self.values)] * 2):
+
+    if n < 1:
+        raise ValueError('n must be at least one')
+
+    it = iter(iterable)
+    while batch := tuple(itertools.islice(it, n)):
+        yield batch
 

@@ -473,12 +473,12 @@ class UnlinkedTagTokenizer(object):
 
         s = self.s
         tag = ""
-        plain = s.to("<")
+        plain = s.read_to_delim("<")
         while s:
             yield tag, plain
 
-            tag = s.until(">")
-            plain = s.to("<")
+            tag = s.read_until_delim(">")
+            plain = s.read_to_delim("<")
             if [st for st in start_set if tag.startswith(st)]:
             #if tag.startswith("<a"):
                 # get rid of </a>, we can't do anything with the plain because it
@@ -486,8 +486,8 @@ class UnlinkedTagTokenizer(object):
                 #while not tag.endswith("</a>"):
                 while len([st for st in stop_set if tag.endswith(st)]) == 0:
                     tag += plain
-                    tag += s.until(">")
-                    plain = s.to("<")
+                    tag += s.read_until_delim(">")
+                    plain = s.read_to_delim("<")
 
         # pick up any stragglers
         yield tag, plain

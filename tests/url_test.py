@@ -542,7 +542,7 @@ class UrlTest(TestCase):
         u = Url("", "foo")
         self.assertEqual("foo", u)
 
-    def test_normalize_paths(self):
+    def test_normalize_paths_1(self):
         ps = Url.normalize_paths("/foo")
         self.assertEqual(["/", "foo"], ps)
 
@@ -555,13 +555,37 @@ class UrlTest(TestCase):
         ps = Url.normalize_paths("foo/bar")
         self.assertEqual(["foo", "bar"], ps)
 
+    def test_normalize_paths_dotdir(self):
+        u = Url("http://example.com", ".")
+        self.assertEqual("http://example.com", u)
+
     def test_none_values(self):
         u = Url(scheme=None, hostname="example.com")
 
-    def test_child(self):
+    def test_child_1(self):
         u = Url("http://example.com")
         u2 = u.child("/foo/bar")
         self.assertEqual("http://example.com/foo/bar", u2)
+
+    def test_child_2(self):
+        u = Url("http://example.com")
+
+        uc = u.child("foo", 1)
+        self.assertEqual("http://example.com/foo/1", uc)
+
+        uc2 = uc.child("foo", 2)
+        self.assertEqual("http://example.com/foo/1/foo/2", uc2)
+
+        u = Url("")
+
+        uc = u.child("foo", 1)
+        self.assertEqual("foo/1", uc)
+
+        uc2 = uc.child("foo", 2)
+        self.assertEqual("foo/1/foo/2", uc2)
+
+        uc2 = uc.child(path=["foo", 2])
+        self.assertEqual("foo/2", uc2)
 
 
 class HostTest(TestCase):

@@ -968,24 +968,47 @@ class OrderedList(list):
         if key:
             self.key = key
         self._keys = []
-        super(OrderedList, self).__init__()
+        super().__init__()
         if iterable:
             for x in iterable:
                 self.append(x)
 
     def key(self, x):
+        """Returns the key that will be used to order x
+
+        You can override this method to customize ordering
+
+        :param x: Any, the object being inserted
+        :returns: str|int|Any, the hashable object that will be used for
+            ordering
+        """
         return x
+
+    def inserted(self, i, x):
+        """Called after x is inserted at position i
+
+        This is handy if you want to do some post insertion manipulation of the
+        list
+
+        :param i: int, the position x was inserted in the list, will be None if
+            x was inserted at the end of the list
+        :param x: Any, the object inserted into the list
+        """
+        pass
 
     def append(self, x):
         k = self.key(x)
         # https://docs.python.org/3/library/bisect.html#bisect.bisect_right
         i = bisect.bisect_right(self._keys, k)
         if i is None:
-            super(OrderedList, self).append((self.key(x), x))
+            super().append((self.key(x), x))
             self._keys.append(k)
+
         else:
-            super(OrderedList, self).insert(i, (self.key(x), x))
+            super().insert(i, (self.key(x), x))
             self._keys.insert(i, k)
+
+        self.inserted(i, x)
 
     def extend(self, iterable):
         for x in iterable:
@@ -994,22 +1017,28 @@ class OrderedList(list):
     def remove(self, x):
         k = self.key(x)
         self._keys.remove(k)
-        super(OrderedList, self).remove((k, x))
+        super().remove((k, x))
 
     def pop(self, i=-1):
         self._keys.pop(i)
-        return super(OrderedList, self).pop(i)[-1]
+        return super().pop(i)[-1]
 
     def clear(self):
-        super(OrderedList, self).clear()
+        super().clear()
         self._keys.clear()
 
     def __iter__(self):
-        for x in super(OrderedList, self).__iter__():
+        for x in super().__iter__():
             yield x[-1]
 
+    def __reversed__(self):
+        index = len(self)
+        while index > 0:
+            index -= 1
+            yield self[index]
+
     def __getitem__(self, i):
-        return super(OrderedList, self).__getitem__(i)[-1]
+        return super().__getitem__(i)[-1]
 
     def insert(self, i, x):
         raise NotImplementedError()
