@@ -123,17 +123,17 @@ class Integer(int):
                 else:
                     raise
 
-        return super(Integer, cls).__new__(cls, v)
+        return super().__new__(cls, v)
 
 
 class Hex(Integer):
     def __new__(cls, v):
-        return super(Hex, cls).__new__(cls, v, 16)
+        return super().__new__(cls, v, 16)
 
 
 class Binary(Integer):
     def __new__(cls, v):
-        return super(Binary, cls).__new__(cls, v, 2)
+        return super().__new__(cls, v, 2)
 
 
 class Exponential(object):

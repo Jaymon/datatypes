@@ -791,6 +791,14 @@ class Character(String):
     :Example:
         ch = Character("A")
         ch.hex # "0041"
+
+    https://docs.python.org/3/library/functions.html#ord
+
+        ord("A") # 65
+
+    https://docs.python.org/3/library/functions.html#chr
+
+        chr(65) # A
     """
     @property
     def hexes(self):
@@ -837,9 +845,15 @@ class Character(String):
         if not errors:
             errors = environ.ENCODING_ERRORS
 
-        codepoints = [Codepoint(cp, encoding, errors) for cp in cls.normalize(v, encoding, errors)]
+        codepoints = [
+            Codepoint(
+                cp,
+                encoding,
+                errors
+            ) for cp in cls.normalize(v, encoding, errors)
+        ]
 
-        instance = super(Character, cls).__new__(cls, "".join(codepoints), encoding, errors)
+        instance = super().__new__(cls, "".join(codepoints), encoding, errors)
         instance.codepoints = codepoints
         return instance
 

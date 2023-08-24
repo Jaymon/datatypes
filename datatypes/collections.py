@@ -578,7 +578,7 @@ class idict(NormalizeDict):
     python's built-in dict class (which is why the classname is all lowercase)"""
     def __init__(self, *args, **kwargs):
         self.ikeys = {} # hold mappings from normalized keys to the actual key
-        super(idict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def normalize_key(self, k):
         nk = k.lower()

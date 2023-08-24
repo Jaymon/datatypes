@@ -571,7 +571,7 @@ class ABNFGrammarTest(TestCase):
         with self.assertRaises(ValueError):
             self.create_instance("foo").scan_quotedstring()
 
-    def test_scan_val(self):
+    def test_scan_val_1(self):
         s = "12343567890"
         self.assertEqual(
             s,
@@ -611,6 +611,11 @@ class ABNFGrammarTest(TestCase):
         self.assertEqual("foo bar", r.values[2].values[0])
         self.assertFalse(r.values[2].options["case_sensitive"])
 
+    def test_scan_val_concatenation(self):
+        # I currently parse %d1.3.5.6 wrong, I was treating . and - as ranges, this
+        # needs to be fixed
+        raise NotImplementedError()
+
     def test_scan_proseval(self):
         r = self.create_instance("<foo bar>").scan_proseval()
         self.assertEqual("foo bar", r.values[0])
@@ -627,6 +632,14 @@ class ABNFGrammarTest(TestCase):
         self.assertEqual([1, 1], r.repeat[0].values)
         self.assertEqual("foo", r.rulename[0].values[0])
 
+        r = self.create_instance("1*DIGIT").scan_repetition()
+        self.assertEqual([1, 0], r.repeat[0].values)
+        self.assertEqual("DIGIT", r.rulename[0].values[0])
+
+        r = self.create_instance("3*5DIGIT").scan_repetition()
+        self.assertEqual([3, 5], r.repeat[0].values)
+        self.assertEqual("DIGIT", r.rulename[0].values[0])
+
     def test_scan_concatenation(self):
         r = self.create_instance("1foo bar").scan_concatenation()
         self.assertEqual("foo", r.rulename[0].values[0])
@@ -638,7 +651,7 @@ class ABNFGrammarTest(TestCase):
         self.assertEqual("bar", r.rulename[1].values[0])
         self.assertEqual("che", r.rulename[2].values[0])
 
-    def test_ruletree(self):
+    def test_parser_rules(self):
         g = self.create_instance([
             "exp = exp \"+\" term | exp \"-\" term | term",
             "term = term \"*\" power | term \"/\" power | power",
@@ -647,9 +660,8 @@ class ABNFGrammarTest(TestCase):
             "int = 1*DIGIT",
         ])
 
-        head = g.ruletree()
         for rulename in ["exp", "term", "power", "factor", "int"]:
-            self.assertTrue(rulename in head.rules)
+            self.assertTrue(rulename in g.parser_rules)
 
     def test_scan_rulelist(self):
         g = self.create_instance([
@@ -666,6 +678,7 @@ class ABNFGrammarTest(TestCase):
         ])
 
         r = g.scan_rulelist()
+
         self.assertEqual(5, len(r.comment))
         self.assertEqual(3, len(r.rule))
         self.assertEqual("foo", r.rule[0].rulename[0].values[0])
@@ -691,6 +704,25 @@ class ABNFGrammarTest(TestCase):
                 "foo = ALPHA",
             ]).parser_rules
 
+    def test_bad_rulename(self):
+        with self.assertRaises(ValueError):
+            g = self.create_instance([
+                "foo_bar = DIGIT",
+            ])
+            g.parser_rules
+
+        with self.assertRaises(ValueError):
+            g = self.create_instance([
+                "foo_bar = DIGIT",
+            ])
+            g.scan_rulelist()
+
+        with self.assertRaises(ValueError):
+            g = self.create_instance([
+                "foo_bar = DIGIT",
+            ])
+            g.scan_rule()
+
 
 class ABNFDefinitionTest(TestCase):
     tokenizer_class = ABNFGrammar
@@ -700,7 +732,7 @@ class ABNFDefinitionTest(TestCase):
         method = getattr(instance, f"scan_{name}")
         return method()
 
-    def test_val_range(self):
+    def test_val_min_max(self):
         t = self.create_instance("val", "%xfe34-fffff")
         self.assertEqual(65076, t.min)
         self.assertEqual(1048575, t.max)
@@ -725,20 +757,92 @@ class ABNFDefinitionTest(TestCase):
         self.assertEqual(10, t.min)
         self.assertEqual(10, t.max)
 
+    def test_val_chars(self):
+        # I currently parse %d1.3.5.6 wrong, I was treating . and - as ranges, this
+        # needs to be fixed
+        raise NotImplementedError()
+
 
 class ABNFParserTest(TestCase):
     tokenizer_class = ABNFParser
 
-    def test_parse_2(self):
+    def create_instance(self, *args, **kwargs):
+        instance = super().create_instance(*args, **kwargs)
+
+        # parse the grammar to make sure it's valid
+        instance.grammar.parser_rules
+
+        return instance
+
+    def test_parse_numval(self):
+        p = self.create_instance([
+            "foo = %d49",
+        ])
+
+        r = p.foo.parse("1")
+        self.assertEqual("foo", r.name)
+        self.assertEqual([1], r.values)
+
+    def test_parse_multi_numval(self):
+        p = self.create_instance([
+            "foo = 1*DIGIT",
+        ])
+
+        r = p.foo.parse("12")
+        self.assertEqual("foo", r.name)
+        self.assertEqual(2, len(r.values))
+
+    def test_parse_charval(self):
+        p = self.create_instance([
+            "foo = \"bar\"",
+        ])
+
+        r = p.foo.parse("bar")
+        self.assertEqual("foo", r.name)
+        self.assertEqual(1, len(r.values))
+        self.assertEqual("bar", r.values[0])
+
+    def test_parse_repetition(self):
+        p = self.create_instance([
+            "one-or-more = 1*DIGIT",
+            "two = DIGIT",
+            "three-five = 3*5DIGIT",
+        ])
+
+        parser = p.three_five
+        parser.scanner = parser.scanner_class("123456")
+        r = parser.parse_repetition(
+            p.grammar.parser_rules["three-five"].repetition[0]
+        )
+        self.assertEqual(5, len(r))
+        self.assertEqual(1, r[0].values[0])
+        self.assertEqual(5, r[-1].values[0])
+
+        parser = p.two
+        parser.scanner = parser.scanner_class("654")
+        r = parser.parse_repetition(
+            p.grammar.parser_rules["two"].repetition[0]
+        )
+        self.assertEqual(1, len(r))
+        self.assertEqual(6, r[0].values[0])
+
+        parser = p.one_or_more
+        parser.scanner = parser.scanner_class("654")
+        r = parser.parse_repetition(
+            p.grammar.parser_rules["one-or-more"].repetition[0]
+        )
+        self.assertEqual(3, len(r))
+
+    def test_parse_left_recurse_1(self):
         p = self.create_instance([
             "exp = exp \"+\" factor | exp \"-\" factor | factor",
             "factor = 1*DIGIT",
         ])
-        p.grammar.parser_rules
 
         pout.b()
 
         r = p.exp.parse("6+3")
+        pout.v(r)
 
 
 
