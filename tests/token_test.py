@@ -423,35 +423,35 @@ class ScannerTest(TestCase):
         self.assertEqual(" after", subtext)
 
 
-class ABNFTokenizerTest(TestCase):
-    tokenizer_class = ABNFGrammar
-
-    def test_or_statement(self):
-        t = self.create_instance("foo = bar / che / baz / boo")
-        rule = t.next()
-        pout.v(rule)
-        for options in rule:
-            pout.v(options, len(options))
-
-
-
-    def test_next_simple(self):
-        t = self.create_instance("foo = \"literal1\" rule1 \"literal2\"")
-        rule = t.next()
-        pout.v(rule)
-
-        return
-
-
-
-        t = self.create_instance([
-            "foo = bar / che",
-            "  / baz",
-            "  / boo",
-            "bar = cheboo",
-        ])
-
-        rule = t.next()
+# class ABNFTokenizerTest(TestCase):
+#     tokenizer_class = ABNFGrammar
+# 
+#     def test_or_statement(self):
+#         t = self.create_instance("foo = bar / che / baz / boo")
+#         rule = t.next()
+#         pout.v(rule)
+#         for options in rule:
+#             pout.v(options, len(options))
+# 
+# 
+# 
+#     def test_next_simple(self):
+#         t = self.create_instance("foo = \"literal1\" rule1 \"literal2\"")
+#         rule = t.next()
+#         pout.v(rule)
+# 
+#         return
+# 
+# 
+# 
+#         t = self.create_instance([
+#             "foo = bar / che",
+#             "  / baz",
+#             "  / boo",
+#             "bar = cheboo",
+#         ])
+# 
+#         rule = t.next()
 
 
 
@@ -506,41 +506,41 @@ class ABNFGrammarTest(TestCase):
         with self.assertRaises(ValueError):
             self.create_instance("foo bar").scan_comment()
 
-    def test_scan_cnl(self):
+    def test_scan_c_nl(self):
         with self.assertRaises(ValueError):
-            self.create_instance(" ").scan_cnl()
+            self.create_instance(" ").scan_c_nl()
 
         self.assertTrue(
-            self.create_instance("; foo\n").scan_cnl().values[0].is_comment()
+            self.create_instance("; foo\n").scan_c_nl().values[0].is_comment()
         )
 
         self.assertTrue(
-            self.create_instance("\r\n").scan_cnl().values[0].is_crlf()
+            self.create_instance("\r\n").scan_c_nl().values[0].is_crlf()
         )
         self.assertTrue(
-            self.create_instance("\n").scan_cnl().values[0].is_crlf()
+            self.create_instance("\n").scan_c_nl().values[0].is_crlf()
         )
 
-    def test_scan_cwsp(self):
+    def test_scan_c_wsp(self):
         self.assertTrue(
-            self.create_instance("   ").scan_cwsp().is_cwsp()
+            self.create_instance("   ").scan_c_wsp().is_c_wsp()
         )
 
-        cwsp = self.create_instance("; foo\n ").scan_cwsp()
-        self.assertTrue(cwsp.values[0].is_cnl())
+        cwsp = self.create_instance("; foo\n ").scan_c_wsp()
+        self.assertTrue(cwsp.values[0].is_c_nl())
 
         with self.assertRaises(ValueError):
-            self.create_instance("; foo\n").scan_cwsp()
+            self.create_instance("; foo\n").scan_c_wsp()
 
-    def test_scan_definedas(self):
+    def test_scan_defined_as(self):
         with self.assertRaises(ValueError):
-            self.create_instance(" ").scan_definedas()
+            self.create_instance(" ").scan_defined_as()
 
-        self.create_instance(" =").scan_definedas()
-        self.create_instance(" =/").scan_definedas()
-        self.create_instance(" =/ ").scan_definedas()
-        self.create_instance("=/ ").scan_definedas()
-        self.create_instance("= ").scan_definedas()
+        self.create_instance(" =").scan_defined_as()
+        self.create_instance(" =/").scan_defined_as()
+        self.create_instance(" =/ ").scan_defined_as()
+        self.create_instance("=/ ").scan_defined_as()
+        self.create_instance("= ").scan_defined_as()
 
     def test_scan_repeat(self):
         r = self.create_instance("*").scan_repeat()
@@ -555,21 +555,21 @@ class ABNFGrammarTest(TestCase):
         r = self.create_instance("*2").scan_repeat()
         self.assertEqual([0, 2], r.values)
 
-    def test_scan_quotedstring(self):
+    def test_scan_quoted_string(self):
         s = "foo bar che"
         self.assertEqual(
             s,
-            self.create_instance(f"\"{s}\"").scan_quotedstring().values[0]
+            self.create_instance(f"\"{s}\"").scan_quoted_string().values[0]
         )
 
         s = ""
         self.assertEqual(
             s,
-            self.create_instance(f"\"{s}\"").scan_quotedstring().values[0]
+            self.create_instance(f"\"{s}\"").scan_quoted_string().values[0]
         )
 
         with self.assertRaises(ValueError):
-            self.create_instance("foo").scan_quotedstring()
+            self.create_instance("foo").scan_quoted_string()
 
     def test_scan_val_1(self):
         s = "12343567890"
@@ -611,13 +611,8 @@ class ABNFGrammarTest(TestCase):
         self.assertEqual("foo bar", r.values[2].values[0])
         self.assertFalse(r.values[2].options["case_sensitive"])
 
-    def test_scan_val_concatenation(self):
-        # I currently parse %d1.3.5.6 wrong, I was treating . and - as ranges, this
-        # needs to be fixed
-        raise NotImplementedError()
-
-    def test_scan_proseval(self):
-        r = self.create_instance("<foo bar>").scan_proseval()
+    def test_scan_prose_val(self):
+        r = self.create_instance("<foo bar>").scan_prose_val()
         self.assertEqual("foo bar", r.values[0])
 
     def test_scan_group(self):
@@ -758,9 +753,11 @@ class ABNFDefinitionTest(TestCase):
         self.assertEqual(10, t.max)
 
     def test_val_chars(self):
-        # I currently parse %d1.3.5.6 wrong, I was treating . and - as ranges, this
-        # needs to be fixed
-        raise NotImplementedError()
+        t = self.create_instance("val", "%d97.98.99")
+        self.assertTrue(t.is_val_chars())
+        self.assertFalse(t.is_val_range())
+
+        self.assertEqual(set([97, 98, 99]), t.chars)
 
 
 class ABNFParserTest(TestCase):
@@ -835,14 +832,14 @@ class ABNFParserTest(TestCase):
 
     def test_parse_left_recurse_1(self):
         p = self.create_instance([
-            "exp = exp \"+\" factor | exp \"-\" factor | factor",
+            "exp = exp \"+\" factor | factor",
             "factor = 1*DIGIT",
         ])
 
         pout.b()
 
         r = p.exp.parse("6+3")
-        pout.v(r)
+        #pout.v(r)
 
 
 

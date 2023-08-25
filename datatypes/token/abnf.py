@@ -62,13 +62,16 @@ class ABNFDefinition(object):
 
     @property
     def min(self):
-        if self.is_binval():
+        if self.is_val_chars():
+            raise AttributeError(f"No min property on {self.name} with chars")
+
+        if self.is_bin_val():
             ret = int(Binary(self.values[2]))
 
-        elif self.is_decval():
+        elif self.is_dec_val():
             ret = int(self.values[2])
 
-        elif self.is_hexval():
+        elif self.is_hex_val():
             ret = int(Hex(self.values[2]))
 
         elif self.is_repeat():
@@ -81,21 +84,24 @@ class ABNFDefinition(object):
 
     @property
     def max(self):
-        if self.is_binval():
+        if self.is_val_chars():
+            raise AttributeError(f"No max property on {self.name} with chars")
+
+        if self.is_bin_val():
             if len(self.values) >= 5:
                 ret = int(Binary(self.values[4]))
 
             else:
                 ret = self.min
 
-        elif self.is_decval():
+        elif self.is_dec_val():
             if len(self.values) >= 5:
                 ret = int(self.values[4])
 
             else:
                 ret = self.min
 
-        elif self.is_hexval():
+        elif self.is_hex_val():
             if len(self.values) >= 5:
                 ret = int(Hex(self.values[4]))
 
@@ -110,9 +116,30 @@ class ABNFDefinition(object):
 
         return ret
 
+    @property
+    def chars(self):
+        if self.is_val_range():
+            raise AttributeError(f"No chars property on {self.name} with range")
+
+        chars = set()
+        for ch in self.values[2::2]:
+            if self.is_bin_val():
+                chars.add(int(Binary(ch)))
+
+            elif self.is_dec_val():
+                chars.add(int(ch))
+
+            elif self.is_hex_val():
+                chars.add(int(Hex(ch)))
+
+        return chars
+
     @classmethod
     def normalize_name(cls, name):
-        return name.replace("-", "").replace("_", "").lower()
+        # ABNF keys can't contain underscores but python attribute names can't
+        # contain dashes and rule names are case-insensitive
+        return name.replace("_", "-").lower()
+        #return name.replace("-", "").replace("_", "").lower()
 
     def __init__(self, name, values, start, stop, **options):
         self.name = self.normalize_name(name)
@@ -153,18 +180,6 @@ class ABNFDefinition(object):
 
         parts.append(f"{self.name} [{self.start}:{self.stop}]:")
 
-#         if self.is_rulename():
-#             parts.append(f"{self.name}({self.values[0]})")
-# 
-#         elif self.is_definedas():
-#             sign = self.options["sign"]
-#             parts.append(f"{self.name}({sign})")
-# 
-#         elif self.is_elements():
-#             count = len(self.alternation)
-#             parts.append(f"{self.name}({count})")
-# 
-#         else:
         for value in self.values:
             if isinstance(value, ABNFDefinition):
                 if value.is_rulename():
@@ -173,11 +188,6 @@ class ABNFDefinition(object):
                 elif value.is_definedas():
                     sign = value.options["sign"]
                     parts.append(f"{value.name}({sign})")
-
-                # this is useless because elements always has one alternation
-#                 elif value.is_elements():
-#                     count = len(value.alternation)
-#                     parts.append(f"{value.name}({count})")
 
                 else:
                     parts.append(value.name)
@@ -191,56 +201,27 @@ class ABNFDefinition(object):
         return not self.is_internal()
 
     def is_internal(self):
-        return self.is_cwsp() \
-            or self.is_cnl() \
-            or self.is_definedas() \
+        return self.is_c_wsp() \
+            or self.is_c_nl() \
+            or self.is_defined_as() \
             or self.is_comment()
 
-    def is_numval(self):
-        return self.is_binval() \
-            or self.is_decval() \
-            or self.is_hexval()
+    def is_num_val(self):
+        return self.is_bin_val() \
+            or self.is_dec_val() \
+            or self.is_hex_val()
 
-    def is_terminal(self):
-        return self.is_quotedstring() or self.is_numval()
+    def is_val_range(self):
+        if self.is_num_val():
+            return len(self.values) == 5 and self.values[3] == "-"
 
-#     def xparse(self, buffer):
-#         if self.is_rule():
-#             for rule in itertools.chain([self.values[2]], self.values[4:]):
-#                 try:
-#                     return rule.parse(buffer)
-# 
-#                 except ValueError:
-#                     pass
-# 
-# 
-#         elif self.is_alternation():
-#             for rule in self.definitions:
-#                 try:
-#                     return rule.parse(buffer)
-# 
-#                 except ValueError:
-#                     pass
-# 
-#         elif self.is_repetition():
-#             for repeat, elem in batched(self.values):
-#                 #pout.v(repeat, elem)
-#                 p = elem.parse(buffer)
-# 
-#         elif self.is_rulename():
-#             pout.v(self.values[0])
-#             rule = self.grammar.parser_rules[self.values[0]]
-#             return rule.parse(buffer)
-# 
-#         elif self.is_quotedstring():
-#             pout.v(self.values)
-# 
-#         elif self.is_numval():
-#             pout.v(self.values)
-# 
-#         else:
-#             for rule in self.definitions:
-#                 p = rule.parse(buffer)
+        return False
+
+    def is_val_chars(self):
+        if self.is_num_val():
+            return len(self.values) >= 5 and self.values[3] == "."
+
+        return False
 
     def merge(self, definition):
         if self.is_rule() and definition.is_rule():
@@ -277,7 +258,6 @@ class ABNFGrammar(Scanner):
     """
     definition_class = ABNFDefinition
 
-#     @cachedproperty(cached="_parser_rules")
     @functools.cached_property
     def parser_rules(self):
         rules = {}
@@ -289,9 +269,6 @@ class ABNFGrammar(Scanner):
 
             else:
                 rules[rulename] = rule
-
-#         for rule in self.core_rules():
-#             rules[rule.values[0].values[0]].append(rule)
 
         return rules
 
@@ -457,9 +434,9 @@ class ABNFGrammar(Scanner):
 
             except GrammarError:
                 with self.optional() as scanner:
-                    values.append(scanner.scan_cwsp())
+                    values.append(scanner.scan_c_wsp())
 
-                values.append(self.scan_cnl())
+                values.append(self.scan_c_nl())
 
         return self.create_definition(
             "rulelist",
@@ -477,11 +454,9 @@ class ABNFGrammar(Scanner):
         rulename = self.scan_rulename()
         logger.info(f"Parsing rule: {rulename.values[0]}")
 
-        defined_as = self.scan_definedas()
+        defined_as = self.scan_defined_as()
         elements = self.scan_elements()
-        cnl = self.scan_cnl()
-
-        #pout.v(self.getvalue()[rulename.start:cnl.stop])
+        cnl = self.scan_c_nl()
 
         return self.create_definition(
             "rule",
@@ -493,6 +468,8 @@ class ABNFGrammar(Scanner):
     def scan_rulename(self):
         """
         rulename       =  ALPHA *(ALPHA / DIGIT / "-")
+
+        rule names are case-insensitive
         """
         start = self.tell()
         ch = self.peek()
@@ -503,9 +480,41 @@ class ABNFGrammar(Scanner):
             raise GrammarError(f"[{ch}] was not an ALPHA character")
 
         stop = self.tell()
-        return self.create_definition("rulename", [rulename], start, stop)
+        return self.create_definition(
+            "rulename",
+            [rulename],
+            start,
+            stop
+        )
 
-    def scan_definedas(self):
+    def scan_prose_val(self):
+        """
+        prose-val      =  "<" *(%x20-3D / %x3F-7E) ">"
+                                ; bracketed string of SP and VCHAR
+                                ;  without angles
+                                ; prose description, to be used as
+                                ;  last resort
+
+        as far as I can tell prose-val is equivalent to rulename so this returns
+        a rulename definition so other functionality can pick it up, it looks
+        like if you wanted to have spaces in your rulenames you would use these
+        """
+        start = self.tell()
+
+        if self.read(1) != "<":
+            raise GrammarError("prose-val begins with <")
+
+        val = self.read_until_delim(">").strip(">")
+        return self.create_definition(
+            "rulename",
+            [val],
+            start,
+            self.tell()
+        )
+
+
+
+    def scan_defined_as(self):
         """
         defined-as     =  *c-wsp ("=" / "=/") *c-wsp
                                 ; basic rules definition and
@@ -516,7 +525,7 @@ class ABNFGrammar(Scanner):
         options = {}
 
         with self.optional() as scanner:
-            values.append(scanner.scan_cwsp())
+            values.append(scanner.scan_c_wsp())
 
         sign = scanner.read_thru_chars("=/")
         if sign in set(["=", "=/"]):
@@ -528,7 +537,7 @@ class ABNFGrammar(Scanner):
             raise GrammarError(f"{val} is not = or =/")
 
         with self.optional() as scanner:
-            values.append(scanner.scan_cwsp())
+            values.append(scanner.scan_c_wsp())
 
         return self.create_definition(
             "defined-as",
@@ -538,7 +547,7 @@ class ABNFGrammar(Scanner):
             **options
         )
 
-    def scan_cwsp(self):
+    def scan_c_wsp(self):
         """
         c-wsp          =  WSP / (c-nl WSP)
         """
@@ -549,7 +558,7 @@ class ABNFGrammar(Scanner):
             cwsp = self.create_definition("c-wsp", [space], start, stop)
 
         else:
-            comment = self.scan_cnl()
+            comment = self.scan_c_nl()
             start = self.tell()
             space = self.read_thru_hspace()
             if space:
@@ -566,7 +575,7 @@ class ABNFGrammar(Scanner):
 
         return cwsp
 
-    def scan_cnl(self):
+    def scan_c_nl(self):
         """
         c-nl           =  comment / CRLF
                                 ; comment or newline
@@ -630,7 +639,7 @@ class ABNFGrammar(Scanner):
         values.append(self.scan_alternation())
 
         with self.optional() as scanner:
-            values.append(scanner.scan_cwsp())
+            values.append(scanner.scan_c_wsp())
 
         return self.create_definition(
             "elements",
@@ -651,14 +660,14 @@ class ABNFGrammar(Scanner):
 
         while True:
             with self.optional() as scanner:
-                values.append(scanner.scan_cwsp())
+                values.append(scanner.scan_c_wsp())
 
             ch = self.peek()
             if ch == "/" or ch == "|":
                 values.append(self.read(1))
 
                 with self.optional() as scanner:
-                    values.append(scanner.scan_cwsp())
+                    values.append(scanner.scan_c_wsp())
 
                 values.append(self.scan_concatenation())
 
@@ -684,7 +693,7 @@ class ABNFGrammar(Scanner):
         while True:
             try:
                 with self.transaction() as scanner:
-                    values.append(scanner.scan_cwsp())
+                    values.append(scanner.scan_c_wsp())
                     values.append(scanner.scan_repetition())
 
             except (IndexError, ValueError):
@@ -761,7 +770,7 @@ class ABNFGrammar(Scanner):
             values.append(self.scan_rulename())
 
         elif ch == "\"":
-            qs = self.scan_quotedstring(case_sensitive=False)
+            qs = self.scan_quoted_string(case_sensitive=False)
             # we wrap it in a char-val to be rfc7405 consistent
             values.append(
                 self.create_definition(
@@ -782,7 +791,7 @@ class ABNFGrammar(Scanner):
             values.append(self.scan_val())
 
         elif ch == "<":
-            values.append(self.scan_proseval())
+            values.append(self.scan_prose_val())
 
         else:
             raise GrammarError(f"Unknown element starting with [{ch}]")
@@ -794,7 +803,7 @@ class ABNFGrammar(Scanner):
             self.tell()
         )
 
-    def scan_quotedstring(self, case_sensitive=False):
+    def scan_quoted_string(self, case_sensitive=False):
         """
         https://datatracker.ietf.org/doc/html/rfc7405
 
@@ -874,9 +883,9 @@ class ABNFGrammar(Scanner):
                 raise GrammarError("num-val with no number values")
 
             values.append(v)
-            ch = self.peek()
 
-            if ch == "." or ch == "-":
+            ch = self.peek()
+            if ch == "-":
                 values.append(self.read(1))
 
                 v = self.read_thru_chars(numchars)
@@ -887,8 +896,20 @@ class ABNFGrammar(Scanner):
 
                 values.append(v)
 
+            elif ch == ".":
+                while ch == ".":
+                    values.append(self.read(1))
+                    v = self.read_thru_chars(numchars)
+                    if not v:
+                        raise GrammarError(
+                            f"num-val {ch} with no number values after"
+                        )
+
+                    values.append(v)
+                    ch = self.peek()
+
         elif ch in "si":
-            values.append(self.scan_quotedstring(case_sensitive=(ch == "s")))
+            values.append(self.scan_quoted_string(case_sensitive=(ch == "s")))
             name = "char-val"
 
         else:
@@ -897,27 +918,6 @@ class ABNFGrammar(Scanner):
         return self.create_definition(
             name,
             values,
-            start,
-            self.tell()
-        )
-
-    def scan_proseval(self):
-        """
-        prose-val      =  "<" *(%x20-3D / %x3F-7E) ">"
-                                ; bracketed string of SP and VCHAR
-                                ;  without angles
-                                ; prose description, to be used as
-                                ;  last resort
-        """
-        start = self.tell()
-
-        if self.read(1) != "<":
-            raise GrammarError("prose-val begins with <")
-
-        val = self.read_until_delim(">").strip(">")
-        return self.create_definition(
-            "prose-val",
-            [val],
             start,
             self.tell()
         )
@@ -936,12 +936,12 @@ class ABNFGrammar(Scanner):
         values.append(ch)
 
         with self.optional() as scanner:
-            values.append(scanner.scan_cwsp())
+            values.append(scanner.scan_c_wsp())
 
         values.append(self.scan_alternation())
 
         with self.optional() as scanner:
-            values.append(scanner.scan_cwsp())
+            values.append(scanner.scan_c_wsp())
 
         ch = self.read_thru_chars(stop_char)
         if ch != stop_char:
@@ -985,8 +985,9 @@ class ABNFRecursiveDescentParser(object):
         self.parser = parser
         self.entry_rule = entry_rule
 
+        # these store state
         self.parsing_rules = []
-        self.parsing_rules_lookup = defaultdict(list)
+        self.parsing_rules_lookup = {}
 
     def create_token(self, values, start, stop, **options):
 
@@ -1012,13 +1013,9 @@ class ABNFRecursiveDescentParser(object):
                 parsing_rule["count"] += 1
                 raise ParseError(f"Parsing {rulename} infinite left recursion")
 
-#         if not self.can_descend(rule):
-#             raise ParseError(f"Parsing {rulename} infinite left recursion")
-
         index = len(self.parsing_rules)
         parsing_rule = {
             "rule": rule,
-            #"rulename": rulename,
             "tell": self.scanner.tell(),
             "count": 1,
         }
@@ -1026,15 +1023,6 @@ class ABNFRecursiveDescentParser(object):
         self.parsing_rules_lookup[rulename].append(index)
 
         return parsing_rule
-
-#     def can_descend(self, rule):
-#         rulename = rule.defname
-#         if rulename in self.parsing_rules_lookup:
-#             index = self.parsing_rules_lookup[rulename][-1]
-#             return self.parsing_rules[index]["tell"] < self.scanner.tell()
-# 
-#         else:
-#             return True
 
     def pop(self, rule):
         rulename = rule.defname
@@ -1075,24 +1063,25 @@ class ABNFRecursiveDescentParser(object):
 
         values = []
 
-        parse_rule = None
+        parsing_rule = None
         if self.parsing_rules:
-            parse_rule = self.parsing_rules[-1]["rule"]
+            parsing_rule = self.parsing_rules[-1]["rule"]
 
-        if rule.is_numval():
-            method_name = f"parse_numval"
-
-        elif rule.is_charval():
-            method_name = f"parse_charval"
+        if rule.is_num_val():
+            method_name = f"parse_num_val"
 
         else:
             method_name = f"parse_{rule.name}"
 
         method = getattr(self, method_name, None)
         if method:
-            if parse_rule:
+            if parsing_rule:
                 logger.debug(
-                    f"{parse_rule.defname} -> {rule.name} at {self.scanner.tell()}"
+                    "{} -> {} at {}".format(
+                        parsing_rule.defname,
+                        rule.name,
+                        self.scanner.tell()
+                    )
                 )
 
             if vs := method(rule):
@@ -1137,7 +1126,7 @@ class ABNFRecursiveDescentParser(object):
             )]
 
             parsing_rule = self.pop(rule)
-            pout.v(parsing_rule, parsing_rule["rule"].defname, self.scanner.tell())
+            #pout.v(parsing_rule, parsing_rule["rule"].defname, self.scanner.tell())
             if parsing_rule["count"] > 1:
                 if parsing_rule["tell"] < self.scanner.tell():
                     # we run the whole thing again since this rule tried to
@@ -1151,18 +1140,11 @@ class ABNFRecursiveDescentParser(object):
 
     def parse_elements(self, rule):
         values = []
-#         start = self.scanner.tell()
         for r in rule.definitions:
             if vs := self.descend(r):
                 values.extend(vs)
-            #values.append(self.descend(r))
 
         return values
-#         return self.create_token(
-#             values,
-#             start,
-#             self.scanner.tell()
-#         )
 
     def parse_alternation(self, rule):
         for r in rule.parsable:
@@ -1177,22 +1159,14 @@ class ABNFRecursiveDescentParser(object):
 
     def parse_concatenation(self, rule):
         values = []
-#         start = self.scanner.tell()
         for r in rule.definitions:
             if vs := self.descend(r):
                 values.extend(vs)
-            #values.append(self.descend(r))
 
         return values
-#         return self.create_token(
-#             values,
-#             start,
-#             self.scanner.tell()
-#         )
 
     def parse_repetition(self, rule):
         values = []
-#         start = self.scanner.tell()
         repeat, r = rule.values
 
         # we have to get at least repeat.min values
@@ -1215,7 +1189,6 @@ class ABNFRecursiveDescentParser(object):
                     else:
                         # we didn't find any values that time so we're done
                         break
-                    #values.append(self.descend(r))
 
                 except ParseError:
                     break
@@ -1226,11 +1199,6 @@ class ABNFRecursiveDescentParser(object):
                         break
 
         return values
-#         return self.create_token(
-#             values,
-#             start,
-#             self.scanner.tell()
-#         )
 
     def parse_element(self, rule):
         return self.descend(rule.values[0])
@@ -1239,7 +1207,7 @@ class ABNFRecursiveDescentParser(object):
         r = self.parser.grammar.parser_rules[rule.defname]
         return self.descend(r)
 
-    def parse_numval(self, rule):
+    def parse_num_val(self, rule):
         start = self.scanner.tell()
         with self.scanner.transaction() as scanner:
             v = scanner.read(1)
@@ -1258,43 +1226,11 @@ class ABNFRecursiveDescentParser(object):
 
                 logger.debug(f"Parsed {rule.name} value: {v}")
                 return [int(v)]
-#                 return self.create_token(
-#                     [int(v)],
-#                     start,
-#                     self.scanner.tell()
-#                 )
 
             else:
                 raise ParseError(f"Failed to parse {rule.name}")
 
-#     def xparse_numval(self, rule):
-#         start = self.scanner.tell()
-#         with self.scanner.transaction() as scanner:
-#             v = scanner.read_thru_chars(String.DIGITS)
-#             if v:
-#                 for ch in v:
-#                     codepoint = ord(ch)
-#                     if rule.min >= codepoint or codepoint >= rule.max:
-#                         raise ParseError(
-#                             "Failed {} {} range: {} <= {} <= {}".format(
-#                                 rule.name,
-#                                 v,
-#                                 rule.min,
-#                                 codepoint,
-#                                 rule.max
-#                             )
-#                         )
-# 
-#                 return self.create_token(
-#                     [int(v)],
-#                     start,
-#                     self.scanner.tell()
-#                 )
-# 
-#             else:
-#                 raise ParseError("Failed to parse {rule.name}")
-
-    def parse_charval(self, rule):
+    def parse_char_val(self, rule):
         values = []
         start = self.scanner.tell()
         qsrule = rule.values[0]
@@ -1343,46 +1279,15 @@ class ABNFParser(object):
     def create_parser(self, rule):
         return self.parser_class(self, rule)
 
-    def __getitem__(self, key):
-        rule = self.grammar.parser_rules[key]
+    def __getitem__(self, rulename):
+        rulename = ABNFDefinition.normalize_name(rulename)
+        rule = self.grammar.parser_rules[rulename]
         return self.create_parser(rule)
 
-    def __getattr__(self, key):
-        # ABNF keys can't contain underscores but python attribute names can't
-        # contain dashes
-        key = key.replace("_", "-")
+    def __getattr__(self, rulename):
         try:
-            return self[key]
+            return self[rulename]
 
         except KeyError as e:
-            raise AttributeError(key) from e
-
-#     def parse_rule(self, rule, scanner):
-#         for definition in rule.definitions:
-#             pass
-# 
-#     def parse(self, buffer):
-#         rule = self.parse_grammar()
-#         scanner = Scanner(buffer)
-#         r = self.parse_rule(rule, scanner)
-
-        # all rule definitions have the same basic structure: [rulename, elements]
-        # And elements breaks down to: 
-        #   elements -> alternation
-        #   alternation -> concatenation
-        #   concatenation -> repetition
-        #   repetition -> repeat element
-        #
-        #   so basically every rule can eventually get to [repeat, element] and
-        #   that's what we want to iterate on. They will have to be grouped into
-        #   alternates, so each iteration will be a set of [repeat, element] that
-        #   have to be matched for buffer to be valid. Really though, it should
-        #   be a sequence of [repeat, rulename|*val].
-        #
-        #   so each alternation should break down to [repeat, rulename|*val], so
-        #   this will be really recursive, with each rule checking itself and then
-        #   bubbling up and each new rule checking the repeat value
-        #   - rule
-
-
+            raise AttributeError(rulename) from e
 
