@@ -883,11 +883,7 @@ class ABNFParserTest(TestCase):
             "factor = 1*DIGIT",
         ])
 
-        pout.b()
-
         r = p.exp.parse("1+2+3")
-        return
-        pout.v(r)
         self.assertEqual("1+2+3", str(r))
         self.assertEqual("1+2", str(r.values[0]))
 
