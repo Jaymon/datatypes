@@ -1025,6 +1025,7 @@ class ABNFRecursiveDescentParser(object):
 
     def parse(self, buffer):
         self.scanner = self.scanner_class(buffer)
+        self.maxtell = len(self.scanner)
 
         values = self.descend(self.entry_rule)
         if len(values) > 1:
@@ -1137,7 +1138,7 @@ class ABNFRecursiveDescentParser(object):
 
     def parse_rule(self, rule):
         values = []
-        start = self.scanner.tell()
+        start = stop = self.scanner.tell()
         rulename = rule.defname
 
         if rulename in self.parsing_rules_saved:
@@ -1150,9 +1151,7 @@ class ABNFRecursiveDescentParser(object):
 
         parsing_rule = self.push(rule)
 
-
-        maxtell = len(self.scanner)
-        while self.scanner.tell() < maxtell:
+        while self.scanner.tell() < self.maxtell:
 
 #         while True:
 #             self.log_debug(f"Parsing {rule.defname}")
@@ -1168,25 +1167,32 @@ class ABNFRecursiveDescentParser(object):
                     break
 
             if values:
-                values = [self.create_token(
-                    rule,
-                    values,
-                    start,
-                    self.scanner.tell()
-                )]
+                if self.scanner.tell() > stop:
+                    values = [self.create_token(
+                        rule,
+                        values,
+                        start,
+                        self.scanner.tell()
+                    )]
 
-                self.log_debug(f"Success parsing {rule.defname}: {values[0]}")
+                    self.log_debug(f"Success parsing {rule.defname}: {values[0]}")
+
+                    stop = self.scanner.tell()
 
 #                 if rulename == "exp":
 #                     pout.v(values[0], parsing_rule)
 
-                if parsing_rule.get("left-recursion", False):
-                    self.log_debug(f"Marking {rule.defname} as left-recursive")
-                    self.parsing_rules_saved[rulename] = {
-                        "values": values,
-                        "rule": rule,
-                        "start": self.scanner.tell(),
-                    }
+                    if parsing_rule.get("left-recursion", False):
+                        self.log_debug(f"Marking {rule.defname} as left-recursive")
+                        self.parsing_rules_saved[rulename] = {
+                            "values": values,
+                            "rule": rule,
+                            "start": self.scanner.tell(),
+                        }
+
+                    else:
+                        break
+
 #                     if len(self.parsing_rules_lookup[rulename]) == 0:
 #                         self.parsing_rules_saved[rulename] = {
 #                             "values": values,

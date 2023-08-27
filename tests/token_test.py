@@ -913,6 +913,25 @@ class ABNFParserTest(TestCase):
 
 
 
+
+
+
+    def test_parse_left_recurse_5(self):
+        p = self.create_instance([
+            "exp = exp \"+\" term | exp \"-\" term | term",
+            "term = term \"*\" power | term \"/\" power | power",
+            "power = factor \"^\" power | factor",
+            "factor = \"(\" exp \")\" | 1*DIGIT",
+        ])
+
+        pout.b()
+
+        r = p.exp.parse("(1+2)+3*4")
+        pout.v(r)
+        #self.assertEqual("1+2+3", str(r))
+
+
+
     def test_parse_1(self):
         p = self.create_instance([
             "exp = exp \"+\" term | exp \"-\" term | term",
