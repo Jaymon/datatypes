@@ -872,8 +872,10 @@ class ABNFParserTest(TestCase):
             "factor = 1*DIGIT",
         ])
 
-        r = p.exp.parse("6+3")
-        self.assertEqual("6+3", str(r))
+        r = p.exp.parse("1+2")
+        self.assertEqual("1+2", str(r))
+        self.assertEqual("1", str(r.values[0]))
+        self.assertEqual("2", str(r.values[2]))
 
     def test_parse_left_recurse_2(self):
         p = self.create_instance([
@@ -884,8 +886,34 @@ class ABNFParserTest(TestCase):
         pout.b()
 
         r = p.exp.parse("1+2+3")
+        return
         pout.v(r)
-        #self.assertEqual("6+3", str(r))
+        self.assertEqual("1+2+3", str(r))
+        self.assertEqual("1+2", str(r.values[0]))
+
+    def test_parse_left_recurse_3(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor | factor",
+            "factor = \"(\" exp \")\" | 1*DIGIT",
+        ])
+
+        r = p.exp.parse("(1+2)+3")
+        self.assertEqual("(1+2)", str(r.values[0]))
+        self.assertEqual("3", str(r.values[2]))
+
+    def test_parse_left_recurse_4(self):
+        p = self.create_instance([
+            "exp = exp \"+\" term | exp \"-\" term | term",
+            "term = term \"*\" power | term \"/\" power | power",
+            "power = factor \"^\" power | factor",
+            "factor = \"(\" exp \")\" | 1*DIGIT",
+        ])
+
+        pout.b()
+
+        r = p.exp.parse("(1+2)+3*4")
+        pout.v(r)
+        #self.assertEqual("1+2+3", str(r))
 
 
 
