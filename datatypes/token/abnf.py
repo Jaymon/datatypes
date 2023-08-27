@@ -176,6 +176,17 @@ class ABNFDefinition(object):
         raise AttributeError(key)
 
     def __str__(self):
+        if "grammar" in self.options:
+            return self.options["grammar"].getvalue()[self.start:self.stop]
+
+        elif "parser" in self.options:
+            scanner = self.options["parser"].scanner.getvalue()
+            return scanner[self.start:self.stop]
+
+        else:
+            return self.name
+
+    def x__str__(self):
         parts = []
 
         parts.append(f"{self.name} [{self.start}:{self.stop}]:")
@@ -986,65 +997,27 @@ class ABNFRecursiveDescentParser(object):
         self.entry_rule = entry_rule
 
         # these store state
-        self.parsing_rules = []
-        self.parsing_rules_lookup = {}
+        self.parsing_rules_stack = []
+        #self.parsing_rules_lookup = {}
+        self.parsing_rules_lookup = defaultdict(list)
 
-    def create_token(self, values, start, stop, **options):
+    def create_token(self, rule, values, start, stop, **options):
 
-        ruleinfo = self.parsing_rules[-1]
-        rule = ruleinfo["rule"]
+#         if self.parsing_rules_stack:
+#             rule_info = self.parsing_rules_stack[-1]
+#             rule = rule_info["rule"]
+# 
+#         else:
+#             rule = self.entry_rule
 
         return self.token_class(
             rule.defname,
             values,
             start,
             stop,
-            parser=self.parser,
+            parser=self,
             **options
         )
-
-    def push(self, rule):
-        rulename = rule.defname
-
-        if lookup := self.parsing_rules_lookup.get(rulename):
-            index = lookup[-1]
-            parsing_rule = self.parsing_rules[index]
-            if parsing_rule["tell"] >= self.scanner.tell():
-                parsing_rule["count"] += 1
-                raise ParseError(f"Parsing {rulename} infinite left recursion")
-
-        index = len(self.parsing_rules)
-        parsing_rule = {
-            "rule": rule,
-            "tell": self.scanner.tell(),
-            "count": 1,
-        }
-        self.parsing_rules.append(parsing_rule)
-        self.parsing_rules_lookup[rulename].append(index)
-
-        return parsing_rule
-
-    def pop(self, rule):
-        rulename = rule.defname
-
-        if rulename in self.parsing_rules_lookup:
-            index = self.parsing_rules_lookup[rulename].pop(-1)
-
-            #return self.parsing_rules.pop(index)
-            parsing_rule = self.parsing_rules[index]
-
-            # we set this to None because the rule status/info we pop might not
-            # be at the end of the stack and we need to maintain order, so we
-            # also cleanup any ends of the stack that are None since they won't
-            # be used again
-            self.parsing_rules[index] = None
-            while self.parsing_rules and self.parsing_rules[-1] is None:
-                self.parsing_rules.pop(-1)
-
-            return parsing_rule
-
-        else:
-            raise ParseError(f"Popping {rulename} failed")
 
     def __call__(self, buffer):
         return self.parse(buffer)
@@ -1060,29 +1033,19 @@ class ABNFRecursiveDescentParser(object):
         return values[0]
 
     def descend(self, rule):
-
         values = []
-
-        parsing_rule = None
-        if self.parsing_rules:
-            parsing_rule = self.parsing_rules[-1]["rule"]
 
         if rule.is_num_val():
             method_name = f"parse_num_val"
 
         else:
-            method_name = f"parse_{rule.name}"
+            rule_method_name = rule.name.replace("-", "_")
+            method_name = f"parse_{rule_method_name}"
+            #method_name = f"parse_{rule.name}"
 
         method = getattr(self, method_name, None)
         if method:
-            if parsing_rule:
-                logger.debug(
-                    "{} -> {} at {}".format(
-                        parsing_rule.defname,
-                        rule.name,
-                        self.scanner.tell()
-                    )
-                )
+            self.log_debug(rule.name)
 
             if vs := method(rule):
                 if isinstance(vs, list):
@@ -1092,21 +1055,106 @@ class ABNFRecursiveDescentParser(object):
                     values.append(vs)
 
         else:
-            logger.debug(f"Ignoring non-parsable rule {rule.name}")
+            self.log_debug(f"Ignoring non-parsable rule {rule.name}")
 
         return values
+
+    def log_debug(self, msg):
+        parsing_rule = None
+        if self.parsing_rules_stack:
+            rule_info = self.parsing_rules_stack[-1]
+            rulename = rule_info["rule"].defname
+            count = rule_info["count"]
+
+            msg = f"{rulename}({count}) -> {msg}"
+
+        msg = f"[{self.scanner.tell()}] {msg}"
+
+        logger.debug(msg)
+
+    def push(self, rule):
+        rulename = rule.defname
+
+        if rulename in self.parsing_rules_lookup:
+            if self.parsing_rules_lookup[rulename]:
+                index = self.parsing_rules_lookup[rulename][-1]
+                parsing_rule = self.parsing_rules_stack[index]
+                if parsing_rule["count"] > 1:
+                    if parsing_rule["start"] >= self.scanner.tell():
+                        raise ParseError(
+                            f"Parsing {rulename} infinite left recursion"
+                        )
+
+#         lookup = self.parsing_rules_lookup.get(rulename, [])
+#         if lookup:
+#         #if index is not None:
+#             parsing_rule = self.parsing_rules_stack[index]
+#             parsing_rule["count"] += 1
+# 
+# #             if parsing_rule["tell"] >= self.scanner.tell():
+# #                 parsing_rule["count"] += 1
+# #                 #raise ParseError(f"Parsing {rulename} infinite left recursion")
+# #
+#         else:
+
+
+#         lookup = self.parsing_rules_lookup.get(rulename, [])
+
+        index = len(self.parsing_rules_stack)
+        parsing_rule = {
+            "rule": rule,
+            "start": self.scanner.tell(),
+#             "count": 1,
+        }
+
+        self.parsing_rules_stack.append(parsing_rule)
+        self.parsing_rules_lookup[rulename].append(index)
+
+        parsing_rule["count"] = len(self.parsing_rules_lookup[rulename])
+
+        return parsing_rule
+
+    def pop(self, rule):
+        rulename = rule.defname
+
+        index = self.parsing_rules_lookup[rulename].pop(-1)
+        parsing_rule = self.parsing_rules_stack.pop(-1)
+        if parsing_rule["rule"].defname != rule.defname:
+            raise ParseError(
+                "Parsing stack is messed up, popped: {} instead of: {}".format(
+                    parsing_rule["rule"].defname,
+                    rule.defname,
+                )
+            )
+
+        return parsing_rule
+
+#         index = self.parsing_rules_lookup.get(rulename, None)
+#         if index is not None:
+#             #return self.parsing_rules.pop(index)
+#             parsing_rule = self.parsing_rules_stack[index]
+# 
+#             # we set this to None because the rule status/info we pop might not
+#             # be at the end of the stack and we need to maintain order, so we
+#             # also cleanup any ends of the stack that are None since they won't
+#             # be used again
+#             self.parsing_rules_stack[index] = None
+#             while self.parsing_rules_stack and self.parsing_rules_stack[-1] is None:
+#                 self.parsing_rules_stack.pop(-1)
+# 
+#             return parsing_rule
+# 
+#         else:
+#             raise ParseError(f"Popping {rulename} failed")
 
     def parse_rule(self, rule):
         values = []
         start = self.scanner.tell()
         rulename = rule.defname
 
-        count = len(self.parsing_rules_lookup.get(rulename, [])) + 1
-        logger.debug(
-            f"Parsing {rule.defname}({count}) at {self.scanner.tell()}"
-        )
+        self.log_debug(f"Parsing {rule.defname}")
 
-        self.push(rule)
+        parsing_rule = self.push(rule)
 
         for r in itertools.chain([rule.values[2]], rule.values[4:]):
             try:
@@ -1118,48 +1166,56 @@ class ABNFRecursiveDescentParser(object):
             else:
                 break
 
+        parsing_rule = self.pop(rule)
+
         if values:
+            self.log_debug(f"Success parsing {rule.defname}")
+
             values = [self.create_token(
+                rule,
                 values,
                 start,
                 self.scanner.tell()
             )]
 
-            parsing_rule = self.pop(rule)
+#             parsing_rule = self.pop(rule)
+
             #pout.v(parsing_rule, parsing_rule["rule"].defname, self.scanner.tell())
-            if parsing_rule["count"] > 1:
-                if parsing_rule["tell"] < self.scanner.tell():
-                    # we run the whole thing again since this rule tried to
-                    # left-recurse but we've made progress since then
-                    values.extend(self.parse_rule(rule))
+#             if parsing_rule["count"] > 1:
+#                 if parsing_rule["tell"] < self.scanner.tell():
+#                     # we run the whole thing again since this rule tried to
+#                     # left-recurse but we've made progress since then
+#                     values.extend(self.parse_rule(rule))
 
         else:
+            self.log_debug(f"Failure parsing {rule.defname}")
             raise ParseError(f"Rule {rulename} was empty")
 
         return values
 
     def parse_elements(self, rule):
         values = []
-        for r in rule.definitions:
+        for r in rule.parsable:
             if vs := self.descend(r):
                 values.extend(vs)
 
         return values
 
     def parse_alternation(self, rule):
-        for r in rule.parsable:
+        for index, r in enumerate(rule.parsable, 1):
             try:
+                self.log_debug(f"Alternation({index}): {r}")
                 return self.descend(r)
 
             except ParseError as e:
-                logger.debug(f"Parsing alternation failed with: {e}")
+                self.log_debug(f"Parsing alternation({index}) failed with: {e}")
                 pass
 
         raise ParseError("Failed to successfully parse alternation")
 
     def parse_concatenation(self, rule):
         values = []
-        for r in rule.definitions:
+        for r in rule.parsable:
             if vs := self.descend(r):
                 values.extend(vs)
 
@@ -1171,17 +1227,16 @@ class ABNFRecursiveDescentParser(object):
 
         # we have to get at least repeat.min values
         for count in range(1, repeat.min + 1):
-            logger.debug(f"Repetition minimum {count}/{repeat.min}")
+            self.log_debug(f"Repetition minimum {count}/{repeat.min}")
             if vs := self.descend(r):
                 values.extend(vs)
-            #values.append(self.descend(r))
 
         # now we need to either exhaust as many as we can or grab up to
         # repeat.max
         if repeat.max == 0 or (repeat.max > repeat.min):
             maxcount = repeat.max or "*"
             while True:
-                logger.debug(f"Repetition maximum {count}/{maxcount}")
+                self.log_debug(f"Repetition maximum {count}/{maxcount}")
                 try:
                     if vs := self.descend(r):
                         values.extend(vs)
@@ -1213,18 +1268,31 @@ class ABNFRecursiveDescentParser(object):
             v = scanner.read(1)
             if v:
                 codepoint = ord(v)
-                if rule.min > codepoint or codepoint > rule.max:
-                    raise ParseError(
-                        "Failed {} {} range: {} <= {} <= {}".format(
-                            rule.name,
-                            v,
-                            rule.min,
-                            codepoint,
-                            rule.max
+                if rule.is_val_range():
+                    if rule.min > codepoint or codepoint > rule.max:
+                        raise ParseError(
+                            "Failed {} {} range: {} <= {} <= {}".format(
+                                rule.name,
+                                v,
+                                rule.min,
+                                codepoint,
+                                rule.max
+                            )
                         )
-                    )
 
-                logger.debug(f"Parsed {rule.name} value: {v}")
+                elif rule.is_val_chars():
+                    chars = rule.chars
+                    if codepoint not in chars:
+                        raise ParseError(
+                            "Failed {} {} value {} in chars {}".format(
+                                rule.name,
+                                v,
+                                codepoint,
+                                chars
+                            )
+                        )
+
+                self.log_debug(f"Parsed {rule.name} value: {v}")
                 return [int(v)]
 
             else:
@@ -1242,7 +1310,7 @@ class ABNFRecursiveDescentParser(object):
                 or (v.lower() == sub.lower())
 
             if success:
-                logger.debug(f"Parsed {rule.name} value: {v}")
+                self.log_debug(f"Parsed {rule.name} value: {v}")
                 return [v]
 
             else:

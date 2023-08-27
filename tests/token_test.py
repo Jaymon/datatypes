@@ -771,6 +771,42 @@ class ABNFParserTest(TestCase):
 
         return instance
 
+    def test_push_pop(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor | factor",
+            "factor = 1*DIGIT",
+        ])
+
+#         pout.b()
+
+        rp = p.exp
+        rp.scanner = rp.scanner_class("123456")
+
+        #r = p.grammar.parser_rules["exp"]
+
+        r = rp.entry_rule
+
+        ri = rp.push(r)
+        self.assertEqual(1, ri["count"])
+        #self.assertEqual(1, len(rp.parsing_rules_lookup[r.defname]))
+
+        ri = rp.push(r)
+        self.assertEqual(2, ri["count"])
+        #self.assertEqual(2, len(rp.parsing_rules_lookup[r.defname]))
+
+        ri = rp.push(r)
+        self.assertEqual(3, ri["count"])
+        #self.assertEqual(3, len(rp.parsing_rules_lookup[r.defname]))
+
+        ri = rp.pop(r)
+        self.assertEqual(3, ri["count"])
+
+        ri = rp.pop(r)
+        self.assertEqual(2, ri["count"])
+
+        ri = rp.pop(r)
+        self.assertEqual(1, ri["count"])
+
     def test_parse_numval(self):
         p = self.create_instance([
             "foo = %d49",
@@ -836,10 +872,20 @@ class ABNFParserTest(TestCase):
             "factor = 1*DIGIT",
         ])
 
+        r = p.exp.parse("6+3")
+        self.assertEqual("6+3", str(r))
+
+    def test_parse_left_recurse_2(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor | factor",
+            "factor = 1*DIGIT",
+        ])
+
         pout.b()
 
-        r = p.exp.parse("6+3")
-        #pout.v(r)
+        r = p.exp.parse("1+2+3")
+        pout.v(r)
+        #self.assertEqual("6+3", str(r))
 
 
 

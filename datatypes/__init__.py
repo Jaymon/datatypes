@@ -33,6 +33,7 @@ from .collections import (
     idict, IDict, Idict, iDict,
     AppendList,
     OrderedList,
+    ListIterator,
     Trie,
     Namespace,
     ContextNamespace,
