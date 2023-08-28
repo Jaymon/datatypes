@@ -1077,6 +1077,23 @@ class ABNFRecursiveDescentParser(object):
 
         logger.debug(msg)
 
+    @contextmanager
+    def transaction(self):
+        try:
+            with self.scanner.transaction() as scanner:
+                yield scanner
+
+        except Exception:
+            start = self.scanner.tell()
+            for rulename in list(self.parsing_rules_saved.keys()):
+                parsing_rule = self.parsing_rules_saved[rulename]
+                #if parsing_rule["start"] >= start:
+                if parsing_rule["values"][0].stop > start:
+#                     pout.v(self.parsing_rules_saved[rulename], start)
+                    del self.parsing_rules_saved[rulename]
+
+            raise
+
     def push(self, rule):
         rulename = rule.defname
 
@@ -1144,7 +1161,13 @@ class ABNFRecursiveDescentParser(object):
         if rulename in self.parsing_rules_saved:
             parsing_rule = self.parsing_rules_saved[rulename]
             if parsing_rule["start"] >= start:
-                return parsing_rule["values"]
+                values = parsing_rule["values"]
+
+                # compensate for starting over
+#                 if start < values[0].stop:
+#                     self.scanner.seek(values[0].stop)
+
+                return values
 
             else:
                 del self.parsing_rules_saved[rulename]
@@ -1238,9 +1261,10 @@ class ABNFRecursiveDescentParser(object):
 
     def parse_concatenation(self, rule):
         values = []
-        for r in rule.parsable:
-            if vs := self.descend(r):
-                values.extend(vs)
+        with self.transaction():
+            for r in rule.parsable:
+                if vs := self.descend(r):
+                    values.extend(vs)
 
         return values
 
@@ -1293,7 +1317,7 @@ class ABNFRecursiveDescentParser(object):
 
     def parse_num_val(self, rule):
         start = self.scanner.tell()
-        with self.scanner.transaction() as scanner:
+        with self.transaction() as scanner:
             v = scanner.read(1)
             if v:
                 codepoint = ord(v)
@@ -1331,7 +1355,7 @@ class ABNFRecursiveDescentParser(object):
         values = []
         start = self.scanner.tell()
         qsrule = rule.values[0]
-        with self.scanner.transaction() as scanner:
+        with self.transaction() as scanner:
             sub = qsrule.values[0]
             v = self.scanner.read(len(sub))
 

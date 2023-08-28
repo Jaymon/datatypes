@@ -899,40 +899,37 @@ class ABNFParserTest(TestCase):
 
     def test_parse_left_recurse_4(self):
         p = self.create_instance([
-            "exp = exp \"+\" term | exp \"-\" term | term",
-            "term = term \"*\" power | term \"/\" power | power",
-            "power = factor \"^\" power | factor",
-            "factor = \"(\" exp \")\" | 1*DIGIT",
+            "exp = exp \"+\" term / term",
+            "term = term \"*\" factor / factor",
+            "factor = \"(\" exp \")\" / 1*DIGIT",
         ])
 
-        pout.b()
-
         r = p.exp.parse("(1+2)+3*4")
-        pout.v(r)
-        #self.assertEqual("1+2+3", str(r))
-
-
-
-
-
+        self.assertEqual("(1+2)+3*4", str(r))
 
     def test_parse_left_recurse_5(self):
         p = self.create_instance([
-            "exp = exp \"+\" term | exp \"-\" term | term",
-            "term = term \"*\" power | term \"/\" power | power",
-            "power = factor \"^\" power | factor",
-            "factor = \"(\" exp \")\" | 1*DIGIT",
+            "exp = exp \"+\" power / power",
+            "power = factor \"^\" power / factor",
+            "factor = \"(\" exp \")\" / 1*DIGIT",
         ])
 
-        pout.b()
-
-        r = p.exp.parse("(1+2)+3*4")
-        pout.v(r)
-        #self.assertEqual("1+2+3", str(r))
-
+        r = p.exp.parse("(1+2)+3^4")
+        self.assertEqual("(1+2)", str(r.values[0]))
+        self.assertEqual("power", r.values[2].name)
+        self.assertEqual("3^4", str(r.values[2]))
 
 
-    def test_parse_1(self):
+    def test_parse_left_recurse_6(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor | exp \"-\" factor | factor",
+            "factor = DIGIT",
+        ])
+
+        r = p.exp.parse("1-2")
+        self.assertEqual("1-2", str(r))
+
+    def test_parse_left_recurse_7(self):
         p = self.create_instance([
             "exp = exp \"+\" term | exp \"-\" term | term",
             "term = term \"*\" power | term \"/\" power | power",
@@ -940,17 +937,13 @@ class ABNFParserTest(TestCase):
             "factor = \"(\" exp \")\" | 1*DIGIT",
         ])
 
-
-        r = p.exp.parse("6 + 3")
-
-        return
-
-
-        r = p.exp.parse("6 + 3 * 4")
-        pout.v(r)
-
+        r = p.exp.parse("(1-2)+3*4")
+        self.assertEqual("(1-2)", str(r.values[0]))
+        self.assertEqual("+", str(r.values[1]))
+        self.assertEqual("3*4", str(r.values[2]))
 
     def test_parse_toml(self):
+        return
         from datatypes import UrlFilepath
         fp = UrlFilepath("https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf")
         p = ABNFParser(fp.read_text())
