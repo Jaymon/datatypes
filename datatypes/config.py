@@ -508,3 +508,13 @@ class Config(ConfigParser):
 
         return d
 
+
+class TOML(object):
+    """
+    https://toml.io/en/
+    https://toml.io/en/v1.0.0#abnf-grammar
+    https://docs.python.org/3/library/tomllib.html
+    https://github.com/python/cpython/blob/3.11/Lib/tomllib/_parser.py
+    """
+    pass
+

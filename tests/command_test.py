@@ -5,7 +5,6 @@ import re
 from datatypes.compat import *
 from datatypes.command import (
     Command,
-    AsyncCommand,
     ModuleCommand,
     FileCommand,
     CalledProcessError,
@@ -90,12 +89,10 @@ class CommandTest(TestCase):
         cmd = c.create_cmd(["echo", "foo"], "")
         self.assertEqual("sudo", cmd[0])
 
-
-class AsyncCommandTest(TestCase):
     def test_async(self):
         start = time.time()
 
-        c = AsyncCommand("sleep 1.0")
+        c = Command("sleep 1.0")
         c.start()
 
         mid = time.time()
@@ -108,14 +105,14 @@ class AsyncCommandTest(TestCase):
         self.assertEqual(0, r.returncode)
 
         s = "foo-bar-che"
-        c = AsyncCommand(f"echo {s}")
+        c = Command(f"echo {s}")
         c.start()
         r = c.wait()
         self.assertEqual(s, r.strip())
 
     def test_quit(self):
         start = time.time()
-        c = AsyncCommand("sleep 5.0")
+        c = Command("sleep 5.0")
         c.start()
         time.sleep(0.1)
         c.quit()
@@ -125,7 +122,7 @@ class AsyncCommandTest(TestCase):
 
     def test_kill(self):
         start = time.time()
-        c = AsyncCommand("sleep 5.0")
+        c = Command("sleep 5.0")
         c.start()
         time.sleep(0.1)
         c.kill()
@@ -135,7 +132,7 @@ class AsyncCommandTest(TestCase):
 
     def test_terminate(self):
         start = time.time()
-        c = AsyncCommand("sleep 5.0")
+        c = Command("sleep 5.0")
         c.start()
         time.sleep(0.1)
         c.terminate()
@@ -145,7 +142,7 @@ class AsyncCommandTest(TestCase):
 
     def test_murder(self):
         start = time.time()
-        c = AsyncCommand("sleep 15")
+        c = Command("sleep 15")
         c.start()
         c.murder(5)
         stop = time.time()
@@ -153,7 +150,7 @@ class AsyncCommandTest(TestCase):
 
     def test_wait_for(self):
         start = time.time()
-        c = AsyncCommand("for i in {1..10}; do echo $i; sleep 0.1; done")
+        c = Command("for i in {1..10}; do echo $i; sleep 0.1; done")
         c.start()
         r = c.wait_for("2")
         stop = time.time()

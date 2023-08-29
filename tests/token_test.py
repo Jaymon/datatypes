@@ -753,11 +753,20 @@ class ABNFDefinitionTest(TestCase):
         self.assertEqual(10, t.max)
 
     def test_val_chars(self):
+        t = self.create_instance("val", "%d97")
+        self.assertTrue(t.is_val_chars())
+        self.assertFalse(t.is_val_range())
+        self.assertEqual(set([97]), t.chars)
+
         t = self.create_instance("val", "%d97.98.99")
         self.assertTrue(t.is_val_chars())
         self.assertFalse(t.is_val_range())
 
         self.assertEqual(set([97, 98, 99]), t.chars)
+
+    def test_hex_whitespace(self):
+        t = self.create_instance("val", "%x20.09") # 20 is space, 09 is tab
+        self.assertEqual(set([32, 9]), t.chars)
 
 
 class ABNFParserTest(TestCase):
@@ -942,19 +951,67 @@ class ABNFParserTest(TestCase):
         self.assertEqual("+", str(r.values[1]))
         self.assertEqual("3*4", str(r.values[2]))
 
+    def test_entry_rule_values(self):
+        p = self.create_instance([
+            "foo = DIGIT *DIGIT",
+        ])
+
+        r = p.foo.parse("1234")
+        self.assertEqual(4, len(r.values))
+
+    def test_parse_option(self):
+        p = self.create_instance([
+            "foo = DIGIT [ DIGIT ]",
+        ])
+        r = p.foo.parse("1x")
+        self.assertEqual(1, r.values[0].values[0])
+        self.assertEqual(1, len(r.values))
+        r = p.foo.parse("12")
+        self.assertEqual(2, len(r.values))
+
+        p = self.create_instance([
+            "foo = DIGIT [ DIGIT 1*DIGIT ]",
+        ])
+        r = p.foo.parse("1234")
+        self.assertEqual(4, len(r.values))
+        r = p.foo.parse("1")
+        self.assertEqual(1, len(r.values))
+
+    def test_parse_merge(self):
+        p = self.create_instance([
+            "foo = ws DIGIT *( ws DIGIT )",
+            "ws = *wschar",
+            "wschar =  %x20  ; Space",
+            "wschar =/ %x09  ; Horizontal tab",
+        ])
+
+        r = p.foo.parse(" 1 2 3 4")
+        self.assertEqual(8, len(r.values))
+        self.assertEqual(4, len(r.digit))
+
+
+class TOMLTest(TestCase):
+
     def test_parse_toml(self):
-        return
-        from datatypes import UrlFilepath
+        from datatypes import UrlFilepath, Filepath
         fp = UrlFilepath("https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf")
         p = ABNFParser(fp.read_text())
 
-        pout.v(p.ruletree)
-
-        return
+        #pout.v(p.ruletree)
 
         buffer = Filepath("~/Projects/Testdata/_testdata/pyproject.toml").read_text()
 
-        p.parse(buffer)
+        r = p.toml.parse(buffer)
+        pout.v(r)
+        return
+        pout.v(r.values[0])
+        return
+
+
+
+        for kv in r.keyval:
+            pout.v(kv)
+            return
 
 
         #p.loads('dict = "{" statement *( "," statement ) "}"')
