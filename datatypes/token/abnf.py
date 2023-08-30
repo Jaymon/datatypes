@@ -106,14 +106,14 @@ class ABNFDefinition(ABNFToken):
             rulename = self.values[0]
 
         else:
-            raise AttributeError(f"No defname property on {self.name}")
+            raise ValueError(f"No defname property on {self.name}")
 
         return rulename
 
     @property
     def min(self):
         if self.is_val_chars():
-            raise AttributeError(f"No min property on {self.name} with chars")
+            raise ValueError(f"No min property on {self.name} with chars")
 
         if self.is_bin_val():
             ret = int(Binary(self.values[2]))
@@ -128,14 +128,14 @@ class ABNFDefinition(ABNFToken):
             ret = int(self.values[0])
 
         else:
-            raise AttributeError(f"No min property on {self.name}")
+            raise ValueError(f"No min property on {self.name}")
 
         return ret
 
     @property
     def max(self):
         if self.is_val_chars():
-            raise AttributeError(f"No max property on {self.name} with chars")
+            raise ValueError(f"No max property on {self.name} with chars")
 
         if self.is_bin_val():
             if len(self.values) >= 5:
@@ -162,14 +162,14 @@ class ABNFDefinition(ABNFToken):
             ret = int(self.values[1])
 
         else:
-            raise AttributeError(f"No max property on {self.name}")
+            raise ValueError(f"No max property on {self.name}")
 
         return ret
 
     @property
     def chars(self):
         if self.is_val_range():
-            raise AttributeError(f"No chars property on {self.name} with range")
+            raise ValueError(f"No chars property on {self.name} with range")
 
         chars = set()
         for ch in self.values[2::2]:
@@ -186,7 +186,18 @@ class ABNFDefinition(ABNFToken):
 
     def __str__(self):
         if "grammar" in self.options:
-            return self.options["grammar"].getvalue()[self.start:self.stop]
+            body = [
+                self.options["grammar"].getvalue()[self.start:self.stop].strip()
+            ]
+            for md in self.options.get("merged", []):
+                body.append(
+                    self.options["grammar"].getvalue()[md.start:md.stop].strip()
+                )
+
+            return "{}({})".format(
+                self.name,
+                ", ".join(body)
+            )
 
         else:
             return super().__str__()
@@ -247,7 +258,29 @@ class ABNFDefinition(ABNFToken):
             for v in definedas.values:
                 if isinstance(v, str):
                     if v == "=/":
-                        self.values.append(definition)
+                        # we want to find the alternation of self and append the
+                        # concatenation values of definition's alternation
+
+                        # we add rule, elements, and alternation to options more
+                        # for logging than anything else
+
+                        elements1 = self.values[2]
+                        elements2 = definition.values[2]
+
+                        elements1.options.setdefault("merged", [])
+                        elements1.options["merged"].append(elements2)
+
+                        alternation1 = elements1.values[0]
+                        alternation2 = elements2.values[0]
+
+                        #alternation1.values.append("/")
+                        alternation1.values.extend(alternation2.values)
+                        alternation1.options.setdefault("merged", [])
+                        alternation1.options["merged"].append(alternation2)
+
+                        self.options.setdefault("merged", [])
+                        self.options["merged"].append(definition)
+                        #self.values.append(definition)
                         break
 
                     else:
@@ -258,6 +291,21 @@ class ABNFDefinition(ABNFToken):
 
         else:
             raise ValueError(f"Cannot have 2 {self.defname} defined")
+
+    def alternations(self):
+        for value in self.parsable:
+            if value.name == "alternation":
+                yield value
+
+    def concatenations(self):
+        for value in self.parsable:
+            if value.name == "concatenation":
+                yield value
+
+    def repetitions(self):
+        for value in self.parsable:
+            if value.name == "repetition":
+                yield value
 
 
 class ABNFGrammar(Scanner):
@@ -279,6 +327,7 @@ class ABNFGrammar(Scanner):
 
         * \r\n and \n are both considered valid line endings
         * / and | are both considered valid alternation deliminators
+        * <...> is converted to a rulename instead of prose-val
     """
     definition_class = ABNFDefinition
 
@@ -1052,7 +1101,7 @@ class ABNFRecursiveDescentParser(object):
         :param parser: ABNFParser, the ABNFParser instance that created this 
             object instance
         :param entry_rule: ABNFDefinition, the starting rule that will be the
-            entry to parsing input
+            entrypoint to parsing buffer when .parse(buffer) is called
         """
         self.parser = parser
         self.entry_rule = entry_rule
@@ -1085,44 +1134,40 @@ class ABNFRecursiveDescentParser(object):
         self.scanner = self.scanner_class(buffer)
         self.maxtell = len(self.scanner)
 
-        values = self.descend(self.entry_rule)
-        if len(values) > 1:
-            rulename = self.entry_rule.defname
-            raise ParseError(f"Too many values were parsed for rule {rulename}")
-
+        values = self.parse_rule(self.entry_rule)
         return values[0]
 
-    def descend(self, rule):
-        """Descends into the rule by calling the corresponding parse_* method
-        that will parse this rule. Most of the parse_* rules will also call
-        this method at some point since this is a recursive parser
-
-        :param rule: ABNFDefinition, the rule to use to parse the input
-        :returns: list, All parse_* methods return a list
-        """
-        values = []
-
-        if rule.is_num_val():
-            method_name = f"parse_num_val"
-
-        else:
-            rule_method_name = rule.name.replace("-", "_")
-            method_name = f"parse_{rule_method_name}"
-
-        method = getattr(self, method_name, None)
-        if method:
-            if vs := method(rule):
-                if isinstance(vs, list):
-                    values = vs
-
-                else:
-                    values.append(vs)
-
-        else:
-            raise RuntimeError(f"No parse_{rule.name}")
-            #self.log_debug(f"Ignoring non-parsable rule {rule.name}")
-
-        return values
+#     def descend(self, rule):
+#         """Descends into the rule by calling the corresponding parse_* method
+#         that will parse this rule. Most of the parse_* rules will also call
+#         this method at some point since this is a recursive parser
+# 
+#         :param rule: ABNFDefinition, the rule to use to parse the input
+#         :returns: list, All parse_* methods return a list
+#         """
+#         values = []
+# 
+#         if rule.is_num_val():
+#             method_name = f"parse_num_val"
+# 
+#         else:
+#             rule_method_name = rule.name.replace("-", "_")
+#             method_name = f"parse_{rule_method_name}"
+# 
+#         method = getattr(self, method_name, None)
+#         if method:
+#             if vs := method(rule):
+#                 if isinstance(vs, list):
+#                     values = vs
+# 
+#                 else:
+#                     values.append(vs)
+# 
+#         else:
+#             raise RuntimeError(f"No parse_{rule.name}")
+#             #self.log_debug(f"Ignoring non-parsable rule {rule.name}")
+# 
+#         return values
 
     def log_debug(self, msg, **kwargs):
         parsing_rule = kwargs.get("parsing_rule", None)
@@ -1246,43 +1291,56 @@ class ABNFRecursiveDescentParser(object):
             if parsing_rule["start"] >= start:
                 values = parsing_rule["values"]
 
+                self.log_debug(f"Short-circuiting left-recursion for {rulename}: {values[0]}")
+
                 return values
 
             else:
                 del self.parsing_rules_saved[rulename]
 
         parsing_rule = self.push(rule)
+        success = 0
 
-        while self.scanner.tell() < self.maxtell:
-            for r in itertools.chain([rule.values[2]], rule.values[4:]):
-                try:
-                    values = self.descend(r)
+        while True:
+        #while self.scanner.tell() < self.maxtell:
 
-                except ParseError:
-                    pass
+            vs_start = self.scanner.tell()
 
-                else:
-                    break
+            try:
+                vs = self.parse_elements(rule.values[2])
 
-            if values:
-                if self.scanner.tell() > stop:
-                    values = [self.create_token(
+            except ParseError:
+                self.log_debug(f"Failed parsing {rulename}")
+                break
+
+            else:
+                success += 1
+
+                vs_stop = self.scanner.tell()
+
+                vs = [
+                    self.create_token(
                         rule,
-                        values,
-                        start,
-                        self.scanner.tell()
-                    )]
+                        vs,
+                        vs_start,
+                        vs_stop
+                    )
+                ]
+                values.append(vs)
 
-                    self.log_debug(f"Success parsing {rule.defname}: {values[0]}")
+                self.log_debug(
+                    f"Success({success}) parsing {rule.defname}: \"{values[0]}\""
+                )
 
-                    stop = self.scanner.tell()
+                if vs_stop > stop:
+                    stop = vs_stop
 
                     if parsing_rule.get("left-recursion", False):
-                        self.log_debug(f"Marking {rule.defname} as left-recursive")
+                        self.log_debug(f"Marking {rulename} as left-recursive")
                         self.parsing_rules_saved[rulename] = {
-                            "values": values,
+                            "values": vs,
                             "rule": rule,
-                            "start": self.scanner.tell(),
+                            "start": vs_stop,
                         }
 
                     else:
@@ -1291,57 +1349,63 @@ class ABNFRecursiveDescentParser(object):
                 else:
                     break
 
-            else:
-                parsing_rule = self.pop(rule)
-                raise ParseError(f"Rule {rulename} was empty")
-
         parsing_rule = self.pop(rule)
 
-        return values
+        if not success:
+            raise ParseError(f"Rule {rulename} failed")
+
+        return [self.create_token(
+            rule,
+            values,
+            start,
+            self.scanner.tell()
+        )]
+        #return values
 
     def parse_elements(self, rule):
         values = []
-        for r in rule.parsable:
-            if vs := self.descend(r):
+        for r in rule.alternations():
+            if vs := self.parse_alternation(r):
                 values.extend(vs)
 
         return values
 
     def parse_alternation(self, rule):
-        for index, r in enumerate(rule.parsable, 1):
+        ret = []
+        start = self.scanner.tell()
+        for index, r in enumerate(rule.concatenations(), 1):
             try:
                 self.log_debug(f"Alternation({index}): {r}")
-                return self.descend(r)
+                values = self.parse_concatenation(r)
+
+                if self.scanner.tell() > start:
+                    return values
+
+                else:
+                    ret.append(values)
 
             except ParseError as e:
                 self.log_debug(
                     f"Parsing alternation({index}): {r}, failed with: {e}"
                 )
 
-        raise ParseError(f"Failure alternation: {rule}")
+        if ret:
+            return ret[0]
 
-    def parse_group(self, rule):
-        return self.parse_alternation(rule.alternation[0])
-
-    def parse_option(self, rule):
-        try:
-            return self.parse_group(rule)
-
-        except ParseError:
-            return []
+        else:
+            raise ParseError(f"Failure alternation: {rule}")
 
     def parse_concatenation(self, rule):
         values = []
         with self.transaction():
-            for r in rule.parsable:
-                if vs := self.descend(r):
-                    values.extend(vs)
+            for r in rule.repetitions():
+                values.extend(self.parse_repetition(r))
 
         return values
 
     def parse_repetition(self, rule):
         values = []
-        repeat, r = rule.values
+        repeat, element = rule.values
         rmin = repeat.min
         rmax = repeat.max
         count = 0
@@ -1349,7 +1413,7 @@ class ABNFRecursiveDescentParser(object):
         # we have to get at least repeat.min values
         for count in range(1, rmin + 1):
             self.log_debug(f"Repetition minimum {count}/{rmin}")
-            if vs := self.descend(r):
+            if vs := self.parse_element(element):
                 values.extend(vs)
 
         # now we need to either exhaust as many as we can or grab up to
@@ -1361,7 +1425,7 @@ class ABNFRecursiveDescentParser(object):
                 self.log_debug(f"Repetition maximum {count}/{maxcount}")
 
                 try:
-                    if vs := self.descend(r):
+                    if vs := self.parse_element(element):
                         values.extend(vs)
 
                     else:
@@ -1378,16 +1442,53 @@ class ABNFRecursiveDescentParser(object):
         return values
 
     def parse_element(self, rule):
-        return self.descend(rule.values[0])
+        values = []
+        r = rule.values[0]
+
+        if r.is_num_val():
+            method_name = f"parse_num_val"
+
+        else:
+            rule_method_name = r.name.replace("-", "_")
+            method_name = f"parse_{rule_method_name}"
+
+        method = getattr(self, method_name, None)
+        if method:
+            values = method(r)
+
+        else:
+            raise RuntimeError(f"No {method_name}")
+
+        return values
+
+    def parse_group(self, rule):
+        return self.parse_alternation(next(rule.alternations()))
+
+    def parse_option(self, rule):
+        try:
+            return self.parse_group(rule)
+
+        except ParseError:
+            return []
 
     def parse_rulename(self, rule):
+        rulename = rule.defname
+
+        if rulename in self.parsing_rules_saved:
+            parsing_rule = self.parsing_rules_saved[rulename]
+            if parsing_rule["start"] >= start:
+                values = parsing_rule["values"]
+                self.log_debug(f"Short-circuiting left-recursion for {rulename}: {values[0]}")
+                return values
+
         r = self.parser.grammar.parser_rules[rule.defname]
-        return self.descend(r)
+        return self.parse_rule(r)
 
     def parse_num_val(self, rule):
         """Terminal parsing rule, this actually moves the cursor and consumes
         the buffer
         """
+        values = []
         start = self.scanner.tell()
         with self.transaction() as scanner:
             v = scanner.read(1)
@@ -1396,7 +1497,7 @@ class ABNFRecursiveDescentParser(object):
                 if rule.is_val_range():
                     if rule.min > codepoint or codepoint > rule.max:
                         raise ParseError(
-                            "Failure {}, {} range: {} <= {} <= {}".format(
+                            "Failure {}, {} not in range: {} <= {} <= {}".format(
                                 rule.name,
                                 v,
                                 rule.min,
@@ -1409,7 +1510,7 @@ class ABNFRecursiveDescentParser(object):
                     chars = rule.chars
                     if codepoint not in chars:
                         raise ParseError(
-                            "Failure {}, {} value {} in chars {}".format(
+                            "Failure {}, {} value {} not in chars {}".format(
                                 rule.name,
                                 v,
                                 codepoint,
@@ -1424,10 +1525,12 @@ class ABNFRecursiveDescentParser(object):
 
                 if v in String.DIGITS:
                     v = int(v)
-                return [v]
+                values = [v]
 
             else:
                 raise ParseError(f"Failure {rule.name}")
+
+        return values
 
     def parse_char_val(self, rule):
         """Terminal parsing rule, this actually moves the cursor and consumes
@@ -1445,7 +1548,7 @@ class ABNFRecursiveDescentParser(object):
 
             if success:
                 self.log_debug(f"Parsed {rule.name} value: {v}")
-                return [v]
+                values = [v]
 
             else:
                 raise ParseError(
@@ -1455,6 +1558,8 @@ class ABNFRecursiveDescentParser(object):
                         v
                     )
                 )
+
+        return values
 
 
 class ABNFParser(object):

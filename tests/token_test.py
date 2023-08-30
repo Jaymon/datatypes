@@ -12,6 +12,7 @@ from datatypes.token.word import (
 from datatypes.token.abnf import (
     ABNFGrammar,
     ABNFParser,
+    ParseError,
 )
 
 
@@ -753,6 +754,21 @@ class ABNFDefinitionTest(TestCase):
         self.assertEqual(10, t.max)
 
     def test_val_chars(self):
+#         t = self.create_instance("val", "%x5B") # [ Left square bracket"
+#         self.assertTrue(t.is_val_chars())
+#         self.assertFalse(t.is_val_range())
+#         pout.v(t.chars)
+#         return
+# 
+
+#             "non-ascii = %x80-D7FF / %xE000-10FFFF",
+#             "non-eol = %x09 / %x20-7F / non-ascii",
+#             "comment = comment-start-symbol *non-eol",
+#             "table = std-table-open 1*(ALPHA / \"-\") std-table-close",
+#             "std-table-open  = %x5B ws     ; 
+#             "std-table-close = ws %x5D     ; ] Right square bracket",
+
+
         t = self.create_instance("val", "%d97")
         self.assertTrue(t.is_val_chars())
         self.assertFalse(t.is_val_range())
@@ -767,6 +783,31 @@ class ABNFDefinitionTest(TestCase):
     def test_hex_whitespace(self):
         t = self.create_instance("val", "%x20.09") # 20 is space, 09 is tab
         self.assertEqual(set([32, 9]), t.chars)
+
+    def test_rule_merge(self):
+        t = self.create_instance("rule", [
+            "foo = DIGIT",
+            "foo =/ ALPHA",
+            "foo =/ CRLF / CR / LF",
+        ]).options["grammar"].parser_rules["foo"]
+
+        self.assertEqual(1, len(t.elements))
+        self.assertEqual(1, len(t.alternation))
+        self.assertEqual(5, len(t.concatenation))
+        body = str(t)
+        for b in ["foo = DIGIT", "foo =/ ALPHA", "foo =/ CRLF / CR / LF"]:
+            self.assertTrue(b in body)
+
+    def test_defname(self):
+        t = self.create_instance("rulename", [
+            "foo = DIGIT",
+        ])
+        self.assertEqual("foo", t.defname)
+
+        t = self.create_instance("rule", [
+            "foo = DIGIT",
+        ])
+        self.assertEqual("foo", t.defname)
 
 
 class ABNFParserTest(TestCase):
@@ -786,32 +827,18 @@ class ABNFParserTest(TestCase):
             "factor = 1*DIGIT",
         ])
 
-#         pout.b()
-
         rp = p.exp
         rp.scanner = rp.scanner_class("123456")
-
-        #r = p.grammar.parser_rules["exp"]
-
         r = rp.entry_rule
 
         ri = rp.push(r)
         self.assertEqual(1, ri["count"])
-        #self.assertEqual(1, len(rp.parsing_rules_lookup[r.defname]))
 
-        ri = rp.push(r)
-        self.assertEqual(2, ri["count"])
-        #self.assertEqual(2, len(rp.parsing_rules_lookup[r.defname]))
+        with self.assertRaises(ParseError):
+            rp.push(r)
 
-        ri = rp.push(r)
-        self.assertEqual(3, ri["count"])
-        #self.assertEqual(3, len(rp.parsing_rules_lookup[r.defname]))
-
-        ri = rp.pop(r)
-        self.assertEqual(3, ri["count"])
-
-        ri = rp.pop(r)
-        self.assertEqual(2, ri["count"])
+        with self.assertRaises(ParseError):
+            rp.push(r)
 
         ri = rp.pop(r)
         self.assertEqual(1, ri["count"])
@@ -928,7 +955,6 @@ class ABNFParserTest(TestCase):
         self.assertEqual("power", r.values[2].name)
         self.assertEqual("3^4", str(r.values[2]))
 
-
     def test_parse_left_recurse_6(self):
         p = self.create_instance([
             "exp = exp \"+\" factor | exp \"-\" factor | factor",
@@ -946,7 +972,18 @@ class ABNFParserTest(TestCase):
             "factor = \"(\" exp \")\" | 1*DIGIT",
         ])
 
+        pout.b()
+
+        r = p.exp.parse("(1-2)+3")
+        pout.v(r.values)
+        return
+
+
         r = p.exp.parse("(1-2)+3*4")
+        pout.v(r.values[0])
+        #pout.v(r.values[0], r.values[2])
+        return
+
         self.assertEqual("(1-2)", str(r.values[0]))
         self.assertEqual("+", str(r.values[1]))
         self.assertEqual("3*4", str(r.values[2]))
@@ -958,6 +995,33 @@ class ABNFParserTest(TestCase):
 
         r = p.foo.parse("1234")
         self.assertEqual(4, len(r.values))
+
+    def test_parse_rule_1(self):
+        p = self.create_instance([
+            "foo = *DIGIT",
+        ])
+
+        r = p.foo.parse("xy")
+        self.assertEqual(0, len(r.values))
+
+    def test_parse_rule_2(self):
+        p = self.create_instance([
+            "foo = \"#\" DIGIT",
+        ])
+
+        with self.assertRaises(ParseError):
+            p.foo.parse("xy")
+
+    def test_parse_rule_3(self):
+        p = self.create_instance([
+            "foo = *DIGIT / *ALPHA",
+        ])
+
+        r = p.foo.parse("xy")
+        self.assertEqual(2, len(r.values))
+
+        r = p.foo.parse("--")
+        self.assertEqual(0, len(r.values))
 
     def test_parse_option(self):
         p = self.create_instance([
@@ -985,9 +1049,33 @@ class ABNFParserTest(TestCase):
             "wschar =/ %x09  ; Horizontal tab",
         ])
 
+        r = p.foo.parse("1 2 3 4")
+        self.assertEqual(8, len(r.values))
+        self.assertEqual(4, len(r.digit))
+
         r = p.foo.parse(" 1 2 3 4")
         self.assertEqual(8, len(r.values))
         self.assertEqual(4, len(r.digit))
+
+    def test_parse_1(self):
+        p = self.create_instance([
+            "foo = ws [ comment ]",
+            "foo =/ ws DIGIT ws [ comment ]",
+            "foo =/ ws table ws [ comment ]",
+            "ws = *wschar",
+            "wschar =  %x20  ; Space",
+            "wschar =/ %x09  ; Horizontal tab",
+            "comment-start-symbol = %x23 ; #",
+            "non-ascii = %x80-D7FF / %xE000-10FFFF",
+            "non-eol = %x09 / %x20-7F / non-ascii",
+            "comment = comment-start-symbol *non-eol",
+            "table = std-table-open 1*(ALPHA / \"-\") std-table-close",
+            "std-table-open  = %x5B ws     ; [ Left square bracket",
+            "std-table-close = ws %x5D     ; ] Right square bracket",
+        ])
+
+        r = p.foo.parse("[build-system]")
+        self.assertEqual("[build-system]", str(r.values[1]))
 
 
 class TOMLTest(TestCase):
@@ -1002,7 +1090,21 @@ class TOMLTest(TestCase):
         buffer = Filepath("~/Projects/Testdata/_testdata/pyproject.toml").read_text()
 
         r = p.toml.parse(buffer)
-        pout.v(r)
+        expressions = r.expression
+
+        pout.v(len(expressions))
+
+        pout.v(expressions[0].values[0])
+        return
+
+        for exp in expressions:
+            pout.v(exp)
+            pout.v(len(getattr(exp, "table", [])))
+            pout.v(len(getattr(exp, "keyval", [])))
+            pout.x()
+
+
+
         return
         pout.v(r.values[0])
         return

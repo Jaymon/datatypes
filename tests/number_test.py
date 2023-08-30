@@ -6,7 +6,7 @@ from datatypes.number import (
     Integer,
     Shorten,
     Exponential,
-    #Hex,
+    Hex,
     #Binary,
 )
 
@@ -115,6 +115,12 @@ class IntegerTest(TestCase):
 
         i = Integer("10K")
         self.assertEqual(10000, i)
+
+
+class HexTest(TestCase):
+    def test_create(self):
+        h = Hex("5B")
+        self.assertEqual(int("5B", 16), h)
 
 
 class ExponentialTest(TestCase):

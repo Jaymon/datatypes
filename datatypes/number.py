@@ -97,6 +97,10 @@ class Integer(int):
                     else:
                         base = 10
 
+                else:
+                    if base != 10:
+                        sub = False
+
                 if sub:
                     subs = [
                         (" ", ""),
