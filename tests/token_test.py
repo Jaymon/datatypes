@@ -921,24 +921,23 @@ class ABNFParserTest(TestCase):
         ])
 
         r = p.exp.parse("1+2")
-        pout.v(r)
         self.assertEqual("1+2", str(r))
         self.assertEqual("1", str(r.values[0]))
         self.assertEqual("2", str(r.values[2]))
 
     def test_parse_left_recurse_1b(self):
         p = self.create_instance([
-            "exp = exp \"+\" factor | factor",
-            "factor = DIGIT",
+            "exp = exp \"+\" DIGIT / DIGIT",
         ])
 
         r = p.exp.parse("1+2")
-        pout.v(r)
         self.assertEqual("1+2", str(r))
         self.assertEqual("1", str(r.values[0]))
         self.assertEqual("2", str(r.values[2]))
 
-
+        r = p.exp.parse("1+2+3")
+        self.assertEqual("1+2", str(r.values[0]))
+        self.assertEqual("3", str(r.values[2]))
 
     def test_parse_left_recurse_2(self):
         p = self.create_instance([
@@ -950,7 +949,7 @@ class ABNFParserTest(TestCase):
         self.assertEqual("1+2+3", str(r))
         self.assertEqual("1+2", str(r.values[0]))
 
-    def test_parse_left_recurse_3(self):
+    def test_parse_left_recurse_3a(self):
         p = self.create_instance([
             "exp = exp \"+\" factor | factor",
             "factor = \"(\" exp \")\" | 1*DIGIT",
@@ -959,6 +958,16 @@ class ABNFParserTest(TestCase):
         r = p.exp.parse("(1+2)+3")
         self.assertEqual("(1+2)", str(r.values[0]))
         self.assertEqual("3", str(r.values[2]))
+
+    def test_parse_left_recurse_3b(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor / factor",
+            "factor = \"(\" exp \")\" / DIGIT",
+        ])
+
+        r = p.exp.parse("(1+2)")
+        self.assertEqual("(1+2)", str(r))
+        self.assertEqual("1+2", str(r.values[0].values[1]))
 
     def test_parse_left_recurse_4(self):
         p = self.create_instance([
@@ -999,18 +1008,12 @@ class ABNFParserTest(TestCase):
             "factor = \"(\" exp \")\" | 1*DIGIT",
         ])
 
-        pout.b()
-
         r = p.exp.parse("(1-2)+3")
-        pout.v(r.values)
-        return
-
+        self.assertEqual("(1-2)", str(r.values[0]))
+        self.assertEqual("+", str(r.values[1]))
+        self.assertEqual("3", str(r.values[2]))
 
         r = p.exp.parse("(1-2)+3*4")
-        pout.v(r.values[0])
-        #pout.v(r.values[0], r.values[2])
-        return
-
         self.assertEqual("(1-2)", str(r.values[0]))
         self.assertEqual("+", str(r.values[1]))
         self.assertEqual("3*4", str(r.values[2]))
