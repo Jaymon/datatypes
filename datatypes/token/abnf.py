@@ -1200,7 +1200,7 @@ class ABNFRecursiveDescentParser(object):
             start = self.scanner.tell()
             for rulename in list(self.parsing_rules_saved.keys()):
                 parsing_rule = self.parsing_rules_saved[rulename]
-                if parsing_rule["values"][0].stop > start:
+                if parsing_rule["token"].stop > start:
                     del self.parsing_rules_saved[rulename]
 
             raise
@@ -1289,11 +1289,11 @@ class ABNFRecursiveDescentParser(object):
         if rulename in self.parsing_rules_saved:
             parsing_rule = self.parsing_rules_saved[rulename]
             if parsing_rule["start"] >= start:
-                values = parsing_rule["values"]
+                token = parsing_rule["token"]
 
-                self.log_debug(f"Short-circuiting left-recursion for {rulename}: {values[0]}")
+                self.log_debug(f"Short-circuiting left-recursion for {rulename}: {token}")
 
-                return values
+                return [token]
 
             else:
                 del self.parsing_rules_saved[rulename]
@@ -1303,8 +1303,6 @@ class ABNFRecursiveDescentParser(object):
 
         while True:
         #while self.scanner.tell() < self.maxtell:
-
-            vs_start = self.scanner.tell()
 
             try:
                 vs = self.parse_elements(rule.values[2])
@@ -1318,15 +1316,14 @@ class ABNFRecursiveDescentParser(object):
 
                 vs_stop = self.scanner.tell()
 
-                vs = [
-                    self.create_token(
-                        rule,
-                        vs,
-                        vs_start,
-                        vs_stop
-                    )
-                ]
-                values.append(vs)
+                token = self.create_token(
+                    rule,
+                    vs,
+                    start,
+                    vs_stop
+                )
+
+                values.append(token)
 
                 self.log_debug(
                     f"Success({success}) parsing {rule.defname}: \"{values[0]}\""
@@ -1338,7 +1335,7 @@ class ABNFRecursiveDescentParser(object):
                     if parsing_rule.get("left-recursion", False):
                         self.log_debug(f"Marking {rulename} as left-recursive")
                         self.parsing_rules_saved[rulename] = {
-                            "values": vs,
+                            "token": token,
                             "rule": rule,
                             "start": vs_stop,
                         }
@@ -1363,12 +1360,7 @@ class ABNFRecursiveDescentParser(object):
         #return values
 
     def parse_elements(self, rule):
-        values = []
-        for r in rule.alternations():
-            if vs := self.parse_alternation(r):
-                values.extend(vs)
-
-        return values
+        return self.parse_alternation(next(rule.alternations()))
 
     def parse_alternation(self, rule):
         ret = []
@@ -1386,7 +1378,7 @@ class ABNFRecursiveDescentParser(object):
 
             except ParseError as e:
                 self.log_debug(
-                    f"Parsing alternation({index}): {r}, failed with: {e}"
+                    f"Parsing alternation({index}) failed with: {e}"
                 )
 
         if ret:
@@ -1408,21 +1400,23 @@ class ABNFRecursiveDescentParser(object):
         repeat, element = rule.values
         rmin = repeat.min
         rmax = repeat.max
+        maxcount = rmax or "*"
         count = 0
+
+        self.log_debug(f"Parsing {element.values[0].name} for {rmin}-{maxcount} times")
 
         # we have to get at least repeat.min values
         for count in range(1, rmin + 1):
-            self.log_debug(f"Repetition minimum {count}/{rmin}")
+            #self.log_debug(f"Repetition minimum {count}/{rmin}")
             if vs := self.parse_element(element):
                 values.extend(vs)
 
         # now we need to either exhaust as many as we can or grab up to
         # repeat.max
         if rmax == 0 or (rmax > rmin):
-            maxcount = rmax or "*"
             while True:
                 count += 1
-                self.log_debug(f"Repetition maximum {count}/{maxcount}")
+                #self.log_debug(f"Repetition maximum {count}/{maxcount}")
 
                 try:
                     if vs := self.parse_element(element):
@@ -1472,15 +1466,6 @@ class ABNFRecursiveDescentParser(object):
             return []
 
     def parse_rulename(self, rule):
-        rulename = rule.defname
-
-        if rulename in self.parsing_rules_saved:
-            parsing_rule = self.parsing_rules_saved[rulename]
-            if parsing_rule["start"] >= start:
-                values = parsing_rule["values"]
-                self.log_debug(f"Short-circuiting left-recursion for {rulename}: {values[0]}")
-                return values
-
         r = self.parser.grammar.parser_rules[rule.defname]
         return self.parse_rule(r)
 

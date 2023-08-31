@@ -871,7 +871,7 @@ class ABNFParserTest(TestCase):
         self.assertEqual(1, len(r.values))
         self.assertEqual("bar", r.values[0])
 
-    def test_parse_repetition(self):
+    def test_parse_repetition_1(self):
         p = self.create_instance([
             "one-or-more = 1*DIGIT",
             "two = DIGIT",
@@ -902,16 +902,43 @@ class ABNFParserTest(TestCase):
         )
         self.assertEqual(3, len(r))
 
-    def test_parse_left_recurse_1(self):
+    def test_parse_repetition_2(self):
+        p = self.create_instance([
+            "five = 5DIGIT",
+        ])
+        parser = p.five
+        parser.scanner = parser.scanner_class("12x3456")
+
+        with self.assertRaises(ParseError):
+            parser.parse_repetition(
+                p.grammar.parser_rules["five"].repetition[0]
+            )
+
+    def test_parse_left_recurse_1a(self):
         p = self.create_instance([
             "exp = exp \"+\" factor | factor",
             "factor = 1*DIGIT",
         ])
 
         r = p.exp.parse("1+2")
+        pout.v(r)
         self.assertEqual("1+2", str(r))
         self.assertEqual("1", str(r.values[0]))
         self.assertEqual("2", str(r.values[2]))
+
+    def test_parse_left_recurse_1b(self):
+        p = self.create_instance([
+            "exp = exp \"+\" factor | factor",
+            "factor = DIGIT",
+        ])
+
+        r = p.exp.parse("1+2")
+        pout.v(r)
+        self.assertEqual("1+2", str(r))
+        self.assertEqual("1", str(r.values[0]))
+        self.assertEqual("2", str(r.values[2]))
+
+
 
     def test_parse_left_recurse_2(self):
         p = self.create_instance([
