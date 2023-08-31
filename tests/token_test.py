@@ -1121,9 +1121,63 @@ class ABNFParserTest(TestCase):
             "std-table-close = ws %x5D     ; ] Right square bracket",
         ])
 
-
         r = p.foo.parse("[build-system]")
         self.assertEqual("[build-system]", str(r.values[1]))
+
+    def test_parse_alternation(self):
+#         p = self.create_instance([
+#             "key = simple-key / dotted-key",
+#             "simple-key = quoted-key / unquoted-key",
+#             "unquoted-key = 1*( ALPHA / DIGIT / \"-\" / \"_\" )",
+#             "quoted-key = basic-string / literal-string",
+#             "dotted-key = simple-key 1*( dot-sep simple-key )",
+#             "basic-string = %x22 ALPHA %x22",
+#             "literal-string = %x27 ALPHA %x27",
+#             "dot-sep = ws %x2E ws",
+#             "ws = *wschar",
+#             "wschar =  %x20",
+#             "wschar =/ %x09",
+#         ])
+
+#         p = self.create_instance([
+#             "key = simple-key / dotted-key",
+#             "simple-key = quoted-key / unquoted-key",
+#             "unquoted-key = 1*( ALPHA / DIGIT / \"-\" / \"_\" )",
+#             "quoted-key = %x22 unquoted-key %x22",
+#             "dotted-key = simple-key 1*( dot-sep simple-key )",
+#             "dot-sep = ws %x2E ws",
+#             "ws = *wschar",
+#             "wschar =  %x20",
+#             "wschar =/ %x09",
+#         ])
+
+        p = self.create_instance([
+            "key = simple-key / dotted-key",
+            "simple-key = 1*ALPHA",
+            "dotted-key = simple-key 1*( %x2E simple-key )",
+        ])
+
+        parser = p.key
+        parser.scanner = parser.scanner_class("foo.bar")
+        r = parser.parse_alternation(
+            next(p.grammar.parser_rules["key"].values[2].alternations())
+        )
+        self.assertEqual("foo.bar", str(r[0]))
+
+        parser = p.key
+        parser.scanner = parser.scanner_class("foo")
+        r = parser.parse_alternation(
+            next(p.grammar.parser_rules["key"].values[2].alternations())
+        )
+        self.assertEqual("foo", str(r[0]))
+
+        r = p.key.parse("foo.bar")
+        self.assertEqual("foo.bar", str(r))
+
+        r = p.key.parse("foo")
+        self.assertEqual("foo", str(r))
+
+
 
 
 class TOMLTest(TestCase):
@@ -1138,6 +1192,39 @@ class TOMLTest(TestCase):
         buffer = Filepath("~/Projects/Testdata/_testdata/pyproject.toml").read_text()
 
         r = p.toml.parse(buffer)
+        #pout.v(r)
+
+        sections = {}
+        section_key = ""
+        for exp in r.expression:
+            #pout.b()
+            #pout.v(exp)
+            tables = getattr(exp, "table", [])
+            if tables:
+                pout.b(str(tables[0]))
+                section_key = str(tables[0])[1:-1]
+                sections.setdefault(section_key, {})
+
+            else:
+                keyvals = getattr(exp, "keyval", [])
+                if keyvals:
+                    for keyval in keyvals:
+                        key = str(keyval.values[0])
+                        pout.v(keyval.values[2])
+
+                        #pout.v(keyval)
+                        #pout.v(str(keyval))
+
+
+
+            #pout.v(len(getattr(exp, "table", [])))
+            #pout.v(len(getattr(exp, "keyval", [])))
+
+        return
+
+
+
+        sections = {}
         expressions = r.expression
 
         pout.v(len(expressions))

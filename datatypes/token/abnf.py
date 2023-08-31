@@ -519,9 +519,9 @@ class ABNFGrammar(Scanner):
         """
         start = self.tell()
         values = []
-        maxtell = len(self)
+        eoftell = len(self)
 
-        while self.tell() < maxtell:
+        while self.tell() < eoftell:
             try:
                 values.append(self.scan_rule())
 
@@ -1132,7 +1132,7 @@ class ABNFRecursiveDescentParser(object):
             self.entry_rule and will contain the parsed values from buffer
         """
         self.scanner = self.scanner_class(buffer)
-        self.maxtell = len(self.scanner)
+        self.eoftell = len(self.scanner)
 
         values = self.parse_rule(self.entry_rule)
         return values[0]
@@ -1236,7 +1236,6 @@ class ABNFRecursiveDescentParser(object):
 
         return parsing_rule
 
-
     def parse_rule(self, rule):
         """Most everything important goes through this parse method
 
@@ -1252,8 +1251,12 @@ class ABNFRecursiveDescentParser(object):
         self.push(rule)
         success = 0
 
+        # you might be tempted to change this to "stop < self.eoftell" but that 
+        # would be a mistake. You need to go through the rule one more time
+        # after hitting the eof to successfully pick up any optional rules that
+        # don't need to actually parse anything but do need to successfully
+        # parse by returning an empty list
         while True:
-        #while stop < self.maxtell:
             try:
                 values = self.parse_elements(rule.values[2])
 
@@ -1283,7 +1286,7 @@ class ABNFRecursiveDescentParser(object):
                         self.log_debug(f"Saving {rulename} for [{istop}]")
                         parsing_info["indexes"][istop] = token
 
-                        if stop < self.maxtell:
+                        if stop < self.eoftell:
                             continue
 
                 break
@@ -1317,26 +1320,30 @@ class ABNFRecursiveDescentParser(object):
         return self.parse_alternation(next(rule.alternations()))
 
     def parse_alternation(self, rule):
-        ret = []
-        start = self.scanner.tell()
+        success = 0
+        values = []
+        start = stop = self.scanner.tell()
         for index, r in enumerate(rule.concatenations(), 1):
+            self.scanner.seek(start)
+
             try:
                 self.log_debug(f"Alternation({index}): {r}")
-                values = self.parse_concatenation(r)
+                ivalues = self.parse_concatenation(r)
+                istop = self.scanner.tell()
+                success += 1
 
-                if self.scanner.tell() > start:
-                    return values
-
-                else:
-                    ret.append(values)
+                if istop > stop:
+                    stop = istop
+                    values = ivalues
 
             except ParseError as e:
                 self.log_debug(
                     f"Parsing alternation({index}) failed with: {e}"
                 )
 
-        if ret:
-            return ret[0]
+        if success:
+            self.scanner.seek(stop)
+            return values
 
         else:
             raise ParseError(f"Failure alternation: {rule}")
