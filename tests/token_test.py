@@ -32,8 +32,8 @@ class TestCase(_TestCase):
 class WordTokenizerTest(TestCase):
     tokenizer_class = WordTokenizer
 
-    def create_instance(self, buffer, delims=None):
-        tokenizer = super().create_instance(buffer, delims=delims)
+    def create_instance(self, buffer, chars=None):
+        tokenizer = super().create_instance(buffer, chars=chars)
         tokenizer.stream = tokenizer.buffer
         return tokenizer
 
@@ -334,7 +334,7 @@ class WordTokenizerTest(TestCase):
         r = t.next()
         self.assertEqual("2345678", r.text)
 
-        t.reset()
+        t.seek(0)
         self.assertEqual(2, len(t.readall()))
 
     def test_unicode_pure(self):
@@ -352,14 +352,13 @@ class WordTokenizerTest(TestCase):
 
     def test_count_total(self):
         t = self.create_instance("foo bar che bam boo")
-        total = t.total()
+        total = len(t)
         self.assertEqual(total, t.count())
 
         t.next()
         t.next()
         self.assertEqual(3, t.count())
-        self.assertLess(t.count(), t.total())
-        self.assertEqual(total, t.total())
+        self.assertLess(t.count(), len(t))
         self.assertEqual(total, len(t))
 
     def test_word_sizes_1(self):
@@ -422,38 +421,6 @@ class ScannerTest(TestCase):
 
         subtext = s.read_to_delim("[[")
         self.assertEqual(" after", subtext)
-
-
-# class ABNFTokenizerTest(TestCase):
-#     tokenizer_class = ABNFGrammar
-# 
-#     def test_or_statement(self):
-#         t = self.create_instance("foo = bar / che / baz / boo")
-#         rule = t.next()
-#         pout.v(rule)
-#         for options in rule:
-#             pout.v(options, len(options))
-# 
-# 
-# 
-#     def test_next_simple(self):
-#         t = self.create_instance("foo = \"literal1\" rule1 \"literal2\"")
-#         rule = t.next()
-#         pout.v(rule)
-# 
-#         return
-# 
-# 
-# 
-#         t = self.create_instance([
-#             "foo = bar / che",
-#             "  / baz",
-#             "  / boo",
-#             "bar = cheboo",
-#         ])
-# 
-#         rule = t.next()
-
 
 
 class ABNFGrammarTest(TestCase):
@@ -733,42 +700,17 @@ class ABNFDefinitionTest(TestCase):
         self.assertEqual(65076, t.min)
         self.assertEqual(1048575, t.max)
 
-        t = self.create_instance("val", "%xfe34")
-        self.assertEqual(65076, t.min)
-        self.assertEqual(65076, t.max)
-
         t = self.create_instance("val", "%b110-1100")
         self.assertEqual(6, t.min)
         self.assertEqual(12, t.max)
-
-        t = self.create_instance("val", "%b110")
-        self.assertEqual(6, t.min)
-        self.assertEqual(6, t.max)
+        with self.assertRaises(ValueError):
+            t.chars
 
         t = self.create_instance("val", "%d10-200")
         self.assertEqual(10, t.min)
         self.assertEqual(200, t.max)
 
-        t = self.create_instance("val", "%d10")
-        self.assertEqual(10, t.min)
-        self.assertEqual(10, t.max)
-
     def test_val_chars(self):
-#         t = self.create_instance("val", "%x5B") # [ Left square bracket"
-#         self.assertTrue(t.is_val_chars())
-#         self.assertFalse(t.is_val_range())
-#         pout.v(t.chars)
-#         return
-# 
-
-#             "non-ascii = %x80-D7FF / %xE000-10FFFF",
-#             "non-eol = %x09 / %x20-7F / non-ascii",
-#             "comment = comment-start-symbol *non-eol",
-#             "table = std-table-open 1*(ALPHA / \"-\") std-table-close",
-#             "std-table-open  = %x5B ws     ; 
-#             "std-table-close = ws %x5D     ; ] Right square bracket",
-
-
         t = self.create_instance("val", "%d97")
         self.assertTrue(t.is_val_chars())
         self.assertFalse(t.is_val_range())
@@ -779,6 +721,19 @@ class ABNFDefinitionTest(TestCase):
         self.assertFalse(t.is_val_range())
 
         self.assertEqual(set([97, 98, 99]), t.chars)
+
+        t = self.create_instance("val", "%d10")
+        self.assertEqual({10}, t.chars)
+
+        t = self.create_instance("val", "%b110")
+        self.assertEqual({6}, t.chars)
+
+        t = self.create_instance("val", "%xfe34")
+        self.assertEqual({65076}, t.chars)
+        with self.assertRaises(ValueError):
+            t.min
+        with self.assertRaises(ValueError):
+            t.max
 
     def test_hex_whitespace(self):
         t = self.create_instance("val", "%x20.09") # 20 is space, 09 is tab
@@ -1094,7 +1049,6 @@ class ABNFParserTest(TestCase):
             "ws = *wschar",
             "wschar =  %x20  ; Space",
             "wschar =/ %x09  ; Horizontal tab",
-            #"non-eol = %x09 / %x20-7F / %x80-D7FF / %xE000-10FFFF",
             "comment = %x23 *\"2\"",
             "table = %x5B 1*(\"1\") %x5D",
         ])
@@ -1125,32 +1079,6 @@ class ABNFParserTest(TestCase):
         self.assertEqual("[build-system]", str(r.values[1]))
 
     def test_parse_alternation(self):
-#         p = self.create_instance([
-#             "key = simple-key / dotted-key",
-#             "simple-key = quoted-key / unquoted-key",
-#             "unquoted-key = 1*( ALPHA / DIGIT / \"-\" / \"_\" )",
-#             "quoted-key = basic-string / literal-string",
-#             "dotted-key = simple-key 1*( dot-sep simple-key )",
-#             "basic-string = %x22 ALPHA %x22",
-#             "literal-string = %x27 ALPHA %x27",
-#             "dot-sep = ws %x2E ws",
-#             "ws = *wschar",
-#             "wschar =  %x20",
-#             "wschar =/ %x09",
-#         ])
-
-#         p = self.create_instance([
-#             "key = simple-key / dotted-key",
-#             "simple-key = quoted-key / unquoted-key",
-#             "unquoted-key = 1*( ALPHA / DIGIT / \"-\" / \"_\" )",
-#             "quoted-key = %x22 unquoted-key %x22",
-#             "dotted-key = simple-key 1*( dot-sep simple-key )",
-#             "dot-sep = ws %x2E ws",
-#             "ws = *wschar",
-#             "wschar =  %x20",
-#             "wschar =/ %x09",
-#         ])
-
         p = self.create_instance([
             "key = simple-key / dotted-key",
             "simple-key = 1*ALPHA",
@@ -1176,81 +1104,4 @@ class ABNFParserTest(TestCase):
 
         r = p.key.parse("foo")
         self.assertEqual("foo", str(r))
-
-
-
-
-class TOMLTest(TestCase):
-
-    def test_parse_toml(self):
-        from datatypes import UrlFilepath, Filepath
-        fp = UrlFilepath("https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf")
-        p = ABNFParser(fp.read_text())
-
-        #pout.v(p.ruletree)
-
-        buffer = Filepath("~/Projects/Testdata/_testdata/pyproject.toml").read_text()
-
-        r = p.toml.parse(buffer)
-        #pout.v(r)
-
-        sections = {}
-        section_key = ""
-        for exp in r.expression:
-            #pout.b()
-            #pout.v(exp)
-            tables = getattr(exp, "table", [])
-            if tables:
-                pout.b(str(tables[0]))
-                section_key = str(tables[0])[1:-1]
-                sections.setdefault(section_key, {})
-
-            else:
-                keyvals = getattr(exp, "keyval", [])
-                if keyvals:
-                    for keyval in keyvals:
-                        key = str(keyval.values[0])
-                        pout.v(keyval.values[2])
-
-                        #pout.v(keyval)
-                        #pout.v(str(keyval))
-
-
-
-            #pout.v(len(getattr(exp, "table", [])))
-            #pout.v(len(getattr(exp, "keyval", [])))
-
-        return
-
-
-
-        sections = {}
-        expressions = r.expression
-
-        pout.v(len(expressions))
-
-        pout.v(expressions[0].values[0])
-        return
-
-        for exp in expressions:
-            pout.v(exp)
-            pout.v(len(getattr(exp, "table", [])))
-            pout.v(len(getattr(exp, "keyval", [])))
-            pout.x()
-
-
-
-        return
-        pout.v(r.values[0])
-        return
-
-
-
-        for kv in r.keyval:
-            pout.v(kv)
-            return
-
-
-        #p.loads('dict = "{" statement *( "," statement ) "}"')
-
 

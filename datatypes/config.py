@@ -7,7 +7,8 @@ from configparser import ConfigParser, ExtendedInterpolation
 import re
 
 from .compat import *
-from .path import Filepath
+from .path import Filepath, UrlFilepath
+from .token.abnf import ABNFParser
 
 
 class Environ(Mapping):
@@ -516,5 +517,47 @@ class TOML(object):
     https://docs.python.org/3/library/tomllib.html
     https://github.com/python/cpython/blob/3.11/Lib/tomllib/_parser.py
     """
-    pass
+    GRAMMAR_URL = "https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf"
+
+    def __init__(self, path, **kwargs):
+        self.path = Filepath(path)
+        self.parse()
+
+    def parse(self):
+        fp = UrlFilepath(self.GRAMMAR_URL)
+        self.parser = ABNFParser(fp.read_text())
+        r = self.parser.toml.parse(self.path.read_text())
+
+        sections = {}
+        section_key = "default"
+        for exp in r.tokens("expression"):
+            has_tables = False
+            for table in exp.tokens("table"):
+                has_tables = True
+                section_key = str(table[0])[1:-1]
+                sections.setdefault(section_key, {})
+
+            if not has_tables:
+                for keyval in exp.tokens("keyval"):
+                    key = str(keyval.values[0])
+                    pout.v(keyval.values[2])
+
+
+
+
+#             tables = getattr(token, "table", [])
+#             if tables:
+#                 section_key = str(tables[0])[1:-1]
+#                 sections.setdefault(section_key, {})
+# 
+#             else:
+#                 keyvals = getattr(exp, "keyval", [])
+#                 if keyvals:
+#                     for keyval in keyvals:
+#                         key = str(keyval.values[0])
+#                         pout.v(keyval.values[2])
+# 
+#                         #pout.v(keyval)
+#                         #pout.v(str(keyval))
+
 

@@ -5,6 +5,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 from datatypes.compat import *
 from datatypes.config import (
     Environ,
+    TOML,
 )
 
 from . import TestCase, testdata
@@ -41,4 +42,16 @@ class EnvironTest(TestCase):
         n = environ["FOO"]
         self.assertEqual(2000, n)
         self.assertTrue(isinstance(n, int))
+
+
+
+class TOMLTest(TestCase):
+    def test_parse_1(self):
+        fp = self.create_file([
+            "[foo.bar]",
+            "foo = 1",
+            "bar = \"2\"",
+        ])
+
+        t = TOML(fp)
 

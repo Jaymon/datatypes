@@ -27,6 +27,7 @@ class GrammarError(ValueError):
 
 
 class ABNFToken(object):
+    """Returned by the ABNF Parsers"""
     @classmethod
     def normalize_name(cls, name):
         # ABNF keys can't contain underscores but python attribute names can't
@@ -74,6 +75,12 @@ class ABNFToken(object):
                 return values
 
         raise AttributeError(key)
+
+    def tokens(self, name):
+        for value in self.values:
+            if isinstance(value, ABNFToken):
+                if not name or name == value.name:
+                    yield value
 
 
 class ABNFDefinition(ABNFToken):
@@ -201,28 +208,6 @@ class ABNFDefinition(ABNFToken):
 
         else:
             return super().__str__()
-
-#     def x__str__(self):
-#         parts = []
-# 
-#         parts.append(f"{self.name} [{self.start}:{self.stop}]:")
-# 
-#         for value in self.values:
-#             if isinstance(value, ABNFDefinition):
-#                 if value.is_rulename():
-#                     parts.append(f"{value.name}({value.values[0]})")
-# 
-#                 elif value.is_definedas():
-#                     sign = value.options["sign"]
-#                     parts.append(f"{value.name}({sign})")
-# 
-#                 else:
-#                     parts.append(value.name)
-# 
-#             else:
-#                 parts.append(str(value))
-# 
-#         return " ".join(parts)
 
     def is_parsable(self):
         return not self.is_internal()
@@ -1132,8 +1117,6 @@ class ABNFRecursiveDescentParser(object):
             self.entry_rule and will contain the parsed values from buffer
         """
         self.scanner = self.scanner_class(buffer)
-        self.eoftell = len(self.scanner)
-
         values = self.parse_rule(self.entry_rule)
         return values[0]
 
@@ -1156,22 +1139,10 @@ class ABNFRecursiveDescentParser(object):
     @contextmanager
     def transaction(self):
         """Internal method that will revert the cursor to the previous position
-        if the input fails to be parsed by the current rule.
-
-        This messes with state used to track left-recursion
+        if the input fails to be parsed by the current rule
         """
-        try:
-            with self.scanner.transaction() as scanner:
-                yield scanner
-
-        except Exception:
-#             start = self.scanner.tell()
-#             for rulename in list(self.parsing_rules_saved.keys()):
-#                 parsing_rule = self.parsing_rules_saved[rulename]
-#                 if parsing_rule["token"].stop > start:
-#                     del self.parsing_rules_saved[rulename]
-
-            raise
+        with self.scanner.transaction() as scanner:
+            yield scanner
 
     def push(self, rule):
         """Internal method that pushes rule onto the internal stack
@@ -1247,11 +1218,12 @@ class ABNFRecursiveDescentParser(object):
             that was just parsed
         """
         start = stop = self.scanner.tell()
+        eoftell = len(self.scanner)
         rulename = rule.defname
         self.push(rule)
         success = 0
 
-        # you might be tempted to change this to "stop < self.eoftell" but that 
+        # you might be tempted to change this to "stop < eoftell" but that 
         # would be a mistake. You need to go through the rule one more time
         # after hitting the eof to successfully pick up any optional rules that
         # don't need to actually parse anything but do need to successfully
@@ -1282,11 +1254,12 @@ class ABNFRecursiveDescentParser(object):
                     stop = istop
 
                     parsing_info = self.parsing_rules_info[rulename]
+
                     if parsing_info.get("left-recursion", False):
                         self.log_debug(f"Saving {rulename} for [{istop}]")
                         parsing_info["indexes"][istop] = token
 
-                        if stop < self.eoftell:
+                        if stop < eoftell:
                             continue
 
                 break
@@ -1298,28 +1271,17 @@ class ABNFRecursiveDescentParser(object):
 
         return [token]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def parse_elements(self, rule):
         return self.parse_alternation(next(rule.alternations()))
 
     def parse_alternation(self, rule):
+        """go through all the alternations and return the greediest one
+
+        This has to run all the alternations but it keeps track of the longest
+        alternation to parse and will ultimately return that one after running
+        through all the options. It will raise a ParseError if no alternations
+        succeed in parsing
+        """
         success = 0
         values = []
         start = stop = self.scanner.tell()
@@ -1364,7 +1326,9 @@ class ABNFRecursiveDescentParser(object):
         maxcount = rmax or "*"
         count = 0
 
-        self.log_debug(f"Repetition {element.values[0].name} {rmin}-{maxcount} times")
+        self.log_debug(
+            f"Repetition {element.values[0].name} {rmin}-{maxcount} times"
+        )
 
         # we have to get at least repeat.min values
         for count in range(1, rmin + 1):
@@ -1426,7 +1390,6 @@ class ABNFRecursiveDescentParser(object):
         except ParseError:
             return []
 
-
     def parse_rulename(self, rule):
         rulename = rule.defname
         start = self.scanner.tell()
@@ -1439,13 +1402,6 @@ class ABNFRecursiveDescentParser(object):
         else:
             r = self.parser.grammar.parser_rules[rule.defname]
             return self.parse_rule(r)
-
-
-
-
-    def xparse_rulename(self, rule):
-        r = self.parser.grammar.parser_rules[rule.defname]
-        return self.parse_rule(r)
 
     def parse_num_val(self, rule):
         """Terminal parsing rule, this actually moves the cursor and consumes
@@ -1536,10 +1492,10 @@ class ABNFParser(object):
 
     :Example:
         grammar = "\n".join([
-            "exp = exp \"+\" term | exp \"-\" term | term",
-            "term = term \"*\" power | term \"/\" power | power",
-            "power = factor \"^\" power | factor",
-            "factor = \"(\" exp \")\" | 1*DIGIT",
+            "exp = exp \"+\" term / exp \"-\" term / term",
+            "term = term \"*\" power / term \"/\" power / power",
+            "power = factor \"^\" power / factor",
+            "factor = \"(\" exp \")\" / 1*DIGIT",
         ])
         p = ABNFParser(grammar)
         r = p.exp.parse("(1-2)+3*4")
