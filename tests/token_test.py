@@ -1090,6 +1090,23 @@ class ABNFParserTest(TestCase):
     def test_parse_1(self):
         p = self.create_instance([
             "foo = ws [ comment ]",
+            "foo =/ ws table ws [ comment ]",
+            "ws = *wschar",
+            "wschar =  %x20  ; Space",
+            "wschar =/ %x09  ; Horizontal tab",
+            #"non-eol = %x09 / %x20-7F / %x80-D7FF / %xE000-10FFFF",
+            "comment = %x23 *\"2\"",
+            "table = %x5B 1*(\"1\") %x5D",
+        ])
+
+
+        r = p.foo.parse("[1]")
+        self.assertEqual("", str(r.values[0]))
+        self.assertEqual("[1]", str(r.values[1]))
+
+    def test_parse_2(self):
+        p = self.create_instance([
+            "foo = ws [ comment ]",
             "foo =/ ws DIGIT ws [ comment ]",
             "foo =/ ws table ws [ comment ]",
             "ws = *wschar",
@@ -1103,6 +1120,7 @@ class ABNFParserTest(TestCase):
             "std-table-open  = %x5B ws     ; [ Left square bracket",
             "std-table-close = ws %x5D     ; ] Right square bracket",
         ])
+
 
         r = p.foo.parse("[build-system]")
         self.assertEqual("[build-system]", str(r.values[1]))

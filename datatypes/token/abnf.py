@@ -1253,17 +1253,12 @@ class ABNFRecursiveDescentParser(object):
         success = 0
 
         while True:
+        #while stop < self.maxtell:
             try:
                 values = self.parse_elements(rule.values[2])
 
-            except ParseError:
+            except ParseError as e:
                 break
-                #                 if success:
-#                     break
-# 
-#                 else:
-#                     self.pop(rule)
-#                     raise
 
             else:
                 success += 1
@@ -1288,12 +1283,10 @@ class ABNFRecursiveDescentParser(object):
                         self.log_debug(f"Saving {rulename} for [{istop}]")
                         parsing_info["indexes"][istop] = token
 
-                        if istop < self.maxtell:
+                        if stop < self.maxtell:
                             continue
 
-                            #                 self.pop(rule)
                 break
-                #                 return [token]
 
         self.pop(rule)
 
@@ -1319,98 +1312,6 @@ class ABNFRecursiveDescentParser(object):
 
 
 
-
-
-
-
-
-
-    def xparse_rule(self, rule):
-        """Most everything important goes through this parse method
-
-        This method is responsible for calling .push() and .pop() and messes
-        with state used to track left-recursion
-
-        :param rule: ABNFDefinition, the rule to be parsed
-        :returns: list, this list should only have one value in it, the rule
-            that was just parsed
-        """
-        values = []
-        start = stop = self.scanner.tell()
-        rulename = rule.defname
-
-        if rulename in self.parsing_rules_saved:
-            parsing_rule = self.parsing_rules_saved[rulename]
-            if parsing_rule["start"] >= start:
-                token = parsing_rule["token"]
-
-                self.log_debug(f"Short-circuiting left-recursion for {rulename}: {token}")
-
-                return [token]
-
-            else:
-                del self.parsing_rules_saved[rulename]
-
-        parsing_rule = self.push(rule)
-        success = 0
-
-        while True:
-        #while self.scanner.tell() < self.maxtell:
-
-            try:
-                vs = self.parse_elements(rule.values[2])
-
-            except ParseError:
-                self.log_debug(f"Failed parsing {rulename}")
-                break
-
-            else:
-                success += 1
-
-                vs_stop = self.scanner.tell()
-
-                token = self.create_token(
-                    rule,
-                    vs,
-                    start,
-                    vs_stop
-                )
-
-                values.append(token)
-
-                self.log_debug(
-                    f"Success({success}) parsing {rule.defname}: \"{values[0]}\""
-                )
-
-                if vs_stop > stop:
-                    stop = vs_stop
-
-                    if parsing_rule.get("left-recursion", False):
-                        self.log_debug(f"Marking {rulename} as left-recursive")
-                        self.parsing_rules_saved[rulename] = {
-                            "token": token,
-                            "rule": rule,
-                            "start": vs_stop,
-                        }
-
-                    else:
-                        break
-
-                else:
-                    break
-
-        parsing_rule = self.pop(rule)
-
-        if not success:
-            raise ParseError(f"Rule {rulename} failed")
-
-        return [self.create_token(
-            rule,
-            values,
-            start,
-            self.scanner.tell()
-        )]
-        #return values
 
     def parse_elements(self, rule):
         return self.parse_alternation(next(rule.alternations()))
