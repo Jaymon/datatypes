@@ -1193,9 +1193,9 @@ class ABNFRecursiveDescentParser(object):
 
             index = self.parsing_rules_lookup[rulename][-1]
             parsing_rule = self.parsing_rules_stack[index]
+
             if parsing_rule["start"] >= self.scanner.tell():
                 self.parsing_rules_info[rulename]["left-recursion"] = True
-                self.parsing_rules_info[rulename].setdefault("indexes", {})
 
                 raise ParseError(
                     f"Parsing {rulename}({total}) infinite left recursion"
@@ -1203,6 +1203,9 @@ class ABNFRecursiveDescentParser(object):
 
         else:
             self.log_debug(f"Pushing {rulename}(1)")
+
+        self.parsing_rules_info[rulename]["left-recursion"] = False
+        self.parsing_rules_info[rulename].setdefault("indexes", {})
 
         index = len(self.parsing_rules_stack)
         parsing_rule = {
@@ -1251,7 +1254,7 @@ class ABNFRecursiveDescentParser(object):
         :returns: list, this list should only have one value in it, the rule
             that was just parsed
         """
-        start = stop = self.scanner.tell()
+        start = istart = stop = self.scanner.tell()
         eoftell = len(self.scanner)
         rulename = rule.defname
         self.push(rule)
@@ -1263,6 +1266,8 @@ class ABNFRecursiveDescentParser(object):
         # don't need to actually parse anything but do need to successfully
         # parse by returning an empty list
         while True:
+            self.scanner.seek(start)
+
             try:
                 values = self.parse_elements(rule.values[2])
 
@@ -1284,15 +1289,14 @@ class ABNFRecursiveDescentParser(object):
                     f"Success({success}) parsing {rulename}: \"{token}\""
                 )
 
+                parsing_info = self.parsing_rules_info[rulename]
+                self.log_debug(f"Saving {rulename} \"{token}\" for [{start}]")
+                parsing_info["indexes"][start] = token
+
                 if istop > stop:
                     stop = istop
 
-                    parsing_info = self.parsing_rules_info[rulename]
-
                     if parsing_info.get("left-recursion", False):
-                        self.log_debug(f"Saving {rulename} for [{istop}]")
-                        parsing_info["indexes"][istop] = token
-
                         if stop < eoftell:
                             continue
 
@@ -1304,6 +1308,20 @@ class ABNFRecursiveDescentParser(object):
             raise ParseError(f"Rule {rulename} failed")
 
         return [token]
+
+    def parse_rulename(self, rule):
+        rulename = rule.defname
+        start = self.scanner.tell()
+        parsing_indexes = self.parsing_rules_info[rulename].get("indexes", {})
+        if start in parsing_indexes:
+            self.log_debug(f"Returning saved {rulename} for [{start}]")
+            token = parsing_indexes[start]
+            self.scanner.seek(token.stop)
+            return [token]
+
+        else:
+            r = self.parser.grammar.parser_rules[rule.defname]
+            return self.parse_rule(r)
 
     def parse_elements(self, rule):
         return self.parse_alternation(next(rule.alternations()))
@@ -1423,19 +1441,6 @@ class ABNFRecursiveDescentParser(object):
 
         except ParseError:
             return []
-
-    def parse_rulename(self, rule):
-        rulename = rule.defname
-        start = self.scanner.tell()
-        parsing_indexes = self.parsing_rules_info[rulename].get("indexes", {})
-        if start in parsing_indexes:
-            self.log_debug(f"Returning saved {rulename} for [{start}]")
-            token = parsing_indexes[start]
-            return [token]
-
-        else:
-            r = self.parser.grammar.parser_rules[rule.defname]
-            return self.parse_rule(r)
 
     def parse_num_val(self, rule):
         """Terminal parsing rule, this actually moves the cursor and consumes
