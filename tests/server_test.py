@@ -14,7 +14,7 @@ from . import TestCase, testdata
 
 
 class ServerTestCase(TestCase):
-    def create_server(self, v, **kwargs):
+    def create_server(self, v=None, **kwargs):
         s = self.server_class(v, **kwargs)
         return ServerThread(s)
 
@@ -156,15 +156,12 @@ class CallbackServerTest(ServerTestCase):
         s.stop()
 
 
-
-
-
 class WSGIServerTest(ServerTestCase):
 
     server_class = WSGIServer
 
     def test_crud(self):
-        s = self.create_server(testdata.create_file([
+        s = self.create_server(wsgipath=testdata.create_file([
             "def application(environ, start_response):",
             "   start_response('200 OK', [])",
             "   return [b'GET']",

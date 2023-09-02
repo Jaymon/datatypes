@@ -151,7 +151,7 @@ class Version(NormalizeString):
     https://stackoverflow.com/a/11887885/5006
     """
     @classmethod
-    def instance_normalize(cls, instance, **kwargs):
+    def after_create(cls, instance, **kwargs):
         parts = []
         for part in instance.split("."):
             if part.isdigit():

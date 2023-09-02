@@ -8,7 +8,6 @@ from .mapping import (
     Namespace,
     ContextNamespace,
 )
-
 from .sequence import (
     PriorityQueue,
     AppendList,
@@ -16,7 +15,6 @@ from .sequence import (
     Stack,
     ListIterator,
 )
-
 from .container import (
     Trie,
     HotSet,

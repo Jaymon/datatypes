@@ -132,13 +132,16 @@ class HTMLTokenizerTest(TestCase):
         ])
         t = HTMLTokenizer(html)
 
-        tag = t.prev()
-        self.assertEqual(None, tag)
+        with self.assertRaises(StopIteration):
+            t.prev()
 
         tag = t.next()
         self.assertEqual("one", tag.tagname)
 
         tag = t.prev()
+        self.assertEqual("one", tag.tagname)
+
+        tag = t.next()
         self.assertEqual("one", tag.tagname)
 
         tag = t.next()
@@ -158,7 +161,7 @@ class HTMLTokenizerTest(TestCase):
         self.assertEqual("four", tag.tagname)
 
         tag = t.prev()
-        self.assertEqual("four", tag.tagname)
+        self.assertEqual("three", tag.tagname)
 
 
 class HTMLStripperTest(TestCase):

@@ -118,6 +118,7 @@ class BaseServer(HTTPServer):
         """
         if server_address:
             server_address = Host(*server_address)
+
         else:
             server_address = Host("", None)
 
@@ -372,6 +373,14 @@ class WSGIServer(BaseServer, WSGIHTTPServer):
     handler_class = WSGIRequestHandler
 
     def __init__(self, server_address=None, **kwargs):
+        """
+        :param server_address: tuple[str, int]|None, a tuple of (hostname, port)
+            or None and it will be chosen automatically
+        :param **kwargs:
+            * application: callable, the wsgi application
+            * wsgipath: str, a filepath to a python file that exposed an
+                application property when loaded
+        """
         super().__init__(
             server_address,
             RequestHandlerClass=kwargs.get(
@@ -380,11 +389,11 @@ class WSGIServer(BaseServer, WSGIHTTPServer):
             ),
         )
 
-        if "wsgipath" in kwargs:
+        if wsgipath := kwargs.get("wsgipath", kwargs.get("wsgifile", "")):
             config = runpy.run_path(wsgipath)
             self.set_app(config["application"])
             self.config = config
-            self.wsgipath = kwargs["wsgipath"]
+            self.wsgipath = wsgipath
 
         else:
             self.set_app(kwargs["application"])

@@ -185,7 +185,7 @@ class WordTokenizer(Tokenizer):
         token.ldelim = ldelim
         token.rdelim = rdelim
 
-        return token
+        return self.normalize(token)
 
     def prev(self):
         """Returns the previous Token
@@ -208,10 +208,15 @@ class WordTokenizer(Tokenizer):
                 start = self.tell_ldelim()
                 token = self.next()
 
-        if token:
-            start = token.ldelim.start if token.ldelim else token.start
-            self.buffer.seek(start)
+        if not token:
+            raise StopIteration()
 
+        start = token.ldelim.start if token.ldelim else token.start
+        self.buffer.seek(start)
+
+        return self.normalize(token)
+
+    def normalize(self, token):
         return token
 
 

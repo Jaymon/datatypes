@@ -220,16 +220,18 @@ class WordTokenizerTest(TestCase):
         t = self.create_instance(s)
 
         t.seek(0)
-        token = t.prev()
-        self.assertEqual(None, token)
+        with self.assertRaises(StopIteration):
+            token = t.prev()
+            #self.assertEqual(None, token)
 
         t.seek(4)
         token = t.prev()
         self.assertEqual("0123", String(token))
 
         t.seek(2)
-        token = t.prev()
-        self.assertEqual(None, token)
+        with self.assertRaises(StopIteration):
+            token = t.prev()
+            #self.assertEqual(None, token)
 
         t.seek(6)
         token = t.prev()
@@ -246,12 +248,15 @@ class WordTokenizerTest(TestCase):
         self.assertEqual("567", String(token))
         token = t.prev()
         self.assertEqual("0123", String(token))
-        token = t.prev()
-        self.assertEqual(None, token)
+        with self.assertRaises(StopIteration):
+            token = t.prev()
+            #self.assertEqual(None, token)
 
     def test_prev_2(self):
         t = self.create_instance("foo bar che")
-        self.assertIsNone(t.prev())
+        with self.assertRaises(StopIteration):
+            t.prev()
+            #self.assertIsNone(t.prev())
 
         foo = t.next()
         self.assertEqual("foo", String(foo))
@@ -783,7 +788,7 @@ class ABNFParserTest(TestCase):
         ])
 
         rp = p.exp
-        rp.scanner = rp.scanner_class("123456")
+        rp.set_buffer("123456")
         r = rp.entry_rule
 
         ri = rp.push(r)
@@ -834,7 +839,7 @@ class ABNFParserTest(TestCase):
         ])
 
         parser = p.three_five
-        parser.scanner = parser.scanner_class("123456")
+        parser.set_buffer("123456")
         r = parser.parse_repetition(
             p.grammar.parser_rules["three-five"].repetition[0]
         )
@@ -843,7 +848,7 @@ class ABNFParserTest(TestCase):
         self.assertEqual(5, r[-1].values[0])
 
         parser = p.two
-        parser.scanner = parser.scanner_class("654")
+        parser.set_buffer("654")
         r = parser.parse_repetition(
             p.grammar.parser_rules["two"].repetition[0]
         )
@@ -851,7 +856,7 @@ class ABNFParserTest(TestCase):
         self.assertEqual(6, r[0].values[0])
 
         parser = p.one_or_more
-        parser.scanner = parser.scanner_class("654")
+        parser.set_buffer("654")
         r = parser.parse_repetition(
             p.grammar.parser_rules["one-or-more"].repetition[0]
         )
@@ -862,7 +867,7 @@ class ABNFParserTest(TestCase):
             "five = 5DIGIT",
         ])
         parser = p.five
-        parser.scanner = parser.scanner_class("12x3456")
+        parser.set_buffer("12x3456")
 
         with self.assertRaises(ParseError):
             parser.parse_repetition(
@@ -986,7 +991,7 @@ class ABNFParserTest(TestCase):
             "foo = *DIGIT",
         ])
 
-        r = p.foo.parse("xy")
+        r = p.foo.parse("xy", partial=True)
         self.assertEqual(0, len(r.values))
 
     def test_parse_rule_2(self):
@@ -1005,14 +1010,14 @@ class ABNFParserTest(TestCase):
         r = p.foo.parse("xy")
         self.assertEqual(2, len(r.values))
 
-        r = p.foo.parse("--")
+        r = p.foo.parse("--", partial=True)
         self.assertEqual(0, len(r.values))
 
     def test_parse_option(self):
         p = self.create_instance([
             "foo = DIGIT [ DIGIT ]",
         ])
-        r = p.foo.parse("1x")
+        r = p.foo.parse("1x", partial=True)
         self.assertEqual(1, r.values[0].values[0])
         self.assertEqual(1, len(r.values))
         r = p.foo.parse("12")
@@ -1086,14 +1091,14 @@ class ABNFParserTest(TestCase):
         ])
 
         parser = p.key
-        parser.scanner = parser.scanner_class("foo.bar")
+        parser.set_buffer("foo.bar")
         r = parser.parse_alternation(
             next(p.grammar.parser_rules["key"].values[2].alternations())
         )
         self.assertEqual("foo.bar", str(r[0]))
 
         parser = p.key
-        parser.scanner = parser.scanner_class("foo")
+        parser.set_buffer("foo")
         r = parser.parse_alternation(
             next(p.grammar.parser_rules["key"].values[2].alternations())
         )

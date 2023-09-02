@@ -5,7 +5,7 @@ import itertools
 import functools
 
 from ..compat import *
-from ..logging import *
+from .. import logging
 from ..string import String
 from ..decorators import property as cachedproperty
 from ..utils import batched
@@ -56,7 +56,7 @@ class ABNFToken(object):
             name = self.normalize_name(name)
             return lambda *_, **__: self.name == name
 
-        elif not key.startswith("__"):
+        elif not key.startswith("_"):
             values = []
             name = self.normalize_name(key)
             for value in self.values:
@@ -76,11 +76,18 @@ class ABNFToken(object):
 
         raise AttributeError(key)
 
-    def tokens(self, name):
+    def tokens(self, name, depth=1):
+        vs = []
         for value in self.values:
             if isinstance(value, ABNFToken):
                 if not name or name == value.name:
                     yield value
+                    if depth > 1 or depth <= 0:
+                        vs.append(value)
+
+        for v in vs:
+            for t in v.tokens(name, depth - 1):
+                yield t
 
 
 class ABNFDefinition(ABNFToken):
@@ -359,6 +366,9 @@ class ABNFGrammar(Scanner):
             pass
 
     def logmethod(self, method):
+        if not logger.isEnabledFor(logging.DEBUG):
+            return method
+
         def logpeek():
             ch = self.peek()
             if ch == "\r":
@@ -1091,6 +1101,43 @@ class ABNFRecursiveDescentParser(object):
         self.parser = parser
         self.entry_rule = entry_rule
 
+    def parse(self, buffer, partial=False):
+        """Parse buffer and return the parsed token
+
+        :param buffer: str, teh input to be parsed using self.parser.grammar
+        :param partial: bool, True if you don't expect to completely parse
+            buffer, if False (default) then buffer must be fully consumed or a
+            ParseError is raised
+        :returns: self.token_class, the return value will roughly correspond to
+            self.entry_rule and will contain the parsed values from buffer
+        """
+        self.set_buffer(buffer)
+        values = self.parse_rule(self.entry_rule)
+        token = values[0]
+
+        if not partial:
+            eoftell = len(self.scanner)
+            if token.stop < eoftell:
+                raise ParseError(
+                    "Only parsed {}/{} characters of buffer using {}".format(
+                        token.stop,
+                        eoftell,
+                        self.entry_rule.defname,
+                    )
+                )
+
+        return values[0]
+
+    def __call__(self, buffer):
+        return self.parse(buffer)
+
+    def set_buffer(self, buffer):
+        """Get the buffer ready to be parsed
+
+        :param buffer: str, the buffer that will be initialized for parsing
+        """
+        self.scanner = self.scanner_class(buffer)
+
         # these store state for handling left recursion
         self.parsing_rules_stack = []
         self.parsing_rules_lookup = defaultdict(list)
@@ -1106,35 +1153,22 @@ class ABNFRecursiveDescentParser(object):
             **options
         )
 
-    def __call__(self, buffer):
-        return self.parse(buffer)
-
-    def parse(self, buffer):
-        """Parse buffer and return the parsed token
-
-        :param buffer: str, teh input to be parsed using self.parser.grammar
-        :returns: self.token_class, the return value will roughly correspond to
-            self.entry_rule and will contain the parsed values from buffer
-        """
-        self.scanner = self.scanner_class(buffer)
-        values = self.parse_rule(self.entry_rule)
-        return values[0]
-
     def log_debug(self, msg, **kwargs):
-        parsing_rule = kwargs.get("parsing_rule", None)
-        if not parsing_rule:
-            if self.parsing_rules_stack:
-                parsing_rule = self.parsing_rules_stack[-1]
+        if logger.isEnabledFor(logging.DEBUG):
+            parsing_rule = kwargs.get("parsing_rule", None)
+            if not parsing_rule:
+                if self.parsing_rules_stack:
+                    parsing_rule = self.parsing_rules_stack[-1]
 
-        if parsing_rule:
-            rulename = parsing_rule["rule"].defname
-            count = parsing_rule["count"]
+            if parsing_rule:
+                rulename = parsing_rule["rule"].defname
+                count = parsing_rule["count"]
 
-            msg = f"{rulename}({count}) -> {msg}"
+                msg = f"{rulename}({count}) -> {msg}"
 
-        msg = f"[{self.scanner.tell()}] {msg}"
+            msg = f"[{self.scanner.tell()}] {msg}"
 
-        logger.debug(msg)
+            logger.debug(msg)
 
     @contextmanager
     def transaction(self):

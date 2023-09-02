@@ -334,6 +334,14 @@ class HTMLParser(BaseHTMLParser):
         self.tag_offset += 1
         return tag
 
+    def prev(self):
+        if not self.tag_offset:
+            raise StopIteration()
+
+        self.tag_offset -= 1
+        tag = self.tags[self.tag_offset]
+        return tag
+
     def reset(self):
         self.stack = []
         self.tags = []
@@ -426,34 +434,29 @@ class HTMLToken(Token):
 
 
 class HTMLTokenizer(Tokenizer):
-    DEFAULT_DELIMS = None
+    """Tokenize HTML and only yield asked for tagnames
+
+    Honestly, this has ended up being such a thin layer around HTMLParser that
+    I'm not completely sure why it even exists. It does allow you to customize
+    the token that's returned though, and that might be useful
+    """
     token_class = HTMLToken
 
     def __init__(self, html, tagnames=None):
         """
-        :param stream: io.IOBase, this is the input that will be tokenized, the stream
-            has to be seekable
-        :param delims: callback|string, if a callback, it should have the signature:
-            callback(char) and return True if the char is a delim, False otherwise.
-            If a string then it is a string of chars that will be considered delims
+        :param html: str, this is the input that will be tokenized
+        :param tagnames: the tags to be parsed
         """
-        stream = HTMLParser(html, tagnames)
-        super(HTMLTokenizer, self).__init__(stream)
+        buffer = HTMLParser(html, tagnames)
+        super().__init__(buffer)
 
     def next(self):
-        taginfo = self.stream.next()
+        taginfo = self.buffer.next()
         return self.token_class(self, taginfo)
 
     def prev(self):
-        ret = None
-        pos = self.tell()
-        if pos > 0:
-            self.seek(pos - 1)
-            ret = self.next()
-        return ret
-
-    def tell_ldelim(self):
-        raise NotImplementedError()
+        taginfo = self.buffer.prev()
+        return self.token_class(self, taginfo)
 
 
 class UnlinkedTagTokenizer(object):
@@ -496,10 +499,10 @@ class UnlinkedTagTokenizer(object):
 class HTMLStripper(BaseHTMLParser):
     """strip html tags and return plaintext data
 
-    Moved from bang.utils on 1-6-2023, I think it would be better to use HTMLCleaner
-    though, I'll leave this in for a little while. This actually still has a place
-    because it supports remove_tags, at some point remove_tags should be integrated
-    into HTMLCleaner and then this can be removed
+    Moved from bang.utils on 1-6-2023, I think it would be better to use
+    HTMLCleaner though, I'll leave this in for a little while. This actually
+    still has a place because it supports remove_tags, at some point remove_tags
+    should be integrated into HTMLCleaner and then this can be removed
 
     https://docs.python.org/3/library/html.parser.html
     http://stackoverflow.com/a/925630/5006
@@ -510,11 +513,7 @@ class HTMLStripper(BaseHTMLParser):
         return s.get_data()
 
     def __init__(self, html="", remove_tags=None):
-        #self.reset()
-        if is_py2:
-            HTMLParser.__init__(self)
-        else:
-            super(HTMLStripper, self).__init__()
+        super(HTMLStripper, self).__init__()
 
         self.fed = []
         self.removed = Counter()

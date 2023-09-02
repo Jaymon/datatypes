@@ -185,7 +185,11 @@ class Url(String):
             else:
                 s = String(urlstring)
                 part = s.split("/", maxsplit=1)[0]
-                if "." in part:
+                is_host = "." in part or ":" in part \
+                    or part.lower().startswith("localhost") \
+                    or part.startswith("127.0.0.1")
+
+                if is_host:
                     # if we don't have a url but it looks like we have a host so
                     # let's make it a url by putting // in front of it so it
                     # will still parse correctly
@@ -765,7 +769,7 @@ class Host(tuple):
 
     def __new__(cls, host, port=None):
         u = Url(host, default_port=port)
-        instance = super(Host, cls).__new__(cls, [u.hostname, u.port if u.port else 0])
+        instance = super().__new__(cls, [u.hostname, u.port if u.port else 0])
         instance.url = u
         return instance
 
@@ -797,9 +801,7 @@ class Host(tuple):
 
 
 class SlugWords(StopWordTokenizer):
-    """Internal class used by Slug to find all the valid slug words
-
-    """
+    """Internal class used by Slug to find all the valid slug words"""
 
     NON_ASCII_REGEX = re.compile(r'[^\x00-\x7F]+')
     """non-ascii characters
@@ -823,7 +825,7 @@ class Slug(NormalizeString):
     words and then returns the remaining words joined by delim (default is a hyphen)
     """
     @classmethod
-    def normalize(cls, val, **kwargs):
+    def before_create(cls, val, **kwargs):
         """
         :param val: str, the prospective slug
         :param **kwargs:

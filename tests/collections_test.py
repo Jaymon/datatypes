@@ -2,16 +2,25 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
-from datatypes.collections import (
+
+from datatypes.collections.mapping import (
     Pool,
-    PriorityQueue,
-    idict,
-    Trie,
-    OrderedList,
     Dict,
+    NormalizeDict,
+    idict, IDict, Idict, iDict,
     Namespace,
     ContextNamespace,
+)
+from datatypes.collections.sequence import (
+    PriorityQueue,
+    AppendList,
+    OrderedList,
     Stack,
+    ListIterator,
+)
+from datatypes.collections.container import (
+    Trie,
+    HotSet,
 )
 
 from . import TestCase, testdata
@@ -743,17 +752,17 @@ class StackTest(TestCase):
     def test_crud(self):
         s = Stack()
         s.push(1)
-        self.assertEqual(1, s.peak())
+        self.assertEqual(1, s.peek())
 
         s.push(2)
-        self.assertEqual(2, s.peak())
-        self.assertEqual(2, s.peak())
+        self.assertEqual(2, s.peek())
+        self.assertEqual(2, s.peek())
 
         self.assertEqual(2, s.pop())
-        self.assertEqual(1, s.peak())
+        self.assertEqual(1, s.peek())
 
         s.push(3)
-        self.assertEqual(3, s.peak())
+        self.assertEqual(3, s.peek())
         self.assertEqual(2, len(s))
 
         self.assertEqual([3, 1], [x for x in s])

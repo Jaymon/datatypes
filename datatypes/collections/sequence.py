@@ -194,13 +194,16 @@ class AppendList(list):
         for x in iterable:
             self.append(x)
 
-    def __setitem__(self, *args, **kwargs):
+    def pop(self, i):
         raise NotImplementedError()
-    insert = __setitem__
-    remove = __setitem__
-    pop = __setitem__
-    clear = __setitem__
-    __delitem__ = __setitem__
+    def insert(self, i, x):
+        raise NotImplementedError()
+    def __setitem__(self, i, x):
+        raise NotImplementedError()
+    def __delitem__(self, i):
+        raise NotImplementedError()
+    def remove(self, x):
+        raise NotImplementedError()
 
 
 class OrderedList(list):
@@ -209,6 +212,8 @@ class OrderedList(list):
     An ordered list, this sorts items from smallest to largest using key, so
     if you want MaxQueue like functionality use negative values: .pop(-1) and
     if you want MinQueue like functionality use positive values: .pop(0)
+
+    https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
     """
     def __init__(self, iterable=None, key=None):
         if key:
@@ -286,9 +291,12 @@ class OrderedList(list):
     def __getitem__(self, i):
         return super().__getitem__(i)[-1]
 
+    def __delitem__(self, i):
+        self.pop(i)
+
     def insert(self, i, x):
         raise NotImplementedError()
-    def __setitem__(self, x):
+    def __setitem__(self, i, x):
         raise NotImplementedError()
     def reverse(self):
         raise NotImplementedError()
@@ -296,7 +304,7 @@ class OrderedList(list):
         raise NotImplementedError()
 
 
-class Stack(AppendList):
+class Stack(list):
     """An incredibly simple stack implementation"""
     def push(self, v):
         self.append(v)
@@ -316,6 +324,18 @@ class Stack(AppendList):
         """calling reverse on a stack would switch to normal list FIFO"""
         return super().__iter__()
 
+    def insert(self, i, x):
+        raise NotImplementedError()
+    def __setitem__(self, i, x):
+        raise NotImplementedError()
+    def __delitem__(self, i):
+        raise NotImplementedError()
+    def reverse(self):
+        raise NotImplementedError()
+    def sort(self):
+        raise NotImplementedError()
+    def remove(self, x):
+        raise NotImplementedError()
 
 
 class ListIterator(list):

@@ -662,7 +662,7 @@ class ReflectClass(object):
     @property
     def module(self):
         """returns the actual module this class is defined in"""
-        return self.reflect_module.get_module()
+        return self.reflect_module().get_module()
 
     @cachedproperty(cached="_desc")
     def desc(self):
@@ -924,8 +924,8 @@ class ReflectClass(object):
                     # get the actual decorator from either the module (imported)
                     # or from the global builtins
                     decor = None
-                    if self.reflect_module:
-                        m = self.reflect_module.get_module()
+                    if self.reflect_module():
+                        m = self.reflect_module().get_module()
                         decor = getattr(m, name, None)
 
                     if not decor:

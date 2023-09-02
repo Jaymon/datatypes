@@ -7,6 +7,7 @@ https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping
 from contextlib import contextmanager
 
 from ..compat import *
+from .sequence import PriorityQueue, Stack
 
 
 class Pool(dict):
@@ -24,12 +25,12 @@ class Pool(dict):
                 return value
     """
     def __init__(self, maxsize=0):
-        super(Pool, self).__init__()
+        super().__init__()
         self.pq = PriorityQueue(maxsize, key=lambda value: value)
 
     def __getitem__(self, key):
         shuffle = key in self
-        value = super(Pool, self).__getitem__(key)
+        value = super().__getitem__(key)
 
         # since this is being accessed again, we move it to the end
         if shuffle:
@@ -38,7 +39,7 @@ class Pool(dict):
         return value
 
     def __setitem__(self, key, value):
-        super(Pool, self).__setitem__(key, value)
+        super().__setitem__(key, value)
         try:
             self.pq.put(key)
 
@@ -54,7 +55,7 @@ class Pool(dict):
     def pop(self, key, *args):
         if key in self:
             self.pq.remove(key)
-        return super(Pool, self).pop(key, *args)
+        return super().pop(key, *args)
 
     def setdefault(self, key, value):
         if key not in self:
@@ -434,7 +435,7 @@ class ContextNamespace(Namespace):
 
     def context_name(self):
         """Get the current context name"""
-        return self._context_names.peak()
+        return self._context_names.peek()
 
     def context_names(self):
         """yield all the _context_names taking into account the cascade setting"""

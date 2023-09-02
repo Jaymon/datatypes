@@ -420,24 +420,28 @@ class String(Str, StringMixin):
 
 
 class NormalizeString(String):
-    """Triggers a .normalize(val, **kwargs) call before creating the String
-    instance
+    """Triggers a .before_create(val, **kwargs) call before creating the String
+    instance and an .after_create(instance) after creating the string
     """
     def __new__(cls, val, **kwargs):
         """
         :param val: str, the prospective slug
         :param **kwargs: passed through to .normalize() method
         """
-        val = cls.normalize(val, **kwargs)
+        val = cls.before_create(val, **kwargs)
         instance = super().__new__(cls, val)
-        return cls.instance_normalize(instance, **kwargs)
+        return cls.after_create(instance, **kwargs)
+
+    @classmethod
+    def before_create(cls, val, **kwargs):
+        return cls.normalize(val, **kwargs)
 
     @classmethod
     def normalize(cls, val, **kwargs):
         return val
 
     @classmethod
-    def instance_normalize(cls, instance, **kwargs):
+    def after_create(cls, instance, **kwargs):
         return instance
 
 

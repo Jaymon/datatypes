@@ -62,14 +62,14 @@ class UrlTest(TestCase):
         self.assertEqual("http://example.com/baz?che=5", u2)
 
     def test_no_scheme_localhost(self):
-        h = Url("//localhost:8080/foo/bar?che=1")
+        h = Url("localhost:8080/foo/bar?che=1")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
         self.assertEqual("/foo/bar", h.path)
         self.assertEqual("che=1", h.query)
         self.assertEqual("http", h.scheme)
 
-        h = Url("localhost:8080/foo/bar?che=1")
+        h = Url("//localhost:8080/foo/bar?che=1")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
         self.assertEqual("/foo/bar", h.path)
