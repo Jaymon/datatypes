@@ -520,8 +520,8 @@ class TOML(object):
     but it works for what I am using it for right now (9-1-2023)
 
     NOTE
-        * if you read in a TOML file with comments and write them back out then
-        the comments will be gone.
+        * if you read in a TOML file with comments and write it back out then
+          the comments will be gone.
         * Currently .write() only really supports list, dict, str, and int
 
     https://toml.io/en/
