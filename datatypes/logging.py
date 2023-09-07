@@ -12,9 +12,11 @@ from string import Formatter
 
 
 def null_config(name):
-    """This will configure a null logger for name, it is meant to avoid the "no handler found"
-    warnings when libraries would use logging that hadn't been configured, but it
-    seems like it is no longer needed in python 3
+    """This will configure a null logger for name, it is meant to avoid the
+    "no handler found" warnings when libraries would use logging that hadn't
+    been configured, 
+
+    NOTE -- it seems like it is no longer needed in python 3
 
     :param name: str, usually __name__
     """
@@ -300,6 +302,14 @@ class LogMixin(object):
             log_kwargs["level"] = level_name
             self.log(*log_args, **log_kwargs)
 
+    def get_log_message(self, format_str, *format_args, **kwargs):
+        """Returns the logging message that will be logged using .log()"""
+        if format_args:
+            return format_str.format(*format_args)
+
+        else:
+            return format_str
+
     def log(self, format_str, *format_args, **kwargs):
         """wrapper around the module's logger
 
@@ -333,10 +343,10 @@ class LogMixin(object):
             level = self.get_log_level(**kwargs)
             if self.is_logging(level) and sentinel:
                 try:
-                    if format_args:
-                        logger.log(level, format_str.format(*format_args))
-                    else:
-                        logger.log(level, format_str)
+                    logger.log(
+                        level,
+                        self.get_log_message(format_str, *format_args, **kwargs)
+                    )
 
                 except UnicodeError as e:
                     logger.exception(e)

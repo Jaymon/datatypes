@@ -531,16 +531,20 @@ class TOML(object):
     """
     GRAMMAR_URL = "https://raw.githubusercontent.com/toml-lang/toml/1.0.0/toml.abnf"
 
+    parser_class = ABNFParser
+
     @functools.cached_property
     def parser(self):
+        """Returns an ABNF parser instance, this will be cached"""
         fp = UrlFilepath(self.GRAMMAR_URL)
-        return ABNFParser(fp.read_text())
+        return self.parser_class(fp.read_text())
 
     def __init__(self, path, **kwargs):
         self.path = Filepath(path)
         self.parse()
 
     def parse(self):
+        """This will parse the TOML file found at self.path"""
         buffer = self.path.read_text()
         self.sections = Namespace()
         self.sections_order = []
@@ -620,6 +624,13 @@ class TOML(object):
             raise AttributeError(key) from e
 
     def add_section(self, section_name):
+        """Adds a section/table
+
+        https://toml.io/en/v1.0.0#table
+
+        :param section_name: str, the table name, this can be dotted
+        :returns: Namespace, the section namespace
+        """
         r = self.parser.key.parse(section_name)
         keys = self.parse_key(r)
         return self._add_section(keys)

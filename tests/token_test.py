@@ -769,6 +769,13 @@ class ABNFDefinitionTest(TestCase):
         ])
         self.assertEqual("foo", t.defname)
 
+    def test___getattr__(self):
+        t = self.create_instance("rule", [
+            "foo = DIGIT / ALPHA / CRLF",
+        ])
+
+        self.assertEqual(4, len(t.rulename))
+
 
 class ABNFParserTest(TestCase):
     tokenizer_class = ABNFParser
