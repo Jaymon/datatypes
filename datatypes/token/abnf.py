@@ -1289,16 +1289,26 @@ class ABNFRecursiveDescentParser(object):
                     f"Success({success}) parsing {rulename}: \"{token}\""
                 )
 
+                save = True
                 parsing_info = self.parsing_rules_info[rulename]
-                self.log_debug(f"Saving {rulename} \"{token}\" for [{start}]")
-                parsing_info["indexes"][start] = token
+                if saved_token := parsing_info["indexes"].get(start, None):
+                    if token.stop > saved_token.stop:
+                        save = True
 
-                if istop > stop:
-                    stop = istop
+                    else:
+                        token = saved_token
+                        self.scanner.seek(token.stop)
 
-                    if parsing_info.get("left-recursion", False):
-                        if stop < eoftell:
-                            continue
+                if save:
+                    self.log_debug(f"Saving {rulename} \"{token}\" for [{start}]")
+                    parsing_info["indexes"][start] = token
+
+                    if istop > stop:
+                        stop = istop
+
+                        if parsing_info.get("left-recursion", False):
+                            if stop < eoftell:
+                                continue
 
                 break
 
@@ -1314,8 +1324,11 @@ class ABNFRecursiveDescentParser(object):
         start = self.scanner.tell()
         parsing_indexes = self.parsing_rules_info[rulename].get("indexes", {})
         if start in parsing_indexes:
-            self.log_debug(f"Returning saved {rulename} for [{start}]")
             token = parsing_indexes[start]
+
+            self.log_debug(f"Returning saved {rulename} \"{token}\" for [{start}]")
+            #self.log_debug(f"Returning saved {rulename} for [{start}]: {token}")
+
             self.scanner.seek(token.stop)
             return [token]
 
