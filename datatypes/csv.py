@@ -3,13 +3,14 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 import os
 import codecs
 import csv
-import logging
+from contextlib import contextmanager
 
 from .compat import *
-from . import environ
+from .config.environ import environ
 from .string import String, ByteString
 from .utils import cbany
 from .path import TempFilepath
+from . import logging
 
 
 logger = logging.getLogger(__name__)
@@ -116,12 +117,29 @@ class CSV(object):
     def open(self, mode=""):
         """Mainly an internal method used for opening the file pointers needed for
         reading and writing
+
         :param mode: string, the open mode
         :returns: file pointer
         """
         if not mode:
             mode = "r"
         return codecs.open(self.path, encoding=self.encoding, mode=mode)
+
+    @contextmanager
+    def appending(self, mode="ab+"):
+        """The default context manager truncates and write a new file, but that
+        doesn't work for .add(), .append(), or .extend() so this provides an
+        alternative context manager allows for appending to the file
+
+        :param mode: str, the append mode that will be used to create the
+            writer
+        """
+        prev_mode = self.writer_mode
+        self.writer_mode = mode
+        with self:
+            yield self
+
+        self.writer_mode = prev_mode
 
     def __enter__(self):
         """Enables with context manager for writing"""
@@ -225,7 +243,7 @@ class CSV(object):
         return row
 
     def add(self, row):
-        with self:
+        with self.appending():
             writer = self.writer
 
             try:
@@ -253,9 +271,12 @@ class CSV(object):
 
         :param rows: list, all the rows
         """
-        with self:
+        with self.appending():
             for row in rows:
                 self.add(row)
+
+    def extend(self, rows):
+        return self.append(rows)
 
     def normalize_fieldnames(self, fieldnames):
         """run this anytime fields are going to be set on this instance"""

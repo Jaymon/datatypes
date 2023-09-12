@@ -2,7 +2,7 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
-from datatypes import environ
+from datatypes.config.environ import environ
 from datatypes.url import Url
 from datatypes.server import (
     ServerThread,

@@ -4,7 +4,7 @@ from __future__ import unicode_literals, division, print_function, absolute_impo
 from datatypes.compat import *
 from datatypes.http import HTTPHeaders, HTTPEnviron, HTTPClient, HTTPResponse
 from datatypes.string import String, ByteString
-from datatypes import environ
+from datatypes.config.environ import environ
 
 
 from . import TestCase, testdata

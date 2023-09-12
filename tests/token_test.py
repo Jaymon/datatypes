@@ -1065,7 +1065,6 @@ class ABNFParserTest(TestCase):
             "table = %x5B 1*(\"1\") %x5D",
         ])
 
-
         r = p.foo.parse("[1]")
         self.assertEqual("", str(r.values[0]))
         self.assertEqual("[1]", str(r.values[1]))
@@ -1100,14 +1099,14 @@ class ABNFParserTest(TestCase):
         parser = p.key
         parser.set_buffer("foo.bar")
         r = parser.parse_alternation(
-            next(p.grammar.parser_rules["key"].values[2].alternations())
+            next(p.grammar.parser_rules["key"].values[2].tokens("alternation"))
         )
         self.assertEqual("foo.bar", str(r[0]))
 
         parser = p.key
         parser.set_buffer("foo")
         r = parser.parse_alternation(
-            next(p.grammar.parser_rules["key"].values[2].alternations())
+            next(p.grammar.parser_rules["key"].values[2].tokens("alternation"))
         )
         self.assertEqual("foo", str(r[0]))
 

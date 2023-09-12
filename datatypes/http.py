@@ -12,7 +12,7 @@ import platform
 from .compat import *
 from .copy import Deepcopy
 from .string import String, ByteString
-from . import environ
+from .config.environ import environ
 
 
 class HTTPHeaders(BaseHeaders, Mapping):

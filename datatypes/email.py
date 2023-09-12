@@ -8,8 +8,8 @@ import email.utils
 from email.parser import Parser
 from email.header import decode_header
 
-from . import environ
 from .compat import *
+from .config.environ import environ
 from .string import String, ByteString
 from .datetime import Datetime
 from .path import Filepath, Dirpath

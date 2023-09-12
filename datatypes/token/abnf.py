@@ -52,33 +52,32 @@ class ABNFToken(object):
     def __getattr__(self, key):
         if key.startswith("is_"):
             _, name = key.split("_", maxsplit=1)
-            #classname = self.__class__.__name__.lower()
             name = self.normalize_name(name)
             return lambda *_, **__: self.name == name
 
         elif not key.startswith("_"):
             name = self.normalize_name(key)
-            values = list(self.tokens(name, depth=0))
-
-
-#             for value in self.values:
-#                 if isinstance(value, ABNFToken):
-#                     if value.name == name:
-#                         values.append(value)
-# 
-#                     else:
-#                         try:
-#                             values.extend(getattr(value, key))
-# 
-#                         except AttributeError:
-#                             pass
-
-            if values:
+            if values := list(self.tokens(name, depth=0)):
                 return values
 
         raise AttributeError(key)
 
-    def tokens(self, name, depth=1):
+    def tokens(self, name, depth=1, related=False):
+        """Get all the name tokens
+
+        :param name: str, the name of the tokens you want
+        :param depth: int, if 1, then this will only return immediate tokens
+            that match name. If depth is >1 then it will return up to depth
+            levels of name tokens. If depth is <=0 then it will return all
+            levels of name tokens. It's handy to have this level of control when
+            actually parsing something
+        :param related: bool, only matters if depth != 1, if True then this will
+            only yield subsequent depths from found name tokens. So if you were
+            looking for "foo" tokens and passed in depth=0 and related=True, you
+            would get foo.foo... tokens but not bar.foo tokens if that makes
+            sense
+        :returns: generator, yields name tokens
+        """
         vs = []
         for value in self.values:
             if isinstance(value, ABNFToken):
@@ -88,39 +87,26 @@ class ABNFToken(object):
                         vs.append(value)
 
         if depth > 1 or depth <= 0:
-            for value in self.values:
-                if isinstance(value, ABNFToken):
-                    for t in value.tokens(name, depth - 1):
+            if related:
+                for v in vs:
+                    for t in v.tokens(name, depth - 1):
                         yield t
 
-#         for v in vs:
-#             for t in v.tokens(name, depth - 1):
-#                 yield t
+            else:
+                for value in self.values:
+                    if isinstance(value, ABNFToken):
+                        for t in value.tokens(name, depth - 1):
+                            yield t
 
 
 class ABNFDefinition(ABNFToken):
-    @functools.cached_property
-    def definitions(self):
-        definitions = []
-        for value in self.values:
-            if isinstance(value, ABNFDefinition):
-                definitions.append(value)
-
-        return definitions
-
-    @functools.cached_property
-    def parsable(self):
-        definitions = []
-        for value in self.definitions:
-            if value.is_parsable():
-                definitions.append(value)
-
-        return definitions
-
+    """Returned by the ABNFGrammar, this hads some helper methods to make it
+    easier to manipulate and check ABNF grammars against input to be parsed"""
     @property
     def defname(self):
         """Return the grammar's rulename (ie, the rulename defined in the 
-        grammar"""
+        grammar, I would've loved to name this "rulename" but an ABNF grammar
+        has a rulename rule and so there could be a name collision"""
         if self.name == "rule":
             rulename = self.values[0].values[0]
 
@@ -134,6 +120,8 @@ class ABNFDefinition(ABNFToken):
 
     @property
     def min(self):
+        """If we have a repeat or val rule range then this will return the
+        minimum range or the minimum amount of times to repeat"""
         if self.is_val_chars():
             raise ValueError(f"No min property on {self.name} with chars")
 
@@ -156,6 +144,8 @@ class ABNFDefinition(ABNFToken):
 
     @property
     def max(self):
+        """If we have a repeat or val rule range then this will return the
+        maximum range or the maximum amount of times to repeat"""
         if self.is_val_chars():
             raise ValueError(f"No max property on {self.name} with chars")
 
@@ -190,6 +180,8 @@ class ABNFDefinition(ABNFToken):
 
     @property
     def chars(self):
+        """If the val range has a set of chars then this will return those
+        chars as a set"""
         if self.is_val_range():
             raise ValueError(f"No chars property on {self.name} with range")
 
@@ -225,33 +217,55 @@ class ABNFDefinition(ABNFToken):
             return super().__str__()
 
     def is_parsable(self):
+        """Return True if this definition is parsable"""
         return not self.is_internal()
 
     def is_internal(self):
+        """Return True if this definition is an internal definition that can
+        be safely ignored when checking input against a grammar"""
         return self.is_c_wsp() \
             or self.is_c_nl() \
             or self.is_defined_as() \
             or self.is_comment()
 
     def is_num_val(self):
+        """Return True if this definition is a numval token"""
         return self.is_bin_val() \
             or self.is_dec_val() \
             or self.is_hex_val()
 
     def is_val_range(self):
+        """Return True if this grammar is a numval token and represents a range
+        of values"""
         if self.is_num_val():
             return len(self.values) == 5 and self.values[3] == "-"
 
         return False
 
     def is_val_chars(self):
+        """Return True if this grammar is a numval token and represents a set
+        of values"""
         if self.is_num_val():
             return len(self.values) >= 5 and self.values[3] == "." \
                 or not self.is_val_range()
 
         return False
 
+    def parsable(self):
+        """Returns all the parsable definition tokens"""
+        definitions = []
+        for value in self.tokens():
+            if value.is_parsable():
+                definitions.append(value)
+
+        return definitions
+
     def merge(self, definition):
+        """Merge a rule definition into this rule definition
+
+        :param definition: ABNFDefinition, this will be merged into this rule
+            this rule should have been defined using =/
+        """
         if self.is_rule() and definition.is_rule():
             # we need to make sure the defined-as definition is =/
             definedas = definition.values[1]
@@ -273,14 +287,12 @@ class ABNFDefinition(ABNFToken):
                         alternation1 = elements1.values[0]
                         alternation2 = elements2.values[0]
 
-                        #alternation1.values.append("/")
                         alternation1.values.extend(alternation2.values)
                         alternation1.options.setdefault("merged", [])
                         alternation1.options["merged"].append(alternation2)
 
                         self.options.setdefault("merged", [])
                         self.options["merged"].append(definition)
-                        #self.values.append(definition)
                         break
 
                     else:
@@ -291,21 +303,6 @@ class ABNFDefinition(ABNFToken):
 
         else:
             raise ValueError(f"Cannot have 2 {self.defname} defined")
-
-    def alternations(self):
-        for value in self.parsable:
-            if value.name == "alternation":
-                yield value
-
-    def concatenations(self):
-        for value in self.parsable:
-            if value.name == "concatenation":
-                yield value
-
-    def repetitions(self):
-        for value in self.parsable:
-            if value.name == "repetition":
-                yield value
 
 
 class ABNFGrammar(Scanner):
@@ -1180,23 +1177,6 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
 
         return f"[{self.scanner.tell()}] {msg}"
 
-#     def log_debug(self, msg, **kwargs):
-#         if logger.isEnabledFor(logging.DEBUG):
-#             parsing_rule = kwargs.get("parsing_rule", None)
-#             if not parsing_rule:
-#                 if self.parsing_rules_stack:
-#                     parsing_rule = self.parsing_rules_stack[-1]
-# 
-#             if parsing_rule:
-#                 rulename = parsing_rule["rule"].defname
-#                 count = parsing_rule["count"]
-# 
-#                 msg = f"{rulename}({count}) -> {msg}"
-# 
-#             msg = f"[{self.scanner.tell()}] {msg}"
-# 
-#             logger.debug(msg)
-
     @contextmanager
     def transaction(self):
         """Internal method that will revert the cursor to the previous position
@@ -1381,7 +1361,7 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         return self.parse_rule(r)
 
     def parse_elements(self, rule):
-        return self.parse_alternation(next(rule.alternations()))
+        return self.parse_alternation(next(rule.tokens("alternation")))
 
     def parse_alternation(self, rule):
         """go through all the alternations and return the greediest one
@@ -1394,7 +1374,7 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         success = 0
         values = []
         start = stop = self.scanner.tell()
-        for index, r in enumerate(rule.concatenations(), 1):
+        for index, r in enumerate(rule.tokens("concatenation"), 1):
             self.scanner.seek(start)
 
             try:
@@ -1424,7 +1404,7 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
     def parse_concatenation(self, rule):
         values = []
         with self.transaction():
-            for r in rule.repetitions():
+            for r in rule.tokens("repetition"):
                 values.extend(self.parse_repetition(r))
 
         return values
@@ -1492,7 +1472,7 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         return values
 
     def parse_group(self, rule):
-        return self.parse_alternation(next(rule.alternations()))
+        return self.parse_alternation(next(rule.tokens("alternation")))
 
     def parse_option(self, rule):
         try:

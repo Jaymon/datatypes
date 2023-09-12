@@ -2,12 +2,12 @@
 from collections import Counter
 import re
 
-from . import environ
-from .compat import *
-from .compat import HTMLParser as BaseHTMLParser
-from .utils import make_list
-from .string import String
-from .token import Token, Tokenizer, Scanner
+from ..compat import *
+from ..compat import HTMLParser as BaseHTMLParser
+from ..config.environ import environ
+from ..utils import make_list
+from ..string import String
+from ..token import Token, Tokenizer, Scanner
 
 
 class HTML(String):

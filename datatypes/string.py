@@ -8,9 +8,8 @@ import binascii
 import unicodedata
 from distutils.fancy_getopt import wrap_text
 
-from . import environ
 from .compat import *
-from .compat import HTMLParser as BaseHTMLParser
+from .config.environ import environ
 from .utils import make_list
 
 

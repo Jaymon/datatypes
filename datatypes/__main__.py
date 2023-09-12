@@ -11,6 +11,7 @@ from datatypes import __version__
 from datatypes.path import Dirpath
 from datatypes.reflection import ReflectPath
 from datatypes.config import Config
+from datatypes.config import TOML
 from datatypes.url import Url
 
 
@@ -18,12 +19,29 @@ logging.quick_config()
 logger = logging.getLogger(__name__)
 
 
-class Pyproject(object):
+class SetupToPyproject(object):
+    """Converts a setup.py file to pyproject.toml
 
-    name = "pyproject"
+    Example pyproject.toml file:
+
+        https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#example
+
+    This is the issue that got me to write this:
+
+        https://github.com/pypa/pip/issues/8559
+
+    pyproject spec:
+
+        https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#specification
+
+
+    """
+
+    name = "setup-to-pyproject"
 
     description = " ".join([
-        "Build a pyproject.toml file for the project in the given directory",
+        "Convert setup.py to pyproject.toml for the project in the given",
+        "directory",
     ])
 
     @classmethod
@@ -32,84 +50,69 @@ class Pyproject(object):
         dp = Dirpath.cwd()
 
         if dp.has_file("pyproject.toml"):
-#             raise ValueError(
-#                 "Cannot run this in a project that already has pyproject.toml"
-#             )
+            raise ValueError(
+                "Cannot run this in a project that already has pyproject.toml"
+            )
 
-            toml = Config(dp.get_file("pyproject.toml"))
-            #pout.v(toml.jsonable())
-            #pout.v(toml["project"]["license"])
-            pout.v(toml["project"]["classifiers"])
-            #pout.v({k: dict(v) for k, v in dict(toml))
+        if not dp.has_file("setup.py"):
+            raise ValueError(
+                "Cannot run this in a project that does not have a setup.py"
+            )
 
+        # setup.py can contain these fields:
+        # https://docs.python.org/3/distutils/apiref.html#module-distutils.core
 
-        pout.x()
-
-
-
+        # https://stackoverflow.com/a/42100532
+        setup = distutils.core.run_setup(dp.child_file("setup.py"))
+        toml = TOML(dp.get_file("pyproject.toml"))
         rdp = ReflectPath(dp)
+        md = setup.metadata
 
-        #toml = {}
-        toml = Config(dp.get_file("pyproject.toml"))
+        #pout.v(md)
+
         project = {}
         urls = {}
         dependencies = {}
         setuptools = {}
         packages = {}
+        # https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html#dynamic-metadata
         dynamic = {}
         packagedata = {}
         entries = {}
 
-        project["requires-python"] = ">=3.10"
-
-        toml["build-system"] = {
+        build_system = {
             "requires": ["setuptools>=62.3.0"],
             "build-backend": "setuptools.build_meta",
         }
 
-        #packages["exclude"] = ["tests", "tests.*", "*_test*", "example*"]
-        packages["exclude"] = ["tests.*", "example*"]
+        project["requires-python"] = ">=3.10"
+        packages["exclude"] = ["tests*", "example*"]
 
-        if dp.has_file("setup.py"):
-            # setup.py can contain these fields:
-            # https://docs.python.org/3/distutils/apiref.html#module-distutils.core
+        if md.description:
+            project["description"] = md.description
 
-            # https://stackoverflow.com/a/42100532
-            setup = distutils.core.run_setup(dp.child_file("setup.py"))
-            #pout.v(setup)
-            #pout.v(setup.metadata)
-            #pout.v(setup.metadata._METHOD_BASENAMES)
+        # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#authors-maintainers
+        if md.author:
+            author = {}
+            author["name"] = md.author
 
-            md = setup.metadata
-            if md.description:
-                project["description"] = md.description
+            if md.author_email:
+                author["email"] = md.author_email
 
-            # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#authors-maintainers
-            if md.author:
-                author = {}
-                author["name"] = md.author
+            project["authors"] = [author]
 
-                if md.author_email:
-                    author["email"] = md.author_email
+        # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#keywords
+        if md.keywords:
+            project["keywords"] = md.keywords
 
-                project["authors"] = [author]
+        # https://pypi.python.org/pypi?:action=list_classifiers
+        # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#classifiers
+        if md.classifiers:
+            project["classifiers"] = md.classifiers
 
-            # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#keywords
-            if md.keywords:
-                project["keywords"] = md.keywords
-
-            # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#classifiers
-            if md.classifiers:
-                project["classifiers"] = md.classifiers
-
-            # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#urls
-            if md.url:
-                urls["Homepage"] = md.url
-#                 if "git" in md.url:
-#                     urls["Repository"] = md.url
-# 
-#                 else:
-#                     urls["Homepage"] = md.url
+        # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#urls
+        if md.url:
+            urls["Homepage"] = md.url
 
             # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#dependencies-optional-dependencies
             if setup.install_requires:
@@ -128,34 +131,41 @@ class Pyproject(object):
             if rm.module_name == "setup":
                 continue
 
-            try:
-                version = rm.get("__version__", "")
-                if version:
-                    name = rm.module_name
-                    #toml["project"]["version"] = version
-                    project["name"] = name
-                    packages["include"] = [f"{name}.*"]
-                    project["dynamic"] = ["version"]
-                    dynamic["version"] = f"{name}.__version__"
+            version = rm.get("__version__", "")
+            if version:
+                name = rm.module_name
+                #toml["project"]["version"] = version
+                project["name"] = name
+                packages["include"] = [f"{name}*"]
 
-                    for d in rm.data_dirs():
-                        relpath = d.relative_to(rm.path)
-                        modpath = relpath.replace("/", ".")
-                        # https://stackoverflow.com/a/73593532
-                        packagedata[modpath] = ["**"]
+                # https://packaging.python.org/en/latest/guides/single-sourcing-package-version/#single-sourcing-the-package-version
+                project["dynamic"] = ["version"]
+                dynamic["version"] = {
+                    "attr": f"{name}.__version__"
+                }
 
-                    # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#entry-points
-                    for rsm in rm.reflect_submodules():
-                        if rsm.module_name.endswith("__main__"):
-                            entry_point = rsm.reflect_class("EntryPoint")
-                            if entry_point:
-                                # TODO -- handle_<ENTRY_POINT_NAME>
-                                entries[rsm.module_name] = "EntryPoint.handle"
+                # https://setuptools.pypa.io/en/latest/userguide/datafiles.html
+                # https://setuptools.pypa.io/en/latest/userguide/datafiles.html#subdirectory-for-data-files
+                for d in rm.data_dirs():
+                    setuptools["include-package-data"] = True
+                    packages["namespaces"] = True
+                    relpath = d.relative_to(rm.path)
+                    modpath = relpath.replace("/", ".")
+                    # https://stackoverflow.com/a/73593532
+                    packagedata[modpath] = ["**"]
 
-                    break
+                # https://packaging.python.org/en/latest/specifications/entry-points/#entry-points
+                # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#entry-points
+                for rsm in rm.reflect_submodules():
+                    if rsm.module_name.endswith("__main__"):
+                        entries[rsm.module_name] = "<ADD ENTRY POINT>"
 
-            except (ImportError, SyntaxError) as e:
-                pass
+#                         entry_point = rsm.reflect_class("EntryPoint")
+#                         if entry_point:
+#                             # TODO -- handle_<ENTRY_POINT_NAME>
+#                             entries[rsm.module_name] = "EntryPoint.handle"
+
+                break
 
         # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#readme
         if dp.has_file("README.md"):
@@ -171,30 +181,19 @@ class Pyproject(object):
         elif dp.has_file("LICENSE"):
             project["license"] = {"file": "LICENSE"}
 
-        if dp.has_file(".git", "config"):
-            c = Config(dp.get_file(".git", "config"))
-            for section in c.sections():
-                if "url" in c[section]:
-                    gurl = c[section]["url"]
-                    if "github.com" in gurl:
-                        gurl = gurl.replace(":", "/")
-                        gurl = re.sub(r"\.git$", "", gurl)
-                        url = Url(
-                            gurl,
-                            username="",
-                            password="",
-                            scheme="https"
-                        )
-                        urls["Repository"] = url
+        if repository := rdp.remote_repository_url():
+            urls["Repository"] = repository
 
-        toml["project"] = project
-        toml["project.urls"] = urls
-        toml["project.optional-dependencies"] = dependencies
-        toml["tool.setuptools"] = setuptools
-        toml["tool.setuptools.packages.find"] = packages
-        toml["tools.setuptools.dynamic"] = dynamic
-        toml["tools.setuptools.package-data"] = packagedata
-        toml["project.entry-points"] = entries
+        toml.add_section("project").update(project)
+        toml.add_section("project.urls").update(urls)
+        toml.add_section("project.optional-dependencies").update(dependencies)
+        toml.add_section("project.entry-points").update(entries)
+
+        toml.add_section("build-system").update(build_system)
+        toml.add_section("tool.setuptools").update(setuptools)
+        toml.add_section("tool.setuptools.packages.find").update(packages)
+        toml.add_section("tool.setuptools.dynamic").update(dynamic)
+        toml.add_section("tool.setuptools.package-data").update(packagedata)
 
         #pout.v(toml["project"]["classifiers"])
         #pout.v(toml)
@@ -218,15 +217,14 @@ class EntryPoint(object):
         subparsers = parser.add_subparsers(dest="command", help="a sub command")
         subparsers.required = True # https://bugs.python.org/issue9253#msg186387
 
-        # $ pout inject
         subparser = subparsers.add_parser(
-            Pyproject.name,
+            SetupToPyproject.name,
             #parents=[common_parser],
-            help=Pyproject.description,
-            description=Pyproject.description,
+            help=SetupToPyproject.description,
+            description=SetupToPyproject.description,
             conflict_handler="resolve",
         )
-        subparser.set_defaults(subclass=Pyproject)
+        subparser.set_defaults(subclass=SetupToPyproject)
 
         args = parser.parse_args()
         return args.subclass.handle(args)

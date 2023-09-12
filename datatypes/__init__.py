@@ -1,30 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
-from . import logging
-from .logging import (
-    LogMixin,
-)
-from .string import (
-    String,
-    ByteString,
-    Base64,
-    NamingConvention,
-    EnglishWord,
-)
-from .html import (
-    HTMLCleaner,
-    HTMLParser,
-    HTML,
-    HTMLTokenizer,
-)
-from .number import (
-    Shorten,
-    Integer,
-    Hex,
-    Binary,
-    Exponential,
-)
 from .collections import (
     Pool,
     PriorityQueue,
@@ -40,84 +15,26 @@ from .collections import (
     HotSet,
     Stack,
 )
-from .csv import (
-    CSV,
-    TempCSV,
+from .command import (
+    SimpleCommand,
+    Command,
+    Command as AsyncCommand, # DEPRECATED, use Command instead
+    ModuleCommand,
+    FileCommand,
 )
-from .enum import (
-    Enum,
-)
-from .path import (
-    Path,
-    Filepath,
-    Dirpath,
-    Imagepath,
-    TempFilepath, Filetemp,
-    TempDirpath, Dirtemp,
-    Cachepath,
-    Sentinel,
-    UrlFilepath,
-    SitePackagesDirpath,
-)
-from .environ import (
+from .config import (
     Environ,
-)
-from .url import (
-    Url,
-    Host,
-    Slug,
+    Config,
 )
 from .copy import (
     Deepcopy,
 )
+from .csv import (
+    CSV,
+    TempCSV,
+)
 from .datetime import (
     Datetime,
-)
-from .http import (
-    HTTPHeaders,
-    HTTPEnviron,
-    HTTPClient,
-)
-from .token import (
-    # we don't import Token because it's too generic for toplevel, if you need it
-    # then import it directly from the submodule
-    Tokenizer,
-    Scanner,
-    WordTokenizer,
-    StopWordTokenizer,
-    ABNFParser,
-    ABNFGrammar,
-)
-from .email import (
-    Email,
-)
-from .parse import (
-    ArgvParser,
-    ArgParser,
-    Version,
-)
-from .utils import (
-    cball,
-    cbany,
-    make_dict,
-    make_list,
-    Singleton,
-)
-from .profile import (
-    Profiler,
-    AggregateProfiler,
-    AggregateProfiler as AProfiler
-)
-from .reflection import (
-    OrderedSubclasses,
-    Extend,
-    ReflectName,
-    ReflectModule,
-    ReflectClass,
-    ReflectMethod,
-)
-from .event import (
-    Event,
 )
 from .decorators import (
     Decorator,
@@ -133,18 +50,101 @@ from .decorators import (
     once,
     deprecated,
 )
+from .email import (
+    Email,
+)
+from .enum import (
+    Enum,
+)
+from .event import (
+    Event,
+)
+from .filetypes import (
+    HTMLCleaner,
+    HTMLParser,
+    HTML,
+    HTMLTokenizer,
+    TOML,
+)
+from .http import (
+    HTTPHeaders,
+    HTTPEnviron,
+    HTTPClient,
+)
+from .logging import (
+    LogMixin,
+)
+from .number import (
+    Shorten,
+    Integer,
+    Hex,
+    Binary,
+    Exponential,
+)
+from .parse import (
+    ArgvParser,
+    ArgParser,
+    Version,
+)
+from .path import (
+    Path,
+    Filepath,
+    Dirpath,
+    Imagepath,
+    TempFilepath, Filetemp,
+    TempDirpath, Dirtemp,
+    Cachepath,
+    Sentinel,
+    UrlFilepath,
+    SitePackagesDirpath,
+)
+from .profile import (
+    Profiler,
+    AggregateProfiler,
+    AggregateProfiler as AProfiler
+)
+from .reflection import (
+    OrderedSubclasses,
+    Extend,
+    ReflectName,
+    ReflectModule,
+    ReflectClass,
+    ReflectMethod,
+)
 from .server import (
     PathServer,
     CallbackServer,
     WSGIServer,
     ThreadingWSGIServer,
 )
-from .command import (
-    SimpleCommand,
-    Command,
-    Command as AsyncCommand, # DEPRECATED, use Command instead
-    ModuleCommand,
-    FileCommand,
+from .string import (
+    String,
+    ByteString,
+    Base64,
+    NamingConvention,
+    EnglishWord,
+)
+from .token import (
+    # we don't import Token because it's too generic for toplevel, if you need it
+    # then import it directly from the submodule
+    Tokenizer,
+    Scanner,
+    WordTokenizer,
+    StopWordTokenizer,
+    ABNFParser,
+    ABNFGrammar,
+)
+from .url import (
+    Url,
+    Host,
+    Slug,
+)
+from .utils import (
+    cball,
+    cbany,
+    make_dict,
+    make_list,
+    Singleton,
 )
 
 

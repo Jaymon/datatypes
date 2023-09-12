@@ -18,6 +18,8 @@ from .decorators import (
 )
 from .string import String
 from .path import Dirpath, Path
+from .config import Config
+from .url import Url
 
 
 class OrderedSubclasses(list):
@@ -212,11 +214,23 @@ class Extend(object):
 
 
 class ReflectPath(Path):
+    """Reflect a path
+
+    This is just a set of helper methods to infer python specific information
+    from a path
+    """
     @classproperty
     def reflect_module_class(self):
         return ReflectModule
 
     def reflect_modules(self, depth=-1):
+        """Yield all the python modules found in this path
+
+        :param depth: int, how deep into the path you would like to go, defaults
+            to all depths
+        :returns: generator[ReflectModule], yields reflection instances for
+            every found python module
+        """
         if not depth:
             depth = -1
 
@@ -232,6 +246,14 @@ class ReflectPath(Path):
                     yield self.reflect_module_class(modname, path=path)
 
     def get_modules(self, depth=-1, ignore_errors=False):
+        """Yield all the python modules found in this path
+
+        :param depth: int, how deep into the path you would like to go, defaults
+            to all depths
+        :param ignore_errors: bool, True if you would like to just ignore
+            errors when trying to load the module
+        :returns: generator[module], yields every found python module
+        """
         for rm in self.reflect_modules(depth=depth):
             try:
                 yield rm.get_module()
@@ -239,6 +261,39 @@ class ReflectPath(Path):
             except (SyntaxError, ImportError):
                 if not ignore_errors:
                     raise
+
+    def remote_repository_url(self):
+        """Return the remote repository url of this directory
+
+        For example, if this was ran in the datatypes repo directory, it would
+        return:
+
+            https://github.com/Jaymon/datatypes
+        """
+        if self.is_dir():
+            config_path = self.child(".git", "config")
+            if config_path.is_file():
+                c = Config(config_path)
+                for section in c.sections():
+                    if "url" in c[section]:
+                        gurl = c[section]["url"]
+                        if "github.com" in gurl:
+                            gurl = gurl.replace(":", "/")
+                            gurl = re.sub(r"\.git$", "", gurl)
+                            url = Url(
+                                gurl,
+                                username="",
+                                password="",
+                                scheme="https"
+                            )
+                            return url
+
+                        else:
+                            raise NotImplementedError(
+                                f"Not sure how to handle {gurl}"
+                            )
+
+        raise ""
 
 
 class ReflectName(String):
@@ -1333,7 +1388,15 @@ class ReflectModule(object):
         :param *default_val: mixed, return this if name doesn't exist
         :returns: mixed, the raw python attribute value
         """
-        return getattr(self.get_module(), name, *default_val)
+        try:
+            return getattr(self.get_module(), name, *default_val)
+
+        except (ImportError, SyntaxError) as e:
+            if default_val:
+                return default_val[0]
+
+            else:
+                raise AttributeError(name) from e
 
     def find_module_import_path(self):
         """find and return the importable path for the module"""

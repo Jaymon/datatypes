@@ -12,7 +12,7 @@ import weakref
 from socketserver import ThreadingMixIn
 
 from .compat import *
-from . import environ
+from .config.environ import environ
 from .url import Host, Url
 from .path import Dirpath
 from .decorators import property as cachedproperty

@@ -33,7 +33,7 @@ except ImportError:
 
 
 from .compat import *
-from . import environ
+from .config.environ import environ
 from .string import String, ByteString
 from .collections import ListIterator
 from .copy import Deepcopy
