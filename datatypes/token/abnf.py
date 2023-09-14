@@ -180,21 +180,21 @@ class ABNFDefinition(ABNFToken):
 
     @property
     def chars(self):
-        """If the val range has a set of chars then this will return those
-        chars as a set"""
+        """If the val concatenated chars then this will return those chars as a
+        list"""
         if self.is_val_range():
             raise ValueError(f"No chars property on {self.name} with range")
 
-        chars = set()
+        chars = []
         for ch in self.values[2::2]:
             if self.is_bin_val():
-                chars.add(int(Binary(ch)))
+                chars.append(int(Binary(ch)))
 
             elif self.is_dec_val():
-                chars.add(int(ch))
+                chars.append(int(ch))
 
             elif self.is_hex_val():
-                chars.add(int(Hex(ch)))
+                chars.append(int(Hex(ch)))
 
         return chars
 
@@ -303,6 +303,23 @@ class ABNFDefinition(ABNFToken):
 
         else:
             raise ValueError(f"Cannot have 2 {self.defname} defined")
+
+    def ranges(self):
+        """For value ranges and concatenations this will yield tuples that can
+        be checked against a character
+
+        :returns: generator(tuple[int, int]), the (min, max) of each character
+            that has to be checked for the *val rule
+        """
+        if self.is_val_range():
+            yield (self.min, self.max)
+
+        elif self.is_val_chars():
+            for ch in self.chars:
+                yield (ch, ch)
+
+        else:
+            raise ValueError(f"No ranges on {self.name}")
 
 
 class ABNFGrammar(Scanner):
@@ -1129,10 +1146,11 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             eoftell = len(self.scanner)
             if token.stop < eoftell:
                 raise ParseError(
-                    "Only parsed {}/{} characters of buffer using {}".format(
+                    "Only parsed {}/{} characters of buffer using {}: {}".format(
                         token.stop,
                         eoftell,
                         self.entry_rule.defname,
+                        buffer[0:token.stop],
                     )
                 )
 
@@ -1481,6 +1499,76 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         except ParseError:
             return []
 
+#     def xparse_num_val(self, rule):
+#         """Terminal parsing rule, this actually moves the cursor and consumes
+#         the buffer
+#         """
+#         values = []
+#         start = self.scanner.tell()
+#         with self.transaction() as scanner:
+#             if rule.is_val_range():
+#                 v = scanner.read(1)
+#                 if v:
+#                     codepoint = ord(v)
+#                     if rule.min > codepoint or codepoint > rule.max:
+#                         raise ParseError(
+#                             "Failure {}, {} not in range: {} <= {} <= {}".format(
+#                                 rule.name,
+#                                 v,
+#                                 rule.min,
+#                                 codepoint,
+#                                 rule.max
+#                             )
+#                         )
+# 
+#                     self.log_debug("Parsed {} value: {}", rule.name, v)
+# 
+#                     if v in String.DIGITS:
+#                         v = int(v)
+#                     values = [v]
+# 
+#                 else:
+#                     raise ParseError(f"Failure {rule.name}")
+# 
+#             elif rule.is_val_chars():
+#                 chars = rule.chars
+#                 total_chars = len(chars)
+#                 for i, ch in enumerate(chars, 1):
+#                     v = scanner.read(1)
+#                     if v:
+#                         codepoint = ord(v)
+#                         if codepoint != ch:
+#                             raise ParseError(
+#                                 "Failure {} character {}/{}, {} value {} != {}".format(
+#                                     rule.name,
+#                                     i,
+#                                     total_chars,
+#                                     v,
+#                                     codepoint,
+#                                     ch
+#                                 )
+#                             )
+# 
+#                         self.log_debug(
+#                             "Parsed {} character {}/{} value: {}",
+#                             rule.name,
+#                             i,
+#                             total_chars,
+#                             v
+#                         )
+# 
+#                         if v in String.DIGITS:
+#                             v = int(v)
+#                         values.append(v)
+# 
+#                     else:
+#                         raise ParseError(f"Failure {rule.name}")
+# 
+#             else:
+#                 raise RuntimeError(f"Unsure how to handle {rule.name}")
+# 
+#         return values
+
     def parse_num_val(self, rule):
         """Terminal parsing rule, this actually moves the cursor and consumes
         the buffer
@@ -1488,44 +1576,32 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         values = []
         start = self.scanner.tell()
         with self.transaction() as scanner:
-            v = scanner.read(1)
-            if v:
-                codepoint = ord(v)
-                if rule.is_val_range():
-                    if rule.min > codepoint or codepoint > rule.max:
+            for chmin, chmax in rule.ranges():
+                v = scanner.read(1)
+                if v:
+                    codepoint = ord(v)
+                    if chmin > codepoint or codepoint > chmax:
                         raise ParseError(
                             "Failure {}, {} not in range: {} <= {} <= {}".format(
                                 rule.name,
                                 v,
-                                rule.min,
+                                chmin,
                                 codepoint,
-                                rule.max
+                                chmax
                             )
                         )
 
-                elif rule.is_val_chars():
-                    chars = rule.chars
-                    if codepoint not in chars:
-                        raise ParseError(
-                            "Failure {}, {} value {} not in chars {}".format(
-                                rule.name,
-                                v,
-                                codepoint,
-                                chars
-                            )
-                        )
+                    self.log_debug("Parsed {} value: {}", rule.name, v)
+
+                    if v in String.DIGITS:
+                        v = int(v)
+                    values = [v]
 
                 else:
-                    raise RuntimeError(f"Unsure how to handle {rule.name}")
+                    raise ParseError(f"Failure {rule.name}")
 
-                self.log_debug("Parsed {} value: {}", rule.name, v)
-
-                if v in String.DIGITS:
-                    v = int(v)
-                values = [v]
-
-            else:
-                raise ParseError(f"Failure {rule.name}")
+        if not values:
+            raise RuntimeError(f"Unsure how to handle {rule.name}")
 
         return values
 

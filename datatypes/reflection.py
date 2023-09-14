@@ -1090,6 +1090,12 @@ class ReflectModule(object):
         of the module but the directory the module could be imported from"""
         return self.find_module_import_path()
 
+    @cachedproperty(cached="_parts")
+    def parts(self):
+        """Return the importable path for this module, this is not the filepath
+        of the module but the directory the module could be imported from"""
+        return self.modpath.split(".")
+
     @property
     def modpath(self):
         """Return the full qualified python path of the module (eg, foo.bar.che)
@@ -1256,6 +1262,21 @@ class ReflectModule(object):
 
     def reflect_basemodule(self):
         return type(self)(self.modroot)
+
+    def reflect_parent(self, back=1):
+        """Return the reflection instance for the parent module"""
+        parent_modpath = type(self)(self.get_parentpath(back=back))
+
+    def get_parentpath(self, back=1):
+        """get a parent module path, depending on the value of back this will
+        return the path, by default it is the immediate parent
+
+        :param back: int, how many parts to move back (eg foo.bar.che with back
+            as 1 will return foo.bar and foo with back equal to 2)
+        :returns: str, the parent module path
+        """
+        parts = self.parts
+        return ".".join(parts[:-abs(back)])
 
     def get_submodule(self, *parts):
         """return the actual python module
@@ -1471,5 +1492,7 @@ class ReflectModule(object):
             for dp in it:
                 if not dp.has_file("__init__.py") or dp.endswith(basename):
                     it.finish(dp)
-                    yield dp
+                    dpb = dp.basename
+                    if not dpb.startswith("__") and not dpb.endswith("__"):
+                        yield dp
 

@@ -103,6 +103,9 @@ class TOML(object):
 
             return d
 
+        elif value.name == "boolean": # bool
+            return True if str(value) == "true" else False
+
         else:
             raise NotImplementedError(value.name)
 
@@ -134,12 +137,15 @@ class TOML(object):
 
     def _add_section(self, keys):
         section = self.sections
+        key_added = False
         for k in keys:
             if k not in section:
                 section.setdefault(k, Namespace())
+                key_added = True
             section = section[k]
 
-        self.sections_order.append(keys)
+        if key_added:
+            self.sections_order.append(keys)
         return section
 
     def get_section_name(self, keys):

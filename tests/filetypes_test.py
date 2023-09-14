@@ -214,6 +214,15 @@ class TOMLTest(TestCase):
         ])
         self.assertEqual({"bar": 1, "che": "two"}, t.foo)
 
+    def test_parse_boolean(self):
+        t = self.create_instance([
+            "foo = true",
+            "bar = false",
+        ])
+
+        self.assertEqual(True, t.foo)
+        self.assertEqual(False, t.bar)
+
     def test_parse_1(self):
         t = self.create_instance([
             "[foo.bar]",

@@ -719,22 +719,22 @@ class ABNFDefinitionTest(TestCase):
         t = self.create_instance("val", "%d97")
         self.assertTrue(t.is_val_chars())
         self.assertFalse(t.is_val_range())
-        self.assertEqual(set([97]), t.chars)
+        self.assertEqual([97], t.chars)
 
         t = self.create_instance("val", "%d97.98.99")
         self.assertTrue(t.is_val_chars())
         self.assertFalse(t.is_val_range())
 
-        self.assertEqual(set([97, 98, 99]), t.chars)
+        self.assertEqual([97, 98, 99], t.chars)
 
         t = self.create_instance("val", "%d10")
-        self.assertEqual({10}, t.chars)
+        self.assertEqual([10], t.chars)
 
         t = self.create_instance("val", "%b110")
-        self.assertEqual({6}, t.chars)
+        self.assertEqual([6], t.chars)
 
         t = self.create_instance("val", "%xfe34")
-        self.assertEqual({65076}, t.chars)
+        self.assertEqual([65076], t.chars)
         with self.assertRaises(ValueError):
             t.min
         with self.assertRaises(ValueError):
@@ -742,7 +742,7 @@ class ABNFDefinitionTest(TestCase):
 
     def test_hex_whitespace(self):
         t = self.create_instance("val", "%x20.09") # 20 is space, 09 is tab
-        self.assertEqual(set([32, 9]), t.chars)
+        self.assertEqual([32, 9], t.chars)
 
     def test_rule_merge(self):
         t = self.create_instance("rule", [
@@ -1115,4 +1115,16 @@ class ABNFParserTest(TestCase):
 
         r = p.key.parse("foo")
         self.assertEqual("foo", str(r))
+
+    def test_parse_chars(self):
+        p = self.create_instance([
+            "true    = %x74.72.75.65     ; true",
+            "false   = %x66.61.6C.73.65  ; false"
+        ])
+
+        r = p.true.parse("true")
+        self.assertEqual("true", str(r))
+
+        r = p.false.parse("false")
+        self.assertEqual("false", str(r))
 

@@ -110,6 +110,7 @@ from .reflection import (
     ReflectModule,
     ReflectClass,
     ReflectMethod,
+    ReflectPath,
 )
 from .server import (
     PathServer,
