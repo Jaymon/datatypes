@@ -1603,8 +1603,9 @@ class Dirpath(Path):
         """Glob the given relative pattern in the directory represented by this path,
         yielding all matching files (of any kind)
 
-        The “**” pattern means "this directory and all subdirectories, recursively".
-        In other words, it enables recursive globbing
+        The “**” pattern (eg, **/*.txt) means "this directory and all
+        subdirectories, recursively".  In other words, it enables recursive
+        globbing
 
         globs are endswith matches, so if you passed in "*.txt" it would match any
         filepath that ended with ".txt", likewise, if you pass in "bar" it would match

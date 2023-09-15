@@ -83,7 +83,7 @@ def quick_config(levels=None, **kwargs):
 basic_logging = quick_config
 
 
-def project_config(config, **kwargs):
+def project_config(config=None, **kwargs):
     """I have a tendency to set up projects roughly the same way, and I've been
     copy/pasting some version of this dict_config for years, this is an effort
     to DRY this config a little bit
@@ -94,6 +94,7 @@ def project_config(config, **kwargs):
     :param config: dict, this dict will override the default configuration
     :param **kwargs: any specific keys will override passed in config dict
     """
+    config = config or {}
     config.update(kwargs)
 
     # avoid circular dependency
