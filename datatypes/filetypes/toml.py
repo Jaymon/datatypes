@@ -123,6 +123,18 @@ class TOML(object):
         except KeyError as e:
             raise AttributeError(key) from e
 
+    def get(self, key, *default):
+        """acts just like dict.get()"""
+        try:
+            return self.__getitem__(key)
+
+        except KeyError:
+            if default:
+                return default[0]
+
+            else:
+                return None
+
     def add_section(self, section_name):
         """Adds a section/table
 
@@ -257,4 +269,7 @@ class TOML(object):
                     section.items(),
                     keyset
                 )
+
+    def jsonable(self):
+        return self.sections.copy()
 

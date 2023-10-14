@@ -94,6 +94,7 @@ def project_config(config=None, **kwargs):
     :param config: dict, this dict will override the default configuration
     :param **kwargs: any specific keys will override passed in config dict
     """
+    level = kwargs.pop("level", "DEBUG")
     config = config or {}
     config.update(kwargs)
 
@@ -126,14 +127,14 @@ def project_config(config=None, **kwargs):
         },
         'handlers': {
             'streamhandler': {
-                'level': 'DEBUG',
+                'level': level,
                 'class': 'logging.StreamHandler',
                 'formatter': 'shortformatter',
                 'filters': [],
             },
         },
         'root': {
-            'level': 'DEBUG',
+            'level': level,
             'filters': [],
             'handlers': ['streamhandler'],
         },
