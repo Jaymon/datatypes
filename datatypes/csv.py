@@ -41,12 +41,13 @@ class CSV(object):
     """the class used in .rows()"""
 
     reader_row_class = None
-    """You can set this to a class and rows returned from the default .normalize_reader_row()
-    will be this type"""
+    """You can set this to a class and rows returned from the default
+    .normalize_reader_row() will be this type"""
 
     writer_row_class = None
-    """You can set this to a class and rows returned from the default .normalize_writer_row()
-    will be this type, this class should act like a dict unless you also change .writer_class"""
+    """You can set this to a class and rows returned from the default
+    .normalize_writer_row() will be this type, this class should act like a dict
+    unless you also change .writer_class"""
 
     class ContinueError(Exception):
         """Can be thrown to have CSV skip the current row"""
@@ -55,17 +56,18 @@ class CSV(object):
     def __init__(self, path, fieldnames=None, encoding="", **kwargs):
         """Create the csv instance
         :param path: string, the path to the csv file that will be read/written
-        :param fieldnames: list, the fieldnames, when writing, if this is omitted
-            then the keys of the first row dictionary passed to .add() will be used
-            for the fieldnames. If omitted when reading then the first line of the
-            csv file will be used for the fieldnames
+        :param fieldnames: list, the fieldnames, when writing, if this is
+            omitted then the keys of the first row dictionary passed to .add()
+            will be used for the fieldnames. If omitted when reading then the
+            first line of the csv file will be used for the fieldnames
         :param encoding: string, what character encoing to use
         :param **kwargs:
             strict -- bool, pass in True (default False) to have the class check
                 fieldnames when writing.
                 https://docs.python.org/3/library/csv.html#csv.Dialect.strict
-            extrasaction -- str, "ignore" (default when strict is False) to ignore extra
-                fields, "raise" (default when strict is True) to raise an error
+            extrasaction -- str, "ignore" (default when strict is False) to
+                ignore extra fields, "raise" (default when strict is True) to
+                raise an error
         """
         self.path = path
         self.fieldnames = self.normalize_fieldnames(fieldnames or [])
@@ -99,9 +101,10 @@ class CSV(object):
                             # fieldnames mapped to fieldnames as the first row,
                             # this will catch that and ignore it
                             #
-                            # if we pass in fieldnames then DictReader won't use the first
-                            # row as fieldnames, so we need to check to make sure the first
-                            # row isn't a field_name: field_name mapping
+                            # if we pass in fieldnames then DictReader won't use
+                            # the first row as fieldnames, so we need to check
+                            # to make sure the first row isn't a field_name:
+                            # field_name mapping
                             if cbany(lambda r: r[0] != r[1], row.items()):
                                 yield row
 
@@ -115,8 +118,8 @@ class CSV(object):
                     first_row = False
 
     def open(self, mode=""):
-        """Mainly an internal method used for opening the file pointers needed for
-        reading and writing
+        """Mainly an internal method used for opening the file pointers needed
+        for reading and writing
 
         :param mode: string, the open mode
         :returns: file pointer
@@ -174,8 +177,8 @@ class CSV(object):
 
         # from testdata CSVpath code:
         # in order to make unicode csvs work we are going to do a round about
-        # thing where we write to a string buffer and then pull that out and write
-        # it to the file, this is the only way I can make utf-8 work
+        # thing where we write to a string buffer and then pull that out and
+        # write it to the file, this is the only way I can make utf-8 work
         queue = self.normalize_writer_file(f)
         writer = self.writer_class(queue, **kwargs)
         writer.f = f
@@ -184,14 +187,19 @@ class CSV(object):
         return writer
 
     def create_reader(self, f, **kwargs):
-        """create a csv reader, this exists to make it easy to customize functionality,
-        for example, you might have a csv file that doesn't have column headers, so you
-        can override this method to pass in the column names, etc.
+        """create a csv reader, this exists to make it easy to customize
+        functionality, for example, you might have a csv file that doesn't have
+        column headers, so you can override this method to pass in the column
+        names, etc.
+
         :param f: io object, usually a file path opened with open()
-        :returns: csv.Reader instance or something that acts like a built-in csv.Reader
-            instance
+        :returns: csv.Reader instance or something that acts like a built-in
+            csv.Reader instance
         """
-        kwargs.setdefault("fieldnames", self.normalize_reader_fieldnames(self.fieldnames or None))
+        kwargs.setdefault(
+            "fieldnames",
+            self.normalize_reader_fieldnames(self.fieldnames or None)
+        )
         kwargs.setdefault("dialect", csv.excel)
 
         f = self.normalize_reader_file(f)
@@ -216,31 +224,58 @@ class CSV(object):
             def __next__(self):
                 self.last_line = next(self.f)
                 return self.last_line
-            next = __next__ # needed for py2? Python didn't consider it an iterator without next()
+            # needed for py2? Python didn't consider it an iterator without
+            # next()
+            next = __next__
 
         return FileWrapper(f)
 
     def normalize_reader_row(self, row):
-        """prepare row for reading, meant to be overridden in child classes if needed"""
+        """prepare row for reading, meant to be overridden in child classes if
+        needed"""
+        if not self.strict:
+            if None in row and not any(row.get(None, [])):
+                # the CSV file has extra commas at the end of the row, this is 
+                # pretty common with simple auto csv generators that just put a
+                # comma at the end of each column value when outputting the row
+                row.pop(None, None)
+
         if self.reader_row_class:
             row = self.reader_row_class(row)
 
         return row
 
     def normalize_writer_row(self, row):
-        """prepare row for writing, meant to be overridden in child classes if needed"""
-        row = {String(k): ByteString(v) for k, v in row.items()}
+        """prepare row for writing, meant to be overridden in child classes if
+        needed"""
 
         if self.strict:
+            row = {
+                String(k): ByteString(v) for k, v in row.items()
+            }
+
             rowcount = len(row)
             fncount = len(self.fieldnames)
             if rowcount != fncount:
-                raise ValueError("mismatch {} row(s) to {} fieldname(s)".format(rowcount, fncount))
+                raise ValueError("mismatch {} row(s) to {} fieldname(s)".format(
+                    rowcount,
+                    fncount
+                ))
+
+        else:
+            row = {
+                String(k): ByteString(b"" if v is None else v) for k, v in row.items()
+            }
 
         if self.writer_row_class:
             row = self.writer_row_class(row)
 
         return row
+
+    def normalize_writer_value(self, value):
+        value = "" if value is None else value
+        return ByteString(value)
+
 
     def add(self, row):
         with self.appending():
@@ -251,9 +286,15 @@ class CSV(object):
                 if row:
                     if not writer.has_header:
                         if not self.fieldnames:
-                            self.fieldnames = self.normalize_fieldnames(row.keys())
-                        writer.fieldnames = self.normalize_writer_fieldnames(self.fieldnames)
-                        logger.debug("Writing fieldnames: {}".format(", ".join(self.fieldnames)))
+                            self.fieldnames = self.normalize_fieldnames(
+                                row.keys()
+                            )
+                        writer.fieldnames = self.normalize_writer_fieldnames(
+                            self.fieldnames
+                        )
+                        logger.debug("Writing fieldnames: {}".format(
+                            ", ".join(self.fieldnames)
+                        ))
                         writer.writeheader()
                         writer.has_header = True
 
@@ -306,12 +347,18 @@ class CSV(object):
             f.truncate(0)
 
     def __len__(self):
-        """Returns how many rows are in this csv, this actually goes through all the
-        rows, so this is not a resource light method"""
+        """Returns how many rows are in this csv, this actually goes through all
+        the rows, so this is not a resource light method"""
         count = 0
         for r in self:
             count += 1
         return count
+
+    def __str__(self):
+        """This will print out all rows so it might not be ideal to use for 
+        bigger CSVs"""
+        with self.open() as fp:
+            return fp.read()
 
 
 class TempCSV(CSV):

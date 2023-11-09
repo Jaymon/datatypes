@@ -427,6 +427,37 @@ class ScannerTest(TestCase):
         subtext = s.read_to_delim("[[")
         self.assertEqual(" after", subtext)
 
+    def test_delims(self):
+        delims = ["->", "+>"]
+
+        s = self.create_instance("foo+>bar")
+        subtext = s.read_until_delims(delims)
+        self.assertTrue(subtext.endswith("+>"))
+
+        s.seek(0)
+        subtext = s.read_to_delims(delims)
+        self.assertEqual("foo", subtext)
+
+        subtext = self.create_instance("foo->bar").read_until_delims(delims)
+        self.assertTrue(subtext.endswith("->"))
+
+    def test_balanced_1(self):
+        s = self.create_instance("(foo bar (che))")
+        subtext = s.read_balanced_delims("(", ")")
+        self.assertEqual("(foo bar (che))", subtext)
+
+        s = self.create_instance("/* foo bar */ che")
+        subtext = s.read_balanced_delims("/*", "*/")
+        self.assertEqual("/* foo bar */", subtext)
+
+    def test_balanced_2(self):
+        s = self.create_instance("```foo bar ```che``` bam``` after")
+        subtext = s.read_balanced_delims("```", "```")
+        self.assertEqual("```foo bar ```che``` bam```", subtext)
+
+
+
+
 
 class ABNFGrammarTest(TestCase):
     tokenizer_class = ABNFGrammar
