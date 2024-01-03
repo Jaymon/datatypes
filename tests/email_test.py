@@ -10,9 +10,9 @@ from . import TestCase, testdata
 
 
 class EmailTest(TestCase):
-    def get_email(self, fileroot):
+    def get_email(self, fileroot, **kwargs):
         contents = testdata.get_contents(fileroot)
-        return Email(contents)
+        return Email(contents, **kwargs)
 
 #         body = testdata.get_contents(fileroot)
 #         lines = body.splitlines(False)
@@ -114,4 +114,28 @@ class EmailTest(TestCase):
     def test_subject_encoded(self):
         em = self.get_email("subject-encoded")
         self.assertEqual("You're #1 - Come check these drops out...\U0001F440", em.subject)
+
+    def test_bad_content_type(self):
+        """Make sure an email part with unknown-8bit encoding can be safely
+        parsed if errors are set to ignore
+
+        RFC 1428 defines the charset "UNKNOWN-8BIT" to refer to data for which
+        the encoder does not know the charset.  The MIME encoded-word decoder
+        should use the default charset for decoding this data.  Currently the
+        decoder passes "unknown-8bit" down to the charset converter, which in
+        turn treats the unrecognized charset as iso-8859-1.
+        """
+        em = self.get_email("bad-content-type", errors="ignore")
+        p = em.parts["text/plain"][2]
+        self.assertEqual("UTF-8", p.encoding)
+
+    def test_no_date(self):
+        """Gmail's welcome message in really old gmail accounts (mine dates
+        to the first year of Gmail's existence) doesn't have a date"""
+        em = self.get_email("no-date")
+        self.assertIsNone(em.datetime)
+
+        basedir = testdata.create_dir()
+        paths = em.save(basedir)
+        self.assertTrue(paths[0].basename.startswith("UNKNOWN"))
 

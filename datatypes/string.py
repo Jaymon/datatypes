@@ -115,9 +115,10 @@ class ByteString(Bytes, StringMixin):
 
 
 class String(Str, StringMixin):
-    """Wrapper around a unicode string "" to make sure we have a unicode string that
-    will work across python versions and handle the most annoying encoding issues
-    automatically
+    """Wrapper around a unicode string "" to make sure we have a unicode string
+    that will work across python versions and handle the most annoying encoding
+    issues automatically
+
     :Example:
         # python 3
         s = String("foo)
@@ -164,11 +165,14 @@ class String(Str, StringMixin):
         :param val: mixed, the value you are casting to a string
         :param encoding: string, the string encoding to use to encode/decode
         :param errors: string, how to handle errors, built-in values are:
-            strict,
-            ignore,
-            replace,
-            xmlcharrefreplace,
-            backslashreplace
+            - strict,
+            - ignore,
+            - replace,
+            - xmlcharrefreplace,
+            - backslashreplace
+            - surrogateescape
+
+            https://docs.python.org/3/library/codecs.html#error-handlers
         """
         if isinstance(val, type(None)):
             val = Str(val)
@@ -256,21 +260,26 @@ class String(Str, StringMixin):
         could be shorter
 
         * http://stackoverflow.com/questions/250357/smart-truncate-in-python/250373#250373
-        * This was originally a method called word_truncate by Cahlan Sharp for Undrip.
+        * This was originally a method called word_truncate by Cahlan Sharp for
+          Undrip.
         * There is also a Plancast Formatting.php substr method that does
           something similar
 
         :param size: int, the size you want to truncate to at max
-        :param postfix: string, what you would like to be appended to the truncated
-            string
-        :returns: string, a new string, truncated
+        :param postfix: str, what you would like to be appended to the
+            truncated string
+        :param sep: str, by default, whitespace is used to decide where to
+            truncate the string, but if you pass in something for sep then that
+            will be used to truncate instead
+        :returns: str, a new string, truncated
         """
-        if len(self) < size: return self
+        if len(self) < size:
+            return self
 
-        # our algo is pretty easy here, it truncates the string to size - postfix size
-        # then right splits the string on any whitespace for a maximum of one time
-        # and returns the first item of that split right stripped of whitespace
-        # (just in case)
+        # our algo is pretty easy here, it truncates the string to size -
+        # postfix size then right splits the string on any whitespace for a
+        # maximum of one time and returns the first item of that split right
+        # stripped of whitespace (just in case)
         postfix = type(self)(postfix)
         ret = self[0:size - len(postfix)]
         # if rsplit sep is None, any whitespace string is a separator

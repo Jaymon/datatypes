@@ -1,0 +1,103 @@
+Delivered-To: foo@bar.com
+Date: Mon, 03 Jan 2005 06:27:33 -0700
+From: bar@foo.com
+Subject: ...
+Sender: bar@foo.com
+To: foo@bar.com
+MIME-version: 1.0
+Content-type: multipart/mixed; boundary="===============0341355412=="
+Precedence: list
+X-Mailman-Version: 2.1.4
+
+--===============0341355412==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Description: ...
+
+Send uug-list mailing list submissions to
+	bar@foo.com
+
+To subscribe or unsubscribe via the World Wide Web, visit
+	http://bar.com/list
+or, via email, send a message with subject or body 'help' to
+	bar@foo.com
+
+You can reach the person managing the list at
+	list-owner@foo.com
+
+When replying, please edit your Subject line so it is more specific
+than "Re: ..."
+
+--===============0341355412==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Description: Today's Topics (1 messages)
+
+Today's Topics:
+
+   1. ...
+
+--===============0341355412==
+Content-Type: multipart/digest; boundary="===============0021780093=="
+MIME-Version: 1.0
+
+--===============0021780093==
+Content-Type: message/rfc822
+MIME-Version: 1.0
+
+From: Che Baz <che@baz.com>
+Precedence: list
+MIME-Version: 1.0
+To: foo@bar.com
+Date: Sun, 2 Jan 2005 23:36:20 -0700
+Reply-To: Users Group <bar@foo.com>
+Message-ID: <20050103063620.GD16709@baz.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="MAH+hnPXVZWQ5cD/"
+Subject: [list] [...]
+Message: 1
+
+--MAH+hnPXVZWQ5cD/
+Content-Type: text/plain; charset=unknown-8bit
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+something
+
+----- Forwarded message from "blah blah" <blah@blah.com> ----=
+-
+
+   forwarded message contents
+
+----- End forwarded message -----
+
+--=20
+Che Baz
+http://www.baz.com/che
+PGP Fingerprint: 1234 5678 9ABC DEFG HIJK LMNO PQRS TUVW XYZ0 1234
+
+--MAH+hnPXVZWQ5cD/
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+
+--MAH+hnPXVZWQ5cD/--
+
+--===============0021780093==--
+--===============0341355412==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Description: Digest Footer
+
+--------------------
+Users Group 
+http://foo.com/ 
+
+The opinions expressed in this message are the responsibility of
+their author.
+___________________________________________________________________
+List Info: http://foo.com/list
+
+--===============0341355412==--

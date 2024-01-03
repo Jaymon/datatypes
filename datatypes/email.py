@@ -20,13 +20,15 @@ class EmailPart(object):
 
     this class probably isn't useful outside of the Email class in this module
     """
-    def __init__(self, email, content_type, contents, encoding, filename="", index=1):
+    def __init__(self, email, content_type, contents, encoding, encodings=None, errors="", filename="", index=1):
         '''
         :param email: Email, the full email instance
-        :param content_type: string, the mimetype of the part
-        :param contents: string, the part's contents/body
-        :param encoding: string, the content encoding
-        :param filename: string, filename for this attachment, if not provided this
+        :param content_type: str, the mimetype of the part
+        :param contents: str, the part's contents/body
+        :param encoding: str, the content encoding
+        :param encodings: list[str], the fallback encodings if encoding fails
+        :param errors: str, how to handle encoding errors
+        :param filename: str, filename for this attachment, if not provided this
             part will be considered a body instead of an attachment
         :param index: int, the part index/num of this email
         '''
@@ -40,14 +42,47 @@ class EmailPart(object):
             # don't mess with the contents since this will be treated like a
             # binary file
             self.contents = contents
+
         else:
-            self.contents = String(contents, encoding)
+            try:
+                self.contents = String(contents, encoding, errors)
+
+            except LookupError as e:
+                success = False
+                if not encodings:
+                    encodings = []
+
+                try:
+                    for enc in encodings:
+                        self.contents = String(
+                            contents,
+                            enc,
+                            errors=errors,
+                        )
+                        self.encoding = enc
+                        success = True
+                        break
+
+                except Exception:
+                    pass
+
+                if not success:
+                    raise UnicodeError(
+                        encoding=encoding,
+                        reason=" ".join([
+                            f"Unable to decode with {encoding} encoding",
+                            "even using alternate encodings",
+                        ]),
+                        object=contents
+                    ) from e
 
     def path(self, basedir):
         """Get the save path for this part
 
-        :param basedir: string, the base directory this will use to generate a full path
-        :returns: string, the full path to a file that this part could be saved to
+        :param basedir: string, the base directory this will use to generate a
+            full path
+        :returns: string, the full path to a file that this part could be saved
+            to
         """
         if self.filename:
             fileroot, ext = os.path.splitext(self.filename)
@@ -98,7 +133,8 @@ class Email(object):
 
     This was ripped out of popbak in December 2021 and plopped here
 
-    The original email parsing portion of the code was based on code that I got from Larry Bates here:
+    The original email parsing portion of the code was based on code that I got
+    from Larry Bates here:
         http://mail.python.org/pipermail/python-list/2004-June/265634.html
     """
     part_class = EmailPart
@@ -140,7 +176,9 @@ class Email(object):
         bccs = self.msg.get_all('bcc', [])
         resent_tos = self.msg.get_all('resent-to', [])
         resent_ccs = self.msg.get_all('resent-cc', [])
-        recipient_addrs = email.utils.getaddresses(tos + bccs + ccs + resent_tos + resent_ccs)
+        recipient_addrs = email.utils.getaddresses(
+            tos + bccs + ccs + resent_tos + resent_ccs
+        )
         return [String(a[1]) for a in recipient_addrs if a[1]]
 
     @property
@@ -159,7 +197,8 @@ class Email(object):
 
     @property
     def from_domain(self):
-        """Get the from email address domain (eg, the example.com of a foo@example.com email address)"""
+        """Get the from email address domain (eg, the example.com of a
+        foo@example.com email address)"""
         from_addr = self.from_addr
         return from_addr.rsplit("@", maxsplit=1)[-1]
 
@@ -171,15 +210,23 @@ class Email(object):
 
     @property
     def datetime(self):
-        """Convert .date into a datetime instance"""
+        """Convert .date into a datetime instance
+
+        :returns: Datetime|None, if the date header exists this will return
+            a datetime instance with the date the email was sent, if no date
+            header is found then this will return None
+        """
         d = self.date
-        # https://docs.python.org/3/library/email.util.html#email.utils.parsedate_tz
-        t = email.utils.parsedate_tz(d)
-        tz_offset = t[9]
-        stamp = time.mktime(t[0:9])
-        if tz_offset:
-            stamp -= tz_offset
-        return Datetime(stamp)
+        if d:
+            # https://docs.python.org/3/library/email.util.html#email.utils.parsedate_tz
+            t = email.utils.parsedate_tz(d)
+            stamp = time.mktime(t[0:9])
+
+            tz_offset = t[9]
+            if tz_offset:
+                stamp -= tz_offset
+
+            return Datetime(stamp)
 
     @property
     def plain(self):
@@ -194,13 +241,23 @@ class Email(object):
         ret = ret[0].contents if ret else ""
         return ret
 
-    def __init__(self, contents):
+    def __init__(self, contents, encodings=None, errors=""):
         """Encapsulate a pop email message
 
         :param contents: str, an original full email with all headers and parts
+        :param encodings: list[str], the fallback encodings if the header
+            defined encoding fails, this defaults to a list of the most common
+            email encodings, the first encoding that succeeds will be used
+        :param errors: str, how to handle encoding errors. Passing in "ignore"
+            will make the email parser ignore encoding errors. See String for
+            how errors is used and what the default is and how to change the
+            default
         """
         self.contents = contents
         self.parts = defaultdict(list)
+
+        if not encodings:
+            encodings = ["UTF-8", "ISO-8859-1", "us-ascii"]
 
         self.msg = Parser().parsestr(String(contents))
         if self.msg.is_multipart():
@@ -208,11 +265,10 @@ class Email(object):
             for part in self.msg.walk():
                 # multipart/* are just containers
                 if part.is_multipart():
-#                 mptype=part.get_content_maintype()
-#                 if mptype == "multipart":
                     continue
 
-                # NOTE -- I'm not sure the lower is needed here, but just in case
+                # NOTE -- I'm not sure the lower is needed here, but just in
+                # case
                 content_type = part.get_content_type().lower()
                 encoding = part.get_content_charset()
                 filename = part.get_filename()
@@ -224,6 +280,8 @@ class Email(object):
                     content_type=content_type,
                     contents=part_contents,
                     encoding=encoding,
+                    encodings=encodings,
+                    errors=errors,
                     filename=filename,
                     index=index,
                 ))
@@ -247,10 +305,13 @@ class Email(object):
         """Get the save path for this email, this should be a directory that
         all the parts can be saved into
 
-        :param basedir: string, the base directory that will be used to generate a full path
-        :returns: string, the full path to a directory this email can be saved into
+        :param basedir: string, the base directory that will be used to
+            generate a full path
+        :returns: string, the full path to a directory this email can be saved
+            into
         """
-        stamp = self.datetime.strftime("%Y-%m-%d %H%M%S")
+        stamp = self.datestamp("%Y-%m-%d %H%M%S")
+
         s = f"{stamp} - {self.subject}"
 
         # remove path delims from the subject
@@ -265,13 +326,15 @@ class Email(object):
         ).sanitize(maxpath=220)
 
     def paths(self, basedir):
-        """Returns all the potential paths that .save() could use. This is really
-        more for debugging because it might generate different paths since it doesn't
-        actually create the paths, which might cause datatypes.Path.sanitize() to
-        produce different results
+        """Returns all the potential paths that .save() could use. This is
+        really more for debugging because it might generate different paths
+        since it doesn't actually create the paths, which might cause datatypes
+        Path.sanitize() to produce different results
 
-        :param basedir: string, the base directory that will be used to generate a full path
-        :returns: list, all the folders and attachment/bpdy paths this could generate
+        :param basedir: string, the base directory that will be used to generate
+            a full path
+        :returns: list, all the folders and attachment/bpdy paths this could
+            generate
         """
         email_dir = self.path(basedir)
         paths = [email_dir]
@@ -304,6 +367,29 @@ class Email(object):
         """Alias of .has_attachments()"""
         return self.has_attachments()
 
+    def datestamp(self, strformat="", default="UNKNOWN"):
+        """Get a datestamp for the email using strformat, if the email doesn't
+        have a date header than use the default
+
+        :param strformat: str, same thing you would pass to strftime or
+            strptime, it will default to ISO format if empty.
+            https://docs.python.org/3/library/datetime.html#strftime-and-strptime-behavior
+        :param default: str, what the default value should be if there is no
+            date header
+        :returns: str, the date stamp
+        """
+        stamp = default
+
+        dt = self.datetime
+        if dt:
+            if strformat:
+                stamp = self.datetime.strftime(strformat)
+
+            else:
+                stamp = dt.isoformat()
+
+        return stamp
+
     def save(self, basedir, save_original=False):
         """Save this email into basedir
 
@@ -311,8 +397,8 @@ class Email(object):
 
             basedir/<FROM_DOMAIN>/<FROM_ADDR>/<DATE> - <SUBJECT>
 
-        Then it will use this base email path to save all the headers, bodies, and attachments
-        of the email
+        Then it will use this base email path to save all the headers, bodies,
+        and attachments of the email
 
         :param basedir: string, path to save the email into
         :param save_original: bool, True if you would also like to save the full
@@ -339,9 +425,11 @@ class Email(object):
         p = Filepath(email_dir, "headers.txt")
         with p.open_text("w+") as f:
             f.write("From:\n\t- {}\n".format(self.from_addr))
-            f.write("Recipients:\n\t- {}\n".format("\n\t- ".join(self.recipient_addrs)))
+            f.write("Recipients:\n\t- {}\n".format(
+                "\n\t- ".join(self.recipient_addrs)
+            ))
             f.write("Subject: {}\n".format(self.subject))
-            f.write("Date: {}\n\n".format(self.datetime.isoformat()))
+            f.write("Date: {}\n\n".format(self.datestamp()))
 
             for name, val in self.headers:
                 f.write("{}: {}\n".format(name, val))

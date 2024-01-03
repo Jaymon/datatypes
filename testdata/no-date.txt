@@ -1,0 +1,12 @@
+To: Che Boo <che@boo.com>
+From: Foo Bar <foo-noreply@bar.com>
+Subject: FooBar is different. Here's what you need to know.
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+<font face="Arial, Helvetica, sans-serif">
+<p>Foo Bar body and stuff</p>
+<p>
+<a href="http://foo.bar.com">http://foo.bar.com</a>
+</p>
+</font>
