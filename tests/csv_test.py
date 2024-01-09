@@ -182,7 +182,15 @@ class CSVTest(TestCase):
 
     def test_none(self):
         """By default, CSV subs "" for None as a row value, unless strict=True
-        then it will error out"""
+        then it will error out
+        """
+        csv = TempCSV(["foo", "bar"])
+        with csv:
+            csv.add({"foo": "", "bar": None})
+        rows = list(csv)
+        self.assertEqual("", rows[0]["foo"])
+        self.assertEqual("", rows[0]["bar"])
+
         csv = TempCSV(["foo", "bar"])
         with csv:
             csv.add({"foo": "1", "bar": None})

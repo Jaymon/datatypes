@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import os
 import codecs
 import csv
@@ -9,7 +8,7 @@ from .compat import *
 from .config.environ import environ
 from .string import String, ByteString
 from .utils import cbany
-from .path import TempFilepath
+from .path import TempFilepath, Filepath
 from . import logging
 
 
@@ -18,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class CSV(object):
     """Easily read/write the rows of a csv file
+
     :Example:
         # read a csv file
         c = CSV("/path/to/read/file.csv")
@@ -55,27 +55,36 @@ class CSV(object):
 
     def __init__(self, path, fieldnames=None, encoding="", **kwargs):
         """Create the csv instance
-        :param path: string, the path to the csv file that will be read/written
+        :param path: str, the path to the csv file that will be read/written
         :param fieldnames: list, the fieldnames, when writing, if this is
             omitted then the keys of the first row dictionary passed to .add()
             will be used for the fieldnames. If omitted when reading then the
             first line of the csv file will be used for the fieldnames
         :param encoding: string, what character encoing to use
         :param **kwargs:
-            strict -- bool, pass in True (default False) to have the class check
+            strict: bool, pass in True (default False) to have the class check
                 fieldnames when writing.
                 https://docs.python.org/3/library/csv.html#csv.Dialect.strict
-            extrasaction -- str, "ignore" (default when strict is False) to
+            extrasaction: str, "ignore" (default when strict is False) to
                 ignore extra fields, "raise" (default when strict is True) to
                 raise an error
+            writer_mode: str, the default mode that will be passed to open a
+                stream for writing
+            readonly: bool, True if writing operations should fail
         """
-        self.path = path
+        self.path = Filepath(path)
         self.fieldnames = self.normalize_fieldnames(fieldnames or [])
         self.writer = None
         self.reader = None
         self.context_depth = 0 # protection against multiple context managers
         self.strict = kwargs.pop("strict", False)
-        self.writer_mode = kwargs.pop("writer_mode", "wb+")
+
+        self.readonly = kwargs.pop("readonly", False)
+        if self.readonly:
+            self.writer_mode = kwargs.pop("writer_mode", "")
+
+        else:
+            self.writer_mode = kwargs.pop("writer_mode", "wb+")
 
         if not encoding:
             encoding = environ.ENCODING
@@ -86,37 +95,6 @@ class CSV(object):
             if hasattr(cls, k):
                 setattr(self, k, v)
 
-    def __iter__(self):
-        logger.debug("Reading csv file: {}".format(self.path))
-
-        with self.open() as f:
-            first_row = True
-            self.reader = self.create_reader(f)
-            for row in self.reader:
-                try:
-                    row = self.normalize_reader_row(row)
-                    if row:
-                        if self.fieldnames and first_row:
-                            # if you've passed in fieldnames then it will return
-                            # fieldnames mapped to fieldnames as the first row,
-                            # this will catch that and ignore it
-                            #
-                            # if we pass in fieldnames then DictReader won't use
-                            # the first row as fieldnames, so we need to check
-                            # to make sure the first row isn't a field_name:
-                            # field_name mapping
-                            if cbany(lambda r: r[0] != r[1], row.items()):
-                                yield row
-
-                        else:
-                            yield row
-
-                except self.ContinueError:
-                    pass
-
-                finally:
-                    first_row = False
-
     def open(self, mode=""):
         """Mainly an internal method used for opening the file pointers needed
         for reading and writing
@@ -124,8 +102,9 @@ class CSV(object):
         :param mode: string, the open mode
         :returns: file pointer
         """
-        if not mode:
+        if not mode or self.readonly:
             mode = "r"
+
         return codecs.open(self.path, encoding=self.encoding, mode=mode)
 
     @contextmanager
@@ -207,77 +186,13 @@ class CSV(object):
         reader.f = f
         return reader
 
-    def normalize_writer_file(self, f):
-        queue = StringIO()
-        return queue
-
-    def normalize_reader_file(self, f):
-        # https://stackoverflow.com/a/30031962/5006
-        class FileWrapper(object):
-            def __init__(self, f):
-                self.f = f
-                self.last_line = "" # will contain raw CSV row
-
-            def __iter__(self):
-                return self
-
-            def __next__(self):
-                self.last_line = next(self.f)
-                return self.last_line
-            # needed for py2? Python didn't consider it an iterator without
-            # next()
-            next = __next__
-
-        return FileWrapper(f)
-
-    def normalize_reader_row(self, row):
-        """prepare row for reading, meant to be overridden in child classes if
-        needed"""
-        if not self.strict:
-            if None in row and not any(row.get(None, [])):
-                # the CSV file has extra commas at the end of the row, this is 
-                # pretty common with simple auto csv generators that just put a
-                # comma at the end of each column value when outputting the row
-                row.pop(None, None)
-
-        if self.reader_row_class:
-            row = self.reader_row_class(row)
-
-        return row
-
-    def normalize_writer_row(self, row):
-        """prepare row for writing, meant to be overridden in child classes if
-        needed"""
-
-        if self.strict:
-            row = {
-                String(k): ByteString(v) for k, v in row.items()
-            }
-
-            rowcount = len(row)
-            fncount = len(self.fieldnames)
-            if rowcount != fncount:
-                raise ValueError("mismatch {} row(s) to {} fieldname(s)".format(
-                    rowcount,
-                    fncount
-                ))
-
-        else:
-            row = {
-                String(k): ByteString(b"" if v is None else v) for k, v in row.items()
-            }
-
-        if self.writer_row_class:
-            row = self.writer_row_class(row)
-
-        return row
-
-    def normalize_writer_value(self, value):
-        value = "" if value is None else value
-        return ByteString(value)
-
-
     def add(self, row):
+        """Add one row to the end of the CSV file
+
+        This is the set interface
+
+        :param row: dict, the row to be written
+        """
         with self.appending():
             writer = self.writer
 
@@ -307,8 +222,19 @@ class CSV(object):
             except self.ContinueError:
                 pass
 
-    def append(self, rows):
+    def append(self, row):
+        """Add one row to the end of the CSV file
+
+        This is the list interface
+
+        :param row: dict, the row to be written
+        """
+        return self.add(row)
+
+    def extend(self, rows):
         """Add all the rows to the end of the csv file
+
+        This is the list interface
 
         :param rows: list, all the rows
         """
@@ -316,8 +242,91 @@ class CSV(object):
             for row in rows:
                 self.add(row)
 
-    def extend(self, rows):
-        return self.append(rows)
+    def update(self, rows):
+        """Add all the rows to the end of the csv file
+
+        This is the set and dict interface
+
+        :param rows: list, all the rows
+        """
+        return self.extend(rows)
+
+    def normalize_writer_file(self, f):
+        queue = StringIO()
+        return queue
+
+    def normalize_reader_file(self, f):
+        # https://stackoverflow.com/a/30031962/5006
+        class FileWrapper(object):
+            def __init__(self, f):
+                self.f = f
+                self.last_line = "" # will contain raw CSV row
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                self.last_line = next(self.f)
+                return self.last_line
+
+        return FileWrapper(f)
+
+    def normalize_reader_row(self, row):
+        """prepare row for reading, meant to be overridden in child classes if
+        needed"""
+        if not self.strict:
+            # we're checking for a None key, which means there were extra commas
+            if None in row and not any(row.get(None, [])):
+                # the CSV file has extra commas at the end of the row, this is 
+                # pretty common with simple auto csv generators that just put a
+                # comma at the end of each column value when outputting the row
+                row.pop(None, None)
+
+        if self.reader_row_class:
+            row = self.reader_row_class(row)
+
+        return row
+
+    def normalize_writer_row(self, row):
+        """prepare row for writing, meant to be overridden in child classes if
+        needed
+        """
+        row = {
+            String(k): self.normalize_writer_value(v) for k, v in row.items()
+        }
+
+        if self.strict:
+            rowcount = len(row)
+            fncount = len(self.fieldnames)
+            if rowcount != fncount:
+                raise ValueError("mismatch {} row(s) to {} fieldname(s)".format(
+                    rowcount,
+                    fncount
+                ))
+
+        if self.writer_row_class:
+            row = self.writer_row_class(row)
+
+        return row
+
+    def normalize_writer_value(self, value):
+        """Ran for each individual value in a row
+
+        see .normalize_writer_row because if you overwrite that method in a
+        child class then this might not be called
+
+        :param value: Any
+        :returns: bytes
+        """
+        if self.strict:
+            return ByteString(value)
+
+        else:
+            # NOTE -- for some reason, the internal writer treats b"" and
+            # ByteString(b"") differently, the b"" would be written out as "b"""
+            # which make me think it's doing repr(value) internally or
+            # something
+            return ByteString(b"" if value is None else value)
 
     def normalize_fieldnames(self, fieldnames):
         """run this anytime fields are going to be set on this instance"""
@@ -345,6 +354,37 @@ class CSV(object):
         """clear the csv file"""
         with self.open("wb") as f:
             f.truncate(0)
+
+    def __iter__(self):
+        logger.debug("Reading csv file: {}".format(self.path))
+
+        with self.open() as f:
+            first_row = True
+            self.reader = self.create_reader(f)
+            for row in self.reader:
+                try:
+                    row = self.normalize_reader_row(row)
+                    if row:
+                        if self.fieldnames and first_row:
+                            # if you've passed in fieldnames then it will return
+                            # fieldnames mapped to fieldnames as the first row,
+                            # this will catch that and ignore it
+                            #
+                            # if we pass in fieldnames then DictReader won't use
+                            # the first row as fieldnames, so we need to check
+                            # to make sure the first row isn't a field_name:
+                            # field_name mapping
+                            if cbany(lambda r: r[0] != r[1], row.items()):
+                                yield row
+
+                        else:
+                            yield row
+
+                except self.ContinueError:
+                    pass
+
+                finally:
+                    first_row = False
 
     def __len__(self):
         """Returns how many rows are in this csv, this actually goes through all
