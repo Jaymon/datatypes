@@ -5,28 +5,6 @@ from .compat import *
 from .string import String
 
 
-# def convert_str_to_int(enum_class, name):
-#     name = convert_str_to_str(enum_class, name)
-#     value = getattr(enum_class, name)
-#     return value.value
-# 
-# 
-# def convert_int_to_str(enum_class, value):
-#     found = False
-#     for k, v in enum_class.__members__.items():
-#         if v.value == value:
-#             ret = k
-#             found = True
-#             break
-# 
-#     if not found:
-#         raise ValueError(
-#             "Value {} is not a valid enumerated value".format(value)
-#         )
-# 
-#     return ret
-
-
 def convert_value_to_name(enum_class, value):
     """Given a value find the name
 
@@ -71,17 +49,6 @@ def convert_name_to_value(enum_class, name):
     return value
 
 
-# def convert_str_to_str(enum_class, name):
-#     if isinstance(name, enum_class):
-#         name = name.name
-# 
-#     else:
-#         name = name.upper()
-# 
-#     return name
-
-
-
 def find_enum(enum_class, name_or_value):
     """Given a name or a value find the actual enum property that matches
 
@@ -118,10 +85,6 @@ def find_enum(enum_class, name_or_value):
 
     return enum_class[name]
 
-#     name = find_name(enum_class, value)
-#     return enum_class[name]
-
-
 
 def find_name(enum_class, name):
     """find the name of an enum, case-insensitive
@@ -132,29 +95,6 @@ def find_name(enum_class, name):
     """
     return find_enum(enum_class, name).name
 
-#     if isinstance(name, enum_class):
-#         name = name.name
-# 
-#     else:
-#         try:
-#             # if this succeeds then name is valid
-#             convert_name_to_value(enum_class, name)
-# 
-#         except ValueError:
-#             name = convert_value_to_name(enum_class, name)
-# 
-#     return String(name)
-
-
-#     if isinstance(name, int):
-#         ret = convert_int_to_str(enum_class, name)
-# 
-#     else:
-#         convert_str_to_int(enum_class, name) # error check
-#         ret = convert_str_to_str(enum_class, name)
-# 
-#     return String(ret)
-
 
 def find_value(enum_class, value):
     """find the value of an enum, similar to find_name() this will normalize
@@ -164,41 +104,6 @@ def find_value(enum_class, value):
     :returns value: Any, the value normalized
     """
     return find_enum(enum_class, value).value
-#     name = find_name(enum_class, value)
-#     return enum_class[name].value
-
-
-# def find_enum(enum_class, name_or_value):
-#     name = find_name(enum_class, value)
-#     return enum_class[name]
-
-
-
-#     if isinstance(value, enum_class):
-#         value = value.value
-# 
-#     else:
-#         try:
-#             # if this succeeds then value is valid
-#             convert_value_to_name(enum_class, value)
-# 
-#         except ValueError:
-#             value = convert_name_to_value(enum_class, value)
-# 
-#     return String(name)
-# 
-# 
-# 
-# 
-# 
-#     if isinstance(value, int):
-#         convert_int_to_str(enum_class, value) # error check
-#         ret = value
-# 
-#     else:
-#         ret = convert_str_to_int(enum_class, value)
-# 
-#     return ret
 
 
 class EnumMeta(BaseEnumMeta):
@@ -266,5 +171,4 @@ class Enum(BaseEnum, metaclass=EnumMeta):
             ret = False
 
         return ret
-
 
