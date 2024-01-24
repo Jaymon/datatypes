@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import sys
 
 from datatypes.compat import *
@@ -65,6 +64,25 @@ class OrderedSubclassesTest(TestCase):
 
         scs = OrderedSubclasses(classes=[Bar])
         self.assertEqual([Bar], list(scs.edges()))
+
+    def test_remove(self):
+        class Base1(object): pass
+        class Base2(Base1): pass
+        class Base3(Base2): pass
+        class Foo(Base2): pass
+        class Bar(Base3): pass
+        class Che(Base3): pass
+
+        scs = OrderedSubclasses(classes=[Base2, Base3, Foo, Bar, Che])
+
+        edges = set(scs.edges())
+        self.assertEqual(3, len(edges))
+        self.assertTrue(Bar in edges)
+
+        scs.remove(Bar)
+        edges = set(scs.edges())
+        self.assertEqual(2, len(edges))
+        self.assertFalse(Bar in edges)
 
 
 class ExtendTest(TestCase):
@@ -229,8 +247,8 @@ class ReflectClassTest(TestCase):
         self.assertTrue("\n" in rc.desc)
 
     def test_decorators_inherit_1(self):
-        """make sure that a child class that hasn't defined a METHOD inherits the
-        METHOD method from its parent with decorators in tact"""
+        """make sure that a child class that hasn't defined a METHOD inherits
+        the METHOD method from its parent with decorators in tact"""
         m = testdata.create_module([
             "def foodec(func):",
             "    def wrapper(*args, **kwargs):",
@@ -252,8 +270,8 @@ class ReflectClassTest(TestCase):
         self.assertEqual(1, count)
 
     def test_decorators_inherit_2(self):
-        """you have a parent class with POST method, the child also has a POST method,
-        what do you do? What. Do. You. Do?"""
+        """you have a parent class with POST method, the child also has a POST
+        method, what do you do? What. Do. You. Do?"""
         m = testdata.create_module([
             "def a(f):",
             "    def wrapped(*args, **kwargs):",
@@ -345,13 +363,30 @@ class ReflectClassTest(TestCase):
             "    class FooCannotBeFound(object): pass",
         ])
 
-
         with self.assertRaises(AttributeError):
             ReflectClass.get_class(f"{r}:FooCannotBeFound")
-            # this would be the object once you have the module: m.foo.__code__.co_consts
+            # this would be the object once you have the module:
+            #     m.foo.__code__.co_consts
             # but I can't find anyway to take a code object and turn it into the
-            # actual type instance. I tried eval() and exec() but they executed but
-            # I couldn't get the class after running them
+            # actual type instance. I tried eval() and exec() but they executed
+            # but I couldn't get the class after running them
+
+    def test_classpath_1(self):
+        r = testdata.create_module([
+            "class Foo(object):",
+            "    class Bar(object): pass",
+        ])
+
+        rc = ReflectClass(r.module().Foo.Bar)
+        self.assertTrue(rc.classpath.endswith(":Foo.Bar"))
+
+    def test_classpath_2(self):
+        class Foo(object):
+            class Bar(object): pass
+
+        qualname = ":ReflectClassTest.test_classpath_2.<locals>.Foo.Bar"
+        rc = ReflectClass(Foo.Bar)
+        self.assertTrue(rc.classpath.endswith(qualname))
 
 
 class ReflectModuleTest(TestCase):
@@ -381,7 +416,8 @@ class ReflectModuleTest(TestCase):
         self.assertTrue(getattr(m, "Foo"))
 
     def test_mixed_modules_packages(self):
-        """make sure a package with modules and other packages will resolve correctly"""
+        """make sure a package with modules and other packages will resolve
+        correctly"""
         modpath = "mmp"
         r = testdata.create_modules({
             "": [
@@ -399,7 +435,15 @@ class ReflectModuleTest(TestCase):
         }, modpath=modpath)
 
         r = ReflectModule(modpath)
-        self.assertEqual(set(['mmp.foo', 'mmp', 'mmp.foo.bar', 'mmp.che']), r.module_names())
+        self.assertEqual(
+            set([
+                'mmp.foo',
+                'mmp',
+                'mmp.foo.bar',
+                'mmp.che'
+            ]),
+            r.module_names()
+        )
 
         # make sure just a file will resolve correctly
         modpath = "mmp2"
@@ -510,8 +554,9 @@ class ReflectModuleTest(TestCase):
 
         self.assertEqual(set([m]), ReflectModule.find_module_names(m.directory))
 
-        # we don't return the path because it isn't importable by name from the path we
-        # passed in (itself), as of 7-4-2019 I think this is the correct behavior
+        # we don't return the path because it isn't importable by name from the
+        # path we passed in (itself), as of 7-4-2019 I think this is the correct
+        # behavior
         dirpath = Dirpath(m.directory, m)
         self.assertEqual(set(), ReflectModule.find_module_names(dirpath))
 
@@ -568,12 +613,28 @@ class ReflectModuleTest(TestCase):
 
         dp.child_file(modpath, "data", "one.txt").write_text("1")
         dp.child_file(modpath, "foo", "bar", "data", "two.txt").write_text("2")
-        dp.child_file(modpath, "che", "other_name", "one_dir", "three.txt").write_text("3")
-        dp.child_file(modpath, "che", "other_name", "two_dir", "four.txt").write_text("4")
+        dp.child_file(
+            modpath,
+            "che",
+            "other_name",
+            "one_dir",
+            "three.txt"
+        ).write_text("3")
+        dp.child_file(
+            modpath,
+            "che",
+            "other_name",
+            "two_dir",
+            "four.txt"
+        ).write_text("4")
 
         rm = ReflectModule(modpath)
 
-        nr = set([f"{modpath}/data", f"{modpath}/che/other_name", f"{modpath}/foo/bar/data"])
+        nr = set([
+            f"{modpath}/data",
+            f"{modpath}/che/other_name",
+            f"{modpath}/foo/bar/data"
+        ])
         for p in rm.data_dirs():
             self.assertTrue(p.relative_to(dp) in nr)
 

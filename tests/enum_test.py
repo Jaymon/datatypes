@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
+import enum
 
 from datatypes.compat import *
-from datatypes.enum import Enum
+from datatypes.enum import (
+    Enum,
+    find_enum,
+    find_name,
+    find_value,
+)
 
 from . import TestCase, testdata
 
@@ -56,16 +61,11 @@ class EnumTest(TestCase):
         self.assertTrue(1 == Foo.BAR)
 
     def test_not_py2(self):
-        if is_py2:
-            self.skip_test("Not supported in Python2")
-
-        from enum import Enum as StdEnum
-
         class Foo(Enum):
             BAR = 1
             CHE = 2
 
-        self.assertTrue(isinstance(Foo.BAR, StdEnum))
+        self.assertTrue(isinstance(Foo.BAR, enum.Enum))
 
     def test_equality(self):
         class Foo(Enum):
@@ -81,4 +81,51 @@ class EnumTest(TestCase):
         self.assertFalse(100 == Foo.BAR)
         self.assertFalse("ADFKLSDAKLJDL" == Foo.BAR)
         self.assertFalse(Foo.CHE == Foo.BAR)
+
+
+class StdEnumTest(TestCase):
+    """Tests for the python standard library enum to make sure Datatype's enum
+    methods work with it as expected
+    """
+    def test_find_enum(self):
+        class Foo(enum.Enum):
+            ONE = 1
+            TWO = 2
+
+        r1 = find_enum(Foo, "ONE")
+        r2 = find_enum(Foo, 1)
+        r3 = find_enum(Foo, Foo.ONE)
+        self.assertTrue(r1 == r2 == r3 == Foo.ONE)
+
+    def test_find_name_1(self):
+        class Foo(enum.Enum):
+            ONE = "one"
+            TWO = "two"
+
+        r1 = find_name(Foo, "ONE")
+        r2 = find_name(Foo, "one")
+        r3 = find_name(Foo, Foo.ONE)
+        self.assertTrue(r1 == r2 == r3 == "ONE")
+
+    def test_find_name_2(self):
+        class Foo(enum.Enum):
+            ONE = 1
+            TWO = 2
+
+        r1 = find_name(Foo, "ONE")
+        r2 = find_name(Foo, 1)
+        r3 = find_name(Foo, Foo.ONE)
+        r4 = find_name(Foo, "one")
+        #pout.v(r1, r2, r3, r4)
+        self.assertTrue(r1 == r2 == r3 == r4 == "ONE")
+
+    def test_find_value_1(self):
+        class Foo(enum.Enum):
+            ONE = 1
+            TWO = 2
+
+        r1 = find_value(Foo, "ONE")
+        r2 = find_value(Foo, 1)
+        r3 = find_value(Foo, Foo.ONE)
+        self.assertTrue(r1 == r2 == r3 == 1)
 

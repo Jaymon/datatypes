@@ -1,43 +1,237 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
+from enum import Enum as BaseEnum, EnumMeta as BaseEnumMeta
 
 from .compat import *
 from .string import String
 
 
-class EnumMixin(object):
+# def convert_str_to_int(enum_class, name):
+#     name = convert_str_to_str(enum_class, name)
+#     value = getattr(enum_class, name)
+#     return value.value
+# 
+# 
+# def convert_int_to_str(enum_class, value):
+#     found = False
+#     for k, v in enum_class.__members__.items():
+#         if v.value == value:
+#             ret = k
+#             found = True
+#             break
+# 
+#     if not found:
+#         raise ValueError(
+#             "Value {} is not a valid enumerated value".format(value)
+#         )
+# 
+#     return ret
+
+
+def convert_value_to_name(enum_class, value):
+    """Given a value find the name
+
+    :param enum_class: Enum, the enum class we'll check for value to find name
+    :param value: Any, the enum value
+    :returns: str, the name of the enum property
+    """
+    found = False
+    for k, v in enum_class.__members__.items():
+        if v.value == value:
+            name = k
+            found = True
+            break
+
+    if not found:
+        raise ValueError(
+            "Value {} is not a valid enumerated value".format(value)
+        )
+
+    return name
+
+
+def convert_name_to_value(enum_class, name):
+    """Given a name find the value
+
+    :param enum_class: Enum, the enum class we'll check for name to find value
+    :param name: str, the enum name
+    :returns: Any, the enum property value
+    """
+    try:
+        value = enum_class.__getitem__(name).value
+
+    except KeyError as e:
+        if isinstance(name, enum_class):
+            value = name.value
+
+        else:
+            raise ValueError(
+                f"{name} is not a member of {enum_class.__name__}"
+            ) from e
+
+    return value
+
+
+# def convert_str_to_str(enum_class, name):
+#     if isinstance(name, enum_class):
+#         name = name.name
+# 
+#     else:
+#         name = name.upper()
+# 
+#     return name
+
+
+
+def find_enum(enum_class, name_or_value):
+    """Given a name or a value find the actual enum property that matches
+
+    :param enum_class: Enum, the enum class we'll find the property on
+    :param name_or_value: Any, a name, value, or enum property
+    :returns: Enum, the enum property with .name and .value properties
+    """
+    if isinstance(name_or_value, enum_class):
+        name = name_or_value.name
+
+    else:
+        try:
+            convert_name_to_value(enum_class, name_or_value)
+            name = name_or_value
+
+        except ValueError:
+            try:
+                name = convert_value_to_name(enum_class, name_or_value)
+
+            except ValueError:
+                if isinstance(name_or_value, basestring):
+                    found = False
+                    for name in [name_or_value.upper(), name_or_value.lower()]:
+                        try:
+                            convert_name_to_value(enum_class, name)
+                            found = True
+                            break
+
+                        except ValueError:
+                            pass
+
+                    if not found:
+                        raise ValueError("Could not find the enum")
+
+    return enum_class[name]
+
+#     name = find_name(enum_class, value)
+#     return enum_class[name]
+
+
+
+def find_name(enum_class, name):
+    """find the name of an enum, case-insensitive
+
+    :param enum_class: Enum, the enum class we'll check for name
+    :param name: str
+    :returns: str, the name of the enum property
+    """
+    return find_enum(enum_class, name).name
+
+#     if isinstance(name, enum_class):
+#         name = name.name
+# 
+#     else:
+#         try:
+#             # if this succeeds then name is valid
+#             convert_name_to_value(enum_class, name)
+# 
+#         except ValueError:
+#             name = convert_value_to_name(enum_class, name)
+# 
+#     return String(name)
+
+
+#     if isinstance(name, int):
+#         ret = convert_int_to_str(enum_class, name)
+# 
+#     else:
+#         convert_str_to_int(enum_class, name) # error check
+#         ret = convert_str_to_str(enum_class, name)
+# 
+#     return String(ret)
+
+
+def find_value(enum_class, value):
+    """find the value of an enum, similar to find_name() this will normalize
+    the name or value and return the found value
+
+    :param value: Any, an enum value or name
+    :returns value: Any, the value normalized
+    """
+    return find_enum(enum_class, value).value
+#     name = find_name(enum_class, value)
+#     return enum_class[name].value
+
+
+# def find_enum(enum_class, name_or_value):
+#     name = find_name(enum_class, value)
+#     return enum_class[name]
+
+
+
+#     if isinstance(value, enum_class):
+#         value = value.value
+# 
+#     else:
+#         try:
+#             # if this succeeds then value is valid
+#             convert_value_to_name(enum_class, value)
+# 
+#         except ValueError:
+#             value = convert_name_to_value(enum_class, value)
+# 
+#     return String(name)
+# 
+# 
+# 
+# 
+# 
+#     if isinstance(value, int):
+#         convert_int_to_str(enum_class, value) # error check
+#         ret = value
+# 
+#     else:
+#         ret = convert_str_to_int(enum_class, value)
+# 
+#     return ret
+
+
+class EnumMeta(BaseEnumMeta):
+    def __contains__(cls, k):
+        """
+        https://docs.python.org/3/library/enum.html#enum.EnumType.__contains__
+        """
+        if isinstance(k, cls):
+            return super().__contains__(k)
+
+        else:
+            # "FOO" in Enum is deprecated behavior in py3.8, this restores it,
+            # but it might actually be back in 3.12+
+            return k in cls.__dict__
+
+
+# Order matters for the parent classes
+# https://docs.python.org/3/library/enum.html#restricted-enum-subclassing
+class Enum(BaseEnum, metaclass=EnumMeta):
     @classmethod
     def find_name(cls, name):
-        """find the name of an enum, case-insensitive
-
-        :param name: str|int, can be anything and it will be converted to an int
-        :returns: string, the value found for name
-        """
-        if isinstance(name, int):
-            ret = cls.convert_int_to_str(name)
-        else:
-            cls.convert_str_to_int(name) # error check
-            ret = cls.convert_str_to_str(name)
-        return String(ret)
+        return find_name(cls, name)
 
     @classmethod
     def find_value(cls, value):
-        """find the value of an enum, similar to .find_name() this will normalize
-        the name or value and return the found value
-
-        :param value: str|int, an enum value or name
-        :returns value: int, the value of the enum
-        """
-        if isinstance(value, int):
-            cls.convert_int_to_str(value) # error check
-            ret = value
-
-        else:
-            ret = cls.convert_str_to_int(value)
-        return ret
+        return find_value(cls, value)
 
     @classmethod
-    def all(cls):
+    def find_enum(cls, name_or_value):
+        return find_enum(cls, name_or_value)
+
+    @classmethod
+    def todict(cls):
         """return all the enum values with names as key and integer values"""
         d = {}
         for k, v in cls.__members__.items():
@@ -47,39 +241,12 @@ class EnumMixin(object):
     @classmethod
     def names(cls):
         """return all the ENUM names"""
-        return cls.all().keys()
+        return cls.todict().keys()
 
     @classmethod
     def values(cls):
         """return all the enum values"""
-        return cls.all().values()
-
-    @classmethod
-    def convert_str_to_int(cls, name):
-        name = cls.convert_str_to_str(name)
-        value = getattr(cls, name)
-        return value.value
-
-    @classmethod
-    def convert_int_to_str(cls, value):
-        found = False
-        for k, v in cls.__members__.items():
-            if v.value == value:
-                ret = k
-                found = True
-                break
-        if not found:
-            raise ValueError("Value {} is not a valid enumerated value".format(value))
-
-        return ret
-
-    @classmethod
-    def convert_str_to_str(cls, name):
-        if isinstance(name, cls):
-            name = name.name
-        else:
-            name = name.upper()
-        return name
+        return cls.todict().values()
 
     def __int__(self):
         return self.value
@@ -100,92 +267,4 @@ class EnumMixin(object):
 
         return ret
 
-
-if is_py2:
-    class EnumMeta(type):
-        """This is the __metaclass__ for the Enum class, it is basically private to
-        this module (and the Enum class). It exists so the Enum class can basically
-        act like the built-in python3 enum class in python2
-
-        https://docs.python.org/3/library/enum.html
-        """
-        def __new__(cls, name, bases, properties):
-            """https://docs.python.org/3/library/functions.html#type"""
-            instance = super(EnumMeta, cls).__new__(cls, name, bases, properties)
-
-            # if the name of the class isn't Enum then we have a child and we should
-            # do some magic
-            if name != "Enum":
-                members = {}
-
-                for k, v in properties.items():
-                    if k.isupper():
-                        en = instance(v)
-                        en.name = String(k)
-                        members[k] = en
-                        setattr(instance, k, en)
-
-                # https://docs.python.org/3/library/enum.html#iteration
-                instance.__members__ = members
-            return instance
-
-        def __contains__(cls, k):
-            if isinstance(k, cls):
-                k = k.name
-            return k in cls.__dict__
-
-        def __getitem__(cls, k):
-            if k in cls.__dict__:
-                return cls.__dict__[k]
-
-            else:
-                raise AttributeError(k)
-
-        def __setattr__(cls, k, v):
-            if hasattr(cls, "__members__"):
-                # once the __members__ property is set it means we are done adding
-                # to this enum instance and it is now read only
-                pass
-            else:
-                super(EnumMeta, cls).__setattr__(k, v)
-
-        def __iter__(cls):
-            for v in cls.__members__.values():
-                yield v
-
-
-    class Enum(EnumMixin):
-        """Enum Class
-
-        This does its very best to act like the builtin python 3 enum class:
-
-            https://docs.python.org/3/library/enum.html
-
-        Differences from builtin py3 enum class:
-
-            1. This expects enum keys to be uppercase
-            2. Enum values can only be integers
-            3. This has additional methods that py3 Enum does not have
-        """
-        __metaclass__ = EnumMeta
-
-        def __init__(self, value):
-            self.value = value
-
-else:
-    from enum import Enum as BaseEnum, EnumMeta as BaseEnumMeta
-
-    class EnumMeta(BaseEnumMeta):
-        def __contains__(cls, k):
-            if isinstance(k, cls):
-                return super(EnumMeta, cls).__contains__(k)
-            else:
-                # "FOO" in Enum is deprecated behavior in py3.8, this restores it
-                return k in cls.__dict__
-
-    # python 2 parser will fail on metaclass=... syntax, so work around that
-    #
-    # Order matters for the parent classes
-    # https://docs.python.org/3/library/enum.html#restricted-enum-subclassing
-    exec("class Enum(EnumMixin, BaseEnum, metaclass=EnumMeta): pass")
 

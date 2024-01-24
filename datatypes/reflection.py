@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import inspect
 import sys
 import types
@@ -32,28 +31,20 @@ class OrderedSubclasses(list):
 
     You'd think this would be a niche thing and not worth being in a common
     library but I've actually had to do this exact thing multiple times, so I'm
-    finally moving this from Pout and Bang into here so I can standardize it
+    finally moving this from Pout and Bang into here so I can standardize it.
+    I'll admit me having to do this multiple times might be a quirk of my
+    personality and how I solve problems.
     """
     def __init__(self, cutoff_classes=None, classes=None):
         """
-        :param cutoff_classes: [type, ...], you should ignore anything before
-            these classes when working out order
+        :param cutoff_classes: tuple[type, ...], you should ignore anything
+            before these classes when working out order
         :param classes: list, any classes you want to insert right away
         """
         super().__init__()
 
         self.info = {}
-
-        # make sure we have a tuple of type objects
-        if cutoff_classes:
-            if not isinstance(cutoff_classes, (Sequence, tuple)):
-                cutoff_classes = (cutoff_classes,)
-            else:
-                cutoff_classes = tuple(cutoff_classes)
-        else:
-            cutoff_classes = (object,)
-
-        self.cutoff_classes = cutoff_classes
+        self.set_cutoff(cutoff_classes)
 
         if classes:
             self.extend(classes)
@@ -70,26 +61,22 @@ class OrderedSubclasses(list):
             be added to the list up to .cutoff_classes)
         """
         index = len(self)
-        cutoff_classes = self.cutoff_classes
-        klasses = inspect.getmro(klass)
+        subclasses = self._subclasses(klass)
 
-        for offset, subclass in enumerate(reversed(klasses), 1):
-            if issubclass(subclass, cutoff_classes):
-                rc = ReflectClass(subclass)
-                index_name = rc.classpath
-                if index_name in self.info:
-                    self.info[index_name]["child_count"] += 1
-                    index = min(index, self.info[index_name]["index"])
+        for index_name, subclass, child_count in subclasses:
+            if index_name in self.info:
+                self.info[index_name]["child_count"] += 1
+                index = min(index, self.info[index_name]["index"])
 
-                else:
-                    self.info[index_name] = {
-                        # children should be inserted at least before this index
-                        "index": len(self),
-                        # how many children in self
-                        "child_count": len(klasses) - offset,
-                    }
+            else:
+                self.info[index_name] = {
+                    # children should be inserted at least before this index
+                    "index": len(self),
+                    # how many children in self
+                    "child_count": child_count,
+                }
 
-                    super().insert(index, subclass)
+                super().insert(index, subclass)
 
     def insert_module(self, module):
         """Insert any classes of module into the list
@@ -106,7 +93,49 @@ class OrderedSubclasses(list):
         for m in list(sys.modules.values()):
             self.insert_module(m)
 
-    def edges(self):
+    def remove(self, klass):
+        """Remove an edge class from the list of classes
+
+        :param klass: type, currently you can only remove an edge class
+        """
+        rc = ReflectClass(klass)
+        index_name = rc.classpath
+
+        if index_name in self.info:
+            if self.info[index_name]["child_count"] == 0:
+                super().remove(klass)
+
+                for index_name, subclass, _ in self._subclasses(klass):
+                    self.info[index_name]["child_count"] -= 1
+
+                info = self.info.pop(index_name)
+                for index_name in self.info.keys():
+                    if self.info[index_name]["index"] > info["index"]:
+                        self.info[index_name]["index"] -= 1
+
+            else:
+                raise ValueError(
+                    f"Cannot remove {index_name} because it is not an edge"
+                )
+
+        else:
+            raise ValueError(f"No {index_name} found")
+
+    def set_cutoff(self, cutoff_classes):
+        # make sure we have a tuple of type objects
+        if cutoff_classes:
+            if not isinstance(cutoff_classes, (Sequence, tuple)):
+                cutoff_classes = (cutoff_classes,)
+
+            else:
+                cutoff_classes = tuple(cutoff_classes)
+
+        else:
+            cutoff_classes = (object,)
+
+        self.cutoff_classes = cutoff_classes
+
+    def edges(self, names=False):
         """Iterate through the absolute children and only the absolute children,
         no intermediate classes.
 
@@ -123,13 +152,61 @@ class OrderedSubclasses(list):
 
             # this would print out Bar and Che because object and Foo are parents
 
+        :param names: bool, True if you want a tuple[str, type] where index 0 is
+            the classpath of the edge and index 1 is the actual edge class
         :returns: generator, only the absolute children who are not parents
         """
+        names = kwargs.get("names", kwargs.get("name", False))
+        for index_name, klass in self.items(edges=True):
+            if names:
+                yield index_name, klass
+
+            else:
+                yield klass
+
+#         for klass in self:
+#             rc = ReflectClass(klass)
+#             index_name = rc.classpath
+#             if self.info[index_name]["child_count"] == 0:
+#                 if names:
+#                     yield index_name, klass
+# 
+#                 else:
+#                     yield klass
+
+    def items(self, **kwargs):
+        edges = kwargs.get("edges", kwargs.get("edge", False))
         for klass in self:
             rc = ReflectClass(klass)
             index_name = rc.classpath
-            if self.info[index_name]["child_count"] == 0:
-                yield klass
+            if edges:
+                if self.info[index_name]["child_count"] == 0:
+                    yield index_name, klass
+
+            else:
+                yield index_name, klass
+
+    def _subclasses(self, klass):
+        """Internal method used in both .insert and .remove
+
+        :param klass: type, the class we want to get all the subclasses of
+        :returns: list[str, type, int], each item in the list is a tuple of the
+            full classpath, the class object, and the child count. The reason
+            why this is a list instead of a generator is because .insert needs
+            to count it
+        """
+        ret = []
+        cutoff_classes = self.cutoff_classes
+        klasses = inspect.getmro(klass)
+        child_count = len(klasses)
+
+        for offset, subclass in enumerate(reversed(klasses), 1):
+            if issubclass(subclass, cutoff_classes):
+                rc = ReflectClass(subclass)
+                index_name = rc.classpath
+                ret.append((index_name, subclass, child_count - offset))
+
+        return ret
 
 
 class Extend(object):
@@ -710,9 +787,9 @@ class ReflectClass(object):
 
         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
-        :returns: str, "modpath.Classname"
+        :returns: str, "modpath:QualifiedClassname"
         """
-        return "{}:{}".format(self.modpath, self.class_name)
+        return self.get_classpath(self.cls)
 
     @property
     def module(self):
@@ -763,9 +840,9 @@ class ReflectClass(object):
         """
         parts = [obj.__module__]
         if isinstance(obj, type):
-            parts.append(obj.__name__)
+            parts.append(obj.__qualname__)
         else:
-            parts.append(obj.__class__.__name__)
+            parts.append(obj.__class__.__qualname__)
 
         return ":".join(parts)
 
