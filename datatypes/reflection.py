@@ -135,7 +135,7 @@ class OrderedSubclasses(list):
 
         self.cutoff_classes = cutoff_classes
 
-    def edges(self, names=False):
+    def edges(self, **kwargs):
         """Iterate through the absolute children and only the absolute children,
         no intermediate classes.
 
@@ -150,10 +150,12 @@ class OrderedSubclasses(list):
             for c in classes.edges():
                 print(c)
 
-            # this would print out Bar and Che because object and Foo are parents
+            # this would print out Bar and Che because object and Foo are
+            # parents
 
-        :param names: bool, True if you want a tuple[str, type] where index 0 is
-            the classpath of the edge and index 1 is the actual edge class
+        :param **kwargs:
+            - names: bool, True if you want a tuple[str, type] where index 0 is
+                the classpath of the edge and index 1 is the actual edge class
         :returns: generator, only the absolute children who are not parents
         """
         names = kwargs.get("names", kwargs.get("name", False))
@@ -164,17 +166,16 @@ class OrderedSubclasses(list):
             else:
                 yield klass
 
-#         for klass in self:
-#             rc = ReflectClass(klass)
-#             index_name = rc.classpath
-#             if self.info[index_name]["child_count"] == 0:
-#                 if names:
-#                     yield index_name, klass
-# 
-#                 else:
-#                     yield klass
-
     def items(self, **kwargs):
+        """Iterate through all the classes, this is handy because it yields
+        tuple[str, type] where index 0 is the ful classpath and index 1 is the
+        actual class
+
+        :param **kwargs:
+            - edges: bool, True if you only want the edges (absolute children)
+                and not all classes
+        :returns: generator[tuple[str, type]]
+        """
         edges = kwargs.get("edges", kwargs.get("edge", False))
         for klass in self:
             rc = ReflectClass(klass)

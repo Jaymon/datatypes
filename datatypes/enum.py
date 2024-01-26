@@ -69,6 +69,8 @@ def find_enum(enum_class, name_or_value):
                 name = convert_value_to_name(enum_class, name_or_value)
 
             except ValueError:
+                # if we have a string then check upper and lower names to see
+                # if we can find a match
                 if isinstance(name_or_value, basestring):
                     found = False
                     for name in [name_or_value.upper(), name_or_value.lower()]:
