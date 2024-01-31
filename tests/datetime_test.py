@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import pickle
 import datetime
 import time
@@ -274,41 +273,65 @@ class DatetimeTest(TestCase):
         s = "2020-03-25T19:34:05.00005Z"
         dt = Datetime(s)
         self.assertEqual(50, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.000050Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.000050Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-25T19:34:05.05Z"
         dt = Datetime(s)
         self.assertEqual(50000, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.050000Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.050000Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-25T19:34:05.0506Z"
         dt = Datetime(s)
         self.assertEqual(50600, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.050600Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.050600Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-25T19:34:05.050060Z"
         dt = Datetime(s)
         self.assertEqual(50060, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.050060Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.050060Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-25T19:34:05.000057Z"
         dt = Datetime(s)
         self.assertEqual(57, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.000057Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.000057Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-25T19:34:05.057Z"
         dt = Datetime(s)
         self.assertEqual(57000, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.057000Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.057000Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-25T19:34:05.057035Z"
         dt = Datetime(s)
         self.assertEqual(57035, dt.microsecond)
-        self.assertEqual("2020-03-25T19:34:05.057035Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-25T19:34:05.057035Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
         s = "2020-03-19 00:00:00.000000000"
         dt = Datetime(s)
-        self.assertEqual("2020-03-19T00:00:00.000000Z", dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+        self.assertEqual(
+            "2020-03-19T00:00:00.000000Z",
+            dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
 
     def test_within(self):
         now = Datetime()
@@ -500,4 +523,56 @@ class DatetimeTest(TestCase):
         for month in d.months(now):
             count += 1
         self.assertEqual(8, count)
+
+    def test___add__(self):
+        d = Datetime()
+
+        d2 = d + 1000
+        td = d2 - d
+        self.assertEqual(1000, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(0, td.microseconds)
+
+        d2 = d + 2000.345
+        td = d2 - d
+        self.assertEqual(2000, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(345000, td.microseconds)
+
+        d2 = d + datetime.timedelta(seconds=3000)
+        td = d2 - d
+        self.assertEqual(3000, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(0, td.microseconds)
+
+    def test___iadd__(self):
+        d = Datetime()
+        d2 = d.replace() # clone d so we have something to compare
+
+        d2 += 1000
+        td = d2 - d
+        self.assertEqual(1000, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(0, td.microseconds)
+
+    def test___sub__(self):
+        d = Datetime()
+
+        d2 = d - 1000
+        td = d - d2
+        self.assertEqual(1000, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(0, td.microseconds)
+
+        d2 = d - 2000.345
+        td = d - d2
+        self.assertEqual(1999, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(655000, td.microseconds)
+
+        d2 = d - datetime.timedelta(seconds=3000)
+        td = d - d2
+        self.assertEqual(3000, td.seconds)
+        self.assertEqual(0, td.days)
+        self.assertEqual(0, td.microseconds)
 

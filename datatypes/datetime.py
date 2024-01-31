@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import datetime
 import inspect
 import logging
@@ -22,7 +21,7 @@ class Datetime(datetime.datetime):
     You can create an object multiple ways:
 
         d = Datetime() # current utc time
-        d = Datetime("2019-10-01T23:26:22.079296Z") # parses ISO8601 date from string
+        d = Datetime("2019-10-01T23:26:22.079296Z") # parses ISO8601 date
         d = Datetime(2019, 10, 1) # standard creation syntax
 
     https://docs.python.org/3/library/datetime.html#datetime-objects
@@ -73,10 +72,12 @@ class Datetime(datetime.datetime):
         fs = cls.formats()
         for f in fs:
             try:
-                logger.debug("Attempting to parse date: {} with format: {}".format(
-                    d,
-                    f,
-                ))
+                logger.debug(
+                    "Attempting to parse date: {} with format: {}".format(
+                        d,
+                        f,
+                    )
+                )
 
                 ret = cls.strptime(d, f)
                 if ("%z" in f) or ("%Z" in f):
@@ -97,12 +98,20 @@ class Datetime(datetime.datetime):
         dt = None
         if re.match(r"^\-?\d+\.\d+$", d):
             # account for unix timestamps with microseconds
-            logger.debug("Date: {} parsed with float unix timestamp regex".format(d))
+            logger.debug(
+                "Date: {} parsed with float unix timestamp regex".format(
+                    d
+                )
+            )
             dt = cls.fromtimestamp(float(d), tz=datetime.timezone.utc)
 
         elif re.match(r"^\-?\d+$", d):
             # account for unix timestamps without microseconds
-            logger.debug("Date: {} parsed with integer unix timestamp regex".format(d))
+            logger.debug(
+                "Date: {} parsed with integer unix timestamp regex".format(
+                    d
+                )
+            )
             val = int(d)
             dt = cls.fromtimestamp(val, tz=datetime.timezone.utc)
 
@@ -136,29 +145,19 @@ class Datetime(datetime.datetime):
                 logger.debug("Date: {} parsed with ISO regex".format(d))
 
                 parsed_dateparts = m.groups()
-                dateparts = list(map(lambda x: int(x) if x else 0, parsed_dateparts[:6]))
+                dateparts = list(map(
+                    lambda x: int(x) if x else 0, parsed_dateparts[:6]
+                ))
                 dt = cls(*dateparts, tzinfo=datetime.timezone.utc)
 
                 # account for ms with leading zeros
                 if parsed_dateparts[6]:
-                    ms_len = len(parsed_dateparts[6])
-                    if ms_len >= 3:
-                        millis = parsed_dateparts[6][:3]
-                        micros = parsed_dateparts[6][3:] or 0
-
-                    else:
-                        millis = parsed_dateparts[6] or 0
-                        micros = 0
-
-                    # make sure each part is 3 digits by zero padding on the right
-                    if millis:
-                        millis = "{:0<3.3}".format(millis)
-                    if micros:
-                        micros = "{:0<3.3}".format(micros)
-
+                    millis, micros, _, _ = cls.parse_subseconds(
+                        parsed_dateparts[6]
+                    )
                     dt += datetime.timedelta(
-                        milliseconds=int(millis),
-                        microseconds=int(micros)
+                        milliseconds=millis,
+                        microseconds=micros
                     )
 
                 tzoffset = d[m.regs[m.lastindex][1]:]
@@ -167,9 +166,9 @@ class Datetime(datetime.datetime):
                     if tzoffset != "Z":
                         moffset = re.match(
                             r"""
-                                ([+-])          # 1 - positive or negative offset
-                                (\d{2})         # 2 - HH (hour)
-                                (?::?(\d{2}))?  # 3 - MM (minute)
+                                ([+-])         # 1 - positive or negative offset
+                                (\d{2})        # 2 - HH (hour)
+                                (?::?(\d{2}))? # 3 - MM (minute)
                                 $
                             """,
                             tzoffset,
@@ -188,6 +187,7 @@ class Datetime(datetime.datetime):
                             if seconds:
                                 if sign == "+":
                                     dt -= datetime.timedelta(seconds=seconds)
+
                                 else:
                                     dt += datetime.timedelta(seconds=seconds)
 
@@ -265,6 +265,72 @@ class Datetime(datetime.datetime):
 
         return args, replace_kwargs, timedelta_kwargs
 
+    @classmethod
+    def parse_subseconds(cls, subseconds):
+        """Parse the value to the right of the period on a floating point number
+
+        123456
+        \ /\ /
+         |  |
+         | microseconds
+         |
+        milliseconds
+
+        :Example:
+            ms, us, mstr, ustr = cls.parse_subseconds(012345)
+            print(ms) # 12
+            print(us) # 345
+            print(mstr) # "012"
+            print(ustr) # # "000345"
+
+        :param subseconds: int|str, usually a 6-digit integer but can be a six
+            digit string
+        :returns tuple[int, int, str, str]
+        """
+        subseconds = str(subseconds)
+        ms_len = len(subseconds)
+        if ms_len >= 3:
+            millis = subseconds[:3]
+            micros = subseconds[3:] or 0
+
+        else:
+            millis = subseconds or 0
+            micros = 0
+
+        # make sure each part is 3 digits by zero padding on the right
+        millis_str = "{:0<3.3}".format(millis) if millis else "000"
+        micros_str = "{:0<3.3}".format(micros) if micros else "000"
+
+        return int(millis), int(micros), millis_str, micros_str
+
+    @classmethod
+    def parse_seconds(cls, seconds):
+        """Parse seconds into seconds, milliseconds, and microseconds
+
+        :Example:
+            s, ms, us, sstr, mstr, ustr = cls.parse_seconds(123456789.012345)
+            print(s) # 123456789
+            print(ms) # 12
+            print(us) # 345
+            print(sstr) # "123456789"
+            print(mstr) # "012"
+            print(ustr) # # "000345"
+
+        :param seconds: int|str, the seconds with possible milliseconds and
+            microseconds
+        :returns tuple[int, int, int, str, str, str]
+        """
+        sstr = str(seconds)
+
+        parts = sstr.split(".")
+        s = parts[0]
+        ms = 0
+        if len(parts) > 1:
+            ms = parts[1]
+
+        msecs, usecs, mstr, ustr = cls.parse_subseconds(ms)
+        return int(s), msecs, usecs, s, mstr, ustr
+
     def __new__(cls, *args, **kwargs):
         # remove any custom keywords
         args, replace_kwargs, timedelta_kwargs = cls.parse_args(args, kwargs)
@@ -314,6 +380,11 @@ class Datetime(datetime.datetime):
 
                 except OSError:
                     if isinstance(args[0], int):
+                        # We convert a really big int into seconds and
+                        # milliseconds values. We use a time.time() to figure
+                        # out how big the milliseconds part should be, so
+                        # 1706726703601782 would become 1706726703 seconds and
+                        # 3601782 milliseconds
                         timestamp = str(args[0])
                         s, ms = str(time.time()).split(".")
 
@@ -326,7 +397,6 @@ class Datetime(datetime.datetime):
 
                     else:
                         raise
-
 
             else:
                 if args[0]:
@@ -360,29 +430,58 @@ class Datetime(datetime.datetime):
         return self.isoformat()
 
     def __add__(self, other):
-        return type(self)(super().__add__(other))
+        if isinstance(other, (int, float)):
+            seconds, msecs, usecs, *_ = self.parse_seconds(other)
+            td = datetime.timedelta(
+                seconds=seconds,
+                milliseconds=msecs,
+                microseconds=usecs
+            )
+
+            return super().__add__(td)
+
+        else:
+            return super().__add__(other)
 
     def __sub__(self, other):
-        if isinstance(other, datetime.timedelta):
-            return type(self)(super().__sub__(other))
+        if isinstance(other, (int, float)):
+            return self.__add__(-other)
+
         else:
-            return super(Datetime, self).__sub__(other)
+            return super().__sub__(other)
 
     def __eq__(self, other):
-        if isinstance(other, datetime.date) and \
-            not isinstance(other, datetime.datetime):
+        """We define this method so we can do some custom comparing
+
+        We define all the other sub methods (eg, __lt__, __ne__) so that they
+        will use this custom __eq__ method
+
+        https://docs.python.org/3/reference/datamodel.html#object.__eq__
+
+        :param other: datetime|int|float|str
+        :returns: bool, True if other is equivalent, False otherwise
+        """
+        if (
+            isinstance(other, datetime.date)
+            and not isinstance(other, datetime.datetime)
+        ):
             return self.date() == other
+
+        elif isinstance(other, (int, float, str)):
+            return self == type(self)(other)
 
         else:
             return super().__eq__(other.astimezone(self.tzinfo))
 
     def __lt__(self, other):
-        if isinstance(other, datetime.date) and \
-            not isinstance(other, datetime.datetime):
+        if (
+            isinstance(other, datetime.date)
+            and not isinstance(other, datetime.datetime)
+        ):
             return self.date() < other
 
         else:
-            return super(Datetime, self).__lt__(other.astimezone(self.tzinfo))
+            return super().__lt__(other.astimezone(self.tzinfo))
 
     def __gt__(self, other):
         return not self.__lt__(other) and not self.__eq__(other)
@@ -397,7 +496,13 @@ class Datetime(datetime.datetime):
         return not self.__eq__(other)
 
     def __hash__(self):
-        # https://stackoverflow.com/questions/10254594/what-makes-a-user-defined-class-unhashable
+        """In order to make an instance of this class hashable this method has
+        to be defined, we can't rely on the parent's __hash__ method because we
+        defined a custom __eq__ method I guess
+
+        https://docs.python.org/3/reference/datamodel.html#object.__hash__
+        https://stackoverflow.com/questions/10254594/
+        """
         return super().__hash__()
 
     def has_time(self):
@@ -565,7 +670,7 @@ class Datetime(datetime.datetime):
             6 - second
         """
         h = ""
-        chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
         # year
         h += chars[self.year // 100]
@@ -586,7 +691,7 @@ class Datetime(datetime.datetime):
 
     @classmethod
     def fromdatehash(cls, h):
-        chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         indexes = {v:k for k, v in enumerate(chars)}
 
         year = int(str(indexes[h[0]]) + str(indexes[h[1]]))
@@ -684,8 +789,8 @@ class Datetime(datetime.datetime):
     def within(self, start, stop, now=None):
         """return True if this datetime is within start and stop dates
 
-        :param start: int|timedelta|datetime, if int, then seconds from now, so a
-            negative integer would be in the past from now
+        :param start: int|timedelta|datetime, if int, then seconds from now, so
+            a negative integer would be in the past from now
         :param stop: int|timedelta|datetime, same as start
         :param now: datetime, what you want now to be
         :returns: boolean, True if self is between start and stop
@@ -712,12 +817,12 @@ class Datetime(datetime.datetime):
 
         except ValueError as e:
             # strftime can fail on dates <1900
-            # Note that Python 2.7, 3.0 and 3.1 have errors before the year 1900,
-            # Python 3.2 has errors before the year 1000. Additionally, pre-3.2
-            # versions interpret years between 0 and 99 as between 1969 and 2068.
-            # Python versions from 3.3 onward support all positive years in
-            # datetime (and negative years in time.strftime), and time.strftime
-            # doesn't do any mapping of years between 0 and 99.
+            # Note that Python 2.7, 3.0 and 3.1 have errors before the year
+            # 1900, Python 3.2 has errors before the year 1000. Additionally,
+            # pre-3.2 versions interpret years between 0 and 99 as between 1969
+            # and 2068.  Python versions from 3.3 onward support all positive
+            # years in datetime (and negative years in time.strftime), and
+            # time.strftime doesn't do any mapping of years between 0 and 99.
             # https://stackoverflow.com/a/32206673/5006
             logger.warning(e, exc_info=True)
 
@@ -743,7 +848,11 @@ class Datetime(datetime.datetime):
 
             dt = self.replace(year=placeholder_year)
             val = dt.strftime(*args, **kwargs)
-            val = re.sub(r"^{}".format(placeholder_year), String(orig_year), val)
+            val = re.sub(
+                r"^{}".format(placeholder_year),
+                String(orig_year),
+                val
+            )
 
         return String(val)
 
@@ -755,8 +864,9 @@ class Datetime(datetime.datetime):
         Returns a new datetime instance with any time deltas applied
 
         :param timedelta: datetime.timedelta
-        :param **kwargs: besides the standard keywords, this can also have keyword
-            values for: months, weeks, days, hours, seconds, and timedelta
+        :param **kwargs: besides the standard keywords, this can also have
+            keyword values for: months, weeks, days, hours, seconds, and
+            timedelta
         :returns: Datetime
         """
         args, replace_kwargs, timedelta_kwargs = self.parse_args(args, kwargs)
