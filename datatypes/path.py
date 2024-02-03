@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import re
 import os
 import fnmatch
@@ -11,7 +10,6 @@ from collections import deque, defaultdict
 import zipfile
 import tarfile
 import site
-import logging
 import tempfile
 import itertools
 import glob
@@ -31,7 +29,6 @@ try:
 except ImportError:
     fcntl = None
 
-
 from .compat import *
 from .config.environ import environ
 from .string import String, ByteString
@@ -40,8 +37,10 @@ from .copy import Deepcopy
 from .http import HTTPClient
 from .url import Url
 from .datetime import Datetime
+from . import logging
 
 
+logging.setdefault(__name__, "INFO")
 logger = logging.getLogger(__name__)
 
 
@@ -50,10 +49,10 @@ class Path(String):
     python 3 that can be used across py2 and py3 codebases. However, The Path
     instances are actually string instances and are always resolved
 
-    This finally brings into a DRY location my path code from testdata, stockton,
-    and bang, among others where I've needed this functionality. I've also tried to standardize
-    the interface to be very similar to Pathlib so you can, hopefully, swap between
-    them
+    This finally brings into a DRY location my path code from testdata,
+    stockton, and bang, among others where I've needed this functionality. I've
+    also tried to standardize the interface to be very similar to Pathlib so you
+    can, hopefully, swap between them
 
     Directories: 
         * path: /parent/basename

@@ -842,6 +842,7 @@ class ReflectClass(object):
         parts = [obj.__module__]
         if isinstance(obj, type):
             parts.append(obj.__qualname__)
+
         else:
             parts.append(obj.__class__.__qualname__)
 

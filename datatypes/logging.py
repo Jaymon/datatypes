@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from logging import * # allow using this module as a passthrough for builtin logging
+from logging import * # allow this module as a passthrough for builtin logging
 import logging
 import logging.config
 from logging import config
@@ -9,6 +9,22 @@ from collections.abc import (
     Sequence,
 )
 from string import Formatter
+
+
+def setdefault(name, val):
+    """Set the default logging level for name to val, this will only be set if
+    it wasn't configured previously
+
+    :param name: str, the logger name
+    :param val: str|int, the logger level (eg, "DEBUG", "INFO")
+    """
+    if name not in Logger.manager.loggerDict:
+        if isinstance(val, (str, int)):
+            logger = getLogger(name)
+            logger.setLevel(getLevelName(val))
+
+        else:
+            raise NotImplementedError("Not sure what to do with val")
 
 
 def null_config(name):
@@ -26,7 +42,8 @@ def null_config(name):
 
 def quick_config(levels=None, **kwargs):
     """Lots of times I have to add a basic logger, it's basically the
-    same code over and over again, this will just make that a little easier to do
+    same code over and over again, this will just make that a little easier to
+    do
 
     this was ripped from testdata.basic_logging() on 7-15-2022
 
@@ -51,8 +68,10 @@ def quick_config(levels=None, **kwargs):
         logger.addHandler(log_handler)
 
     :param levels: dict[str, str], the key is the logger name and the value is
-        the level. This can also be a list[tuple] where the tuple is (name, level)
-    :param **kwargs: key/val, these will be passed into logger.basicConfig method
+        the level. This can also be a list[tuple] where the tuple is (name,
+        level)
+    :param **kwargs: key/val, these will be passed into logger.basicConfig
+        method
     """
     levels = levels or {}
 
@@ -197,8 +216,8 @@ class LogMixin(object):
         """Get the logger class for this class
 
         :param instance_name: str, the name of the module level variable defined
-            in the module that the child class resides. If this doesn't exist then
-            a new instance will be created using the module classpath
+            in the module that the child class resides. If this doesn't exist
+            then a new instance will be created using the module classpath
         :returns: Logger instance
         """
         module_name = cls.__module__
@@ -224,7 +243,10 @@ class LogMixin(object):
         """
         if level == NOTSET:
             default_level = kwargs.get("default_level", "DEBUG")
-            level = kwargs.get("level_name", kwargs.get("level_name", default_level))
+            level = kwargs.get(
+                "level_name",
+                kwargs.get("level_name", default_level)
+            )
 
         if not isinstance(level, int):
             logmod = cls.get_logging_module(**kwargs)
@@ -277,7 +299,10 @@ class LogMixin(object):
 
             elif isinstance(args, Sequence):
                 if len(args) == 2:
-                    if isinstance(args[0], Sequence) and isinstance(args[1], Mapping):
+                    if (
+                        isinstance(args[0], Sequence)
+                        and isinstance(args[1], Mapping)
+                    ):
                         # debug=("a string value", {})
                         # debug=(["a", "list", "value"], {})
                         log_args = [args[0]]
@@ -357,29 +382,34 @@ class LogMixin(object):
         kwargs["level"] = "WARNING"
         return self.log(*args, **kwargs)
 
-    def logw(self, *args, **kwargs): return self.log_warning(*args, **kwargs)
+    def logw(self, *args, **kwargs):
+        return self.log_warning(*args, **kwargs)
 
     def log_info(self, *args, **kwargs):
         kwargs["level"] = "INFO"
         return self.log(*args, **kwargs)
 
-    def logi(self, *args, **kwargs): return self.log_info(*args, **kwargs)
+    def logi(self, *args, **kwargs):
+        return self.log_info(*args, **kwargs)
 
     def log_debug(self, *args, **kwargs):
         kwargs["level"] = "DEBUG"
         return self.log(*args, **kwargs)
 
-    def logd(self, *args, **kwargs): return self.log_debug(*args, **kwargs)
+    def logd(self, *args, **kwargs):
+        return self.log_debug(*args, **kwargs)
 
     def log_error(self, *args, **kwargs):
         kwargs["level"] = "ERROR"
         return self.log(*args, **kwargs)
 
-    def loge(self, *args, **kwargs): return self.log_error(*args, **kwargs)
+    def loge(self, *args, **kwargs):
+        return self.log_error(*args, **kwargs)
 
     def log_critical(self, *args, **kwargs):
         kwargs["level"] = "CRITICAL"
         return self.log(*args, **kwargs)
 
-    def logc(self, *args, **kwargs): return self.log_critical(*args, **kwargs)
+    def logc(self, *args, **kwargs):
+        return self.log_critical(*args, **kwargs)
 

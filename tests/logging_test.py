@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import time
 
 from datatypes.compat import *
 from datatypes.logging import (
     LogMixin,
 )
+from datatypes import logging
 
-from . import TestCase, testdata
+from . import TestCase
 
 
 class LogMixinTest(TestCase):
@@ -113,4 +113,51 @@ class LogMixinTest(TestCase):
             )
             self.assertTrue("1. foo -> bar" in cm[1][0])
 
+
+class SetdefaultTest(TestCase):
+    def test_setdefault_found(self):
+        modpath = self.create_module([
+            "from datatypes import logging",
+            "",
+            "logging.setdefault(__name__, logging.INFO)",
+            "",
+            "logger = logging.getLogger(__name__)",
+            "",
+            "logger.debug('debug')",
+            "logger.info('info')",
+            "logger.warning('warning')",
+        ])
+
+        with self.assertLogs() as cm:
+            # no logger was set so just info and warning should print
+            m = modpath.module()
+
+        self.assertEqual(2, len(cm[1]))
+        self.assertTrue(cm[1][0].startswith("INFO:"))
+        self.assertTrue(cm[1][1].startswith("WARNING:"))
+
+    def test_setdefault_ignored(self):
+        modpath = self.create_module([
+            "from datatypes import logging",
+            "",
+            "logging.setdefault(__name__, logging.INFO)",
+            "",
+            "logger = logging.getLogger(__name__)",
+            "",
+            "logger.debug('debug')",
+            "logger.info('info')",
+            "logger.warning('warning')",
+        ])
+
+        logger = logging.getLogger(modpath.fileroot)
+        logger.setLevel(logging.DEBUG)
+
+        with self.assertLogs(level="DEBUG") as cm:
+            # logger was configured before so all logs should print
+            m = modpath.module()
+
+        self.assertEqual(3, len(cm[1]))
+        self.assertTrue(cm[1][0].startswith("DEBUG:"))
+        self.assertTrue(cm[1][1].startswith("INFO:"))
+        self.assertTrue(cm[1][2].startswith("WARNING:"))
 
