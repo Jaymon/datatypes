@@ -153,7 +153,8 @@ else:
 
         https://docs.python.org/3/library/sys.html#sys.exc_info
 
-        :param exception_class: BaseException, the class of the exception to reraise
+        :param exception_class: BaseException, the class of the exception to
+            reraise
         :param e: BaseException instance, the actual exception instance
         :param traceback: traceback, the stack trace
         """

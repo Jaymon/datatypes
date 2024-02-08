@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import re
 import inspect
 from socket import gethostname
@@ -12,20 +11,39 @@ from .token import StopWordTokenizer
 
 class Url(String):
     """a url object on steroids, this is here to make it easy to manipulate urls
-    we try to map the supported fields to their urlparse equivalents, with some additions
+    we try to map the supported fields to their urlparse equivalents, with some
+    additions
 
+    https://en.wikipedia.org/wiki/URL
     https://tools.ietf.org/html/rfc3986.html
 
-    given a url http://user:pass@foo.com:1000/bar/che?baz=boom#anchor
+        A URI can be further classified as a locator, a name, or both.  The
+        term "Uniform Resource Locator" (URL) refers to the subset of URIs
+        that, in addition to identifying a resource, provide a means of
+        locating the resource by describing its primary access mechanism
+        (e.g., its network "location").
+
+        foo://example.com:8042/over/there?name=ferret#nose
+        \_/   \______________/\_________/ \_________/ \__/
+         |           |            |            |        |
+        scheme     authority       path        query   fragment
+
+    Given a url: 
+
+        http://user:pass@foo.com:1000/bar/che?baz=boom#anchor
 
     .scheme = http
     .netloc = user:pass@foo.com:1000
+    .authority = user:pass@foo.com:1000
+    .username = user
+    .password = pass
+    .userinfo = user:pass
     .hostloc = foo.com:1000
     .hostname = foo.com
     .port = 1000
     .path = bar/che
     .fragment = anchor
-    .anchor = fragment
+    .anchor = anchor
     .uri = /bar/che?baz=boom#anchor
     .host(...) = http://foo.com/...
     .base(...) = http://user:pass@foo.com/bar/che/...
@@ -65,8 +83,27 @@ class Url(String):
         return self.fragment
 
     @property
-    def uri(self):
-        """return the uri, which is everything but base (no scheme, host, etc)"""
+    def authority(self):
+        """This is the official RFC name for netloc"""
+        return self.netloc
+
+    @property
+    def userinfo(self):
+        """The Wikipedia name for the user information before the @
+
+        https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
+
+        :returns: str, a string containing <USERNAME>:<PASSWORD>
+        """
+        username = self.username or ""
+        password = self.password or ""
+        return f"{username}:{password}"
+
+    @property
+    def absolute(self):
+        """return the absolute URI, which is everything but base (no scheme,
+        host, etc). It's basically the path onwards
+        """
         uristring = self.path
         if self.query:
             uristring += "?{}".format(self.query)
@@ -153,12 +190,12 @@ class Url(String):
 
     @classmethod
     def merge(cls, urlstring="", *args, **kwargs):
-        # we handle port before any other because the port of host:port in hostname takes precedence
-        # the port on the host would take precedence because proxies mean that the
-        # host can be something:10000 and the port could be 9000 because 10000 is
-        # being proxied to 9000 on the machine, but we want to automatically account
-        # for things like that and then if custom behavior is needed then this method
-        # can be overridden
+        # we handle port before any other because the port of host:port in
+        # hostname takes precedence the port on the host would take precedence
+        # because proxies mean that the host can be something:10000 and the port
+        # could be 9000 because 10000 is being proxied to 9000 on the machine,
+        # but we want to automatically account for things like that and then if
+        # custom behavior is needed then this method can be overridden
         parts = cls.default_values()
 
         # we're going to remove our default scheme so we can make sure we set
@@ -234,7 +271,10 @@ class Url(String):
             if "default_port" in kwargs:
                 parts["port"] = kwargs["default_port"]
             else:
-                parts["port"] = ports.get(parts.get("scheme", default_scheme), None)
+                parts["port"] = ports.get(
+                    parts.get("scheme", default_scheme),
+                    None
+                )
 
         # make sure port is an int
         if parts["port"]:
@@ -291,7 +331,8 @@ class Url(String):
     @classmethod
     def parse_query(cls, query):
         """return name=val&name2=val2 strings into {name: val} dict"""
-        if not query: return {}
+        if not query:
+            return {}
 
         if isinstance(query, bytes):
             query = String(query)
@@ -316,10 +357,10 @@ class Url(String):
         return cls.normalize_query_kwargs(query_kwargs)
 
     @classmethod
-    def normalize_query_kwargs(cls, query):
+    def normalize_query_kwargs(cls, query_kwargs):
         d = {}
         # https://docs.python.org/2/library/urlparse.html
-        for k, kv in query.items():
+        for k, kv in query_kwargs.items():
             #k = k.rstrip("[]") # strip out php type array designated variables
             if isinstance(k, bytes):
                 k = String(k)
@@ -350,8 +391,8 @@ class Url(String):
 
     @classmethod
     def normalize_paths(cls, *paths):
-        """turns a bunch of paths into something that can be concatenated without
-        any issues
+        """turns a bunch of paths into something that can be concatenated
+        without any issues
 
         :param *parts: str|list, things like "/foo/bar" or ["foo", "bar/che"]
         :returns: list, a list of normalized parts with most of the "/" stripped
@@ -402,8 +443,8 @@ class Url(String):
 
     @classmethod
     def is_relative_url(cls, urlstring):
-        """Return True if urlstring is a relative url (does not have a scheme but
-        instead starts with //)
+        """Return True if urlstring is a relative url (does not have a scheme
+        but instead starts with //)
         """
         return urlstring.startswith("//")
 
@@ -441,7 +482,9 @@ class Url(String):
         return self.create_instance(*args, **kwargs)
 
     def add(self, **kwargs):
-        """Just a shortcut to change the current url, equivalent to Url(self, **kwargs)"""
+        """Just a shortcut to change the current url, equivalent to
+        Url(self, **kwargs)
+        """
         if "path" in kwargs:
             path = kwargs["path"]
             if isinstance(path, bytes):
@@ -717,11 +760,15 @@ class Url(String):
 
     def is_local(self):
         """return True if is a localhost url"""
-        return self.is_path() or self.is_hostname("localhost") or self.is_hostname("127.0.0.1")
+        return (
+            self.is_path()
+            or self.is_hostname("localhost")
+            or self.is_hostname("127.0.0.1")
+        )
 
     def unsplit(self):
-        """By default, the URL won't contain a scheme if it wasn't passed in, this
-        will add the default scheme and return the url"""
+        """By default, the URL won't contain a scheme if it wasn't passed in,
+        this will add the default scheme and return the url"""
         return parse.urlunsplit((
             self.scheme,
             self.netloc,
@@ -738,10 +785,11 @@ UrlString = Url
 
 
 class Host(tuple):
-    """Creates a tuple (hostname, port) that can be passed to built-in Python server
-    classes and anything that uses that same interface, does all the lifting to
-    figure out what the hostname and port should be based on the passed in input,
-    so you can pass things like hostname:port, or (host, port), etc.
+    """Creates a tuple (hostname, port) that can be passed to built-in Python
+    server classes and anything that uses that same interface, does all the
+    lifting to figure out what the hostname and port should be based on the
+    passed in input, so you can pass things like hostname:port, or (host, port),
+    etc.
     """
     @property
     def hostname(self):
@@ -786,11 +834,11 @@ class Host(tuple):
         return self.url.full()
 
     def client(self):
-        """Url can technically hold a hostname like 0.0.0.0, this will compensate
-        for that, useful for test clients
+        """Url can technically hold a hostname like 0.0.0.0, this will
+        compensate for that, useful for test clients
 
-        :returns: str, a netloc (eg "host:port") that a client can use to make a
-        request
+        :returns: str, a netloc (eg "host:port") that a client can use to make
+        a request
         """
         netloc = ""
         domain, port = self
@@ -822,7 +870,8 @@ class Slug(NormalizeString):
     """Given a string, convert it into a slug that can be used in a url path
 
     This tokenizes the passed in string, strips non-ascii, punctuation, and stop
-    words and then returns the remaining words joined by delim (default is a hyphen)
+    words and then returns the remaining words joined by delim (default is a
+    hyphen)
     """
     @classmethod
     def before_create(cls, val, **kwargs):

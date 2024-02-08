@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import re
 import itertools
 
 from .compat import *
@@ -134,9 +135,45 @@ def batched(iterable, n):
     #for repeat, elem in itertools.zip_longest(*[iter(self.values)] * 2):
 
     if n < 1:
-        raise ValueError('n must be at least one')
+        raise ValueError("n must be at least one")
 
     it = iter(iterable)
     while batch := tuple(itertools.islice(it, n)):
         yield batch
+
+
+def infer_type(v):
+    """Given some value do its best to infer the type, this method is very
+    conservative so if it isn't sure it will just return the original value
+
+    :param v: Any,
+    :returns: Any, for example, if v="1234" then it will return an int of 1234
+    """
+    ret = v
+
+    if isinstance(v, basestring):
+        if m := re.match(r"^\d+(\.\d+)?$", v):
+            if m.group(1):
+                ret = float(v)
+
+            else:
+                ret = int(v)
+
+        elif v in ["True", "true"]:
+            ret = True
+
+        elif v in ["False", "false"]:
+            ret = False
+
+    elif isinstance(v, Mapping):
+        ret = {}
+        for k, v in v.items():
+            ret[k] = infer_type(v)
+
+    elif isinstance(v, Sequence):
+        ret = []
+        for item in v:
+            ret.append(infer_type(item))
+
+    return ret
 

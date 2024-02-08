@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.utils import (
@@ -7,6 +6,7 @@ from datatypes.utils import (
     cball,
     make_list,
     make_dict,
+    infer_type,
 )
 
 from . import TestCase, testdata
@@ -72,4 +72,18 @@ class MakeDictTest(TestCase):
             {"foo": 2}
         )
         self.assertEqual({"foo": 2}, d)
+
+
+class InferTypeTest(TestCase):
+    def test_int(self):
+        v = infer_type("1234")
+        self.assertEqual(1234, v)
+
+    def test_float(self):
+        v = infer_type("1234.56")
+        self.assertEqual(1234.56, v)
+
+    def test_bool(self):
+        v = infer_type("True")
+        self.assertTrue(v)
 

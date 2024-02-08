@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import json
 import logging
 from wsgiref.simple_server import (
@@ -90,10 +89,10 @@ class ServerThread(Url):
         """stop the webserver"""
         if self.started:
             # we do server shutdown here instead of server_close because 
-            # server_close closes the socket where shutdown only stops the handler
-            # loop but keeps the socket open. The shutdown method can only be
-            # called while server is running in a thread otherwise it will
-            # deadlock
+            # server_close closes the socket where shutdown only stops the
+            # handler loop but keeps the socket open. The shutdown method can
+            # only be called while server is running in a thread otherwise it
+            # will deadlock
             self.server.shutdown()
             self.thread.join()
             self.thread = None
@@ -109,9 +108,9 @@ class BaseServer(HTTPServer):
     """
     def __init__(self, server_address=None, encoding="", **kwargs):
         """
-        :param server_address: tuple, (hostname, port), if None this will use ("", None)
-            which will cause the parent to use 0.0.0.0 and to find an available free
-            port
+        :param server_address: tuple[str, int], (hostname, port), if None this
+            will use ("", None) which will cause the parent to use 0.0.0.0 and
+            to find an available free port
         :param encoding: str, if empty then environment setting will be used
         :param **kwargs: passed to parent
             RequestHandlerClass: will be set to children's handler_class param
@@ -154,6 +153,35 @@ class BaseServer(HTTPServer):
         for _ in range(count):
             self.handle_request()
 
+    def get_query(self, handler):
+        index = handler.path.find("?")
+        if index >= 0:
+            path = handler.path[index+1:]
+            query = Url.parse_query(path)
+
+        else:
+            query = {}
+
+        return query
+
+    def get_body(self, handler):
+        content_len = int(handler.headers.get('content-length', 0))
+
+        if body := handler.rfile.read(content_len):
+            ct = handler.headers.get("content-type", "")
+            if ct:
+                ct = ct.lower()
+                if ct.rfind("json") >= 0:
+                    body = json.loads(body)
+
+                else:
+                    body = Url.parse_query(body)
+
+        else:
+            body = {}
+
+        return body
+
 
 class PathHandler(SimpleHTTPRequestHandler):
     """Handler for PathServer
@@ -174,8 +202,8 @@ class PathHandler(SimpleHTTPRequestHandler):
         encoding for binary files
 
         :param path: str, the path to the file
-        :returns: a string suitable to be passed as the value to the HTTP Content-Type
-            header. It can have charset set
+        :returns: a string suitable to be passed as the value to the
+            HTTP Content-Type header. It can have charset set
         """
         t = super().guess_type(path)
         if self.encoding:
@@ -228,44 +256,35 @@ class CallbackHandler(SimpleHTTPRequestHandler):
 
     @cachedproperty(cached="_query")
     def query(self):
-        _query = ""
-        i = self.path.find("?")
-        if i >= 0:
-            _query = self.path[i+1:]
-            _query = Url.parse_query(_query)
-        return _query
+        return self.server.get_query(self)
 
     @cachedproperty(cached="_body")
     def body(self):
-        content_len = int(self.headers.get('content-length', 0))
-        _body = self.rfile.read(content_len)
-
-        if _body:
-            ct = self.headers.get("content-type", "")
-            if ct:
-                ct = ct.lower()
-                if ct.rfind("json") >= 0:
-                    _body = json.loads(body)
-
-                else:
-                    _body = Url.parse_query(_body)
-
-        return _body
+        return self.server.get_body(self)
 
     def __init__(self, callbacks, *args, encoding=None, **kwargs):
         self.encoding = encoding
 
         if isinstance(callbacks, Mapping):
             self.callbacks = callbacks
+
         else:
-            self.callbacks = {"default": callbacks}
+            self.callbacks = {"ANY": callbacks}
 
         super().__init__(*args, **kwargs)
 
     def do_HEAD(self):
+        """Here because this exists on parent class
+
+        https://docs.python.org/3/library/http.server.html#http.server.SimpleHTTPRequestHandler.do_HEAD
+        """
         return self.do()
 
     def do_GET(self):
+        """Here because this exists on parent class
+
+        https://docs.python.org/3/library/http.server.html#http.server.SimpleHTTPRequestHandler.do_GET
+        """
         return self.do()
 
     def do(self):
@@ -277,11 +296,25 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             self.log_message("req - %s: %s", h, v)
 
         try:
-            ret = self.callbacks.get(self.command, self.callbacks.get("default"))(self)
+            ret = self.callbacks.get(
+                self.command,
+                self.callbacks.get("ANY", None)
+            )(self)
 
-        except TypeError:
+        except TypeError as e:
+            pout.v(e, self.callbacks)
             if not self.headers_sent:
-                self.send_error(501, "Unsupported method {}".format(self.command))
+                self.send_error(
+                    501,
+                    "Unsupported method {}".format(self.command)
+                )
+
+        except ValueError as e:
+            if not self.headers_sent:
+                self.send_error(
+                    400,
+                    str(e)
+                )
 
         except Exception as e:
             logger.exception(e)
@@ -303,9 +336,9 @@ class CallbackHandler(SimpleHTTPRequestHandler):
                     self.end_headers()
 
     def __getattr__(self, k):
-        """By default, the handler looks for do_<HTTP_METHOD> (eg, do_GET) methods
-        on the handler. This routes all those requests to .do() and then uses
-        the dict passed in to decide how to route the request"""
+        """By default, the handler looks for do_<HTTP_METHOD> (eg, do_GET)
+        methods on the handler. This routes all those requests to .do() and then
+        uses the dict passed in to decide how to route the request"""
         if k.startswith("do_"):
             return self.do
         else:
@@ -321,7 +354,8 @@ class CallbackHandler(SimpleHTTPRequestHandler):
 
 
 class CallbackServer(BaseServer):
-    """A server where you can pass in the handlers for the different HTTP methods
+    """A server where you can pass in the handlers for the different HTTP
+    methods
 
     Moved from testdata.server on 1-24-2023
 
@@ -351,6 +385,46 @@ class CallbackServer(BaseServer):
             self,
             encoding=self.encoding,
         )
+
+
+class MethodServer(CallbackServer):
+    """Very similar to a CallbackServer except it is designed to be extended
+    and the child class can define the handler methods
+
+    :Example:
+        class MyServer(MethodServer):
+            def GET(self, handler):
+                # handle GET HTTP requests
+                print(handler.query)
+
+            def POST(self, handler):
+                # handle POST HTTP requests
+                print(handler.body)
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(self.find_callbacks(), *args, **kwargs)
+
+    def find_callbacks(self):
+        """Internal method to generate the callbacks dict that the
+        CallbackServer expects
+
+        :returns: dict[str, callable[CallableHandler]], this looks for any
+            method that starts with `do_` (eg `do_GET`) or any method with all
+            uppercase characters (eg, `GET`)
+        """
+        callbacks = {}
+        for method_name in dir(self):
+            if method_name.startswith("_"):
+                # ignore private and magic methods
+                continue
+
+            elif method_name.startswith("do_"):
+                callbacks[method_name[3:]] = getattr(self, method_name)
+
+            elif method_name.isupper():
+                callbacks[method_name] = getattr(self, method_name)
+
+        return callbacks
 
 
 class WSGIServer(BaseServer, WSGIHTTPServer):
