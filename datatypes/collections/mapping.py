@@ -247,30 +247,30 @@ class NormalizeDict(Dict):
     implementation that uses those methods to allow case-insensitive keys
     """
     def __init__(self, *args, **kwargs):
-        super(NormalizeDict, self).__init__()
+        super().__init__()
         self.update(*args, **kwargs)
 
     def __setitem__(self, k, v):
         k = self.normalize_key(k)
         v = self.normalize_value(v)
-        return super(NormalizeDict, self).__setitem__(k, v)
+        return super().__setitem__(k, v)
 
     def __delitem__(self, k):
         k = self.normalize_key(k)
-        return super(NormalizeDict, self).__delitem__(k)
+        return super().__delitem__(k)
 
     def __getitem__(self, k):
         k = self.normalize_key(k)
-        return super(NormalizeDict, self).__getitem__(k)
+        return super().__getitem__(k)
 
     def __contains__(self, k):
         k = self.normalize_key(k)
-        return super(NormalizeDict, self).__contains__(k)
+        return super().__contains__(k)
 
     def setdefault(self, k, default=None):
         k = self.normalize_key(k)
         v = self.normalize_value(default)
-        return super(NormalizeDict, self).setdefault(k, v)
+        return super().setdefault(k, v)
 
     def update(self, *args, **kwargs):
         # create temp dictionary so I don't have to mess with the arguments
@@ -282,12 +282,12 @@ class NormalizeDict(Dict):
         k = self.normalize_key(k)
         if default:
             default = [self.normalize_value(default[0])]
-        return super(NormalizeDict, self).pop(k, *default)
+        return super().pop(k, *default)
 
     def get(self, k, default=None):
         k = self.normalize_key(k)
         v = self.normalize_value(default)
-        return super(NormalizeDict, self).get(k, v)
+        return super().get(k, v)
 
     def normalize_key(self, k):
         return k
@@ -297,13 +297,14 @@ class NormalizeDict(Dict):
 
     def ritems(self, *keys):
         keys = map(self.normalize_key, keys)
-        return super(NormalizeDict, self).ritems(*keys)
+        return super().ritems(*keys)
 
 
 class idict(NormalizeDict):
-    """A case insensitive dictionary, adapted from herd.utils.NormalizeDict, naming
-    convention is meant to mimic python's use of i* for case-insensitive functions and
-    python's built-in dict class (which is why the classname is all lowercase)"""
+    """A case insensitive dictionary, adapted from herd.utils.NormalizeDict,
+    naming convention is meant to mimic python's use of i* for case-insensitive
+    functions and python's built-in dict class (which is why the classname is
+    all lowercase)"""
     def __init__(self, *args, **kwargs):
         self.ikeys = {} # hold mappings from normalized keys to the actual key
         super().__init__(*args, **kwargs)
@@ -319,21 +320,38 @@ IDict = idict
 iDict = idict
 
 
-class Namespace(NormalizeDict):
+class NamespaceMixin(object):
+    def __setattr__(self, k, v):
+        if k.startswith("__"):
+            return super().__setitem__(k, v)
+
+        else:
+            return self.__setitem__(k, v)
+
+    def __getattr__(self, k):
+        if k.startswith("__"):
+            return super().__getattr__(k)
+
+        else:
+            try:
+                return self.__getitem__(k)
+
+            except KeyError as e:
+                raise AttributeError(e) from e
+
+    def __delattr__(self, k):
+        if k.startswith("__"):
+            return super().__delitem__(k)
+
+        else:
+            return self.__delitem__(k)
+
+
+class Namespace(NamespaceMixin, NormalizeDict):
     """Allows both dictionary syntax (eg foo["keyname"]) and object syntax
     (eg foo.keyname)
     """
-    def __setattr__(self, k, v):
-        return self.__setitem__(k, v)
-
-    def __getattr__(self, k):
-        try:
-            return self.__getitem__(k)
-        except KeyError as e:
-            raise AttributeError(e) from e
-
-    def __delattr__(self, k):
-        return self.__delitem__(k)
+    pass
 
 
 class ContextNamespace(Namespace):
@@ -373,6 +391,7 @@ class ContextNamespace(Namespace):
         with n.context("<CONTEXT NAME>"):
             "foo" in n.foo # False
             n.foo = 2
+            "foo" in n.foo # True
 
         n.foo # 1
     """
@@ -555,9 +574,12 @@ class ContextNamespace(Namespace):
             return default
 
     def pop(self, k, *default):
-        """Pop works a little differently than other key access methods, pop will
-        only return a value if it is actually in the current context, if k is not
-        in the current context then this will return default
+        """Pop works a little differently than other key access methods, pop
+        will only return a value if it is actually in the current context, if k
+        is not in the current context then this will return default. It does
+        this because it would violate the principal of least surprise if popping
+        something in the current context actually popped it from a previous
+        context
         """
         k = self.normalize_key(k)
         try:
@@ -611,4 +633,210 @@ class ContextNamespace(Namespace):
     def values(self):
         for _, v in self.items():
             yield v
+
+
+class DictTree(NamespaceMixin, Dict):
+    """A dict/tree hybrid, what that means is you can pass in a list of keys and
+    it will create sub DictTrees at each key so you can nest values. This could
+    also be called a NestingDict, hierarchyDict, or something like that
+
+    https://github.com/Jaymon/datatypes/issues/29
+
+    :Example:
+        d = DictTree()
+        d.set(["foo", "bar", "che"], 1)
+        d.get(["foo", "bar", "che"]) # 1
+        d.foo.bar.che # 1
+        d.foo.bar # {"che": 1}
+    """
+    def __missing__(self, key):
+        """If the key doesn't exist then create a new DictTree instance at key
+
+        :returns: DictTree, our new instance already nested
+        """
+        d = type(self)()
+        self[key] = d
+        return d
+
+    def __getitem__(self, keys):
+        """Allow list access in normal dict interactions"""
+        if isinstance(keys, list):
+            return self._get(keys)
+
+        else:
+            return super().__getitem__(keys)
+
+    def __setitem__(self, keys, value):
+        """Allow list access in normal dict interactions"""
+        if isinstance(keys, list):
+            self.set(keys, value)
+
+        else:
+            super().__setitem__(keys, value)
+
+    def __delitem__(self, keys):
+        """Allow list access in normal dict interactions"""
+        if isinstance(keys, list):
+            self.pop(keys)
+
+        else:
+            super().__delitem__(keys)
+
+    def __contains__(self, keys):
+        """Allow list access when checking a key"""
+        if isinstance(keys, list):
+            try:
+                self._get(keys)
+                ret = True
+
+            except KeyError:
+                ret = False
+
+        else:
+            ret = super().__contains__(keys)
+
+        return ret
+
+    def set(self, keys, value):
+        """Set value into the last key in keys, creating intermediate dicts 
+        along the way
+
+        :param keys: list[hashable]|hashable, a list of keys or the key you want
+            to set value in
+        :param value: Any
+        """
+        if isinstance(keys, list):
+            if len(keys) > 1:
+                self[keys[0]].set(keys[1:], value)
+
+            else:
+                self[keys[0]] = value
+
+        else:
+            self[keys] = value
+
+#     def xset(self, keys, value):
+#         d = self
+#         last_key = keys[-1]
+#         for key in keys[:-1]:
+#             d = d[key]
+# 
+#         d[last_key] = value
+
+
+    def _get(self, keys):
+        """Internal get method that will raise a KeyError if one of the items
+        in the keys list doesn't exist. This allows the same method to be used
+        for .get, .__getitem__, and .__contains__
+
+        This method is recursive
+
+        :param keys: list[hashable]|hashable
+        :returns: Any, the value found at the end of keys
+        """
+        if isinstance(keys, list):
+            if keys[0] in self:
+                if len(keys) > 1:
+                    return self[keys[0]]._get(keys[1:])
+
+                else:
+                    return self[keys[0]]
+
+            else:
+                raise KeyError(keys[0])
+
+        else:
+            if keys in self:
+                return self[keys]
+
+            else:
+                raise KeyError(keys)
+
+    def get(self, keys, default=None):
+        """Get the value of the last key in keys, otherwise return default
+
+        :param keys: list[hashable]|hashable, the path to return
+        :param default: Any, if value isn't found at the end of keys then return
+            this value
+        :returns: Any
+        """
+        try:
+            return self._get(keys)
+
+        except KeyError:
+            return default
+
+#     def xget(self, keys, default=None):
+#         """Get the value of the last key in keys, otherwise return default
+# 
+#         :param keys: list[hashable]|hashable, the path to return
+#         :param default: Any, if value isn't found at the end of keys then return
+#             this value
+#         :returns: Any
+#         """
+#         if isinstance(keys, list):
+#             if keys[0] in self and len(keys) > 1:
+#                     return self[keys[0]].get(keys[1:], default)
+# 
+#             else:
+#                 return super().get(keys[0], default)
+# 
+#         else:
+#             return super().get(keys, default)
+
+#     def xget(self, keys, default=None):
+#         if isinstance(keys, list):
+#             d = self
+#             for key in keys:
+#                 if key in d:
+#                     d = d[key]
+#                     if not isinstance(d, Mapping):
+#                         if key != keys[-1]:
+#                             d = default
+#                             break
+# 
+#                 else:
+#                     d = default
+#                     break
+# 
+#             return d
+# 
+#         else:
+#             return super().get(keys, default)
+# 
+#     def xpop(self, keys, *default):
+#         if isinstance(keys, list):
+#             if keys[0] in self:
+#                 return self[keys[0]].pop(keys[1:], *default)
+# 
+#             else:
+#                 if default:
+#                     return default[0]
+# 
+#         else:
+#             return super().pop(keys, *default)
+
+    def pop(self, keys, *default):
+        """As with .set and .get this allows a list of keys or key"""
+        if isinstance(keys, list):
+            if keys[0] in self and len(keys) > 1:
+                return self[keys[0]].pop(keys[1:], *default)
+
+            else:
+                return super().pop(keys[0], *default)
+
+        else:
+            return super().pop(keys, *default)
+
+    def setdefault(self, keys, default=None):
+        """As with .set and .get this allows a list of keys or key"""
+        if isinstance(keys, list):
+            if len(keys) > 1:
+                return self[keys[0]].setdefault(keys[1:], default)
+
+            else:
+                return super().setdefault(keys[0], default)
+
+        else:
+            return super().setdefault(keys, default)
 

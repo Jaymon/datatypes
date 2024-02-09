@@ -7,6 +7,7 @@ from .mapping import (
     idict, IDict, Idict, iDict,
     Namespace,
     ContextNamespace,
+    DictTree,
 )
 from .sequence import (
     PriorityQueue,

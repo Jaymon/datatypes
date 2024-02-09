@@ -10,6 +10,7 @@ from datatypes.collections.mapping import (
     idict, IDict, Idict, iDict,
     Namespace,
     ContextNamespace,
+    DictTree,
 )
 from datatypes.collections.sequence import (
     PriorityQueue,
@@ -768,4 +769,44 @@ class StackTest(TestCase):
         self.assertEqual([3, 1], [x for x in s])
         self.assertEqual([1, 3], list(reversed(s)))
 
+
+class DictTreeTest(TestCase):
+    def test_set_get(self):
+        d = DictTree()
+
+        keys = ["foo", "bar", "che"]
+        d.set(keys, 1)
+
+        self.assertEqual(1, d.get(keys))
+        self.assertEqual(1, d.foo.bar.che)
+
+        self.assertEqual(5, d.get(["foo", "che"], 5))
+
+    def test_pop(self):
+        d = DictTree()
+
+        d.foo.bar.che = 2
+        self.assertEqual(2, d.pop(["foo", "bar", "che"]))
+        self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
+
+    def test_setdefault(self):
+        d = DictTree()
+        d.setdefault(["foo", "bar", "che"], 3)
+        self.assertEqual(3, d.foo.bar.che)
+
+    def test_magic_methods(self):
+        d = DictTree()
+        d[["foo", "bar"]] = 4
+        self.assertEqual(4, d[["foo", "bar"]])
+
+        self.assertTrue(["foo", "bar"] in d)
+
+        del d[["foo", "bar"]]
+
+        with self.assertRaises(KeyError):
+            del d[["foo", "bar"]]
+
+        self.assertFalse(["foo", "bar"] in d)
+        self.assertTrue(["foo"] in d)
+        self.assertTrue("foo" in d)
 

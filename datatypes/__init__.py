@@ -14,6 +14,7 @@ from .collections import (
     ContextNamespace,
     HotSet,
     Stack,
+    DictTree,
 )
 from .command import (
     SimpleCommand,
