@@ -11,11 +11,12 @@ from .sequence import PriorityQueue, Stack
 
 
 class Pool(dict):
-    """Generic pool of some values bounded by size, this means when size is reached
-    then the least used item will be silently dropped from the pool.
+    """Generic pool of some values bounded by size, this means when size is
+    reached then the least used item will be silently dropped from the pool.
 
     This class gets interesting when you extend it and add __missing__() so you
-    can use this as kind of a hotcache of the maxsize most used items in the Pool
+    can use this as kind of a hotcache of the maxsize most used items in the
+    Pool
 
     :Example:
         class HotPool(Pool):
@@ -140,8 +141,8 @@ class Dict(dict):
         return v
 
     def gets(self, keys, default=None):
-        """Check every key in the keys list, first found key is returned, if none
-        of the keys exist then return default
+        """Check every key in the keys list, first found key is returned, if
+        none of the keys exist then return default
 
         :Example:
             d = Dict({
@@ -153,9 +154,11 @@ class Dict(dict):
             d.get(["does", "not", "exist", "foo"], 5) # 1
             d.get(["does", "bar", "exist", "foo"], 5) # 2
 
-        :param keys: list, a list of keys to check in the order they should be checked
+        :param keys: list, a list of keys to check in the order they should be
+            checked
         :param *default: mixed, what to return if none of the keys exist
-        :returns: mixed, either the value of the first key that exists or default_val
+        :returns: mixed, either the value of the first key that exists or
+            default_val
         """
         for k in keys:
             if k in self:
@@ -163,9 +166,9 @@ class Dict(dict):
         return default
 
     def pops(self, keys, *default):
-        """Check every key in the keys list, first found key will be returned, if none
-        of the keys exist then return default, all keys in the keys list will be
-        popped, even the ones after a value is found
+        """Check every key in the keys list, first found key will be returned,
+        if none of the keys exist then return default, all keys in the keys list
+        will be popped, even the ones after a value is found
 
         :Example:
             d = Dict({
@@ -177,9 +180,11 @@ class Dict(dict):
             d.pop(["foo"], 5) # 1
             d.pop(["foo", "bar"], 5) # 2
 
-        :param keys: list, a list of keys to check in the order they should be checked
+        :param keys: list, a list of keys to check in the order they should be
+            checked
         :param *default: mixed, what to return if none of the keys exist
-        :returns: mixed, either the value of the first key that exists or default_val
+        :returns: mixed, either the value of the first key that exists or
+            default_val
         """
         ret = None
         key = None
@@ -219,9 +224,10 @@ class Dict(dict):
             print(d["foo"]["che"]) # 2
             print(d["foo"]["bar"]) # 1
 
-        :param other: Mapping, the other dict to merge into this dict, if self[key]
-            is not a Mapping, then other[key] will override, if both self[key] and
-            other[key] are Mapping instances then they will be merged
+        :param other: Mapping, the other dict to merge into this dict, if
+            self[key] is not a Mapping, then other[key] will override, if both
+            self[key] and other[key] are Mapping instances then they will be
+            merged
         """
         for k in other.keys():
             if isinstance(other[k], Mapping) and (k in self):
@@ -457,7 +463,8 @@ class ContextNamespace(Namespace):
         return self._context_names.peek()
 
     def context_names(self):
-        """yield all the _context_names taking into account the cascade setting"""
+        """yield all the _context_names taking into account the cascade setting
+        """
         for context_name in self._context_names:
             yield context_name
 
@@ -715,15 +722,6 @@ class DictTree(NamespaceMixin, Dict):
         else:
             self[keys] = value
 
-#     def xset(self, keys, value):
-#         d = self
-#         last_key = keys[-1]
-#         for key in keys[:-1]:
-#             d = d[key]
-# 
-#         d[last_key] = value
-
-
     def _get(self, keys):
         """Internal get method that will raise a KeyError if one of the items
         in the keys list doesn't exist. This allows the same method to be used
@@ -765,56 +763,6 @@ class DictTree(NamespaceMixin, Dict):
 
         except KeyError:
             return default
-
-#     def xget(self, keys, default=None):
-#         """Get the value of the last key in keys, otherwise return default
-# 
-#         :param keys: list[hashable]|hashable, the path to return
-#         :param default: Any, if value isn't found at the end of keys then return
-#             this value
-#         :returns: Any
-#         """
-#         if isinstance(keys, list):
-#             if keys[0] in self and len(keys) > 1:
-#                     return self[keys[0]].get(keys[1:], default)
-# 
-#             else:
-#                 return super().get(keys[0], default)
-# 
-#         else:
-#             return super().get(keys, default)
-
-#     def xget(self, keys, default=None):
-#         if isinstance(keys, list):
-#             d = self
-#             for key in keys:
-#                 if key in d:
-#                     d = d[key]
-#                     if not isinstance(d, Mapping):
-#                         if key != keys[-1]:
-#                             d = default
-#                             break
-# 
-#                 else:
-#                     d = default
-#                     break
-# 
-#             return d
-# 
-#         else:
-#             return super().get(keys, default)
-# 
-#     def xpop(self, keys, *default):
-#         if isinstance(keys, list):
-#             if keys[0] in self:
-#                 return self[keys[0]].pop(keys[1:], *default)
-# 
-#             else:
-#                 if default:
-#                     return default[0]
-# 
-#         else:
-#             return super().pop(keys, *default)
 
     def pop(self, keys, *default):
         """As with .set and .get this allows a list of keys or key"""
