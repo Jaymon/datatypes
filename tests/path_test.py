@@ -1624,7 +1624,7 @@ class PathIteratorTest(TestCase):
             r_count += 1
         self.assertEqual(3, r_count)
 
-    def test_depth(self):
+    def test_depth_1(self):
         dirpath = testdata.create_files({
             "1.txt": "body 1",
             "bar/2.txt": "body 2",
@@ -1880,7 +1880,9 @@ class PathIteratorTest(TestCase):
             "boo/3.txt",
             "boo/baz/4.txt",
         ])
-        for p in PathIterator(dirpath).files().not_callback(lambda p: p.endswith("1.txt")):
+        it = PathIterator(dirpath).files()
+        it.ne_callback(lambda p: p.endswith("1.txt"))
+        for p in it:
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
@@ -1891,7 +1893,7 @@ class PathIteratorTest(TestCase):
             "boo/3.txt",
             "boo/baz/4.txt",
         ])
-        for p in PathIterator(dirpath).files().not_pattern("1.txt"):
+        for p in PathIterator(dirpath).files().ne_pattern("1.txt"):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
@@ -1902,7 +1904,7 @@ class PathIteratorTest(TestCase):
             "boo/3.txt",
             "boo/baz/4.txt",
         ])
-        for p in PathIterator(dirpath).files().not_regex("1.txt"):
+        for p in PathIterator(dirpath).files().ne_regex("1.txt"):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
@@ -1959,43 +1961,8 @@ class PathIteratorTest(TestCase):
         it = PathIterator(dirpath)
         self.assertEqual(4, len(it[::2]))
 
-    def test_property_name(self):
-        dirpath = testdata.create_files({
-            "1.txt": "body 1",
-            "bar/2.txt": "body 2",
-            "boo/3.txt": "body 3",
-            "boo/baz/4.txt": "body 4",
-        })
-
-        it = PathIterator(dirpath)
-
-        r_count = 0
-        r = set([
-            "1.txt",
-            "bar/2.txt",
-            "boo/3.txt",
-            "boo/baz/4.txt",
-        ])
-        for relpath in it.files().relative_to(dirpath):
-            self.assertTrue(relpath in r)
-            r_count += 1
-        self.assertEqual(len(r), r_count)
-
-        r_count = 0
-        r = set([
-            "1.txt",
-            "2.txt",
-            "3.txt",
-            "4.txt",
-        ])
-        for basename in it.files().basename:
-            self.assertTrue(basename in r)
-            r_count += 1
-        self.assertEqual(len(r), r_count)
-
     def test_basenames(self):
         """Make sure directories get filtered correctly when recursing"""
-
         dirpath = testdata.create_files({
             "1.txt": "",
             "bar/2.txt": "",
@@ -2003,21 +1970,15 @@ class PathIteratorTest(TestCase):
         })
 
         def cb(p):
-            pout.v(p)
             return p.basename.startswith("_")
 
 
         it = PathIterator(dirpath).files()
-        it.nin_dir(cb)
+        it.nin_dir(callback=cb)
 
-        for p in it:
-            pout.v(p)
-
-
-        return
-
-
-
+        for count, p in enumerate(it, 1):
+            pass
+        self.assertEqual(2, count)
 
         dirpath = testdata.create_files({
             "1.txt": "body 1",
@@ -2025,26 +1986,22 @@ class PathIteratorTest(TestCase):
             "boo/3.txt": "body 3",
             "boo/_baz/4.txt": "body 4",
         })
-        nr = set(["4.txt", "_2.txt"])
-        cb = lambda basename: basename.startswith("_")
 
         r_count = 0
         it = PathIterator(dirpath).files()
-        it.ne_callback(cb, filename=True)
-        it.nin_dir(cb)
-
+        it.ne_callback(cb)
+        it.nin_dir(callback=cb)
+        nr = set(["4.txt", "_2.txt"])
         for basename in (p.basename for p in it):
-            pout.v(basename)
-            self.assertFalse(basename in nr)
-            r_count += 1
-        self.assertEqual(4, r_count)
-
-        it = PathIterator(dirpath)
-        r_count = 0
-        for basename in (p.basename for p in it.files().ne_callback(cb, basename=True)):
             self.assertFalse(basename in nr)
             r_count += 1
         self.assertEqual(2, r_count)
+
+        it = PathIterator(dirpath).files().ne_callback(cb)
+        r_count = 0
+        for basename in (p.basename for p in it):
+            r_count += 1
+        self.assertEqual(3, r_count)
 
     def test_passthrough(self):
         dirpath = testdata.create_files({

@@ -2602,11 +2602,14 @@ class PathIterator(ListIterator):
         return self.value(value, inverse=True, **kwargs)
 
     def _eq_path_attribute(self, name, value=None, **kwargs):
-        kwargs["value"] = value
         criteria = kwargs.pop("criteria", {})
         criteria.update({
             "attribute": name,
         })
+
+        if value:
+            kwargs["value"] = value
+
         return self._add_kwargs(criteria, **kwargs)
 
     def _ne_path_attribute(self, name, value=None, **kwargs):
@@ -2757,16 +2760,10 @@ class PathIterator(ListIterator):
 
         return failed
 
-    def _yield_haystacks(self, criteria_type, criterias, path, traversal):
+    def _haystack_yield(self, criteria_type, criterias, path, traversal):
         for needle, kwargs in criterias:
             if traversal != kwargs.get("traversal", False):
                 continue
-
-#             if traversal and not kwargs.get("traversal", False):
-#                 continue
-# 
-#             elif not traversal and kwargs.get("traversal", False):
-#                 continue
 
             haystack = path
             if "attribute" in kwargs:
@@ -2774,7 +2771,7 @@ class PathIterator(ListIterator):
 
             else:
                 if criteria_type == "pattern":
-                    if not pattern.startswith("*"):
+                    if not needle.startswith("*"):
                         haystack = getattr(path, "basename", path)
 
             yield needle, haystack, kwargs
@@ -2803,7 +2800,7 @@ class PathIterator(ListIterator):
         ]
 
         for criteria_type, criterias in criteria_types:
-            it = self._yield_haystacks(
+            it = self._haystack_yield(
                 criteria_type,
                 criterias,
                 path,
@@ -2842,6 +2839,9 @@ class PathIterator(ListIterator):
                 else:
                     yield_kwargs = {}
                     break
+
+            if not should_yield:
+                break
 
         return should_yield, yield_kwargs
 
@@ -2934,7 +2934,6 @@ class PathIterator(ListIterator):
             basenames = kwargs.get("filenames")
             should_yield = kwargs.get("_yield_files", self._yield_files) > 0
             path_callback = path.create_file
-            name_key = "filenames"
             path_key = "files"
             traversal = False
 
@@ -2942,7 +2941,6 @@ class PathIterator(ListIterator):
             basenames = kwargs.get("dirnames")
             should_yield = kwargs.get("_yield_dirs", self._yield_dirs) > 0
             path_callback = path.create_dir
-            name_key = "dirnames"
             path_key = "dirs"
             traversal = kwargs.get("traversal", False)
 
@@ -2951,16 +2949,17 @@ class PathIterator(ListIterator):
 
         if should_yield:
             for basename in basenames:
+                p = path_callback(basedir, basename)
+
                 should_yield, yield_kwargs = self._should_yield(
-                    name_key,
-                    basename,
+                    path_key,
+                    p,
                     traversal=traversal
                 )
-                if should_yield:
-                    p = path_callback(basedir, basename)
 
+                if should_yield:
                     should_yield, ykw = self._should_yield(
-                        path_key,
+                        "paths",
                         p,
                         traversal=traversal
                     )
@@ -2968,19 +2967,10 @@ class PathIterator(ListIterator):
                     if should_yield:
                         yield_kwargs.update(ykw)
 
-                        should_yield, ykw = self._should_yield(
-                            "paths",
-                            p,
-                            traversal=traversal
-                        )
+                        yield p, yield_kwargs
 
-                        if should_yield:
-                            yield_kwargs.update(ykw)
-
-                            yield p, yield_kwargs
-
-                            if finish := yield_kwargs.get("finish", False):
-                                self.finish(p)
+                        if finish := yield_kwargs.get("finish", False):
+                            self.finish(p)
 
     def _iterpath(self, path, depth):
         """internal recursive method that yields path instances and respects
@@ -3000,18 +2990,6 @@ class PathIterator(ListIterator):
 
             if depth != 1:
                 depth = depth - 1 if depth >= 0 else depth
-#                 for basename in dirnames:
-#                     should_yield, yield_kwargs = self._should_yield(
-#                         "dirnames",
-#                         basename
-#                     )
-# 
-#                     if should_yield:
-#                         pout.v(yield_kwargs)
-#                         p = path.create_dir(basedir, basename)
-#                         if p not in self._finished:
-#                             for sp in self._iterpath(p, depth=depth):
-#                                 yield sp
 
                 it = self._iterpaths(
                     path,
