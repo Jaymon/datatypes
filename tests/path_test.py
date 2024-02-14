@@ -1995,6 +1995,30 @@ class PathIteratorTest(TestCase):
 
     def test_basenames(self):
         """Make sure directories get filtered correctly when recursing"""
+
+        dirpath = testdata.create_files({
+            "1.txt": "",
+            "bar/2.txt": "",
+            "_boo/3.txt": "",
+        })
+
+        def cb(p):
+            pout.v(p)
+            return p.basename.startswith("_")
+
+
+        it = PathIterator(dirpath).files()
+        it.nin_dir(cb)
+
+        for p in it:
+            pout.v(p)
+
+
+        return
+
+
+
+
         dirpath = testdata.create_files({
             "1.txt": "body 1",
             "bar/_2.txt": "body 2",
@@ -2004,16 +2028,20 @@ class PathIteratorTest(TestCase):
         nr = set(["4.txt", "_2.txt"])
         cb = lambda basename: basename.startswith("_")
 
-        it = PathIterator(dirpath)
         r_count = 0
-        for basename in it.not_callback(cb, filename=True).not_callback(cb, dirname=True).basename:
+        it = PathIterator(dirpath).files()
+        it.ne_callback(cb, filename=True)
+        it.nin_dir(cb)
+
+        for basename in (p.basename for p in it):
+            pout.v(basename)
             self.assertFalse(basename in nr)
             r_count += 1
         self.assertEqual(4, r_count)
 
         it = PathIterator(dirpath)
         r_count = 0
-        for basename in it.files().not_callback(cb, basename=True).basename:
+        for basename in (p.basename for p in it.files().ne_callback(cb, basename=True)):
             self.assertFalse(basename in nr)
             r_count += 1
         self.assertEqual(2, r_count)
@@ -2038,7 +2066,7 @@ class PathIteratorTest(TestCase):
             pass
         self.assertEqual(2, count)
 
-    def test_finish(self):
+    def test_finish_1(self):
         modpath = "firm"
         dp = testdata.create_modules({
             f"{modpath}.foo": "",
@@ -2048,16 +2076,232 @@ class PathIteratorTest(TestCase):
 
         dp.child_file(modpath, "data", "one.txt").write_text("1")
         dp.child_file(modpath, "foo", "bar", "data", "two.txt").write_text("2")
-        dp.child_file(modpath, "che", "other_name", "one_dir", "three.txt").write_text("3")
-        dp.child_file(modpath, "che", "other_name", "two_dir", "four.txt").write_text("4")
+        dp.child_file(
+            modpath,
+            "che",
+            "other_name",
+            "one_dir",
+            "three.txt"
+        ).write_text("3")
+        dp.child_file(
+            modpath,
+            "che",
+            "other_name",
+            "two_dir",
+            "four.txt"
+        ).write_text("4")
 
         count = 0
         it = dp.dirs()
-        nr = set([f"{modpath}/data", f"{modpath}/che/other_name", f"{modpath}/foo/bar/data"])
+        nr = set([
+            f"{modpath}/data",
+            f"{modpath}/che/other_name",
+            f"{modpath}/foo/bar/data"
+        ])
         for p in it:
             if not p.has_file("__init__.py") or p.endswith("data"):
                 count += 1
                 self.assertTrue(p.relative_to(dp) in nr)
                 it.finish(p)
         self.assertEqual(3, count)
+
+    def test_finish_2(self):
+        dp = testdata.create_files({
+            "foo": {
+                "bar": {
+                    "sentinal.txt": "",
+                    "ignored 1": {
+                        "ignored 2": {},
+                        "ignored 3": {},
+                    },
+                    "nested bar": {
+                        "sentinal.txt": "",
+                        "ignored 5": {
+                            "sentinal.txt": "",
+                        },
+                    },
+                },
+            },
+        })
+
+        def is_dir(p):
+            return p.has_file("sentinal.txt")
+
+        it = dp.dirs().callback(is_dir, finish=True)
+        for count, p in enumerate(it, 1):
+            self.assertTrue(p.endswith("/foo/bar"))
+        self.assertEqual(1, count)
+
+        dp = testdata.create_files({
+            "foo": {
+                "bar": {
+                    "sentinal.txt": "",
+                    "ignored 1": {
+                        "ignored 2": {},
+                        "ignored 3": {},
+                    },
+                    "nested bar": {
+                        "sentinal.txt": "",
+                        "ignored 5": {
+                            "sentinal.txt": "",
+                        },
+                    },
+                },
+                "che": {
+                    "one": {
+                        "two": {
+                            "sentinal.txt": "",
+                        },
+                        "ignored 4": {},
+                    },
+                },
+            },
+            "baz": {
+                "three": {
+                    "boo": {
+                        "sentinal.txt": "",
+                        "ignored 3.txt": "",
+                    },
+                },
+            },
+        })
+
+        it = dp.dirs().callback(is_dir, finish=True)
+        for count, p in enumerate(it, 1):
+            if p.endswith("foo/bar"):
+                pass
+
+            elif p.endswith("foo/che/one/two"):
+                pass
+
+            elif p.endswith("baz/three/boo"):
+                pass
+
+            else:
+                raise ValueError(p)
+        self.assertEqual(3, count)
+
+    def test_match_dir_and_file(self):
+        dp = testdata.create_files({
+            "bar/foo.txt": "body 1",
+            "boo/foo/3.txt": "body 2",
+            "boo/bam/foobar.txt": "body 3",
+        })
+
+        its = [
+            dp.iterator.regex(r"(?:^|/)foo(?:\.|$)"),
+            dp.iterator.eq_fileroot("foo"),
+            dp.iterator.eq_file("foo.txt").eq_dir("foo"),
+        ]
+
+        for it in its:
+            for count, p in enumerate(it, 1):
+                if p.endswith("foo.txt") or p.endswith("foo"):
+                    pass
+                else:
+                    raise ValueError(p)
+            self.assertEqual(2, count)
+
+    def test_depth_change(self):
+        """Assure passing in depth to change the depth for a certain match works
+        as expected"""
+        dp = testdata.create_files({
+            "bar": {
+                "sentinal.txt": "",
+                "one": {
+                    "ignored 2": {
+                        "sentinal.txt": "",
+                        "two.txt": "",
+                    },
+                    "ignored 3": {
+                        "ignored 4.txt": "",
+                    },
+                },
+                "two": {
+                    "sentinal.txt": "",
+                },
+                "three.txt": "",
+            },
+            "che": {
+                "ignored 5.txt": "",
+            },
+            "four.txt": "",
+        })
+
+        def is_dir(p):
+            return p.has_file("sentinal.txt")
+
+        it = dp.iterator.in_dir(callback=is_dir, depth=1)
+
+        for count, p in enumerate(it, 1):
+            if p.endswith("/bar"):
+                pass
+
+            elif p.endswith("/four.txt"):
+                pass
+
+            elif p.endswith("/bar/sentinal.txt"):
+                pass
+
+            elif p.endswith("/bar/three.txt"):
+                pass
+
+            elif p.endswith("/bar/one"):
+                pass
+
+            elif p.endswith("/bar/two"):
+                pass
+
+            elif p.endswith("/che"):
+                pass
+
+            else:
+                raise ValueError(p)
+
+        self.assertEqual(7, count)
+
+#         dp = testdata.create_files({
+#             "foo": {
+#                 "sentinal.txt": "",
+#                 "bar": {
+#                     "sentinal.txt": "",
+#                     "one.txt": "",
+#                 },
+#                 "che": {
+#                     "ignored 1.txt": "",
+#                 },
+#                 "two.txt": "",
+#             },
+#             "baz": {
+#                 "ignored 2.txt": "",
+#                 "boo": {
+#                     "sentinal.txt": "",
+#                     "ignored 3.txt": "",
+#                 }
+#             }
+#         })
+# 
+#         pout.v(dp)
+# 
+#         def is_data_dir(p):
+#             return not p.has_file("sentinal.txt")
+# 
+#         it = dp.until(is_data_dir)
+#         for count, p in enumerate(it, 1):
+#             pout.v(p)
+
+    def test_dynamic_methods(self):
+        dp = testdata.create_files({
+            "1.txt": "",
+            "bar/2.txt": "",
+            "boo/3.txt": "",
+            "boo/baz/4.txt": "",
+            "boo/baz/5.md": "",
+            "che/6.md": "",
+        })
+
+        it = dp.iterator.eq_fileroot("4")
+        for count, p in enumerate(it, 1):
+            self.assertTrue(p.endswith("4.txt"))
+        self.assertEqual(1, count)
 

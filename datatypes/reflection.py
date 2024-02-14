@@ -1411,6 +1411,18 @@ class ReflectModule(object):
 
         return ret
 
+    def get_modules(self, depth=-1):
+        """Similar to .get_submodules() but yields this module first before
+        yielding all the submodules
+
+        :returns generator[ModuleType], starting with self's module and then
+            yielding all the submodules found in self
+        """
+        yield self.get_module()
+
+        for sm in self.get_submodules():
+            yield sm
+
     def module_names(self):
         """return all the module names that this module encompasses
         :returns: set, a set of string module names
@@ -1445,22 +1457,31 @@ class ReflectModule(object):
             private
         :returns: a generator of ReflectClass instances
         """
-        for class_name, rc in self.get_info(): 
+        for class_name, rc in self.get_info().items(): 
             if isinstance(rc, self.reflect_class_class):
                 if ignore_private and rc.is_private():
                     continue
                 yield rc
 
-    def get_classes(self, ignore_private=True):
+    def get_classes(self, ignore_private=True, ignore_imported=False):
         """yields classes (type instances) that are found in only this module
         (not submodules)
 
         :param ignore_private: bool, if True then ignore classes considered
             private
+        :param ignore_imported: bool, True if you only want classes that were
+            defined in this module (eg, the class's `class <NAME>` is actually
+            in this module)
         :returns: a generator of type instances
         """
+        module = self.get_module()
         for rc in self.reflect_classes(ignore_private=ignore_private):
-            yield rc.cls
+            if ignore_imported:
+                if module.__name__ == rc.cls.__module__:
+                    yield rc.cls
+
+            else:
+                yield rc.cls
 
     def reflect_class(self, name, *default_val):
         """Get a ReflectClass instance of name"""
