@@ -848,7 +848,7 @@ class DirpathTest(_PathTestCase):
         self.assertEqual(1, len(fs2))
         self.assertTrue(fs2[0].endswith("che.txt"))
 
-        fs2 = list(d.files(not_regex=r"/che"))
+        fs2 = list(d.files(ne_regex=r"/che"))
         self.assertEqual(2, len(fs2))
         for f in fs2:
             self.assertFalse(f.endswith("che.txt"))
@@ -2256,6 +2256,14 @@ class PathIteratorTest(TestCase):
             "boo/baz/5.md": "",
             "che/6.md": "",
         })
+
+        def cb(fileroot):
+            return fileroot.startswith("b")
+
+        it = dp.iterator.in_fileroot(callback=cb).eq_pattern("*.txt")
+        for count, p in enumerate(it, 1):
+            pass
+        self.assertEqual(4, count)
 
         it = dp.iterator.eq_fileroot("4")
         for count, p in enumerate(it, 1):
