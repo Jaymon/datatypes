@@ -1641,7 +1641,7 @@ class Dirpath(Path):
             yield self.create(fp)
 
     def scandir(self):
-        """I legitemately have never used this method and wouldn't reccomend
+        """I legitimately have never used this method and wouldn't recommend
         using it. It's only here for completeness
 
         https://docs.python.org/3.5/library/os.html#os.scandir
@@ -2266,63 +2266,68 @@ FilePath = Filepath
 
 
 class PathIterator(ListIterator):
-    """Iterate through a path
+    """Iterate through a directory path
 
     I was not happy with all the Dirpath iteration methods I've added over the
     last few years, they all were subtlely different and it was annoying trying
     to figure out which one I should use. This is an attempt to fix that. This
     provides a fluid interface to iterating a directory
 
-    You will primarily interact with this through a Dirpath instance:
+    You will primarily create/interact with this class through a Dirpath
+    instance:
 
         dp = Dirpath("<SOME-PATH>")
 
-        pi = dp.iterator # get a new iterator through .iterator property
+        pi = dp.iterator # get a new iterator through Dirpath.iterator property
         pi = dp.children() # same as dp.iterator
         pi = dp.files() # equal to PathIterator(dp).files()
         pi = dp.dirs() # equal to PathIterator(dp).dirs()
 
-    Sadly, you can't do this, I'm not sure why but I'm sure it has something to
-    do with the call hierarchy and not entering the iterator until all the
-    methods have been called, I've put this here so I don't forget because I've
-    tried to do this more than once:
+    Sadly, you can't do this even though Dirpath.__iter__ returns a PathIterator
+    instance:
 
         # this does not work
         for p in Dirpath("<SOME-PATH>").pattern(".txt"):
             print(p)
 
+    I'm not sure why the above doesn't work, but I'm sure it has something to
+    do with the call hierarchy and not entering the iterator until all the
+    methods have been called, I've put this here so I don't forget because I've
+    tried to do the above more than once.
+
+    This does work however:
+
         # this works though
         for p in Dirpath("<SOME-PATH>").iteratory.pattern(".txt"):
             print(p)
 
-    For the most part, there are 4 types of filtering:
+    For the most part, there are 4 types of filtering critieria:
 
         * pattern - matches an fnmatch pattern
         * regex - matches a re.search regex
         * callback - matches if callback(path) returns True
-        * value - has to match exactly, this is more internal and, while it can
+        * value - has to match exactly, this is more internal and while it can
             be called externally, it would be better to not use it and use one
             of the other main filtering methods
 
-    Most all the filtering methods have the same signature:
+    There are 4 types of actual filtering:
 
-        .pattern("*.txt)
-        .regex(r"\.txt")
-        .callback(lambda p: p.endswith(".txt"))
+        * eq - Must match, can apply to both files and directories
+        * ne - Must not match, can apply to both files and directories
+        * in - Used for traversing directories, only applies to directories, if
+            the directory matches it will be traversed, directories that don't
+            match will not be traversed
+        * nin - inverse of `in`
 
-    But the wrapper methods like:
+    The filtering criteria methods have the same signature:
 
-        * eq_dir and ne_dir
-        * eq_file and ne_file
-        * eq_<PATH-ATTRIBUTE> and ne_<PATH-ATTRIBUTE> (eg eq_fileroot or ne_ext)
-        * in_dir and nin_dir
-        * files
-        * dirs
+        .<METHOD-NAME>(<VALUE>, **<KEYWORDS>)
 
-    These wrapper methods can also take keys like `callback` and `pattern`:
+    Where the <VALUE> corresponds to whatever the filtering criteria expects:
 
-        .eq_fileroot(callback=lambda fileroot: fileroot.endswith(".txt"))
-        .nin_dir(regex=r"^_")
+        .eq_pattern("*.txt")
+        .eq_regex(r"\.txt")
+        .eq_callback(lambda p: p.endswith(".txt"))
 
     All methods can take these keywords:
 
@@ -2340,6 +2345,15 @@ class PathIterator(ListIterator):
         * traverse: bool, only apply the criteria to traversing directories, not
             matching directories, this is handy when you want to match certain
             files/directories that only reside in certain directories
+
+    There are also wrapper methods:
+
+        * eq_dir and ne_dir
+        * eq_file and ne_file
+        * eq_<PATH-ATTRIBUTE> and ne_<PATH-ATTRIBUTE> (eg eq_fileroot or ne_ext)
+        * in_dir and nin_dir
+        * files
+        * dirs
 
     Wrapper methods have additional keywords they accept:
 
@@ -2359,8 +2373,8 @@ class PathIterator(ListIterator):
         for p in PathIterator(dirpath).depth(1).dirs():
             print(p)
 
-        # find all txt files
-        for p in PathIterator(dirpath).pattern("*.txt"):
+        # find all txt files in the current and all sub-directories
+        for p in PathIterator(dirpath).eq_pattern("*.txt"):
             print(p)
 
         # find any files that aren't txt files
@@ -2636,6 +2650,14 @@ class PathIterator(ListIterator):
         .pattern(pattern, inverse=True)"""
         return self.pattern(pattern, inverse=True, **kwargs)
 
+    def in_pattern(self, pattern, **kwargs):
+        """Traverse method for setting a pattern, see .in_dir"""
+        return self.in_dir(pattern=pattern, **kwargs)
+
+    def nin_pattern(self, pattern, **kwargs):
+        """inverse of in_pattern"""
+        return self.in_pattern(pattern, inverse=True, **kwargs)
+
     def fnmatch(self, pattern, **kwargs):
         """alias of .pattern()"""
         return self.pattern(pattern, **kwargs)
@@ -2684,6 +2706,14 @@ class PathIterator(ListIterator):
         .regex(regex, inverse=True)"""
         return self.regex(regex, inverse=True, **kwargs)
 
+    def in_regex(self, regex, **kwargs):
+        """Traverse method for setting a regex, see .in_dir"""
+        return self.in_dir(regex=regex, **kwargs)
+
+    def nin_regex(self, regex, **kwargs):
+        """inverse of in_pattern"""
+        return self.in_regex(regex, inverse=True, **kwargs)
+
     def callback(self, cb, **kwargs):
         """Only iterate paths that return True from cb(path)
 
@@ -2702,6 +2732,14 @@ class PathIterator(ListIterator):
         """Inverse the callback return, same as calling
         .callback(cb, inverse=True)"""
         return self.callback(cb, inverse=True, **kwargs)
+
+    def in_callback(self, callback, **kwargs):
+        """Traverse method for setting a callback, see .in_dir"""
+        return self.in_dir(callback=callback, **kwargs)
+
+    def nin_callback(self, callback, **kwargs):
+        """inverse of in_callback"""
+        return self.in_callback(callback, inverse=True, **kwargs)
 
     def filter(self, cb, **kargs):
         """alias of .callback()"""
@@ -2732,6 +2770,14 @@ class PathIterator(ListIterator):
         """Inverse the value return, same as calling .value(v, inverse=True)
         """
         return self.value(value, inverse=True, **kwargs)
+
+    def in_value(self, value, **kwargs):
+        """Traverse method for setting a value, see .in_dir"""
+        return self.in_dir(value, **kwargs)
+
+    def nin_value(self, value, **kwargs):
+        """inverse of in_value"""
+        return self.in_value(value, inverse=True, **kwargs)
 
     def __getattr__(self, key):
         """Allows more advanced wrapper functionality, a wrapper method is a

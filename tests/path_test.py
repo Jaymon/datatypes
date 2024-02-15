@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import os
 import time
 import re
@@ -31,7 +30,10 @@ class PathTest(TestCase):
         path = Path.joinparts(*parts) if parts else ""
 
         contents = kwargs.pop("contents", kwargs.pop("data", {}))
-        exists = kwargs.pop("exists", True if contents else False if path else True)
+        exists = kwargs.pop(
+            "exists",
+            True if contents else False if path else True
+        )
         if issubclass(kwargs["path_class"], Dirpath):
             if contents:
                 if isinstance(contents, Mapping):
@@ -46,8 +48,13 @@ class PathTest(TestCase):
             else:
                 if path.startswith("/"):
                     parts = [path]
+
                 else:
-                    parts = [testdata.get_dir(path if path else testdata.get_filename())]
+                    parts = [
+                        testdata.get_dir(
+                            path if path else testdata.get_filename()
+                        )
+                    ]
 
         else:
             if contents:
@@ -299,17 +306,30 @@ class PathTest(TestCase):
     def test_sanitize_len(self):
         basedir = TempDirpath()
         maxpath = 100
-        p = Path(basedir, testdata.get_words(20), f"{testdata.get_words(20)}.ext")
+        p = Path(
+            basedir,
+            testdata.get_words(20),
+            f"{testdata.get_words(20)}.ext"
+        )
         sp = p.sanitize(maxpart=20, maxpath=maxpath)
         self.assertGreaterEqual(maxpath, len(sp))
         self.assertTrue(sp.endswith(".ext"))
 
         with self.assertRaises(ValueError):
-            p = Path(basedir, testdata.get_words(20), f"{testdata.get_words(20)}.ext")
+            p = Path(
+                basedir,
+                testdata.get_words(20),
+                f"{testdata.get_words(20)}.ext"
+            )
             sp = p.sanitize(maxpart=20, maxpath=40)
 
         for x in range(10):
-            r = Path(testdata.get_words(20), testdata.get_words(20), testdata.get_words(20), "basename.ext")
+            r = Path(
+                testdata.get_words(20),
+                testdata.get_words(20),
+                testdata.get_words(20),
+                "basename.ext"
+            )
             r2 = r.sanitize()
             self.assertGreaterEqual(260, len(r2))
             self.assertEqual(len(r.parts), len(r2.parts))
@@ -331,7 +351,9 @@ class PathTest(TestCase):
     def test_sanitize_emoji_2(self):
         r = Path("You're #1 - Come check these drops out...\U0001F440")
         r2 = r.sanitize()
-        self.assertTrue(r2.endswith("You're #1 - Come check these drops out..."))
+        self.assertTrue(
+            r2.endswith("You're #1 - Come check these drops out...")
+        )
 
     def test_sanitize_newlines(self):
         r = Path("foo\nbar")
@@ -386,7 +408,11 @@ class PathTest(TestCase):
             (".base.", ".base.", ""),
             ("base.ext", "base", ".ext"),
             ("base.ext ension", "base.ext ension", ""),
-            ("base.123456789012345678901234567", "base.123456789012345678901234567", ""),
+            (
+                "base.123456789012345678901234567",
+                "base.123456789012345678901234567",
+                ""
+            ),
             ("base.not.ext", "base.not", ".ext"),
             ("base", "base", ""),
         ]
@@ -430,7 +456,10 @@ class DirpathTest(_PathTestCase):
     path_class = Dirpath
 
     def test_normpaths_1(self):
-        ds = self.path_class.normpaths({"foo": ["bar", "che"]}, baseparts=["prefix"])
+        ds = self.path_class.normpaths(
+            {"foo": ["bar", "che"]},
+            baseparts=["prefix"]
+        )
         self.assertEqual(1, len(ds))
         self.assertEqual(["prefix", "foo"], ds[0][0])
         self.assertEqual(["bar", "che"], ds[0][1])
@@ -689,7 +718,11 @@ class DirpathTest(_PathTestCase):
         self.assertLess(0, p.count())
 
         target = self.create_dir()
-        dest = self.create_dir(target, p.basename, contents={"bar.txt": testdata.get_lines()})
+        dest = self.create_dir(
+            target,
+            p.basename,
+            contents={"bar.txt": testdata.get_lines()}
+        )
 
         self.assertTrue(target.exists())
         self.assertTrue(dest.exists())
@@ -756,7 +789,11 @@ class DirpathTest(_PathTestCase):
         self.assertLess(0, p.count())
 
         target = self.create_dir()
-        dest = self.create_dir(target, p.basename, contents={"bar.txt": testdata.get_lines()})
+        dest = self.create_dir(
+            target,
+            p.basename,
+            contents={"bar.txt": testdata.get_lines()}
+        )
 
         self.assertTrue(target.exists())
         self.assertTrue(dest.exists())
@@ -892,7 +929,9 @@ class DirpathTest(_PathTestCase):
         self.assertEqual(len(ifs), len(ofs))
 
     def test_copy_to_from_bang_2(self):
-        """Similar test to bang.tests.path_test.DirectoryTest.test_copy_paths_depth
+        """Similar test to
+
+            bang.tests.path_test.DirectoryTest.test_copy_paths_depth
 
         moved to here on 1-4-2023
         """
@@ -911,7 +950,9 @@ class DirpathTest(_PathTestCase):
         self.assertEqual(1, len(list(rd.iterfiles())))
 
     def test_relative_parts(self):
-        """Similar test to bang.tests.path_test.DirectoryTest.test_relative_parts
+        """Similar test to:
+
+            bang.tests.path_test.DirectoryTest.test_relative_parts
 
         moved to here on 1-4-2023
         """
@@ -1095,7 +1136,8 @@ class FilepathTest(_PathTestCase):
             fp.write(contents)
         self.assertEqual(contents, p.read_text())
 
-        # open the file without passing in mode and make sure it works as expected
+        # open the file without passing in mode and make sure it works as
+        # expected
         with p as fp:
             self.assertEqual(contents, fp.read())
             with self.assertRaises(Exception):
@@ -1299,7 +1341,10 @@ class TempDirpathTest(TestCase):
         ds = d.add(ts)
         count = 0
         for path in ds:
-            self.assertTrue(os.path.isfile(path), "{} does not exist".format(path))
+            self.assertTrue(
+                os.path.isfile(path),
+                "{} does not exist".format(path)
+            )
             self.assertTrue(path.read_text())
             count += 1
         self.assertLess(0, count)
@@ -1548,7 +1593,11 @@ class CachepathTest(TestCase):
 
 class SentinelTest(TestCase):
     def test_fail_pass(self):
-        s = Sentinel(testdata.get_modulename(), testdata.get_filename(), monthly=True)
+        s = Sentinel(
+            testdata.get_modulename(),
+            testdata.get_filename(),
+            monthly=True
+        )
 
         count = 0
         if s:
@@ -1565,7 +1614,8 @@ class UrlFilepathTest(TestCase):
             "bar/che.txt": "this is che.txt",
             "baz.jpg": testdata.create_jpg,
         })
-        prefix = testdata.get_ascii(6) # needed so file isn't cached to same place every run
+        # needed so file isn't cached to same place every run
+        prefix = testdata.get_ascii(6)
 
         server = testdata.create_fileserver({}, dirpath)
         with server:
@@ -1573,7 +1623,10 @@ class UrlFilepathTest(TestCase):
             self.assertEqual("this is che.txt", p.read_text())
 
             p = UrlFilepath(server.url("baz.jpg"), prefix=prefix)
-            self.assertEqual(p.checksum(), dirpath.child_file("baz.jpg").checksum())
+            self.assertEqual(
+                p.checksum(),
+                dirpath.child_file("baz.jpg").checksum()
+            )
 
     def test_url_path(self):
         server = testdata.create_fileserver({
@@ -1860,7 +1913,8 @@ class PathIteratorTest(TestCase):
         r = set([
             "bar/2.txt",
         ])
-        for p in PathIterator(dirpath).callback(lambda p: p.endswith("bar/2.txt")):
+        cb = lambda p: p.endswith("bar/2.txt")
+        for p in PathIterator(dirpath).callback(cb):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
@@ -2216,36 +2270,6 @@ class PathIteratorTest(TestCase):
                 raise ValueError(p)
 
         self.assertEqual(7, count)
-
-#         dp = testdata.create_files({
-#             "foo": {
-#                 "sentinal.txt": "",
-#                 "bar": {
-#                     "sentinal.txt": "",
-#                     "one.txt": "",
-#                 },
-#                 "che": {
-#                     "ignored 1.txt": "",
-#                 },
-#                 "two.txt": "",
-#             },
-#             "baz": {
-#                 "ignored 2.txt": "",
-#                 "boo": {
-#                     "sentinal.txt": "",
-#                     "ignored 3.txt": "",
-#                 }
-#             }
-#         })
-# 
-#         pout.v(dp)
-# 
-#         def is_data_dir(p):
-#             return not p.has_file("sentinal.txt")
-# 
-#         it = dp.until(is_data_dir)
-#         for count, p in enumerate(it, 1):
-#             pout.v(p)
 
     def test_dynamic_methods(self):
         dp = testdata.create_files({
