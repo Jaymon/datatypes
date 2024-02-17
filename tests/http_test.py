@@ -2,7 +2,13 @@
 from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
-from datatypes.http import HTTPHeaders, HTTPEnviron, HTTPClient, HTTPResponse
+from datatypes.http import (
+    HTTPHeaders,
+    HTTPEnviron,
+    HTTPClient,
+    HTTPResponse,
+    UserAgent,
+)
 from datatypes.string import String, ByteString
 from datatypes.config.environ import environ
 
@@ -228,4 +234,72 @@ class HTTPClientTest(TestCase):
         for rch in r.iter_content(100):
             rc += rch
         self.assertEqual(content, rc)
+
+
+class UserAgentTest(TestCase):
+    def test_user_agent(self):
+        user_agents = [
+            (
+                (
+                    "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36"
+                ),
+                {
+                    'client_application': "Chrome",
+                    'client_version': "44.0.2403.157",
+                    'client_device': "Windows NT 6.3"
+                }
+            ),
+            (
+                (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/44.0.2403.157 Safari/537.36"
+                ),
+                {
+                    'client_application': "Chrome",
+                    'client_version': "44.0.2403.157",
+                    'client_device': "Macintosh"
+                }
+            ),
+            (
+                (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:40.0) "
+                    "Gecko/20100101 Firefox/40.0"
+                ),
+                {
+                    'client_application': "Firefox",
+                    'client_version': "40.0",
+                    'client_device': "Macintosh"
+                }
+            ),
+            (
+                (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) "
+                    "AppleWebKit/600.7.12 (KHTML, like Gecko) "
+                    "Version/8.0.7 Safari/600.7.12"
+                ), # Safari
+                {
+                    'client_application': "Safari",
+                    'client_version': "600.7.12",
+                    'client_device': "Macintosh"
+                }
+            ),
+            (
+                (
+                    "curl/7.24.0 (x86_64-apple-darwin12.0) libcurl/7.24.0 "
+                    "OpenSSL/0.9.8x zlib/1.2.5"
+                ),
+                {
+                    'client_application': "curl",
+                    'client_version': "7.24.0",
+                    'client_device': "x86_64-apple-darwin12.0"
+                }
+            )
+        ]
+
+        for user_agent in user_agents:
+            ua = UserAgent(user_agent[0])
+            for k, v in user_agent[1].items():
+                self.assertEqual(v, getattr(ua, k))
 

@@ -302,7 +302,6 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             )(self)
 
         except TypeError as e:
-            pout.v(e, self.callbacks)
             if not self.headers_sent:
                 self.send_error(
                     501,

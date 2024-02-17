@@ -107,12 +107,26 @@ class Profiler(object):
             pass
         print(p)
 
-    This was moved from bang.utils.Profile on 1-6-2023, then it was updated/combined
-    with pout.value.P
+    This was moved from bang.utils.Profile on 1-6-2023, then it was
+    updated/combined with pout.value.P
     """
     profile_class = Profile
     """The class that is used to track the actual profiling. An instance of this
     class is returned from the context manager"""
+
+    @classmethod
+    def get_output(cls, start, stop, **kwargs):
+        """A quick way to get a nicely formatted elapsed time string
+
+        Because sometimes I don't need the full functionality of the Profiler, I
+        just need a nicely formatted elapsed time string
+
+        :param start: float
+        :param stop: float
+        :returns: str, a formatted output total elapsed time string
+        """
+        p = cls.profile_class(start=start, stop=stop)
+        return p.total
 
     def __init__(self, name="", logmethod=None):
         self.last = None

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 from wsgiref.headers import Headers as BaseHeaders
 import itertools
 import base64
@@ -11,7 +10,7 @@ import platform
 
 from .compat import *
 from .copy import Deepcopy
-from .string import String, ByteString
+from .string import String, ByteString, NormalizeString
 from .config.environ import environ
 
 
@@ -19,13 +18,14 @@ class HTTPHeaders(BaseHeaders, Mapping):
     """handles headers, see wsgiref.Headers link for method and use information
 
     Handles normalizing of header names, the problem with headers is they can
-    be in many different forms and cases and stuff (eg, CONTENT_TYPE and Content-Type),
-    so this handles normalizing the header names so you can request Content-Type
-    or CONTENT_TYPE and get the same value.
+    be in many different forms and cases and stuff (eg, CONTENT_TYPE and
+    Content-Type), so this handles normalizing the header names so you can
+    request Content-Type or CONTENT_TYPE and get the same value.
 
     This has the same interface as Python's built-in wsgiref.Headers class but
-    makes it even more dict-like and will return titled header names when iterated
-    or anything (eg, Content-Type instead of all lowercase content-type)
+    makes it even more dict-like and will return titled header names when
+    iterated or anything (eg, Content-Type instead of all lowercase
+    content-type)
 
     http headers spec:
         https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
@@ -38,28 +38,28 @@ class HTTPHeaders(BaseHeaders, Mapping):
     """
     encoding = "iso-8859-1"
     """From rfc2616:
+        The default language is English and the default character set is
+        ISO-8859-1.
 
-        The default language is English and the default character set is ISO-8859-1.
-
-        If a character set other than ISO-8859-1 is used, it MUST be encoded in the
-        warn-text using the method described in RFC 2047
+        If a character set other than ISO-8859-1 is used, it MUST be encoded in
+        the warn-text using the method described in RFC 2047
     """
 
     def __init__(self, headers=None, **kwargs):
-        super(HTTPHeaders, self).__init__([])
+        super().__init__([])
         self.update(headers, **kwargs)
 
     def _convert_string_part(self, bit):
-        """each part of a header will go through this method, this allows further
-        normalization of each part, so a header like FOO_BAR would call this method
-        twice, once with foo and again with bar
+        """each part of a header will go through this method, this allows
+        further normalization of each part, so a header like FOO_BAR would call
+        this method twice, once with foo and again with bar
 
         this is called train case or http-header case
 
         https://stackoverflow.com/questions/17326185/what-are-the-different-kinds-of-cases
 
-        this method doesn't normalize all the non-standard header bits, for example, this
-        would mess up ETag, HTTP2, WWW, DNT, ATT, ID, etc
+        this method doesn't normalize all the non-standard header bits, for
+        example, this would mess up ETag, HTTP2, WWW, DNT, ATT, ID, etc
 
         https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
 
@@ -68,8 +68,10 @@ class HTTPHeaders(BaseHeaders, Mapping):
         """
         if bit == "websocket":
             bit = "WebSocket"
+
         else:
             bit = bit.title()
+
         return bit
 
     def _convert_string_name(self, k):
@@ -79,8 +81,9 @@ class HTTPHeaders(BaseHeaders, Mapping):
         return "-".join((self._convert_string_part(bit) for bit in bits))
 
     def _convert_string_type(self, v):
-        """Override the internal method wsgiref.headers.Headers uses to check values
-        to make sure they are strings"""
+        """Override the internal method wsgiref.headers.Headers uses to check
+        values to make sure they are strings
+        """
         # wsgiref.headers.Headers expects a str() (py3) or unicode (py2), it
         # does not accept even a child of str, so we need to convert the String
         # instance to the actual str, as does the python wsgi methods, so even
@@ -92,11 +95,11 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
     def get_all(self, name):
         name = self._convert_string_name(name)
-        return super(HTTPHeaders, self).get_all(name)
+        return super().get_all(name)
 
     def get(self, name, default=None):
         name = self._convert_string_name(name)
-        return super(HTTPHeaders, self).get(name, default)
+        return super().get(name, default)
 
     def parse(self, name):
         """Parses the name header and returns main, params
@@ -183,12 +186,12 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
         This uses *args and **kwargs instead of default because this will raise
         a KeyError if default is not supplied, and if it had a definition like
-        (name, default=None) you wouldn't be able to know if default was provided
-        or not
+        (name, default=None) you wouldn't be able to know if default was
+        provided or not
 
         :param name: string, the key we're looking for
-        :param default: mixed, the value that would be returned if name is not in
-            dict
+        :param default: mixed, the value that would be returned if name is not
+            in dict
         :returns: the value at name if it's there
         """
         val = self.get(name)
@@ -239,7 +242,8 @@ class HTTPHeaders(BaseHeaders, Mapping):
         return "json" in ct
 
     def is_urlencoded(self):
-        """return True if body's content-type is application/x-www-form-urlencoded"""
+        """return True if body's content-type is
+        application/x-www-form-urlencoded"""
         ct = self.get("Content-Type", "")
         return "form-urlencoded" in ct
 
@@ -252,18 +256,30 @@ class HTTPHeaders(BaseHeaders, Mapping):
         """Return True if this set of headers is chunked"""
         return self.get('transfer-encoding', "").lower().startswith("chunked")
 
+    def get_user_agent(self):
+        """Return the parsed user-agent string if it exists, empty string if it
+        doesn't exist
+
+        :returns: UserAgent
+        """
+        ua = self.get("User-Agent", "")
+        if ua:
+            ua = UserAgent(ua)
+
+        return ua
+
 
 class HTTPEnviron(HTTPHeaders):
-    """just like Headers but allows any values (headers converts everything to unicode
-    string)"""
+    """just like Headers but allows any values (headers converts everything to
+    unicode string)"""
     def _convert_string_type(self, v):
         return v
 
 
 class HTTPResponse(object):
-    """This is the response object that is returned from an HTTP request, it tries
-    its best to look like a requests response object so you can switch this out
-    when you need a more full-featured solution
+    """This is the response object that is returned from an HTTP request, it
+    tries its best to look like a requests response object so you can switch
+    this out when you need a more full-featured solution
     """
     @property
     def encoding(self):
@@ -276,12 +292,13 @@ class HTTPResponse(object):
 
             # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
             # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
-            # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The default encoding is UTF-8
+            # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
+            # default encoding is UTF-8
             #
             # https://www.rfc-editor.org/rfc/rfc2616
             # HTTP when no explicit charset parameter is provided by the sender,
-            # media subtypes of the "text" type are defined to have a default charset
-            # value of "ISO-8859-1" when received via HTTP. (rfc2616 is
+            # media subtypes of the "text" type are defined to have a default
+            # charset value of "ISO-8859-1" when received via HTTP. (rfc2616 is
             # superceded by rfc7231, which doesn't have this default charset but
             # I'm going to keep it right now)
             if not encoding:
@@ -716,8 +733,68 @@ class HTTPClient(object):
     def is_json(self, headers):
         """return true if content_type is a json content type"""
         ret = False
-        ct = headers.get("Content-Type", headers.get("content-type", "")).lower()
+        ct = headers.get(
+            "Content-Type",
+            headers.get("content-type", "")
+        ).lower()
         if ct:
             ret = ct.lower().rfind("json") >= 0
         return ret
 
+
+class UserAgent(NormalizeString):
+    """Parse a request User-Agent header value
+
+    https://github.com/Jaymon/datatypes/issues/55
+
+    This has the following attributes:
+
+        * client_application
+        * client_version
+        * client_device
+    """
+    @classmethod
+    def after_create(cls, instance, **kwargs):
+        for k, v in cls.parse_user_agent(instance).items():
+            setattr(instance, k, v)
+
+        return instance
+
+    @classmethod
+    def parse_user_agent(cls, user_agent):
+        """parses any user agent string to the best of its ability and tries not
+        to error out"""
+        d = {}
+
+        regex = "^([^/]+)" # 1 - get everything to first slash
+        regex += "\/" # ignore the slash
+        regex += "(\d[\d.]*)" # 2 - capture the numeric version or build
+        regex += "\s+\(" # ignore whitespace before parens group
+        regex += "([^\)]+)" # 3 - capture the full paren body
+        regex += "\)\s*" # ignore the paren and any space if it is there
+        regex += "(.*)$" # 4 - everything else (most common in browsers)
+        m = re.match(regex, user_agent)
+        if m:
+            application = m.group(1)
+            version = m.group(2)
+            system = m.group(3)
+            system_bits = re.split("\s*;\s*", system)
+            tail = m.group(4)
+
+            # common
+            d['client_application'] = application
+            d['client_version'] = version
+            d['client_device'] = system_bits[0]
+
+            if application.startswith("Mozilla"):
+                for browser in ["Chrome", "Safari", "Firefox"]:
+                    browser_m = re.search(
+                        "{}\/(\d[\d.]*)".format(browser),
+                        tail
+                    )
+                    if browser_m:
+                        d['client_application'] = browser
+                        d['client_version'] = browser_m.group(1)
+                        break
+
+        return d

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.config.environ import environ
@@ -133,7 +132,7 @@ class CallbackServerTest(ServerTestCase):
             self.assertEqual(501, res.status_code)
 
             res = testdata.fetch(s.child(path="/foo/bar/head"), method="HEAD")
-            self.assertEqual(500, res.status_code)
+            self.assertEqual(400, res.status_code)
 
     def test_multi_start_stop(self):
 

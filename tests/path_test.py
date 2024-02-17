@@ -9,7 +9,6 @@ from datatypes.path import (
     Dirpath,
     Filepath,
     Imagepath,
-    Archivepath,
     TempDirpath,
     TempFilepath,
     Cachepath,
@@ -194,6 +193,20 @@ class PathTest(TestCase):
         self.assertEqual(".", p.relative_to(p))
         self.assertEqual(".", os.path.relpath(p, p))
         self.assertEqual("", p.relative_to(p, empty_same=True))
+
+    def test_relative_parts(self):
+        """Similar test to:
+
+            bang.tests.path_test.DirectoryTest.test_relative_parts
+
+        moved to here on 1-4-2023
+        """
+        d = Dirpath("/foo/bar/che/bam/boo")
+        p = d.relative_parts("/")
+        self.assertEqual(["foo", "bar", "che", "bam", "boo"], p)
+
+        p = d.relative_parts("/foo/bar/")
+        self.assertEqual(["che", "bam", "boo"], p)
 
     def test_with_name(self):
         p = self.create("/foo/bar/fileroot.ext")
@@ -949,20 +962,6 @@ class DirpathTest(_PathTestCase):
         rd = src_dir.copy_to(target_dir, recursive=False)
         self.assertEqual(1, len(list(rd.iterfiles())))
 
-    def test_relative_parts(self):
-        """Similar test to:
-
-            bang.tests.path_test.DirectoryTest.test_relative_parts
-
-        moved to here on 1-4-2023
-        """
-        d = Dirpath("/foo/bar/che/bam/boo")
-        p = d.relative_parts("/")
-        self.assertEqual(["foo", "bar", "che", "bam", "boo"], p)
-
-        p = d.relative_parts("/foo/bar/")
-        self.assertEqual(["che", "bam", "boo"], p)
-
     def test_has(self):
         d = testdata.create_files({
             "foo.txt": "",
@@ -1219,31 +1218,6 @@ class ImagepathTest(TestCase):
 
         im = Imagepath(testdata.create_jpg())
         self.assertFalse(im.is_animated())
-
-
-class ArchivepathTest(TestCase):
-    path_class = Archivepath
-
-    def test_add_zip(self):
-        self.skip_test("API is not finalized")
-        zp = self.create("foo.zip")
-        fp = self.create_file(contents=testdata.get_lines())
-        dp = self.create_dir(contents={
-            "foo.txt": testdata.get_lines(),
-            "bar/che.txt": testdata.get_lines(),
-        })
-
-        zp.add(fp)
-
-        zp.add(dp)
-
-        for n in zp:
-            pout.v(n)
-
-        pout.v(fp, zp, dp)
-
-    # TODO: test other formats like .tar.gz
-
 
 
 class TempDirpathTest(TestCase):

@@ -408,18 +408,21 @@ class Path(String):
     def get_basename(cls, ext="", prefix="", name="", suffix="", **kwargs):
         """return just a valid file name
 
-        This method has a strange signature (ext and prefix come before name to make
-        it easier for TempPath since this method is more user facing when used with
-        temp paths)
+        This method has a strange signature (ext and prefix come before name to
+        make it easier for TempPath since this method is more user facing when
+        used with temp paths)
 
-        :param ext: string, the extension you want the file to have
-        :param prefix: string, this will be the first part of the file's name
-        :param name: string, the name you want to use (prefix will be added to the front
-            of the name and suffix and ext will be added to the end of the name)
-        :param suffix: string, if you want the last bit to be posfixed with something
+        :param ext: str, the extension you want the file to have
+        :param prefix: str, this will be the first part of the file's name
+        :param name: str, the name you want to use (prefix will be added to the
+            front of the name and suffix and ext will be added to the end of the
+            name)
+        :param suffix: str, if you want the last bit to be posfixed with
+            something
         :param **kwargs:
-            safe -- bool -- if true then remove potentially unsafe characters (default: False)
-        :returns: string, the random filename
+            - safe: bool, if true then remove potentially unsafe characters
+              (default: False)
+        :returns: str, the random filename
         """
         basename = name or ""
 
@@ -1163,7 +1166,7 @@ class Path(String):
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.is_relative_to
         """
         try:
-            self.pathlib.relative_to(*other)
+            self.relative_to(*other)
             return True
 
         except ValueError:
@@ -3526,117 +3529,6 @@ class Imagepath(Filepath):
 ImagePath = Imagepath
 
 
-class Archivepath(Dirpath):
-    """This was based off of code from herd.path but as I was expanding it I realized
-    it was going to be more work than my needs currently warranted so I'm leaving
-    this here and I'll get back to it another time
-
-
-    https://docs.python.org/3/library/tarfile.html 
-    https://docs.python.org/2/library/tarfile.html#tarfile-objects
-
-    https://docs.python.org/3/library/zipfile.html
-    https://docs.python.org/2/library/zipfile.html#zipfile-objects
-    """
-    def __new__(cls, *parts, **kwargs):
-        instance = super(Archivepath, cls).__new__(cls, *parts, **kwargs)
-
-        archive_info = {
-            ".zip": {
-                "archive_class": zipfile.ZipFile,
-                "archive_format": "zip",
-                "write_mode": "w",
-                "write_method": "write",
-                "__iter__": "namelist",
-            },
-            ".tar": {
-                "archive_class": tarfile.TarFile,
-                "archive_format": "tar",
-                "write_mode": "w:",
-                "write_method": "add"
-            },
-            ".tar.gz": {
-                "archive_class": tarfile.TarFile,
-                "archive_format": "gztar",
-                "write_mode": "w:gz",
-                "write_method": "add"
-            },
-            ".tar.bz2": {
-                "archive_class": tarfile.TarFile,
-                "archive_format": "bztar",
-                "write_mode": "w:bz2",
-                "write_method": "add"
-            },
-            ".tar.xz": {
-                "archive_class": tarfile.TarFile,
-                "archive_format": "xztar",
-                "write_mode": "w:xz",
-                "write_method": "add"
-            },
-        }
-
-        instance.info = {}
-        for suffix, info in archive_info.items():
-            if instance.endswith(suffix):
-                instance.info = info
-                break
-
-        if not instance.info:
-            raise ValueError("No archive info found for archive file {}".format(instance.path))
-
-        return instance
-
-    def __iter__(self):
-        z = self.info["archive_class"](self.path)
-        for n in getattr(z, self.info["__iter__"])():
-            yield n
-
-    def add(self, target, arcname=""):
-        target = self.create(target)
-
-        # !!! This works but it overwrites the zip file on every call, a
-        # solution would be to make this a context manager so you could do
-        # something like:
-        #
-        # with self as z:
-        #     z.add(path1)
-        #     z.add(path2)
-        #     z.add(path3)
-        #
-        # so each .add copies the files/directories to a temp directory and when the __exit__
-        # fires you would use shutil.make_archive to create the actual archive
-        # file, this method would then be renamed .set()
-
-
-        # if the archive doesn't exist we want to make sure at least the directory
-        # exists because the file will be created when target is added to the
-        # archive
-        if not self.exists():
-            self.parent.touch()
-
-        if target.is_file():
-            if not arcname:
-                arcname = target.basename
-
-            with self.info["archive_class"](self.path, mode=self.info["write_mode"]) as z:
-                getattr(z, self.info["write_method"])(target, arcname=arcname)
-
-        elif target.is_dir():
-            if not arcname:
-                arcname = target.path
-
-            target = self.stempath
-            # https://docs.python.org/3/library/shutil.html#shutil.make_archive
-            # https://stackoverflow.com/a/25650295/5006
-            shutil.make_archive(self.stempath, self.info["archive_format"], root_dir=arcname)
-
-        else:
-            raise ValueError("Target is neither a file or a directory")
-
-    def extract_to(self, target):
-        target = self.create_dir(target)
-
-
 class TempPath(object):
     basedir = None
 
@@ -3656,8 +3548,8 @@ class TempPath(object):
 
     @classmethod
     def mktempdir(cls, **kwargs):
-        """pass through for tempfile.mkdtemp, this is here so it can be overridden
-        in child classes and customized
+        """pass through for tempfile.mkdtemp, this is here so it can be
+        overridden in child classes and customized
 
         https://docs.python.org/3/library/tempfile.html#tempfile.mkdtemp
 
@@ -3675,18 +3567,25 @@ class TempPath(object):
 
         :param ext: string, the extension you want the file to have
         :param prefix: string, this will be the first part of the file's name
-        :param suffix: string, if you want the last bit to be posfixed with something
-        :param name: string, the name you want to use (prefix will be added to the front
-            of the name and ext will be added to the end of the name)
+        :param suffix: string, if you want the last bit to be posfixed with
+            something
+        :param name: string, the name you want to use (prefix will be added to
+            the front of the name and ext will be added to the end of the name)
         :returns: string, the random filename
         """
         # compensate for .stripparts() returing "/" for ""
         name = name.strip("/")
 
         if not name and kwargs.get("autogen_name", True):
-            name = "".join(random.sample(String.ASCII_LETTERS, random.randint(3, 11))).lower()
+            name = "".join(random.sample(
+                String.ASCII_LETTERS,
+                random.randint(
+                    kwargs.get("min_name_size", 3),
+                    kwargs.get("max_name_size", 11)
+                )
+            )).lower()
 
-        return super(TempPath, cls).get_basename(
+        return super().get_basename(
             ext=ext,
             prefix=prefix,
             name=name,
@@ -3698,11 +3597,14 @@ class TempPath(object):
     def get_parts(cls, count=1, prefix="", name="", suffix="", ext="", **kwargs):
         """Returns count parts
 
-        :param count: int, how many parts you want in your module path (1 is foo, 2 is foo, bar, etc)
-        :param prefix: string, if you want the last bit to be prefixed with something
-        :param suffix: string, if you want the last bit to be posfixed with something
-        :param name: string, the name you want to use for the last bit
-            (prefix will be added to the front of the name and postfix will be added to
+        :param count: int, how many parts you want in your module path (1 is
+            [foo], 2 is [foo, bar], etc)
+        :param prefix: string, if you want the last bit to be prefixed with
+            something
+        :param suffix: string, if you want the last bit to be posfixed with
+            something
+        :param name: string, the name you want to use for the last bit (prefix
+            will be added to the front of the name and postfix will be added to
             the end of the name)
         :returns: list
         """
@@ -3710,9 +3612,17 @@ class TempPath(object):
         count = max(count, 1)
 
         for x in range(count - 1):
-            parts.append(cls.get_basename())
+            parts.append(cls.get_basename(**kwargs))
 
-        parts.append(cls.get_basename(prefix=prefix, name=name, suffix=suffix, ext=ext, **kwargs))
+        parts.append(
+            cls.get_basename(
+                prefix=prefix,
+                name=name,
+                suffix=suffix,
+                ext=ext,
+                **kwargs
+            )
+        )
         return parts
 
     @classmethod
