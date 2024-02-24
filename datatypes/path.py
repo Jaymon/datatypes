@@ -612,16 +612,18 @@ class Path(String):
 
         :param *parts: mixed, parts you want to have in the path, or a full path
         :param **kwargs:
-            ext -- the extension (see .get_basename)
-            prefix -- a prefix to name (see .get_basename)
-            suffix -- a suffix to name (see .get_basename)
-            dir -- a base directory, this will be prepended to *parts (see .normparts)
-            name|basename -- the file name
+            * ext: str, the extension (see .get_basename)
+            * prefix: str, a prefix to name (see .get_basename)
+            * suffix: str, a suffix to name (see .get_basename)
+            * dir: str|Dirpath, a base directory, this will be prepended to
+              *parts (see .normparts)
+            * name|basename: str, the file name
         """
         parts = cls.normparts(*parts, **kwargs)
         path = cls.normpath(*parts, **kwargs)
         value = cls.normvalue(*parts, path=path, **kwargs)
-        path_class = kwargs.pop("path_class", None) # has to be None so create_as works
+        # has to be None so create_as works
+        path_class = kwargs.pop("path_class", None)
 
         instance = super().__new__(
             path_class if path_class else cls,
@@ -1391,12 +1393,14 @@ class Dirpath(Path):
                 }
             })
 
-        :param paths: dict|list
-            dict - if paths is a dict, then the keys will be the path part and the
-                value will be the data/contents of the file at the full path. If value
-                is None or empty dict then that path will be considered a directory.
-            list - if paths is a list then it will be a list of directories to create
-            callable - a callback that takes a Filepath instance
+        :param paths: dict|list|callable
+            * dict: if paths is a dict, then the keys will be the path part and
+                the value will be the data/contents of the file at the full
+                path. If value is None or empty dict then that path will be
+                considered a directory.
+            * list: if paths is a list then it will be a list of directories to
+                create
+            * callable: a callback that takes a Filepath instance
         :returns: list, all the created Path instances
         """
         ret = []
@@ -1875,7 +1879,9 @@ class Filepath(Path):
                 operation = fcntl.LOCK_EX | fcntl.LOCK_NB
 
         else:
-            raise ValueError("flock does not work because fcntl module is unavailable")
+            raise ValueError(
+                "flock does not work because fcntl module is unavailable"
+            )
 
         try:
             with self.open(mode, **kwargs) as fp:
@@ -1899,14 +1905,17 @@ class Filepath(Path):
         return self.flock(mode, **kwargs)
 
     def open(self, mode="", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open the file pointed to by the path, like the built-in open() function does
+        """Open the file pointed to by the path, like the built-in open()
+        function does
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.open
         """
         if not mode:
             mode = "r" if encoding else "rb"
 
-        logger.debug(f"Opening: {self.path} with mode: {mode} and encoding: {encoding}")
+        logger.debug(
+            f"Opening: {self.path} with mode: {mode} and encoding: {encoding}"
+        )
 
         try:
             fp = open(
@@ -2002,7 +2011,12 @@ class Filepath(Path):
 
     def chunklines(self, linecount=1, keepends=False, encoding=None, errors=None):
         chunk = []
-        for i, line in enumerate(self.splitlines(keepends=keepends, encoding=encoding, errors=errors), 1):
+        lines = self.splitlines(
+            keepends=keepends,
+            encoding=encoding,
+            errors=errors
+        )
+        for i, line in enumerate(lines, 1):
             chunk.append(line)
             if i % linecount == 0:
                 yield chunk
@@ -2015,8 +2029,14 @@ class Filepath(Path):
         :param **kwargs: keywords, you can pass in encoding here
         :returns: tuple, (data, encoding, errors)
         """
-        encoding = kwargs.get("encoding", None) or getattr(data, "encoding", self.encoding)
-        errors = kwargs.get("errors", None) or getattr(data, "errors", self.errors)
+        encoding = (
+            kwargs.get("encoding", None)
+            or getattr(data, "encoding", self.encoding)
+        )
+        errors = (
+            kwargs.get("errors", None)
+            or getattr(data, "errors", self.errors)
+        )
         data = ByteString(data, encoding=encoding, errors=errors)
         return data, encoding, errors
 
@@ -2027,8 +2047,14 @@ class Filepath(Path):
         :param **kwargs: keywords, you can pass in encoding here
         :returns: tuple, (data, encoding, errors)
         """
-        encoding = kwargs.get("encoding", None) or getattr(data, "encoding", self.encoding)
-        errors = kwargs.get("errors", None) or getattr(data, "errors", self.errors)
+        encoding = (
+            kwargs.get("encoding", None)
+            or getattr(data, "encoding", self.encoding)
+        )
+        errors = (
+            kwargs.get("errors", None)
+            or getattr(data, "errors", self.errors)
+        )
         data = String(data, encoding=encoding, errors=errors)
         return data, encoding, errors
 
@@ -2060,17 +2086,17 @@ class Filepath(Path):
         with self.open(mode="w+", encoding=encoding, errors=errors) as fp:
             return fp.write(data)
 
-    def write(self, data):
+    def write(self, data, **kwargs):
         """Write data as either bytes or text
 
         :param data: bytes|string
         :return: the amount written
         """
         if isinstance(data, (Bytes, bytearray)):
-            return self.write_bytes(data)
+            return self.write_bytes(data, **kwargs)
 
         else:
-            return self.write_text(data)
+            return self.write_text(data, **kwargs)
 
     def append_text(self, data, **kwargs):
         data, encoding, errors = self.prepare_text(data, **kwargs)
@@ -3720,13 +3746,39 @@ class TempFilepath(TempPath, Filepath):
     def create_as(cls, instance, **kwargs):
         kwargs.setdefault("touch", True)
         instance.basedir = kwargs["parts"][0]
-        instance = super(TempFilepath, cls).create_as(instance, **kwargs)
+        instance = super().create_as(instance, **kwargs)
 
         data = kwargs.pop("data", kwargs.pop("contents", None))
         if data:
-            instance.write(data)
+            instance.write(data, **kwargs)
 
         return instance
+
+    def prepare_text(self, data, **kwargs):
+        """Wraps parent's .prepare_text to allow the addition of a header and
+        footer to data
+
+        There have been many times where I want to add standard headers and
+        footers and this just standardizes that behavior instead of it being
+        bespoke each time
+
+        :param data: str, the text that will be written
+        :param **kwargs: keywords, you can pass in encoding here
+            * header: str, this will be added to the beginning of data,
+              separated by a newline
+            * footer: str, this will be added to the end of data, separated by
+              a newline
+        :returns: tuple[str, str, str], (data, encoding, errors)
+        """
+        header = kwargs.pop("header", "")
+        if header:
+            data = header + "\n" + data
+
+        footer = kwargs.pop("footer", "")
+        if footer:
+            data = data + "\n" + footer
+
+        return super().prepare_text(data, **kwargs)
 Filetemp = TempFilepath
 Tempfile = TempFilepath
 TempFilePath = TempFilepath
@@ -3923,8 +3975,8 @@ class UrlFilepath(Cachepath):
         return instance
 
     def fetch(self):
-        """Fetch the file from a url and save it in a local path, you can call this
-        method anytime to refresh the file
+        """Fetch the file from a url and save it in a local path, you can call
+        this method anytime to refresh the file
 
         this method will set self.fetched to True
         """
@@ -3953,7 +4005,11 @@ class UrlFilepath(Cachepath):
 
                     if not fp:
                         if encoding:
-                            fp = self.open(mode="w+", encoding=data_encoding, errors=errors)
+                            fp = self.open(
+                                mode="w+",
+                                encoding=data_encoding,
+                                errors=errors
+                            )
                         else:
                             fp = self.open("wb+")
 

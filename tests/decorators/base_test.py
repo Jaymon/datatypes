@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
+import inspect
 
 from datatypes.decorators.base import (
     FuncDecorator,
@@ -28,30 +28,22 @@ class DecoratorTest(TestCase):
         self.assertEqual(r1, r2)
 
     def test_classmethod_all(self):
-        self.skip_test("""as far as I can tell there is not a good way to infer this
-            particular test because it seems to me decorating a class with a function
-            might not be that uncommon and @dm(function) on the class is equivalent
-            to @dm on the function, and they will both pass the ambiguity check"""
-        )
         class dm(Decorator):
             def decorate_func(self, func, *dc_args, **dc_kwargs):
-                print("func")
+                #print("func")
                 return func
 
             def decorate_class(self, cls, *dc_args, **dc_kwargs):
-                print("cls")
+                #print("cls")
                 return cls
 
+        @dm
         class Foo(object):
             @classmethod
             @dm
             def bar(cls):
                 return 5
 
-        # here is the problem, these calls will actually wrap the class, not the
-        # method, as far as I can tell there is no way to discern the difference
-        # and I think this is rare enough to not be worth trying to figure out
-        # anymore
         r1 = Foo.bar()
         r2 = Foo.bar()
         self.assertEqual(r1, r2)
@@ -177,9 +169,9 @@ class FuncDecoratorTest(TestCase):
         self.assertEqual(r1, r2)
 
     def test_consistency(self):
-        """I never tested the new code with multiple calls, turns out they didn't
-        work because after it figured out the correct path it sometimes didn't invoke
-        the function like it should on the subsequent calls"""
+        """I never tested the new code with multiple calls, turns out they
+        didn't work because after it figured out the correct path it sometimes
+        didn't invoke the function like it should on the subsequent calls"""
         class dc(FuncDecorator):
             def decorate(self, func, *dc_args, **dc_kwargs):
                 def decorated(*args, **kwargs):
@@ -303,11 +295,12 @@ class FuncDecoratorTest(TestCase):
             def che(self):
                 return 2
 
-        import inspect
-
         f = Foo()
         methods = inspect.getmembers(f, inspect.isroutine)
-        self.assertEqual(2, len([m for m in methods if not m[0].startswith('__')]))
+        self.assertEqual(
+            2,
+            len([m for m in methods if not m[0].startswith('__')])
+        )
 
     def test_multi(self):
 
@@ -539,14 +532,12 @@ class FuncDecoratorTest(TestCase):
         r = func()
         self.assertEqual(4, r)
 
-
     def test_ambiguity_1(self):
         class dec(FuncDecorator):
             def decorate(self, func, callback=None):
                 def wrapper(self, *args, **kwargs):
                     return func(self, *args, **kwargs)
                 return wrapper
-
 
         @dec(lambda *_, **__: 1)
         def func(callback): return callback()
@@ -558,54 +549,17 @@ class FuncDecoratorTest(TestCase):
         r = func(lambda: 3)
         self.assertEqual(3, r)
 
-
-    def test_ambiguity_2(self):
-        self.skip_test("This was used to rewrite because it has every type of decorator")
-        import inspect
-
-#         class dec(Dec):
-#             def decorate_func(self, f, *args, **kwargs):
-#                 return f
-# 
-#             def decorate_class(self, c, *args, **kwargs):
-#                 pout.v(c, args, kwargs)
-#                 return c
-
-
-
+    def test_all_call_types(self):
+        """This was used to rewrite because it has every type of decorator, it
+        just makes sure all types of decorators can be called"""
         class dec(Decorator):
-#             def __init__(self, *args, **kwargs):
-#                 frames = inspect.stack()
-#                 #args, _, _, value_dict = inspect.getargvalues(frames[0][0])
-#                 #pout.v(args, value_dict)
-#                 pout.v(frames[1])
-#                 #pout.i(frames[1][0].f_code)
-
             def decorate_func(self, f, *args, **kwargs):
                 return f
 
             def decorate_class(self, c, *args, **kwargs):
-                #pout.v(c, args, kwargs)
                 return c
 
-
-#         class dec(Basedec):
-#             def __init__(self, *args, **kwargs):
-#                 super(dec, self).__init__(*args, **kwargs)
-
-
-
-#         @dec
-#         class Foo(object):
-#             pass
-#         f = Foo()
-#         return
-
-
-
-
-
-        pout.b("special cases")
+        #pout.b("special cases")
 
         @dec(
         )
@@ -619,7 +573,7 @@ class FuncDecoratorTest(TestCase):
         def func(): pass
         func()
 
-        pout.b("functions")
+        #pout.b("functions")
 
         @dec
         def func(): pass
@@ -633,8 +587,7 @@ class FuncDecoratorTest(TestCase):
         def func(): pass
         func()
 
-
-        pout.b("methods")
+        #pout.b("methods")
 
         class Foo(object):
             @dec
@@ -654,7 +607,7 @@ class FuncDecoratorTest(TestCase):
         f = Foo()
         f.func()
 
-        pout.b("classes")
+        #pout.b("classes")
 
         @dec
         class Foo(object):

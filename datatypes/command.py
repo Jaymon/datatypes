@@ -193,6 +193,7 @@ class SimpleCommand(object):
                 if arg_str:
                     if isinstance(arg_str, basestring):
                         cmd += " " + arg_str
+
                     else:
                         cmd += " ".join(arg_str)
 
@@ -201,6 +202,7 @@ class SimpleCommand(object):
                 if arg_str:
                     if isinstance(arg_str, basestring):
                         cmd.append(arg_str)
+
                     else:
                         cmd.extend(arg_str)
 
@@ -341,10 +343,10 @@ class Command(SimpleCommand):
         """terminate the script running asyncronously"""
         return self.finish("terminate", timeout=timeout)
 
-    def murder(self, timeout=1):
+    def murder(self, timeout=1, process_cmd=""):
         """use pkill to kill any process that matches self.process.args"""
-        process_cmd = self.process.args
-        cmd = self.create_cmd(["pkill", "-f", process_cmd], "")
+        process_cmd = process_cmd or self.process.args
+        cmd = self.create_cmd(["pkill", "-9", "-f", process_cmd], "")
         logger.debug("Murdering {}".format(process_cmd))
         subprocess.run(cmd, check=False)
         return self.wait(timeout)

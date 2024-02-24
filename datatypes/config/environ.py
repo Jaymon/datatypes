@@ -221,8 +221,8 @@ class Environ(Mapping):
     def nkeys(self, key):
         """This returns the actual environment variable names from * -> *_N
 
-        :param key: string, the name of the environment variables
-        :returns: generator, the found environment names
+        :param key: str, the name of the environment variables
+        :returns: generator[str], the found environment names
         """
         k = self.key(key)
         #if k in os.environ:
@@ -245,8 +245,8 @@ class Environ(Mapping):
                 n += 1
 
     def paths(self, key):
-        """splits the value at key by the path separator and yields each individual
-        path part
+        """splits the value at key by the path separator and yields each
+        individual path part
 
         splits each value using the path separator
 
