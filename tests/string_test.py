@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.string import (
@@ -10,6 +9,7 @@ from datatypes.string import (
     Codepoint,
     NamingConvention,
     EnglishWord,
+    Password,
 )
 
 from . import TestCase, testdata
@@ -68,7 +68,7 @@ class StringTest(TestCase):
         self.assertEqual("foo", s)
 
         s = String({"foo": 1})
-        self.assertEqual("{u'foo': 1}" if is_py2 else "{'foo': 1}", s)
+        self.assertEqual("{'foo': 1}", s)
 
         s = String((1, 2))
         self.assertEqual("(1, 2)", s)
@@ -439,4 +439,27 @@ class CodepointTest(TestCase):
 
         c = Codepoint("\u200D")
         self.assertEqual("200D", c.hex)
+
+
+class PasswordTest(TestCase):
+    def test_gensalt(self):
+        salt = Password.gensalt()
+        self.assertEqual(32, len(salt))
+
+    def test_genprefix(self):
+        salt = Password.gensalt()
+        prefix, pkwargs = Password.genprefix(salt)
+        self.assertEqual(1, prefix.count("."))
+        self.assertEqual(4, prefix.count("$"))
+
+    def test_hashpw(self):
+        pwhash = Password.hashpw("foo bar che")
+        self.assertEqual(1, pwhash.count("."))
+        self.assertEqual(4, pwhash.count("$"))
+
+    def test_checkpw(self):
+        pw = self.get_string()
+        pwhash = Password.hashpw(pw)
+        r = Password.checkpw(pw, pwhash)
+        self.assertTrue(r)
 

@@ -72,11 +72,28 @@ def quick_config(levels=None, **kwargs):
         level)
     :param **kwargs: key/val, these will be passed into logger.basicConfig
         method
+        * verbose_format: bool, pass in True to set the "format" key to a format
+            that contains a lot more information
     """
     levels = levels or {}
+    verbose = kwargs.pop("verbose_format", False)
 
     # configure root logger
-    kwargs.setdefault("format", "[%(levelname).1s] %(message)s")
+    if verbose:
+        kwargs.setdefault(
+            "format",
+            "|".join([
+                '[%(levelname).1s',
+                '%(asctime)s',
+                '%(process)d.%(thread)d',
+                '%(name)s', # logger name
+                '%(pathname)s:%(lineno)s] %(message)s',
+            ])
+        )
+
+    else:
+        kwargs.setdefault("format", "[%(levelname).1s] %(message)s")
+
     kwargs.setdefault("level", logging.DEBUG)
     kwargs.setdefault("stream", sys.stdout)
     logging.basicConfig(**kwargs)
@@ -170,6 +187,9 @@ def project_config(config=None, **kwargs):
     #         'paramiko': {
     #             'level': 'WARNING',
     #         },
+            'dsnparse': {
+                'level': 'INFO',
+            },
             'prom': {
                 #'level': 'CRITICAL',
                 #'level': 'WARNING',
@@ -194,6 +214,9 @@ def project_config(config=None, **kwargs):
             },
             'requests': {
                 'level': 'WARNING',
+            },
+            'asyncio': {
+                'level': 'INFO',
             },
         },
         'incremental': False,

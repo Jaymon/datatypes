@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import base64
 import hashlib
 import re
@@ -216,30 +215,33 @@ class String(Str, StringMixin):
         """64 character sh256 hash of the string"""
         return hashlib.sha256(self.bytes()).hexdigest()
 
-    def hash(self, key, name="sha256", nonce="", rounds=100000):
+    def hash(self, key="", name="sha256", nonce="", rounds=100000):
         """hash self with key and return the 64 byte hash
 
         This will produce the same hash if given the same key, it is designed to
         hash values with a dedicated key (password) and always produce the same
         hashed value if the same key (password) is always used.
 
-        IMPORTANT In order to have the same value the same value, key, name, and
-        nonce needs to be used, if you change any of these values then the hashes
-        will no longer be equivalent
+        NOTE -- In order to hash to the same value every time the same value,
+        key, name, and nonce needs to be used, if you change any of these values
+        then the hashes will no longer be equivalent
 
-        :param key: string, the key/salt/password for the hash
-        :param name: string, the hash to use, not required
-        :param nonce: string, the nonce to use for the value, not required
+        :param key: str, the key/salt/password for the hash
+        :param name: str, the hash to use, not required
+        :param nonce: str, the nonce to use for the value, not required
         :param rounds: int, the number of rounds to hash
-        :returns: string, 64 byte hex string
+        :returns: str, 64 character hex string if using the default name
+            sha256 value, it will be more or less if you change the name
         """
-        nonce = ByteString(nonce) if nonce else b""
+        # we cast to string first, then bytes, in case values are integers
+        nonce = String(nonce).bytes() if nonce else b""
+        key = String(key).bytes()
 
         # do the actual hashing
         h = hashlib.pbkdf2_hmac(
             name,
             nonce + self.bytes(),
-            String(key).bytes(), # we cast to string first, then bytes, in case key is an int
+            key,
             rounds
         )
         r = binascii.hexlify(h) # convert hash to easier to consume hex
@@ -1334,4 +1336,85 @@ class Ascii(String):
 
     def alphanum(self):
         return self.alnum()
+
+
+#import random
+import secrets
+import hashlib
+
+class Password(String):
+    """Standard library password hashing
+
+    the purpose of this is to allow reasonably secure password hashing using
+    only standard libraries with no third-party dependency
+
+    I had previously used bcrypt for many years, but the bcrypt docs now say:
+
+        Acceptable password hashing for your software and your servers (but you
+        should really use argon2id or scrypt)
+
+    So that's what I'm doing, specifically hashlib's scrypt implementation:
+
+        https://docs.python.org/3/library/hashlib.html#hashlib.scrypt
+    """
+    @classmethod
+    def hashpw(cls, password, salt="", **kwargs):
+        if len(password) > 1024:
+            raise ValueError("Password is too long")
+
+        salt = String(salt) or cls.gensalt(**kwargs)
+        prefix, pkwargs = cls.genprefix(salt, **kwargs) 
+        pwhash = cls.scrypt(password, **pkwargs)
+
+        return prefix + pwhash
+
+    @classmethod
+    def gensalt(cls, nbytes=32, **kwargs):
+        return "".join(secrets.choice(cls.ALPHANUMERIC) for i in range(nbytes))
+
+
+#         return secrets.token_hex(nbytes)
+#         r = random.SystemRandom()
+#         return int(r.getrandbits(size)).
+
+    @classmethod
+    def parse_prefix(cls, prefix):
+        parts = prefix.split("$")
+        pkwargs = {
+            "salt": parts[4],
+            "n": int(parts[1], 16),
+            "r": int(parts[2]),
+            "p": int(parts[3]),
+        }
+        pkwargs["maxmem"] = pkwargs["n"] * 2 * pkwargs["r"] * 65
+
+        return pkwargs
+
+    @classmethod
+    def checkpw(cls, password, hashpw):
+        prefix, haystack = hashpw.split(".", 1)
+        pkwargs = cls.parse_prefix(prefix)
+        needle = cls.scrypt(password, **pkwargs)
+        return needle == haystack
+
+    @classmethod
+    def genprefix(cls, salt, n=16384, r=8, p=1, **kwargs):
+        nhex = "{:X}".format(n)
+        prefix = f"${nhex}${r}${p}${salt}." 
+        pkwargs = {
+            "salt": salt,
+            "n": n,
+            "r": r,
+            "p": p,
+            # https://bugs.python.org/issue39979#msg364479
+            "maxmem": n * 2 * r * 65
+        }
+
+        return prefix, pkwargs
+
+    @classmethod
+    def scrypt(cls, password, salt, **kwargs):
+        password = ByteString(password)
+        salt = ByteString(salt)
+        return hashlib.scrypt(password, salt=salt, **kwargs).hex()
 
