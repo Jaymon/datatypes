@@ -1367,7 +1367,8 @@ class Password(String):
             than 1024 characters
         :param salt: str, the salt you want to use
         :param **kwargs: see .genprefix
-        :returns: str, a password hash
+        :returns: str, a password hash, using all the default values the hash
+            length should be 175 characters
         """
         if len(password) > 1024:
             raise ValueError("Password is too long")
@@ -1423,7 +1424,6 @@ class Password(String):
         pkwargs["maxmem"] = (
             pkwargs["n"] * 2 * pkwargs["r"] * (pkwargs["dklen"] + 1)
         )
-        #pkwargs["maxmem"] = 128 * pkwargs["n"] * pkwargs["r"] * pkwargs["p"]
 
         return pkwargs
 
@@ -1450,6 +1450,8 @@ class Password(String):
         :param r: int, block size (affects memory and CPU usage)
         :param p: int, parallelism factor (threads to run in parallel - affects
             the memory, CPU usage), usually 1
+        :param dklen: int, the key length in bytes. It is set to the default
+            of hashlib.scrypt
         :param **kwargs:
         :returns: tuple[str, dict[str, str|int]], the prefix string is meant to
             be prepended to the actual password hash to create the full pwhash.
@@ -1471,7 +1473,6 @@ class Password(String):
             "p": p,
             "dklen": dklen,
             # https://bugs.python.org/issue39979#msg364479
-            #"maxmem": 128 * n * r * p,
             "maxmem": n * 2 * r * (dklen + 1)
         }
 
