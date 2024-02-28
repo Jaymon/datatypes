@@ -450,12 +450,12 @@ class PasswordTest(TestCase):
         salt = Password.gensalt()
         prefix, pkwargs = Password.genprefix(salt)
         self.assertEqual(1, prefix.count("."))
-        self.assertEqual(4, prefix.count("$"))
+        self.assertEqual(5, prefix.count("$"))
 
     def test_hashpw(self):
         pwhash = Password.hashpw("foo bar che")
         self.assertEqual(1, pwhash.count("."))
-        self.assertEqual(4, pwhash.count("$"))
+        self.assertEqual(5, pwhash.count("$"))
 
     def test_checkpw(self):
         pw = self.get_string()

@@ -6,6 +6,7 @@ import string
 import binascii
 import unicodedata
 from distutils.fancy_getopt import wrap_text
+import secrets
 
 from .compat import *
 from .config.environ import environ
@@ -1338,10 +1339,6 @@ class Ascii(String):
         return self.alnum()
 
 
-#import random
-import secrets
-import hashlib
-
 class Password(String):
     """Standard library password hashing
 
@@ -1356,9 +1353,22 @@ class Password(String):
     So that's what I'm doing, specifically hashlib's scrypt implementation:
 
         https://docs.python.org/3/library/hashlib.html#hashlib.scrypt
+
+    You might want to install and use `passlib` instead, or raw `argon2`:
+
+        https://pypi.org/project/argon2-cffi/
     """
     @classmethod
     def hashpw(cls, password, salt="", **kwargs):
+        """The main method to turn plain text password into an obscured password
+        hash
+
+        :param password: str, the plain text password that should be shorter
+            than 1024 characters
+        :param salt: str, the salt you want to use
+        :param **kwargs: see .genprefix
+        :returns: str, a password hash
+        """
         if len(password) > 1024:
             raise ValueError("Password is too long")
 
@@ -1369,51 +1379,116 @@ class Password(String):
         return prefix + pwhash
 
     @classmethod
-    def gensalt(cls, nbytes=32, **kwargs):
-        return "".join(secrets.choice(cls.ALPHANUMERIC) for i in range(nbytes))
-
-
-#         return secrets.token_hex(nbytes)
-#         r = random.SystemRandom()
-#         return int(r.getrandbits(size)).
-
-    @classmethod
-    def parse_prefix(cls, prefix):
-        parts = prefix.split("$")
-        pkwargs = {
-            "salt": parts[4],
-            "n": int(parts[1], 16),
-            "r": int(parts[2]),
-            "p": int(parts[3]),
-        }
-        pkwargs["maxmem"] = pkwargs["n"] * 2 * pkwargs["r"] * 65
-
-        return pkwargs
-
-    @classmethod
     def checkpw(cls, password, hashpw):
+        """Compare plain text password to obscured hashpw
+
+        :param password: str, the plain text password
+        :param hashpw: str, the full obscured password returned from .hashpw
+        :returns: bool, True if password hashes to the same hash as hashpw
+        """
         prefix, haystack = hashpw.split(".", 1)
         pkwargs = cls.parse_prefix(prefix)
         needle = cls.scrypt(password, **pkwargs)
         return needle == haystack
 
     @classmethod
-    def genprefix(cls, salt, n=16384, r=8, p=1, **kwargs):
+    def gensalt(cls, nbytes=32, **kwargs):
+        """Semi-internal method. Generates nbytes of a random salt
+
+        https://docs.python.org/3/library/secrets.html#secrets.choice
+
+        :param nbytes: int, how many bytes you want
+        :param **kwargs: currently not used 
+        :returns: str, the random salt
+        """
+        return "".join(secrets.choice(cls.ALPHANUMERIC) for i in range(nbytes))
+
+    @classmethod
+    def parse_prefix(cls, prefix):
+        """Internal method. Given the prefix portion (everything to the left of
+        the period in a password hash generated with .hashpw) parse it to get
+        the scrypt values used to generate the right side of the hash
+
+        :param prefix: str, the left side of a hash from .hashpw
+        :returns: dict[str, str|int]
+        """
+        parts = prefix.split("$")
+        pkwargs = {
+            "salt": parts[5],
+            "n": int(parts[1], 16),
+            "r": int(parts[2]),
+            "p": int(parts[3]),
+            "dklen": int(parts[4], 16),
+        }
+        pkwargs["maxmem"] = (
+            pkwargs["n"] * 2 * pkwargs["r"] * (pkwargs["dklen"] + 1)
+        )
+        #pkwargs["maxmem"] = 128 * pkwargs["n"] * pkwargs["r"] * pkwargs["p"]
+
+        return pkwargs
+
+    @classmethod
+    def genprefix(cls, salt, n=16384, r=8, p=1, dklen=64, **kwargs):
+        """Internal method. Create a prefix that can be prepended to the hash
+        returned from .scrypt
+
+        This was useful in figuring out values for all the params:
+
+            https://stackoverflow.com/a/76446925
+
+        It included this snippet:
+
+            Sample parameters for interactive login: N=16384, r=8, p=1 (RAM = 2
+            MB). For interactive login you most probably do not want to wait
+            more than a 0.5 seconds, so the computations should be very slow.
+            Also at the server side, it is usual that many users can login in
+            the same time, so slow Scrypt computation will slow down the entire
+            system.
+
+        :param salt: str, the salt, usually generated using .gensalt
+        :param n: int, iterations count (affects memory and CPU usage)
+        :param r: int, block size (affects memory and CPU usage)
+        :param p: int, parallelism factor (threads to run in parallel - affects
+            the memory, CPU usage), usually 1
+        :param **kwargs:
+        :returns: tuple[str, dict[str, str|int]], the prefix string is meant to
+            be prepended to the actual password hash to create the full pwhash.
+            The prefix is in the form:
+
+                <TYPE>$...$<SALT>.
+
+            Where <TYPE> is `s` which stands for scrypt, the values between the
+            first and last $ are param values for hashing and they are separated
+            by $'s
+        """
         nhex = "{:X}".format(n)
-        prefix = f"${nhex}${r}${p}${salt}." 
+        dklenhex = "{:X}".format(dklen)
+        prefix = f"s${nhex}${r}${p}${dklenhex}${salt}."
         pkwargs = {
             "salt": salt,
             "n": n,
             "r": r,
             "p": p,
+            "dklen": dklen,
             # https://bugs.python.org/issue39979#msg364479
-            "maxmem": n * 2 * r * 65
+            #"maxmem": 128 * n * r * p,
+            "maxmem": n * 2 * r * (dklen + 1)
         }
 
         return prefix, pkwargs
 
     @classmethod
     def scrypt(cls, password, salt, **kwargs):
+        """Internal method. This is just a light wrapper around hashlib.scrypt
+
+        https://cryptobook.nakov.com/mac-and-key-derivation/scrypt
+
+        :param password: str, the plain text password
+        :param salt: str, usually generated using .gensalt
+        :param **kwargs: passed through to scrypt, this is usually the dict
+            returned from .genprefix or .parse_prefix
+        :returns: str, the raw scrypt hash in hex format
+        """
         password = ByteString(password)
         salt = ByteString(salt)
         return hashlib.scrypt(password, salt=salt, **kwargs).hex()

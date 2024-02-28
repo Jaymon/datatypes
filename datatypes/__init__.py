@@ -126,6 +126,7 @@ from .string import (
     Base64,
     NamingConvention,
     EnglishWord,
+    Password,
 )
 from .token import (
     # we don't import Token because it's too generic for toplevel, if you need it
