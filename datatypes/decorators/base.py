@@ -2,16 +2,16 @@
 import functools
 import inspect
 import re
-import logging
 
 
 from ..compat import *
+from .. import logging
 
 
 logger = logging.getLogger(__name__)
 
 
-class Decorator(object):
+class Decorator(logging.LogMixin):
     """A decorator class that you can be extended that allows you to do normal
     decorators with no arguments, or a decorator with arguments
 
@@ -38,6 +38,10 @@ class Decorator(object):
     """will hold either __new__ or __call__ depending on which of those contains
     the arg to wrap with the decorator as inferred by this class"""
 
+    @classmethod
+    def get_logger_instance(cls, *args, **kwargs):
+        return logger
+
     def __new__(cls, *args, **kwargs):
         instance = super().__new__(cls)
 
@@ -45,8 +49,10 @@ class Decorator(object):
         instance.decorator_kwargs = kwargs
 
         if instance.is_possible_wrap_call(*args, **kwargs):
-            functools.update_wrapper(instance, args[0], updated=())
+            #functools.update_wrapper(instance, args[0], updated=())
             if instance.is_class(args[0]):
+                instance.update_class_wrapper(instance, args[0])
+
                 instance.log("__new__ returning wrapped class")
                 try:
                     instance.wrapped_call = "__new__"
@@ -69,6 +75,9 @@ class Decorator(object):
                     # the decorators arguments
                     instance.log("__new__ failed ambiguous class wrap")
                     instance.wrapped_call = "__call__"
+
+            else:
+                instance.update_func_wrapper(instance, args[0])
 
         else:
             instance.log(
@@ -94,6 +103,67 @@ class Decorator(object):
     def is_wrappable(self, arg):
         return self.is_function(arg) or self.is_class(arg)
 
+    def update_func_wrapper(self, wrapper, wrapped):
+        wrapper.__orig_module__ = wrapper.__module__
+        wrapper.__orig_name__ = getattr(wrapper, "__name__", "<UNKNOWN>")
+        wrapper.__orig_qualname__ = getattr(
+            wrapper,
+            "__qualname__",
+            "<UNKNOWN>"
+        )
+        wrapper.__orig_doc__ = wrapper.__doc__
+        wrapper.__orig_decorator__ = self
+
+        # https://docs.python.org/3/library/functools.html#functools.update_wrapper
+        functools.update_wrapper(wrapper, wrapped, updated=())
+
+    def update_class_wrapper(self, wrapper, wrapped):
+
+        wrapper.__orig_module__ = wrapper.__module__
+        wrapper.__orig_doc__ = wrapper.__doc__
+        wrapper.__orig_decorator__ = self
+
+        if isinstance(wrapper, type):
+            wrapper.__orig_name__ = wrapper.__name__
+            wrapper.__orig_qualname__ = wrapper.__qualname__
+
+        else:
+            wrapper.__orig_name__ = wrapper.__class__.__name__
+            wrapper.__orig_qualname__ = wrapper.__class__.__qualname__
+
+        functools.update_wrapper(wrapper, wrapped, updated=())
+
+#         wrapper.__name__ = wrapped.__name__
+#         wrapper.__module__ = wrapped.__module__
+#         wrapper.__doc__ = wrapped.__doc__
+#         wrapper.__wrapped__ = wrapped
+
+    def wrap(self, wrapped, *decorator_args, **decorator_kwargs):
+        if self.is_function(wrapped):
+            self.log("Calling decorate_func()")
+            ret = self.decorate_func(
+                wrapped,
+                *decorator_args,
+                **decorator_kwargs
+            )
+
+            self.update_func_wrapper(ret, wrapped)
+
+        elif self.is_class(wrapped):
+            self.log("Calling decorate_class()")
+            ret = self.decorate_class(
+                wrapped,
+                *decorator_args,
+                **decorator_kwargs
+            )
+
+            self.update_class_wrapper(ret, wrapped)
+
+        else:
+            raise ValueError("wrapped is not a class or a function")
+
+        return ret
+
     def __get__(self, instance, instance_class):
         """
         having this method here turns the class into a descriptor used when
@@ -107,12 +177,21 @@ class Decorator(object):
         # we now know the __new__ call was a wrap_call and there are no
         # decorator arguments
         wrapped = self.decorator_args[0]
+        inner_wrapper = self.decorate_func(wrapped)
+        self.update_func_wrapper(inner_wrapper, wrapped)
         self.wrapped_call = "__new__"
 
-        def wrapper(*args, **kwargs):
-            return self.decorate_func(wrapped)(instance, *args, **kwargs)
-        functools.update_wrapper(wrapper, wrapped, updated=())
-        return wrapper
+        if inspect.iscoroutinefunction(inner_wrapper):
+            async def outer_wrapper(*args, **kwargs):
+                return await inner_wrapper(instance, *args, **kwargs)
+
+        else:
+            def outer_wrapper(*args, **kwargs):
+                return inner_wrapper(instance, *args, **kwargs)
+
+        self.update_func_wrapper(outer_wrapper, inner_wrapper)
+
+        return outer_wrapper
 
     def __call__(self, *args, **kwargs):
         """call is used when there are (...) on the decorator or when there are
@@ -214,83 +293,39 @@ class Decorator(object):
 
         return ret
 
-    def wrap(self, wrapped, *decorator_args, **decorator_kwargs):
-        if self.is_function(wrapped):
-            self.log("Calling decorate_func()")
-            ret = self.decorate_func(
-                wrapped,
-                *decorator_args,
-                **decorator_kwargs
-            )
-
-            ret.__orig_module__ = ret.__module__
-            ret.__orig_name__ = getattr(ret, "__name__", "<UNKNOWN>")
-            ret.__orig_qualname__ = getattr(ret, "__qualname__", "<UNKNOWN>")
-            ret.__orig_doc__ = ret.__doc__
-            ret.__orig_decorator__ = self
-
-            # https://docs.python.org/3/library/functools.html#functools.update_wrapper
-            functools.update_wrapper(ret, wrapped, updated=())
-
-        elif self.is_class(wrapped):
-            self.log("Calling decorate_class()")
-            ret = self.decorate_class(
-                wrapped,
-                *decorator_args,
-                **decorator_kwargs
-            )
-
-            ret.__orig_module__ = ret.__module__
-            ret.__orig_name__ = ret.__name__
-            ret.__orig_qualname__ = ret.__qualname__
-            ret.__orig_doc__ = ret.__doc__
-            ret.__orig_decorator__ = self
-
-            ret.__name__ = wrapped.__name__
-            ret.__module__ = wrapped.__module__
-            #ret.__class__ = wrapped.__class__
-            ret.__doc__ = wrapped.__doc__
-            ret.__wrapped__ = wrapped
-            # http://bugs.python.org/issue12773
-
-        else:
-            raise ValueError("wrapped is not a class or a function")
-
-        return ret
-
-    def log(self, format_str, *format_args, **log_options):
-        """wrapper around the module's logger
-
-        :param format_str: string, the message to log
-        :param *format_args: list, if format_str is a string containing {}, then
-            format_str.format(*format_args) is ran
-        :param **log_options: 
-            level -- something like logging.DEBUG
-            prefix -- will be prepended to format_str, defaults to
-                [<CLASS_NAME>]
-            exc_info -- boolean, passed to the logger to log stack trace
-        """
-        if isinstance(format_str, Exception):
-            logger.exception(format_str, *format_args)
-        else:
-            log_level = log_options.pop('level', logging.DEBUG)
-            if log_level not in logging._levelToName:
-                log_level = logging._nameToLevel.get(log_level.upper())
-
-            if logger.isEnabledFor(log_level):
-                log_prefix = log_options.pop(
-                    'prefix', "[{}]".format(self.__class__.__name__)
-                )
-                format_str = "{} {}".format(log_prefix, format_str)
-                if format_args:
-                    logger.log(
-                        log_level,
-                        format_str.format(*format_args),
-                        **log_options
-                    )
-
-                else:
-                    logger.log(log_level, format_str, **log_options)
+#     def log(self, format_str, *format_args, **log_options):
+#         """wrapper around the module's logger
+# 
+#         :param format_str: string, the message to log
+#         :param *format_args: list, if format_str is a string containing {}, then
+#             format_str.format(*format_args) is ran
+#         :param **log_options: 
+#             level -- something like logging.DEBUG
+#             prefix -- will be prepended to format_str, defaults to
+#                 [<CLASS_NAME>]
+#             exc_info -- boolean, passed to the logger to log stack trace
+#         """
+#         if isinstance(format_str, Exception):
+#             logger.exception(format_str, *format_args)
+#         else:
+#             log_level = log_options.pop('level', logging.DEBUG)
+#             if log_level not in logging._levelToName:
+#                 log_level = logging._nameToLevel.get(log_level.upper())
+# 
+#             if logger.isEnabledFor(log_level):
+#                 log_prefix = log_options.pop(
+#                     'prefix', "[{}]".format(self.__class__.__name__)
+#                 )
+#                 format_str = "{} {}".format(log_prefix, format_str)
+#                 if format_args:
+#                     logger.log(
+#                         log_level,
+#                         format_str.format(*format_args),
+#                         **log_options
+#                     )
+# 
+#                 else:
+#                     logger.log(log_level, format_str, **log_options)
 
 
     def decorate_func(self, func, *decorator_args, **decorator_kwargs):
@@ -358,13 +393,6 @@ class InstanceDecorator(Decorator):
                 )
 
         return ChildClass
-#         decorate_class = ChildClass
-#         decorate_class.__name__ = wrapped_class.__name__
-#         decorate_class.__module__ = wrapped_class.__module__
-#         decorate_class.__doc__ = wrapped_class.__doc__
-        # http://bugs.python.org/issue12773
-# 
-#         return decorate_class
 
 
 class ClassDecorator(Decorator):

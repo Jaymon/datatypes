@@ -8,7 +8,7 @@ from datatypes.decorators.base import (
     Decorator,
 )
 
-from . import TestCase, testdata
+from . import TestCase, IsolatedAsyncioTestCase
 
 
 class DecoratorTest(TestCase):
@@ -150,7 +150,7 @@ class ClassDecoratorTest(TestCase):
         b = Bar() # this shouldn't error, if it does we failed
 
 
-class FuncDecoratorTest(TestCase):
+class FuncDecoratorTest(IsolatedAsyncioTestCase):
     def test_classmethod(self):
         class dm(FuncDecorator):
             def decorate(self, func, *dc_args, **dc_kwargs):
@@ -561,8 +561,7 @@ class FuncDecoratorTest(TestCase):
 
         #pout.b("special cases")
 
-        @dec(
-        )
+        @dec()
         def func(): pass
         func()
 
@@ -624,4 +623,20 @@ class FuncDecoratorTest(TestCase):
         class Foo(object):
             pass
         f = Foo()
+
+    async def test_no_call_on_async_method(self):
+        class dec(FuncDecorator):
+            def decorate(self, f):
+                async def wrapped(*args, **kwargs):
+                    return f(*args, **kwargs)
+                return wrapped
+
+        class MockObject(object):
+            @dec
+            def foo(self):
+                return 1
+
+        o = MockObject()
+        self.assertTrue(inspect.iscoroutinefunction(o.foo))
+        self.assertEqual(1, await o.foo())
 

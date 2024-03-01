@@ -244,19 +244,31 @@ class Environ(Mapping):
             finally:
                 n += 1
 
-    def paths(self, key):
+    def paths(self, key, sep=None):
         """splits the value at key by the path separator and yields each
         individual path part
 
         splits each value using the path separator
 
         :param key: str, the key
+        :param sep: str, the value to split on, defaults to the OS's underlying
+            path separator
         :returns: generator, each part of the value found at key
         """
-        sep = os.pathsep
         for paths in self.nget(key):
-            for p in paths.split(sep):
+            for p in self.split_value(paths, sep=sep):
                 yield p
+
+    def split_value(self, value, sep=None):
+        """Split value using sep, sep defaults to the os path separator
+
+        :param value: str, the value to split
+        :param sep: str, the value to split on, defaults to the OS's underlying
+            path separator
+        :returns: list[str]
+        """
+        sep = sep or os.pathsep
+        return value.split(sep)
 
     def has(self, key):
         """Return True if key is in the environment

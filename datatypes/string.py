@@ -711,12 +711,12 @@ class EnglishWord(String):
 
         the purpose of this method is not to be right 100% of the time but to be
         good enough for my purposes, for example, it won't return words that
-        have the same singular and plural, so it would return sheeps for sheep, this
-        is because I usually need the plural to be different. If that isn't the case
-        in the future I should pass a flag in to keep that "always different"
-        functionality
+        have the same singular and plural, so it would return sheeps for sheep,
+        this is because I usually need the plural to be different. If that isn't
+        the case in the future I should pass a flag in to keep that "always
+        different" functionality
 
-        teh algo is based off of this:
+        the algo is based off of this:
             https://www.grammarly.com/blog/plural-nouns/
 
         :returns: string, the plural version of the word
@@ -760,6 +760,7 @@ class EnglishWord(String):
         elif v[-1] == "f":
             if v in set(["roof", "belief", "chef", "chief"]):
                 plural = singular + "s"
+
             else:
                 plural = singular[:-1] + "ves"
 
@@ -769,6 +770,10 @@ class EnglishWord(String):
         elif v[-1] == "o":
             if v in set(["photo", "piano", "halo", "volcano"]):
                 plural = singular + "s"
+
+            elif v.endswith("oo"):
+                plural = singular + "s"
+
             else:
                 plural = singular + "es"
 

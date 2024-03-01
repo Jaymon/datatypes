@@ -9,7 +9,7 @@ from datatypes.utils import (
     infer_type,
 )
 
-from . import TestCase, testdata
+from . import TestCase, IsolatedAsyncioTestCase
 
 
 class CBAnyTest(TestCase):
@@ -53,7 +53,7 @@ class MakeListTest(TestCase):
         r = make_list("foo")
         self.assertEqual(["foo"], r)
 
-        r = make_list(testdata.get_past_datetime())
+        r = make_list(self.get_past_datetime())
         self.assertEqual(1, len(r))
 
 
