@@ -16,6 +16,12 @@ from . import TestCase, testdata
 
 
 class OrderedSubclassesTest(TestCase):
+    """
+    NOTE -- I've learned that this is now an incredibly difficult class to test
+    because it is a vital class to testdata, so if it starts failing then you
+    can't even get to the test because testdata will raise an error as it starts
+    up
+    """
     def test_edges_1(self):
         class Base(object): pass
         class Foo(Base): pass
@@ -83,6 +89,71 @@ class OrderedSubclassesTest(TestCase):
         edges = set(scs.edges())
         self.assertEqual(2, len(edges))
         self.assertFalse(Bar in edges)
+
+    def test_insert_1(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Foo): pass
+        class Che(Bar): pass
+
+        called = {
+            "_insert_sub": 0,
+            "_insert_edge": 0
+        }
+
+        class MockSubclasses(OrderedSubclasses):
+            def _insert(self, klass, klass_info):
+                super()._insert(klass, klass_info)
+                if klass_info["edge"]:
+                    called["_insert_edge"] += 1 
+
+                else:
+                    called["_insert_sub"] += 1 
+
+        scs = MockSubclasses()
+        scs.insert(Bar)
+        scs.insert(Foo)
+        scs.insert(Che)
+        scs.insert(Bar)
+
+        self.assertEqual(2, called["_insert_edge"])
+
+    def test_insert_2(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Foo): pass
+        class Che(Bar): pass
+
+        class MockSubclasses(OrderedSubclasses):
+            def get_child_counts(self):
+                d = {}
+                for classpath, info in self.info.items():
+                    d[classpath] = info["child_count"]
+                return d
+
+        ocs = MockSubclasses(
+            classes=[Base, Foo, Bar, Che],
+            cutoff_classes=(Base,)
+        )
+        info = ocs.get_child_counts()
+
+        ocs.insert(Bar)
+        info2 = ocs.get_child_counts()
+        self.assertEqual(info, info2)
+
+    def test_order(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Foo): pass
+        class Che(Bar): pass
+
+        order = [Che, Bar, Foo, Base, object]
+
+        ocs = OrderedSubclasses(classes=[Base, Foo, Bar, Che])
+        self.assertEqual(order, list(ocs))
+
+        ocs = OrderedSubclasses(classes=[Che, Bar, Foo, Base])
+        self.assertEqual(order, list(ocs))
 
 
 class ExtendTest(TestCase):
