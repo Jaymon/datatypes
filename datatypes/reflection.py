@@ -55,115 +55,19 @@ class OrderedSubclasses(list):
         for klass in classes:
             self.insert(klass)
 
-#     def _insert_info(self, index, index_name, child_count):
-#         """Internal method called from the other ._insert_* methods when a class
-#         is inserted.
-# 
-#         :param index: int, where in the list the class is being inserted
-#         :param index_name: str, the name to use to find the class in the .info
-#             dictionary
-#         :param child_count: int, how many children the class now has
-#         :returns: bool, True if info was inserted, False if info was updated,
-#             basically returns True if an insert should happen, False if the
-#             class already is present
-#         """
-#         if index_name in self.info:
-#             self.info[index_name]["child_count"] = child_count
-#             return False
-# 
-#         else:
-#             self.info[index_name] = {
-#                 # children should be inserted at least before this index
-#                 "index": index,
-#                 # how many children in self
-#                 "child_count": child_count,
-#             }
-# 
-#             return True
-# 
-#     def _insert_sub(self, klass, index, index_name, child_count):
-#         """Internal method called from .insert when a sub class is being
-#         inserted.
-# 
-#         :param index: see ._insert_info
-#         :param index_name: see ._insert_name
-#         :param klass: type, the class being inserted
-#         :param child_count: see ._insert_name
-#         """
-#         if self._insert_info(index, index_name, child_count):
-#             super().insert(index, klass)
-# 
-#     def _insert_edge(self, klass, klass_info):
-#         """Internal method called from .insert when an edge class is being
-#         inserted.
-# 
-#         This is broken out because sometimes you might want to do something else
-#         to an edge class rather than a parent class
-# 
-#         :param index: see ._insert_info
-#         :param index_name: see ._insert_name
-#         :param klass: type, the class being inserted
-#         :param child_count: see ._insert_name
-#         """
-#         if klass_info["in_info"]:
-#             self._update_info(klass_info)
-# 
-#         else:
-#             self._insert_info(klass_info)
-#             super().insert(index, klass)
-# 
-# 
-# 
-#         if self._insert_info(index, index_name, child_count):
-#             super().insert(index, klass)
-
-#     def _update_info(self, klass_info):
-#         """Internal method called from the other ._insert_* methods when a class
-#         is inserted.
-# 
-#         :param index: int, where in the list the class is being inserted
-#         :param index_name: str, the name to use to find the class in the .info
-#             dictionary
-#         :param child_count: int, how many children the class now has
-#         :returns: bool, True if info was inserted, False if info was updated,
-#             basically returns True if an insert should happen, False if the
-#             class already is present
-#         """
-#         child_count
-#         self.info[klass_info["index_name"]]["child_count"] += child_count
-#             return False
-# 
-# 
-#     def _insert_info(self, klass_info):
-#         """Internal method called from the other ._insert_* methods when a class
-#         is inserted.
-# 
-#         :param index: int, where in the list the class is being inserted
-#         :param index_name: str, the name to use to find the class in the .info
-#             dictionary
-#         :param child_count: int, how many children the class now has
-#         :returns: bool, True if info was inserted, False if info was updated,
-#             basically returns True if an insert should happen, False if the
-#             class already is present
-#         """
-#         self.info[klass_info["index_name"]] = {
-#             # children should be inserted at least before this index
-#             "index": klass_info["index"],
-#             # how many children in self
-#             "child_count": klass_info["child_count"],
-#         }
-
     def _insert(self, klass, klass_info):
-        """Internal method called from .insert when an edge class is being
-        inserted.
+        """Internal method called from .insert for the klass and all subclasses
+        when klass is being inserted
 
-        This is broken out because sometimes you might want to do something else
-        to an edge class rather than a parent class
-
-        :param index: see ._insert_info
-        :param index_name: see ._insert_name
         :param klass: type, the class being inserted
-        :param child_count: see ._insert_name
+        :param klass_info: dict
+            * index: int, klass should be inserted at or before this value in
+                order to make sure it comes before all its parents
+            * index_name: str, the full classpath of klass
+            * child_count: int, how many children this class should start with
+                if info is being added
+            * in_info: bool, True if klass info is already in .info
+            * edge: bool, True if klass is considered an edge class
         """
         if not klass_info["in_info"]:
             self.info[klass_info["index_name"]] = {
@@ -179,17 +83,6 @@ class OrderedSubclasses(list):
 
             super().insert(klass_info["index"], klass)
 
-
-#         if klass_info["in_info"]:
-#             self._update_info(klass_info)
-# 
-#         else:
-#             self._insert_info(klass_info)
-#             super().insert(index, klass)
-
-
-
-
     def insert(self, klass, cutoff_classes=None):
         """Insert class into the ordered list
 
@@ -199,92 +92,6 @@ class OrderedSubclasses(list):
         """
         for klass, klass_info in self._subclasses(klass, cutoff_classes):
             self._insert(klass, klass_info)
-
-#             if sc_info["child_count"]:
-#                 self._insert_sub(sc_info["klass"], sc_info)
-# 
-#             else:
-#                 self._insert_edge(sc_info["klass"], sc_info)
-
-
-#     def xxinsert(self, klass, cutoff_classes=None):
-#         """Insert class into the ordered list
-# 
-#         :param klass: the class to add to the ordered list, this klass will come
-#             before all its parents in the list (this class and its parents will
-#             be added to the list up to .cutoff_classes)
-#         """
-#         index = len(self)
-#         subclasses = self._subclasses(klass, cutoff_classes)
-# 
-#         for index_name, subclass, child_count in subclasses:
-#             if index_name in self.info:
-#                 self.info[index_name]["child_count"] += 1
-#                 index = min(index, self.info[index_name]["index"])
-# 
-#             else:
-#                 self.info[index_name] = {
-#                     # children should be inserted at least before this index
-#                     "index": len(self),
-#                     # how many children in self
-#                     "child_count": child_count,
-#                 }
-# 
-#                 super().insert(index, subclass)
-# 
-# 
-#     def xinsert(self, klass, cutoff_classes=None):
-#         """Insert class into the ordered list
-# 
-#         :param klass: the class to add to the ordered list, this klass will come
-#             before all its parents in the list (this class and its parents will
-#             be added to the list up to .cutoff_classes)
-#         """
-#         index = len(self)
-#         subclasses = self._subclasses(klass, cutoff_classes)
-# 
-#         for index_name, subclass, child_count in subclasses:
-#             if index_name in self.info:
-#                 index = min(index, self.info[index_name]["index"])
-# 
-#                 self._insert_sub(
-#                     subclass,
-#                     index=index,
-#                     index_name=index_name,
-#                     child_count=self.info[index_name]["child_count"] + 1
-#                 )
-# 
-# #                 pout.v(f"{index_name} is in index")
-# #                 self.info[index_name]["child_count"] += 1
-# #                 index = min(index, self.info[index_name]["index"])
-# 
-#             else:
-#                 if child_count > 0:
-#                     self._insert_sub(
-#                         subclass,
-#                         index=len(self),
-#                         index_name=index_name,
-#                         child_count=child_count
-#                     )
-# 
-#                 else:
-#                     self._insert_edge(
-#                         subclass,
-#                         index=len(self),
-#                         index_name=index_name,
-#                         child_count=child_count
-#                     )
-# 
-# 
-# #                 pout.v(f"{index_name} is NEW")
-# #                 self.info[index_name] = {
-# #                     # children should be inserted at least before this index
-# #                     "index": len(self),
-# #                     # how many children in self
-# #                     "child_count": child_count,
-# #                 }
-# # 
-# #                 super().insert(index, subclass)
 
     def insert_module(self, module, cutoff_classes=None):
         """Insert any classes of module into the list
@@ -436,8 +243,8 @@ class OrderedSubclasses(list):
         """Internal method used in both .insert and .remove
 
         :param klass: type, the class we want to get all the subclasses of
-        :returns: generator[str, type, int], each item yielded is a tuple of the
-            full classpath, the class object, and the child count. That means
+        :returns: generator[type, dict], each item yielded is a tuple of the
+            the class object, and information about the class. That means
             the edge (the tuple equivalent to passed in klass) will have a
             child count of 0 and will be the last tuple yielded since we go
             from earliest ancestor to current klass
@@ -467,12 +274,6 @@ class OrderedSubclasses(list):
                 else:
                     d["descendants"] = list(descendants)
 
-
-#                     d["index"] = index
-# 
-#                 else:
-#                     d["index"] = index_max
-
                 d["index"] = index
 
                 if not d["in_info"] and not d["child_count"]:
@@ -481,8 +282,6 @@ class OrderedSubclasses(list):
                 yield subclass, d
 
                 descendants.append(d)
-
-                #yield index_name, subclass, child_count - offset
 
     def clear(self):
         super().clear()
