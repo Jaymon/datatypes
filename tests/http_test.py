@@ -193,6 +193,49 @@ class HTTPHeadersTest(TestCase):
         self.assertTrue(h.is_plain())
         self.assertFalse(h.is_json())
 
+    def test_multiple(self):
+        h = HTTPHeaders()
+
+        h.update({
+            "content-type": "application/json",
+        })
+
+        h.update({
+            "content-type": "application/json+2",
+        })
+
+        h.update({
+            "content-type": "application/json+3",
+        })
+
+        vs = h.get_all("content-type")
+        self.assertEqual(1, len(vs))
+        self.assertTrue("json+3" in vs[0])
+
+        h.set_header("content-type", "application/json+4")
+        vs = h.get_all("content-type")
+        self.assertEqual(1, len(vs))
+        self.assertTrue("json+4" in vs[0])
+
+        h.add_header("content-type", "application/json+5")
+        vs = h.get_all("content-type")
+        self.assertEqual(2, len(vs))
+
+        h.set_header("content-type", "application/json+6")
+        vs = h.get_all("content-type")
+        self.assertEqual(1, len(vs))
+
+    def test_delete_header(self):
+        h = HTTPHeaders()
+
+        h.delete_header("content-type")
+
+        h.set_header("content-type", "text/plain")
+        self.assertTrue(h.has_header("content-type"))
+
+        h.delete_header("content-type")
+        self.assertFalse(h.has_header("content-type"))
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):

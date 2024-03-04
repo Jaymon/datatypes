@@ -94,6 +94,10 @@ class HTTPHeaders(BaseHeaders, Mapping):
         return String(v).raw()
 
     def get_all(self, name):
+        """Get all the values for name
+
+        :returns: list[str], any set values for name
+        """
         name = self._convert_string_name(name)
         return super().get_all(name)
 
@@ -129,25 +133,47 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
     def __delitem__(self, name):
         name = self._convert_string_name(name)
-        return super(HTTPHeaders, self).__delitem__(name)
+        return super().__delitem__(name)
 
     def __setitem__(self, name, val):
         name = self._convert_string_name(name)
-        if is_py2:
-            val = self._convert_string_type(val)
-        return super(HTTPHeaders, self).__setitem__(name, val)
+        return super().__setitem__(name, val)
 
     def setdefault(self, name, val):
         name = self._convert_string_name(name)
-        if is_py2:
-            val = self._convert_string_type(val)
-        return super(HTTPHeaders, self).setdefault(name, val)
+        return super().setdefault(name, val)
 
     def add_header(self, name, val, **params):
+        """This is additive, meaning if name already exists then another row
+        will be added containing val
+
+        :param name: str, the header name/key
+        :param val: str, the header value
+        :param **params: these can be added as header variables to val
+        """
         name = self._convert_string_name(name)
-        if is_py2:
-            val = self._convert_string_type(val)
-        return super(HTTPHeaders, self).add_header(name, val, **params)
+        return super().add_header(name, val, **params)
+
+    def set_header(self, name, val, **params):
+        """This completely replaces any currently set value of name with val
+
+        :param name: str, the header name/key
+        :param val: str, the header value
+        :param **params: these can be added as header variables to val
+        """
+        self.delete_header(name)
+        self.add_header(name, val, **params)
+
+    def delete_header(self, name):
+        """Remove header name"""
+        del self[name]
+
+    def has_header(self, name):
+        return name in self
+
+    def __contains__(self, name):
+        name = self._convert_string_name(name)
+        return super().__contains__(name)
 
     def keys(self):
         return [k for k, v in self._headers]
@@ -198,8 +224,10 @@ class HTTPHeaders(BaseHeaders, Mapping):
         if val is None:
             if args:
                 val = args[0]
+
             elif "default" in kwargs:
                 val = kwargs["default"]
+
             else:
                 raise KeyError(name)
 
@@ -208,8 +236,18 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
         return val
 
-    def update(self, headers, **kwargs):
-        if not headers: headers = {}
+    def update(self, headers=None, **kwargs):
+        """This replaces headers currently in the instance with those found in
+        headers. This is not additive, the value at key in headers will
+        completely replace any value currently set
+
+        :param headers: dict[str, str], the key is the name and the value is the
+            value that will be set for name
+        :param **kwargs: these can be name=val keywords
+        """
+        if not headers:
+            headers = {}
+
         if isinstance(headers, Mapping):
             headers.update(kwargs)
             headers = headers.items()
@@ -227,7 +265,7 @@ class HTTPHeaders(BaseHeaders, Mapping):
     def copy(self):
         return Deepcopy().copy(self)
 
-    def list(self):
+    def tolist(self):
         """Return all the headers as a list of headers instead of a dict"""
         return [": ".join(h) for h in self.items() if h[1]]
 
