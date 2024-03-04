@@ -473,6 +473,58 @@ class ReflectPath(Path):
 
         raise ""
 
+    def find_modules(self, fileroot, depth=2, submodules=True):
+        """Iterate any `fileroot` modules found in .path
+
+        This method incorporates this functionality:
+
+        * https://github.com/Jaymon/endpoints/issues/87
+        * https://github.com/Jaymon/endpoints/issues/123
+
+        It was moved here on 3-3-2024 because I wanted to use this in prom
+        also so I needed it in a common library
+
+        How this works is by finding sys.path (PYTHONPATH) paths that are
+        located in .path and then checking those to depth looking for fileroot
+
+        :param fileroot: str, the module name, this is using the fileroot
+            nomenclature because it can be module path (eg `foo.bar`) and it
+            shouldn't have an extension either (eg, `foo.py`)
+        :param depth: int, how many folders deep you want to look
+        :param submodules: bool, True if you want to iterate modules matching
+            fileroot and all their submodules also
+        :returns: generator[ModuleType]
+        """
+        path = self.path
+
+        for p in (Dirpath(p) for p in sys.path):
+            if p.is_relative_to(path):
+                dirparts = p.relative_parts(path)
+
+                piter = p.iterator
+                # we only want to look depth folders deep
+                piter.depth(depth)
+                # ignore any folders that begin with an underscore or period
+                piter.nin_basename(regex=r"^[_\.]")
+                # we only want dir/file fileroots with this name
+                piter.eq_fileroot(fileroot)
+
+                for sp in piter:
+                    modparts = sp.parent.relative_parts(path)
+                    # trim the directory parts of our module path so we have
+                    # a real module path we can import
+                    modparts = modparts[len(dirparts):]
+                    modparts.append(sp.fileroot)
+                    prefix = ".".join(modparts)
+
+                    rm = ReflectModule(prefix)
+                    if submodules:
+                        for m in rm.get_modules():
+                            yield m
+
+                    else:
+                        yield rm.get_module()
+
 
 class ReflectName(String):
     """A relfection object similar to python's built-in resolve_name

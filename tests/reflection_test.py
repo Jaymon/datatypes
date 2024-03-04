@@ -10,6 +10,7 @@ from datatypes.reflection import (
     ReflectMethod,
     ReflectDecorator,
     OrderedSubclasses,
+    ReflectPath,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
@@ -708,4 +709,64 @@ class ReflectModuleTest(TestCase):
         ])
         for p in rm.data_dirs():
             self.assertTrue(p.relative_to(dp) in nr)
+
+
+class ReflectPathTest(TestCase):
+    def test_find_modules_1(self):
+        modpath = self.get_module_name(count=2, name="controllers")
+        basedir = self.create_modules({
+            modpath: {
+                "bar": "",
+                "che": {
+                    "boo": "",
+                },
+            },
+        })
+
+        p = ReflectPath(basedir)
+
+        modpaths = set([
+            modpath,
+            f"{modpath}.che",
+            f"{modpath}.che.boo",
+            f"{modpath}.bar",
+        ])
+
+        modpaths2 = set()
+        for m in p.find_modules("controllers"):
+            modpaths2.add(m.__name__)
+        self.assertEqual(modpaths, modpaths2)
+
+    def test_find_modules_2(self):
+        """test non-python module subpath (eg, pass in foo/ as the paths and
+        then have foo/bin/MODULE/controllers.py where foo/bin is not a module
+        """
+        cwd = self.create_dir()
+        modpath = self.get_module_name(count=2, name="controllers")
+
+        basedir = self.create_modules(
+            {
+                modpath: {
+                    "bar": "",
+                    "che": {
+                        "boo": "",
+                    },
+                },
+            },
+            tmpdir=cwd.child_dir("src")
+        )
+
+        p = ReflectPath(cwd)
+
+        modpaths = set([
+            modpath,
+            f"{modpath}.che",
+            f"{modpath}.che.boo",
+            f"{modpath}.bar",
+        ])
+
+        modpaths2 = set()
+        for m in p.find_modules("controllers"):
+            modpaths2.add(m.__name__)
+        self.assertEqual(modpaths, modpaths2)
 
