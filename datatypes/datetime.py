@@ -281,7 +281,7 @@ class Datetime(datetime.datetime):
             print(ms) # 12
             print(us) # 345
             print(mstr) # "012"
-            print(ustr) # # "000345"
+            print(ustr) # "345"
 
         :param subseconds: int|str, usually a 6-digit integer but can be a six
             digit string
@@ -298,10 +298,13 @@ class Datetime(datetime.datetime):
             micros = 0
 
         # make sure each part is 3 digits by zero padding on the right
-        millis_str = "{:0<3.3}".format(millis) if millis else "000"
-        micros_str = "{:0<3.3}".format(micros) if micros else "000"
+        millis_str = millis.ljust(3, "0") if millis else "000"
+        micros_str = micros.ljust(3, "0") if micros else "000"
 
-        return int(millis), int(micros), millis_str, micros_str
+        #millis_str = "{:0<3.3}".format(millis) if millis else "000"
+        #micros_str = "{:0<3.3}".format(micros) if micros else "000"
+
+        return int(millis_str), int(micros_str), millis_str, micros_str
 
     @classmethod
     def parse_seconds(cls, seconds):

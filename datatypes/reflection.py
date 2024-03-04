@@ -257,7 +257,7 @@ class OrderedSubclasses(list):
         descendants = []
 
         for offset, subclass in enumerate(reversed(klasses), 1):
-            if issubclass(subclass, cutoff_classes):
+            if self._is_valid_subclass(subclass, cutoff_classes):
                 rc = ReflectClass(subclass)
                 index_name = rc.classpath
 
@@ -282,6 +282,16 @@ class OrderedSubclasses(list):
                 yield subclass, d
 
                 descendants.append(d)
+
+    def _is_valid_subclass(self, klass, cutoff_classes):
+        """Return True if klass is a valid subclass that should be iterated
+        in ._subclasses
+
+        :param klass: type, the class to check
+        :param tuple[type], the cutoff classes returned from .get_cutoff
+        :returns: bool, True if klass should be yield by ._subclasses
+        """
+        return issubclass(klass, cutoff_classes)
 
     def clear(self):
         super().clear()

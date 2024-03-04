@@ -576,3 +576,17 @@ class DatetimeTest(TestCase):
         self.assertEqual(0, td.days)
         self.assertEqual(0, td.microseconds)
 
+    def test_parse_subseconds(self):
+        #parts is: ms, us, mstr, ustr
+        parts = Datetime.parse_subseconds("123456")
+        self.assertEqual(123, parts[0])
+        self.assertEqual(456, parts[1])
+
+        parts = Datetime.parse_subseconds("0205")
+        self.assertEqual(20, parts[0])
+        self.assertEqual(500, parts[1])
+
+        parts = Datetime.parse_subseconds("00005")
+        self.assertEqual(0, parts[0])
+        self.assertEqual(50, parts[1])
+
