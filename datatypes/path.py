@@ -135,6 +135,9 @@ class Path(String):
     def parent(self):
         """The logical parent of the path
 
+        NOTE -- this should never be overridden because it is part of the
+        Pathlib api
+
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.parent
         """
         return self.create_dir(os.path.dirname(self.path))
@@ -153,16 +156,31 @@ class Path(String):
 
     @property
     def directory(self):
-        """return the directory portion of a directory/fileroot.ext path"""
-        return self.parent
+        """return the directory portion of a directory/fileroot.ext path
 
-    @property
-    def dirname(self):
+        This is the base property for many of directory aliases, so this is the
+        one that should be overridden if you need to customize behavior. DO NOT
+        touch .parent
+        """
         return self.parent
 
     @property
     def basedir(self):
-        return self.parent
+        """
+        NOTE -- This is overridden in the Temp* classes to be the basedir the
+        temp file/dir was created in because they might create multiple dirs
+        when being created and there needs to be a way to figure out relpath
+        and things like that
+        """
+        return self.directory
+
+    @property
+    def dirname(self):
+        return self.directory
+
+    @property
+    def dirpath(self):
+        return self.directory
 
     @property
     def name(self):
@@ -442,9 +460,6 @@ class Path(String):
         if ext:
             basename += ext
 
-#         if not basename:
-#             raise ValueError("basename is empty")
-
         return basename
 
     @classmethod
@@ -495,6 +510,7 @@ class Path(String):
         if parts:
             path = cls.joinparts(*parts, **kwargs)
             path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+            #path = os.path.realpath(path)
 
         return path
 
@@ -1175,9 +1191,9 @@ class Path(String):
             return False
 
     def symlink_to(self, target, target_is_directory=False):
-        """Make this path a symbolic link to target. Under Windows, target_is_directory
-        must be true (default False) if the link’s target is a directory.
-        Under POSIX, target_is_directory’s value is ignored
+        """Make this path a symbolic link to target. Under Windows,
+        target_is_directory must be true (default False) if the link’s target
+        is a directory.  Under POSIX, target_is_directory’s value is ignored
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.symlink_to
         """
@@ -1186,7 +1202,10 @@ class Path(String):
             os.symlink(self.path, target)
 
         else:
-            self.pathlib.symlink_to(target, target_is_directory=target_is_directory)
+            self.pathlib.symlink_to(
+                target,
+                target_is_directory=target_is_directory
+            )
 
         return target
 
@@ -1194,12 +1213,15 @@ class Path(String):
         raise NotImplementedError("Waiting for Archivepath api to be finalized")
 
     def resolve(self, strict=False):
-        """Make the path absolute, resolving any symlinks. A new path object is returned
+        """Make the path absolute, resolving any symlinks. A new path object is
+        returned
 
-        If the path doesn’t exist and strict is True, FileNotFoundError is raised.
-        If strict is False, the path is resolved as far as possible and any remainder
-        is appended without checking whether it exists. If an infinite loop is
-        encountered along the resolution path, RuntimeError is raised.
+        If the path doesn’t exist and strict is True, FileNotFoundError is
+        raised.
+
+        If strict is False, the path is resolved as far as possible and any
+        remainder is appended without checking whether it exists. If an infinite
+        loop is encountered along the resolution path, RuntimeError is raised.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve
         """
@@ -1215,7 +1237,8 @@ class Path(String):
         can be either a Path object, or a string. The semantics are similar to
         os.path.samefile() and os.path.samestat().
 
-        An OSError can be raised if either file cannot be accessed for some reason.
+        An OSError can be raised if either file cannot be accessed for some
+        reason.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.samefile
         """
@@ -1223,11 +1246,11 @@ class Path(String):
         return os.path.samefile(self.path, other_path)
 
     def touch(self, mode=0o666, exist_ok=True):
-        """Create a file at this given path. If mode is given, it is combined with
-        the process’ umask value to determine the file mode and access flags.
-        If the file already exists, the function succeeds if exist_ok is true
-        (and its modification time is updated to the current time), otherwise
-        FileExistsError is raised.
+        """Create a file at this given path. If mode is given, it is combined
+        with the process’ umask value to determine the file mode and access
+        flags.  If the file already exists, the function succeeds if exist_ok
+        is true (and its modification time is updated to the current time),
+        otherwise FileExistsError is raised.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.touch
         """
@@ -1238,11 +1261,13 @@ class Path(String):
         raise NotImplementedError()
 
     def delete(self):
-        """remove file/dir, alias of .rm(), does not raise error on file/dir not existing"""
+        """remove file/dir, alias of .rm(), does not raise error on file/dir not
+        existing"""
         return self.rm()
 
     def remove(self):
-        """remove file/dir, alias of .rm(), does not raise error on file/dir not existing"""
+        """remove file/dir, alias of .rm(), does not raise error on file/dir not
+        existing"""
         return self.rm()
 
     def clear(self):
@@ -3570,7 +3595,9 @@ class TempPath(object):
     @classmethod
     def gettempdir(cls):
         """return the system temp directory"""
-        return tempfile.gettempdir()
+        # compensate for macOS setting it's temporary dictory to a symlink for
+        # some reason by expanding symlinks
+        return os.path.realpath(tempfile.gettempdir())
 
     @classmethod
     def mktempdir(cls, **kwargs):
@@ -3583,8 +3610,11 @@ class TempPath(object):
             - prefix
             - suffix
             - dir
-        :returns: string, the directory path
+        :returns: str, the directory path
         """
+        if "dir" not in kwargs:
+            kwargs["dir"] = cls.gettempdir()
+
         return tempfile.mkdtemp(**kwargs)
 
     @classmethod

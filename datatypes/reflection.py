@@ -473,7 +473,7 @@ class ReflectPath(Path):
 
         raise ""
 
-    def find_modules(self, fileroot, depth=2, submodules=True):
+    def find_modules(self, fileroot, depth=3, submodules=True):
         """Iterate any `fileroot` modules found in .path
 
         This method incorporates this functionality:
