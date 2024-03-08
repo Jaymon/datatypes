@@ -2,7 +2,9 @@
 
 from datatypes.compat import *
 from datatypes.config import (
+    Config,
     Environ,
+    Settings,
 )
 
 from . import TestCase, testdata
@@ -42,4 +44,36 @@ class EnvironTest(TestCase):
         n = environ["FOO"]
         self.assertEqual(2000, n)
         self.assertTrue(isinstance(n, int))
+
+
+class SettingsTest(TestCase):
+    def test_preference(self):
+        with self.environ(FOO=5, BAR=6):
+            s = Settings({"BAR": 7}, prefix="")
+
+            self.assertEqual("5", s.FOO)
+            self.assertEqual(7, s.BAR)
+
+        with self.assertRaises(AttributeError):
+            s.FOO
+
+    def test_config(self):
+        config_file = self.create_file([
+            "[Common]",
+            "home_dir: /Users",
+            "library_dir: /Library",
+        ])
+
+        s = Settings(config=config_file)
+
+        self.assertEqual("/Users", s.Common["home_dir"])
+
+        s["Common"] = {
+            "home_dir": "/Foo/Bar",
+        }
+
+        self.assertEqual("/Foo/Bar", s.Common["home_dir"])
+
+        with self.assertRaises(KeyError):
+            s.Common["library_dir"]
 

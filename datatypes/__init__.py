@@ -26,6 +26,8 @@ from .command import (
 from .config import (
     Environ,
     Config,
+    Settings,
+    MultiSettings,
 )
 from .copy import (
     Deepcopy,

@@ -63,11 +63,10 @@ class Environ(Mapping):
         #os.environ[self.key(key)] = value
 
     def __setattr__(self, key, value):
-        #os.environ[self.key(key)] = value
-        self.environ[self.key(key)] = value
+        self.__setitem__(key, value)
 
     def __setitem__(self, key, value):
-        self.__setattr__(key, value)
+        self.environ[self.key(key)] = value
 
     def nset(self, key, values):
         """Given a list of values, this will set key_* where * is 1 -> len(values)

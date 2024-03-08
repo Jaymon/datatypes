@@ -248,9 +248,9 @@ class Dict(dict):
 class NormalizeDict(Dict):
     """A normalizing dictionary, taken from herd.utils.NormalizeDict
 
-    You can override the .normalize_key and .normalize_value methods, which get 
-    called anytime you set/get a value. You can check out the idict class for an
-    implementation that uses those methods to allow case-insensitive keys
+    You can override the .normalize_key and .normalize_value methods, which get
+    called anytime you set/get a value. You can check out the idict class for
+    an implementation that uses those methods to allow case-insensitive keys
     """
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -361,8 +361,9 @@ class Namespace(NamespaceMixin, NormalizeDict):
 
 
 class ContextNamespace(Namespace):
-    """A context aware namespace where you can override values in later contexts
-    and then revert back to the original context when the with statement is done
+    """A context aware namespace where you can override values in later
+    contexts and then revert back to the original context when the with
+    statement is done
 
     values are retrieved in LIFO order of the pushed contexts when cascade=True
 
@@ -406,8 +407,8 @@ class ContextNamespace(Namespace):
 
     def __init__(self, name="", cascade=True):
         """
-        :param name: str, If you want to customize the default context name then
-            pass it in
+        :param name: str, If you want to customize the default context name
+        then pass it in
         :param cascade: bool, if True then gets cascade through the stack of
             contexts, if False then this contexts completely switch
         """

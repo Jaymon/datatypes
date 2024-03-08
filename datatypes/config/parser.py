@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
 from configparser import ConfigParser, ExtendedInterpolation
-from collections import OrderedDict
 import re
-import functools
 
 from ..compat import *
-#from ..token.abnf import ABNFParser
-from ..collections.mapping import Namespace
-from ..decorators import classproperty
 
 
 class ConfigInterpolation(ExtendedInterpolation):
-    """
+    """Internal class used by Config
+
     https://github.com/python/cpython/blob/3.11/Lib/configparser.py#L361
     """
     def before_set_dict(self, parser, section, option, value):
@@ -185,7 +181,12 @@ class ConfigInterpolation(ExtendedInterpolation):
 
 
 class Config(ConfigParser):
-    """
+    """Parse a configuration file
+
+    :Example:
+        c = Config("<PATH-TO-CONFIG-FILE>")
+        c["<SECTION-NAME>"]["<VALUE>"]
+
     https://docs.python.org/3/library/configparser.html
     """
     def __init__(self, path, **kwargs):
