@@ -170,6 +170,3 @@ class MultiSettings(Settings):
 
         return ChainMap(*maps)
 
-
-
-

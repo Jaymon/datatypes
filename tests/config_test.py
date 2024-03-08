@@ -5,6 +5,7 @@ from datatypes.config import (
     Config,
     Environ,
     Settings,
+    MultiSettings,
 )
 
 from . import TestCase, testdata
@@ -76,4 +77,12 @@ class SettingsTest(TestCase):
 
         with self.assertRaises(KeyError):
             s.Common["library_dir"]
+
+    def test_multi(self):
+        s = MultiSettings({"foo": 1})
+
+        with self.assertRaises(AttributeError):
+            s.bar
+
+        self.assertEqual(1, s.foo)
 
