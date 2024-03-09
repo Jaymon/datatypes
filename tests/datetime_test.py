@@ -590,3 +590,33 @@ class DatetimeTest(TestCase):
         self.assertEqual(0, parts[0])
         self.assertEqual(50, parts[1])
 
+    def test_plus(self):
+        ttl = 1000
+        d1 = Datetime(datetime.timedelta(seconds=ttl)).isoseconds()
+
+        now = Datetime()
+        d2 = Datetime(now, seconds=ttl).isoseconds()
+
+        d3 = Datetime(None, seconds=ttl).isoseconds()
+
+        self.assertTrue(d1 == d2 == d3)
+
+    def test_iso_methods(self):
+        d = Datetime()
+        day = d.isodate()[:-1]
+
+        hour = d.isohours()[:-1]
+        self.assertTrue(hour.startswith(day))
+
+        minute = d.isominutes()[:-1]
+        self.assertTrue(minute.startswith(day))
+
+        seconds = d.isoseconds()[:-1]
+        self.assertTrue(seconds.startswith(minute))
+
+        mseconds = d.isomilliseconds()[:-1]
+        self.assertTrue(mseconds.startswith(seconds))
+
+        useconds = d.isomicroseconds()[:-1]
+        self.assertTrue(useconds.startswith(mseconds))
+

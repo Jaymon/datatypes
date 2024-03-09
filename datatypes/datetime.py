@@ -26,13 +26,11 @@ class Datetime(datetime.datetime):
 
     https://docs.python.org/3/library/datetime.html#datetime-objects
     """
+    FORMAT_ISO8601_DAY = "%Y-%m-%d"
     FORMAT_ISO8601 = "%Y-%m-%dT%H:%M:%S.%f"
     FORMAT_ISO8601_TZ = "%Y-%m-%dT%H:%M:%S.%f%Z"
-    FORMAT_ISO8601_OFFSET = "%Y-%m-%dT%H:%M:%S.%f%z"
     FORMAT_ISO8601_SECONDS = "%Y-%m-%dT%H:%M:%S"
     FORMAT_ISO8601_SECONDS_TZ = "%Y-%m-%dT%H:%M:%S%Z"
-    FORMAT_ISO8601_SECONDS_OFFSET = "%Y-%m-%dT%H:%M:%S%z"
-    FORMAT_ISO8601_DAY = "%Y-%m-%d"
 
     @property
     def yearname(self):
@@ -596,7 +594,9 @@ class Datetime(datetime.datetime):
 
         for seconds, name, names in period_chunks:
             if count := math.floor(since / seconds):
-                output.append(f"1 {name}" if count == 1 else f"{count} {names}")
+                output.append(
+                    f"1 {name}" if count == 1 else f"{count} {names}"
+                )
                 since -= (seconds * count)
                 chunks -= 1
                 if since <= 0 or chunks <= 0:
@@ -610,8 +610,8 @@ class Datetime(datetime.datetime):
 
         This is based on Plancast's Formatting.php timeSince method
 
-        NOTE -- this can drift since it uses 30 days for the months, you can see
-        this by doing:
+        NOTE -- this can drift since it uses 30 days for the months, you can
+        see this by doing:
 
             d = Datetime(months=-5, days=-3)
             d.since(now=Datetime(month=8, day=1, year=2023)) # 5 months, 6 days
@@ -646,7 +646,9 @@ class Datetime(datetime.datetime):
 
         for seconds, name, names in period_chunks:
             if count := math.floor(since / seconds):
-                output.append(f"1 {name}" if count == 1 else f"{count} {names}")
+                output.append(
+                    f"1 {name}" if count == 1 else f"{count} {names}"
+                )
                 since -= (seconds * count)
                 chunks -= 1
                 if since <= 0 or chunks <= 0:
@@ -742,6 +744,32 @@ class Datetime(datetime.datetime):
         """returns datetime as ISO-8601 string with no milliseconds"""
         return self.isoformat(timespec="seconds")
     iso_seconds = isoseconds
+    isosecond = isoseconds
+    iso_second = isoseconds
+
+    def isohours(self):
+        """returns datetime as ISO-8601 string up to the hour"""
+        return self.isoformat(timespec="hours")
+    iso_hours = isohours
+    isohour = isohours
+    iso_hour = isohours
+
+    def isominutes(self):
+        """returns datetime as ISO-8601 string up to the minute"""
+        return self.isoformat(timespec="minutes")
+    iso_minutes = isominutes
+    isominute = isominutes
+    iso_minute = isominutes
+
+    def isomilliseconds(self):
+        """returns datetime as ISO-8601 string up to the milliseconds (.SSS)
+        """
+        return self.isoformat(timespec="milliseconds")
+
+    def isomicroseconds(self):
+        """returns datetime as ISO-8601 string up to the microseconds (.SSSSSS)
+        """
+        return self.isoformat(timespec="microseconds")
 
     def iso8601(self):
         """returns datetime as a full ISO-8601 string with milliseconds"""

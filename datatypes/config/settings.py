@@ -141,8 +141,6 @@ class Settings(Namespace):
             if namespace and namespace.lower().startswith(k.lower()):
                 return self.environ
 
-        return None
-
     def get_config(self, k):
         """Internal method called from .__getitem__ that checks to see if the
         key k is actually the config file's fileroot
@@ -154,8 +152,6 @@ class Settings(Namespace):
             path = getattr(self.config, "path", "")
             if path and path.fileroot == k:
                 return self.config
-
-        return None
 
     def __getitem__(self, k):
         # I'd love to use a collections.ChainMap here but because there are
@@ -245,13 +241,9 @@ class MultiSettings(Settings):
             if namespace and namespace.lower().startswith(k):
                 return environ
 
-        return None
-
     def get_config(self, k):
         for config in self.config.maps:
             path = getattr(config, "path", "")
             if path and path.fileroot == k:
                 return config
-
-        return None
 
