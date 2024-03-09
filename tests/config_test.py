@@ -86,3 +86,23 @@ class SettingsTest(TestCase):
 
         self.assertEqual(1, s.foo)
 
+    def test_environ_key(self):
+        s = MultiSettings(prefix="FOOBAR_")
+        self.assertIsNotNone(s.foobar)
+
+        s = Settings(prefix="FOOBAR_")
+        self.assertIsNotNone(s.foobar)
+
+    def test_config_key(self):
+        config_file = self.create_file([
+            "[Common]",
+            "home_dir: /Users",
+        ])
+        fileroot=config_file.fileroot
+
+        s = Settings(config=config_file)
+        self.assertIsNotNone(s[fileroot])
+
+        s = MultiSettings(config=config_file)
+        self.assertIsNotNone(s[fileroot])
+
