@@ -44,13 +44,13 @@ from .decorators import (
     InstanceDecorator,
     ClassDecorator,
     FuncDecorator,
-    property,
+    property, property as cached_property,
     classproperty,
     method,
     instancemethod,
     classmethod,
     staticmethod,
-    once,
+    cache, cache as cached_method, cache as once,
     deprecated,
 )
 from .email import (

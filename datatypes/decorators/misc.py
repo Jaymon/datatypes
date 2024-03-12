@@ -1,22 +1,25 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import warnings
 import inspect
 
 from ..compat import *
-from ..string import String
 from .base import FuncDecorator, Decorator
 
 
-class once(FuncDecorator):
+class cache(FuncDecorator):
     """run the decorated function only once for the given arguments
 
-    in python 3+ it's better to use functools.cache or functools.lru_cache
+    in python 3+ it's better to use functools.cache or functools.lru_cache if
+    those will work for you
 
-    https://docs.python.org/3/library/functools.html#functools.cache
+        https://docs.python.org/3/library/functools.html#functools.cache
+
+    However, those don't work great for instance methods where the object
+    isn't hashable (like a method on a dict child classe) since it will try
+    and use the `self` passed into the method as the value to cache
 
     :Example:
-        @once
+        @cache
         def func(x):
             print("adding")
             return x + 1
@@ -24,18 +27,33 @@ class once(FuncDecorator):
         func(10) # prints "adding"
         func(4) # returns 5, no print
         func(10) # returns 11, no print
+
+        class Foo(dict):
+            @cache
+            def func(self):
+                # functools.cache would normally fail on this
+                return 1
     """
-    def decorate(self, f, *once_args, **once_kwargs):
+    def decorate(self, f, *cache_args, **cache_kwargs):
         def wrapped(*args, **kwargs):
-            name = String(hash(f))
+            name = str(hash(f))
             if args:
-                for a in args:
-                    name += String(hash(a))
+                for i, a in enumerate(args):
+                    try:
+                        name += str(hash(a))
+
+                    except TypeError:
+                        # if it's the first value passed to the callable and
+                        # it failed hashing then let's just skip it because
+                        # this is most likely an instance method and the
+                        # unhashable value is `self`
+                        if i > 0:
+                            raise
 
             if kwargs:
                 for k, v in kwargs.items():
-                    name += String(hash(k))
-                    name += String(hash(v))
+                    name += str(hash(k))
+                    name += str(hash(v))
 
             try:
                 ret = getattr(self, name)

@@ -183,11 +183,18 @@ class Decorator(logging.LogMixin):
 
         if inspect.iscoroutinefunction(inner_wrapper):
             async def outer_wrapper(*args, **kwargs):
-                return await inner_wrapper(instance, *args, **kwargs)
+                if instance is None:
+                    return await inner_wrapper(*args, **kwargs)
+
+                else:
+                    return await inner_wrapper(instance, *args, **kwargs)
 
         else:
             def outer_wrapper(*args, **kwargs):
-                return inner_wrapper(instance, *args, **kwargs)
+                if instance is None:
+                    return inner_wrapper(*args, **kwargs)
+                else:
+                    return inner_wrapper(instance, *args, **kwargs)
 
         self.update_func_wrapper(outer_wrapper, inner_wrapper)
 

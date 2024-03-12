@@ -24,7 +24,7 @@ from .descriptor import (
     staticmethod,
 )
 from .misc import (
-    once,
+    cache,
     deprecated,
 )
 

@@ -640,3 +640,38 @@ class FuncDecoratorTest(IsolatedAsyncioTestCase):
         self.assertTrue(inspect.iscoroutinefunction(o.foo))
         self.assertEqual(1, await o.foo())
 
+    def test_instance_method(self):
+        """Wrapping an instance method in a FuncDecorator basically makes the
+        method callable outside of an instance scope if it doesn't use
+        parenthesis. This isn't correct behavior and this test makes sure 
+        the example below no longer works.
+
+        This test makes sure the changes in Decorator.__get__ work as they
+        should.
+
+        :Example:
+            class Foo(object):
+                @child_func_dec
+                def bar(self):
+                    # Foo.bar() works
+                    return 1
+
+                @child_func_dec()
+                def bar2(self):
+                    # Foo.bar2() fails as expected
+                    return 2
+        """
+        class dec(FuncDecorator):
+            def decorate(self, f):
+                def wrapped(*args, **kwargs):
+                    return f(*args, **kwargs)
+                return wrapped
+
+        class MockObject(object):
+            @dec
+            def foo(self):
+                return 2
+
+        with self.assertRaises(TypeError):
+            MockObject.foo()
+

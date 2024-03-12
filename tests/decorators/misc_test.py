@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 from collections import Counter
 
 from datatypes.compat import *
 from datatypes.decorators.misc import (
-    once,
+    cache,
     deprecated,
 )
 
 from . import TestCase, testdata
 
 
-class OnceTest(TestCase):
+class CacheTest(TestCase):
     def test_call(self):
-
-        @once
+        @cache
         def foo(v1, v2):
             print("once")
             return v1 + v2
@@ -42,12 +40,12 @@ class OnceTest(TestCase):
     def test_inheritance(self):
         class InFoo(object):
             @property
-            @once
+            @cache
             def bar(self):
                 print("bar")
                 return 10
             @classmethod
-            @once
+            @cache
             def bar_method(cls):
                 print("bar_method")
                 return 12
@@ -88,7 +86,7 @@ class OnceTest(TestCase):
         self.assertFalse("bar" in c)
 
         # standalone function
-        @once
+        @cache
         def bar_func(i):
             print("bar")
             return 11
@@ -120,6 +118,34 @@ class OnceTest(TestCase):
         with testdata.capture(loggers=False) as c:
             InBoo.bar_method()
         self.assertFalse("bar" in c)
+
+    def test_nonhashable_instance_method(self):
+        """Make sure cache decorator works on objects that can't be hashed"""
+        def wrapper(f):
+            def decorate(*args, **kwargs):
+                return f(*args, **kwargs)
+            return decorate
+
+        class Foo(dict):
+            @cache
+            def bar(self):
+                return 5
+
+        with self.assertRaises(TypeError):
+            Foo.bar()
+
+        f = Foo()
+        self.assertEqual(5, f.bar())
+        self.assertEqual(5, f.bar())
+
+        class Bar(dict):
+            @classmethod
+            @cache
+            def bar(cls):
+                return 6
+
+        self.assertEqual(6, Bar.bar())
+        self.assertEqual(6, Bar.bar())
 
 
 class DeprecatedTest(TestCase):
