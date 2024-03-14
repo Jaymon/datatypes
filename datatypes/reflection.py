@@ -1419,7 +1419,13 @@ class ReflectModule(object):
         if path:
             sys.path.append(path)
 
-        m = importlib.import_module(module_name, module_package)
+        try:
+            m = importlib.import_module(module_name, module_package)
+
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                f"Could not import {module_name} at package {module_package}"
+            ) from e
 
         if path:
             sys.path.pop(-1)
