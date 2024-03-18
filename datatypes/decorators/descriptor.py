@@ -413,25 +413,16 @@ class aliasmethods(FuncDecorator):
         def __init__(self, f, *aliases, **kwargs):
             self.f = f
             self.aliases = aliases
-            #pout.v(f, aliases, kwargs)
 
         def __set_name__(self, cls, name):
             self.name = name
             self.cls = cls
             self.m = types.MethodType(self.f, cls)
 
-            #pout.v(cls, name)
             setattr(cls, name, self.m)
 
             for alias in self.aliases:
                 setattr(cls, alias, self.m)
-
-#         def __call__(self, *args, **kwargs):
-#             pout.v(self, args, kwargs)
-#             return self.f(*args, **kwargs)
-
-#         def __get__(self, instance, klass):
-#             return self.f
 
     def decorate(self, f, *aliases, **kwargs):
         """Allows aliases to be set on the wrapped function f

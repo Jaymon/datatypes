@@ -703,17 +703,3 @@ class AliasMethodsTest(TestCase):
         self.assertEqual(1, f.bar())
         self.assertEqual(1, f.che())
 
-        # this didn't work because property causes __set_name__ to not be
-        # called
-#     def test_property(self):
-#         class Foo(object):
-#             @property
-#             @aliasmethods("bar")
-#             def foo(self, *args, **kwargs):
-#                 return 2
-# 
-#         f = Foo()
-#         self.assertEqual(2, f.foo)
-#         self.assertEqual(2, f.bar)
-
-
