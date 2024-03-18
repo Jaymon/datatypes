@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 from collections import Counter
 
 from datatypes.compat import *
@@ -10,6 +9,7 @@ from datatypes.decorators.descriptor import (
     classmethod,
     instancemethod,
     staticmethod,
+    aliasmethods,
 )
 
 from . import TestCase, testdata
@@ -686,4 +686,34 @@ class PropertyTest(TestCase):
         r1 = f.baz
         r2 = f.baz
         self.assertEqual(r1, r2)
+
+
+class AliasMethodsTest(TestCase):
+    """
+    https://github.com/Jaymon/datatypes/issues/49
+    """
+    def test___set_name__(self):
+        class Foo(object):
+            @aliasmethods("bar", "che")
+            def foo(self, *args, **kwargs):
+                return 1
+
+        f = Foo()
+        self.assertEqual(1, f.foo())
+        self.assertEqual(1, f.bar())
+        self.assertEqual(1, f.che())
+
+        # this didn't work because property causes __set_name__ to not be
+        # called
+#     def test_property(self):
+#         class Foo(object):
+#             @property
+#             @aliasmethods("bar")
+#             def foo(self, *args, **kwargs):
+#                 return 2
+# 
+#         f = Foo()
+#         self.assertEqual(2, f.foo)
+#         self.assertEqual(2, f.bar)
+
 

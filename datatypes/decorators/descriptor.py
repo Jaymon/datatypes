@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+import types
 
 from ..compat import *
 from .base import FuncDecorator
@@ -386,4 +387,59 @@ class property(FuncDecorator):
     def deleter(self, fdel):
         self.fdel = fdel
         return self
+
+
+class aliasmethods(FuncDecorator):
+    """Allows setting alias method names on an instance method
+
+    NOTE -- This only works for instance methods, it doesn't play nice with
+        @property or @classmethod decorators or any other decorators
+
+    NOTE -- This has to be the outermost decorator otherwise __set_name__
+        won't be called and the decorator won't work
+
+    :Example:
+        class Foo(object):
+            @aliasmethods("boo", "che")
+            def bar(self, left, right):
+                return left + right
+
+        f = Foo()
+        f.bar(1, 2) # 3
+        f.boo(2, 3) # 5
+        f.che(3, 4) # 7
+    """
+    class descriptor_class(object):
+        def __init__(self, f, *aliases, **kwargs):
+            self.f = f
+            self.aliases = aliases
+            #pout.v(f, aliases, kwargs)
+
+        def __set_name__(self, cls, name):
+            self.name = name
+            self.cls = cls
+            self.m = types.MethodType(self.f, cls)
+
+            #pout.v(cls, name)
+            setattr(cls, name, self.m)
+
+            for alias in self.aliases:
+                setattr(cls, alias, self.m)
+
+#         def __call__(self, *args, **kwargs):
+#             pout.v(self, args, kwargs)
+#             return self.f(*args, **kwargs)
+
+#         def __get__(self, instance, klass):
+#             return self.f
+
+    def decorate(self, f, *aliases, **kwargs):
+        """Allows aliases to be set on the wrapped function f
+
+        :param f: callable, the instance method being wrapped
+        :param *aliases: list[str], one or more aliase names
+        :param **kwargs: currently ignored
+        :returns: descriptor
+        """
+        return self.descriptor_class(f, *aliases, **kwargs)
 
