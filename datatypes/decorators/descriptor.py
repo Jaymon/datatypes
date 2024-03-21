@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+"""
+https://docs.python.org/3/howto/descriptor.html
+
+"""
 import logging
 import types
 
@@ -33,7 +37,7 @@ class method(object):
 
             @che.instancemethod
             def che(cls):
-                return "instancmethod"
+                return "instancemethod"
 
         f = Foo()
         f.bar() # instancemethod
@@ -51,6 +55,7 @@ class method(object):
 
     def __set_name__(self, owner, name):
         """
+        https://docs.python.org/3/reference/datamodel.html#object.__set_name__
         https://docs.python.org/3/howto/descriptor.html#customized-names
         """
         logger.debug(f"{owner.__name__} has instancemethod {name}")
@@ -77,8 +82,8 @@ class method(object):
 
         :param instance: the instance calling the function (this would usually 
             be self), it is None if an instance isn't making the call
-        :param instance_class: the class calling the function (this would usually
-            be cls), I couldn't find a case where it is None
+        :param instance_class: the class calling the function (this would
+            usually be cls), I couldn't find a case where it is None
         :returns: the bound method, so it would return a method bound to cls if
             it is a class method call, or self if it is an instance call
         """
@@ -163,16 +168,15 @@ class staticmethod(staticmethod):
 
 
 class classproperty(property):
-    """
-    allow a readonly class property to exist on a class with a similar interface
-    to the built-in property decorator
+    """Allow a readonly class property to exist on a class with a similar
+    interface to the built-in property decorator
 
     NOTE -- because of Python's architecture, this can only be read only, you
         can't create a setter or deleter
 
     https://docs.python.org/3/library/functions.html#classmethod
-        Changed in version 3.9: Class methods can now wrap other descriptors
-        such as property()
+        In version 3.9 class methods could wrap other descriptors
+        such as property() but that functionaliy was removed in 3.11
 
     :Example:
         class Foo(object):
@@ -184,7 +188,7 @@ class classproperty(property):
     http://stackoverflow.com/questions/128573/using-property-on-classmethods
     http://stackoverflow.com/questions/5189699/how-can-i-make-a-class-property-in-python
     https://stackoverflow.com/a/38810649/5006
-    http://docs.python.org/2/reference/datamodel.html#object.__setattr__
+    http://docs.python.org/3/reference/datamodel.html#object.__setattr__
     https://stackoverflow.com/a/3203659/5006
     """
     def __init__(self, fget, doc=None):
@@ -194,19 +198,23 @@ class classproperty(property):
         return self.fget(instance_class)
 
     def setter(self, fset):
-        raise TypeError("classproperty is readonly due to python's architecture")
+        raise TypeError(
+            "classproperty is readonly due to python's architecture"
+        )
 
     def deleter(self, fdel):
-        raise TypeError("classproperty is readonly due to python's architecture")
+        raise TypeError(
+            "classproperty is readonly due to python's architecture"
+        )
 
 
 class property(FuncDecorator):
-    """A replacement for the built-in @property that enables extra functionality
+    """A replacement for the built-in @property that enables extra
+    functionality
 
     See http://www.reddit.com/r/Python/comments/ejp25/cached_property_decorator_that_is_memory_friendly/
-    see https://docs.python.org/2/howto/descriptor.html
     see http://stackoverflow.com/questions/17330160/python-how-does-the-property-decorator-work
-    see https://docs.python.org/2/howto/descriptor.html
+    see https://docs.python.org/3/howto/descriptor.html
 
     as of 3.8, functools as a cached_property decorator:
         https://docs.python.org/3/library/functools.html#functools.cached_property
@@ -227,20 +235,20 @@ class property(FuncDecorator):
             (eg, None, "")
         * cached: str, pass in the variable name (eg, "_foo") that the value
             returned from the getter will be cached to
-        * setter: str, set this to variable name (similar to cached) if you want
-            the decorated method to act as the setter instead of the getter,
-            this will cause a default getter to be created that just returns
-            variable name
+        * setter: str, set this to variable name (similar to cached) if you
+            want the decorated method to act as the setter instead of the
+            getter, this will cause a default getter to be created that just
+            returns variable name
         * deleter: str, same as setter, but the decorated method will be the
             deleter and default setters and getters will be created
         * readonly: str, the decorated method will be the getter and set the
             value into the name defined in readonly, and no setter or deleter
             will be allowed
         * onget: bool, cache the value on read, if this is False then it won't
-            cache the value on read but only when you explicitely set the value.
-            This means that you can call get as many times as you want and it
-            will always call the method, but then if you set a value, when you
-            get it again it will use the cached value
+            cache the value on read but only when you explicitely set the
+            value.  This means that you can call get as many times as you want
+            and it will always call the method, but then if you set a value,
+            when you get it again it will use the cached value
     """
     def __init__(self, fget=None, fset=None, fdel=None, doc=None, **kwargs):
         self.getter(fget)
@@ -273,7 +281,7 @@ class property(FuncDecorator):
                 "prefix",
                 "[{}.{}]".format(self.__class__.__name__, fget.__name__)
             )
-        return super(property, self).log(format_str, *format_args, **log_options)
+        return super().log(format_str, *format_args, **log_options)
 
     def decorate(self, method, *args, **kwargs):
         if "setter" in kwargs:
@@ -408,6 +416,8 @@ class aliasmethods(FuncDecorator):
         f.bar(1, 2) # 3
         f.boo(2, 3) # 5
         f.che(3, 4) # 7
+
+    https://docs.python.org/3/reference/datamodel.html#class-object-creation
     """
     class descriptor_class(object):
         def __init__(self, f, *aliases, **kwargs):

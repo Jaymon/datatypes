@@ -139,7 +139,7 @@ class OrderedSubclasses(list):
                         self.info[index_name]["index"] -= 1
 
             else:
-                raise ValueError(
+                raise TypeError(
                     f"Cannot remove {index_name} because it is not an edge"
                 )
 
