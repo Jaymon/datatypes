@@ -141,6 +141,26 @@ class StringTest(TestCase):
         self.assertNotEqual(h1, h4)
         self.assertNotEqual(h3, h4)
 
+    def test_casting(self):
+        s = String(testdata.get_unicode_words())
+
+        # https://stackoverflow.com/a/47113725
+        self.assertFalse(type(s) is str)
+        self.assertTrue(type(s) is String)
+        self.assertTrue(type(s.unicode()) is String)
+
+        s2 = str(s)
+        self.assertTrue(type(s2) is str)
+        self.assertFalse(type(s2) is String)
+
+        b = s.bytes()
+        self.assertTrue(type(b) is ByteString)
+        self.assertFalse(type(b) is bytes)
+
+        b2 = bytes(s)
+        self.assertTrue(type(b2) is bytes)
+        self.assertFalse(type(b2) is ByteString)
+
 
 class NamingConventionTest(TestCase):
     def test_camelcase(self):

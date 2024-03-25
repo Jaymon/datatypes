@@ -40,16 +40,11 @@ class ByteString(Bytes, StringMixin):
     not just bytes, so it makes sense to return b'10' instead of 10 \x00 bytes
 
     :Example:
-        # python 3
-        s = ByteString("foo)
-        str(s) # calls __str__ and returns self.unicode()
-        unicode(s) # errors out
-        bytes(s) # calls __bytes__ and returns ByteString
-        # python 2
-        s = ByteString("foo)
-        str(s) # calls __str__ and returns ByteString
-        unicode(s) # calls __unicode__ and returns String
-        bytes(s) # calls __str__ and returns ByteString
+        s = ByteString("foo")
+        str(s) # calls __str__ and returns str
+        s.unicode() # similar to str(s) but returns String
+        bytes(s) # calls __bytes__ and returns bytes
+        s.bytes() # similar to bytes(s) but returns ByteString
     """
     def __new__(cls, val=b"", encoding="", errors=""):
         """
@@ -63,11 +58,7 @@ class ByteString(Bytes, StringMixin):
             backslashreplace
         """
         if isinstance(val, type(None)):
-            # we do 3+ functionality even in 2.7
-            if is_py2:
-                raise TypeError("cannot convert 'NoneType' object to bytes")
-            else:
-                val = Bytes(val)
+            val = Bytes(val) # this will fail
 
         if not encoding:
             encoding = environ.ENCODING
@@ -76,12 +67,7 @@ class ByteString(Bytes, StringMixin):
             errors = environ.ENCODING_ERRORS
 
         if not isinstance(val, (bytes, bytearray)):
-            if is_py2:
-                val = unicode(val)
-            else:
-                val = str(val)
-            #val = val.__str__()
-            val = bytearray(val, encoding)
+            val = bytearray(str(val), encoding)
 
         instance = super().__new__(cls, val)
         instance.encoding = encoding
@@ -89,16 +75,17 @@ class ByteString(Bytes, StringMixin):
         return instance
 
     def __str__(self):
-        return self.unicode()
+        return str(self.unicode())
+
+    def __bytes__(self):
+        return bytes(b"" + self)
 
     def unicode(self):
         s = self.decode(self.encoding, self.errors)
         return String(s, self.encoding, self.errors)
-    __unicode__ = unicode
 
     def bytes(self):
         return self
-    __bytes__ = bytes
 
     def raw(self):
         """because sometimes you need a vanilla bytes()"""
@@ -120,18 +107,11 @@ class String(Str, StringMixin):
     issues automatically
 
     :Example:
-        # python 3
-        s = String("foo)
-        str(s) # calls __str__ and returns String
-        unicode(s) # errors out
-        bytes(s) # calls __bytes__ and returns ByteString
-        # python 2
-        s = String("foo)
-        str(s) # calls __str__ and returns ByteString
-        unicode(s) # calls __unicode__ and returns String
-        bytes(s) # calls __str__ and returns ByteString
-
-    https://en.wikipedia.org/wiki/Base64
+        s = String("foo")
+        str(s) # calls __str__ and returns str
+        s.unicode() # similar to str(s) but returns String
+        bytes(s) # calls __bytes__ and returns bytes
+        s.bytes() # similar to bytes(s) but returns ByteString
     """
 
     # constants from string module https://docs.python.org/3/library/string.html
@@ -192,16 +172,29 @@ class String(Str, StringMixin):
         return instance
 
     def __str__(self):
-        return self.bytes() if is_py2 else self
+        """
+        https://docs.python.org/3/reference/datamodel.html#object.__str__
+
+        :returns: str, a builtin string instance, because sometimes you need
+            a raw string instead of a class that extends str
+        """
+        return str("" + self)
+
+    def __bytes__(self):
+        """
+        https://docs.python.org/3/reference/datamodel.html#object.__bytes__
+
+        :returns: bytes, a builtin bytes instance, because sometimes you
+            need the raw builtin version
+        """
+        return bytes(self.bytes())
 
     def unicode(self):
         return self
-    __unicode__ = unicode
 
     def bytes(self):
         s = self.encode(self.encoding)
         return ByteString(s, self.encoding, self.errors)
-    __bytes__ = bytes
 
     def raw(self):
         """because sometimes you need a vanilla str() (or unicode() in py2)"""
@@ -249,8 +242,8 @@ class String(Str, StringMixin):
         return String(r)
 
     def truncate(self, size, postfix="", sep=None):
-        """similar to a normal string slice but it actually will split on a word
-        boundary
+        """similar to a normal string slice but it actually will split on a
+        word boundary
 
         :Example:
             s = "foo barche"
@@ -317,8 +310,8 @@ class String(Str, StringMixin):
         return type(self)(s)
 
     def stripall(self, chars):
-        """Similar to the builtin .strip() but will strip chars from anywhere in
-        the string
+        """Similar to the builtin .strip() but will strip chars from anywhere
+        in the string
 
         :Example:
             s = "foo bar che.  "
@@ -356,7 +349,8 @@ class String(Str, StringMixin):
         return self.re(pattern, flags)
 
     def ispunc(self):
-        """Returns True if all characters in string are punctuation characters"""
+        """Returns True if all characters in string are punctuation characters
+        """
         for ch in self:
             if ch not in string.punctuation:
                 return False
@@ -368,19 +362,20 @@ class String(Str, StringMixin):
     def capwords(self, sep=None):
         """passthrough for string module capwords
 
-        Split the argument into words using str.split(), capitalize each word using
-        str.capitalize(), and join the capitalized words using str.join(). If the
-        optional second argument sep is absent or None, runs of whitespace
-        characters are replaced by a single space and leading and trailing whitespace
-        are removed, otherwise sep is used to split and join the words.
+        Split the argument into words using str.split(), capitalize each word
+        using str.capitalize(), and join the capitalized words using
+        str.join(). If the optional second argument sep is absent or None, runs
+        of whitespace characters are replaced by a single space and leading and
+        trailing whitespace are removed, otherwise sep is used to split and
+        join the words.
 
         https://docs.python.org/3/library/string.html#string.capwords
         """
         return String(string.capwords(self, sep=sep))
 
     def isascii(self):
-        """Return True if the string is empty or all characters in the string are
-        ASCII, False otherwise.
+        """Return True if the string is empty or all characters in the string
+        are ASCII, False otherwise.
 
         ASCII characters have code points in the range U+0000-U+007F.
 
@@ -1261,8 +1256,10 @@ class Regex(object):
 
 class Base64(String):
     """This exists to normalize base64 encoding between py2 and py3, it assures
-    that you always get back a unicode string when you encode or decode and that
-    you can pass in a unicode or byte string and it just works
+    that you always get back a unicode string when you encode or decode and
+    that you can pass in a unicode or byte string and it just works
+
+    https://en.wikipedia.org/wiki/Base64
     """
     @classmethod
     def encode(cls, s, encoding=""):
@@ -1286,8 +1283,9 @@ class Base64(String):
 
 
 class Ascii(String):
-    """This is just a convenience class so I can get all punctuation characters, 
-    but I added other methods in case I need to use this somewhere else"""
+    """This is just a convenience class so I can get all punctuation
+    characters, but I added other methods in case I need to use this somewhere
+    else"""
     def __new__(cls):
         s = list(chr(x) for x in range(0x00, 0x7F + 1))
         instance = super().__new__(cls, s)
