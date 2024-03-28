@@ -86,7 +86,8 @@ class CSV(object):
             self.writer_mode = kwargs.pop("writer_mode", "")
 
         else:
-            self.writer_mode = kwargs.pop("writer_mode", "wb+")
+            self.writer_mode = kwargs.pop("writer_mode", "w+")
+            #self.writer_mode = kwargs.pop("writer_mode", "wb+")
 
         if not encoding:
             encoding = environ.ENCODING
@@ -105,18 +106,65 @@ class CSV(object):
         :returns: file pointer
         """
         if isinstance(self.path, io.IOBase):
+
+            logger.debug("Opening io: {}".format(self.path))
+
             return self.path
 
         else:
             if not mode or self.readonly:
                 mode = "r"
 
-            self.path = Filepath(self.path)
+            path = Filepath(self.path)
 
-            return codecs.open(self.path, encoding=self.encoding, mode=mode)
+            logger.debug("Opening csv file: {} using mode: {}".format(
+                path,
+                mode,
+            ))
+
+            return path.open(mode=mode, encoding=self.encoding)
+            #return codecs.open(self.path, encoding=self.encoding, mode=mode)
 
     @contextmanager
-    def appending(self, mode="ab+"):
+    def reading(self):
+        if isinstance(self.path, io.IOBase):
+            tell = self.path.tell()
+            self.path.seek(0)
+            try:
+                yield self.path
+
+            finally:
+                self.path.seek(tell)
+
+        else:
+            with self.open() as f:
+                yield f
+
+#     def xreading(self):
+#         if isinstance(self.path, io.IOBase):
+#             tell = self.path.tell()
+#             self.path.seek(0)
+#             try:
+#                 return self.path
+# 
+#             finally:
+#                 self.path.seek(tell)
+# 
+#         else:
+#             return self.open()
+
+    @contextmanager
+    def writing(self):
+        if isinstance(self.path, io.IOBase):
+            yield self.path
+
+        else:
+
+            with self.open(self.writer_mode) as f:
+                yield f
+
+    @contextmanager
+    def appending(self, mode="a+"):
         """The default context manager truncates and write a new file, but that
         doesn't work for .add(), .append(), or .extend() so this provides an
         alternative context manager allows for appending to the file
@@ -126,27 +174,30 @@ class CSV(object):
         """
         prev_mode = self.writer_mode
         self.writer_mode = mode
-        with self:
-            yield self
+        try:
+            with self:
+                yield self
 
-        self.writer_mode = prev_mode
+        finally:
+            self.writer_mode = prev_mode
 
     def __enter__(self):
         """Enables with context manager for writing"""
         self.context_depth += 1
         if not self.writer:
-            logger.debug("Writing csv file: {} using mode: {}".format(
-                self.path,
-                self.writer_mode,
-            ))
-            f = self.open(self.writer_mode)
+            #f = self.open(self.writer_mode)
+            cm = self.writing()
+            f = cm.__enter__()
             self.writer = self.create_writer(f)
+            self.writer.cm = cm
         return self
 
     def __exit__(self, exception_type, exception_val, trace):
         self.context_depth -= 1
         if self.context_depth <= 0:
-            self.writer.f.close()
+            self.writer.cm.__exit__(exception_type, exception_val, trace)
+#             if not isinstance(self.path, io.IOBase):
+#                 self.writer.f.close()
             self.writer = None
             self.context_depth = 0
 
@@ -254,20 +305,44 @@ class CSV(object):
         return f
 
     def normalize_reader_file(self, f):
-        # https://stackoverflow.com/a/30031962/5006
-        class IOWrapper(io.TextIOWrapper):
-            def __init__(self, buffer):
-                super().__init__(
-                    buffer,
-                    encoding=self.encoding,
-                    write_through=True
-                )
-
+        # https://stackoverflow.com/a/30031962
+        class IOWrapper(io.IOBase):
+            def __init__(self, f):
+                self.f = f
                 self.last_line = "" # will contain raw CSV row
 
             def __next__(self):
-                self.last_line = super().__next__()
+                self.last_line = next(self.f)
                 return self.last_line
+
+            def __getattr__(self, k):
+                return getattr(self.f, k)
+
+
+
+#         class IOWrapper(io.BufferedReader):
+#             def __init__(self, buffer):
+#                 super().__init__(buffer)
+# 
+#                 self.last_line = "" # will contain raw CSV row
+# 
+#             def __next__(self):
+#                 self.last_line = super().__next__()
+#                 return self.last_line
+
+#         class IOWrapper(io.TextIOWrapper):
+#             def __init__(self, buffer):
+#                 super().__init__(
+#                     buffer,
+#                     encoding=self.encoding,
+#                     write_through=True
+#                 )
+# 
+#                 self.last_line = "" # will contain raw CSV row
+# 
+#             def __next__(self):
+#                 self.last_line = super().__next__()
+#                 return self.last_line
 
         return IOWrapper(f)
 
@@ -348,23 +423,30 @@ class CSV(object):
     def find_fieldnames(self):
         """attempt to get the field names from the first line in the csv file
         """
-        with self.open() as f:
+        with self.reading() as f:
             reader = self.create_reader(f)
             return list(map(String, reader.fieldnames))
 
     def rows(self):
         """Return all the rows as a list"""
+        return self.tolist()
+
+    def tolist(self):
+        """Return all the rows as a list
+
+        Here for consistent interface as I'm using .tolist elsewhere
+
+        :returns: list
+        """
         return self.rows_class(self.__iter__())
 
     def clear(self):
         """clear the csv file"""
-        with self.open("wb") as f:
+        with self.open("w") as f:
             f.truncate(0)
 
     def __iter__(self):
-        logger.debug("Reading csv file: {}".format(self.path))
-
-        with self.open() as f:
+        with self.reading() as f:
             first_row = True
             self.reader = self.create_reader(f)
             for row in self.reader:
@@ -406,7 +488,7 @@ class CSV(object):
     def read_text(self):
         """This will print out all rows so it might not be ideal to use for 
         bigger CSVs"""
-        with self.open() as fp:
+        with self.reading() as fp:
             return fp.read()
 
 

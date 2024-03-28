@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.csv import (
@@ -61,6 +60,11 @@ class CSVTest(TestCase):
         csv.add({"foo": 3, "bar": 4})
         self.assertEqual(1, csv.read_text().count("foo"))
 
+        with path.open("a") as fp:
+            csv = CSV(fp)
+            csv.add({"foo": 5, "bar": 6})
+        self.assertEqual(1, CSV(path).read_text().count("foo"))
+
     def test_read_unicode(self):
         """make sure we can read a utf encoded csv file"""
         csvfile = testdata.create_csv({
@@ -95,18 +99,34 @@ class CSVTest(TestCase):
         self.assertLess(0, count)
 
     def test_write_read_unicode(self):
+        keys = [
+            testdata.get_unicode_word(),
+            testdata.get_unicode_word()
+        ]
         row = {
-            testdata.get_unicode_word(): testdata.get_unicode_words(),
-            testdata.get_unicode_word(): testdata.get_unicode_words(),
+            keys[0]: testdata.get_unicode_words(),
+            keys[1]: testdata.get_unicode_words(),
         }
         path = testdata.create_file()
-        csv = CSV(path, fieldnames=row.keys())
+        csv = CSV(path, fieldnames=keys)
         with csv:
             csv.add(row)
 
         csv2 = CSV(path)
         row2 = csv2.rows()[0]
         self.assertEqual(row, row2)
+
+        row3 = {
+            keys[0]: testdata.get_unicode_words(),
+            keys[1]: testdata.get_unicode_words(),
+        }
+        with path.open("a+") as fp:
+            csv = CSV(fp, fieldnames=keys)
+            csv.add(row3)
+
+        rows = CSV(path).tolist()
+        self.assertEqual(row, rows[0])
+        self.assertEqual(row3, rows[1])
 
     def test_find_fieldnames(self):
         csvfile = testdata.create_csv({
@@ -222,4 +242,51 @@ class CSVTest(TestCase):
         with self.assertRaises(TypeError):
             with csv:
                 csv.add({"foo": "1", "bar": None})
+
+    def test_stringio(self):
+        fp = StringIO()
+        csv = CSV(fp)
+
+        keys = [
+            testdata.get_unicode_word(),
+            testdata.get_unicode_word()
+        ]
+
+        row1 = {
+            keys[0]: testdata.get_unicode_words(),
+            keys[1]: testdata.get_unicode_words(),
+        }
+        csv.add(row1)
+
+        row2 = {
+            keys[0]: testdata.get_unicode_words(),
+            keys[1]: testdata.get_unicode_words(),
+        }
+        csv.add(row2)
+
+        rows = csv.rows()
+        self.assertEqual(row1, rows[0])
+        self.assertEqual(row2, rows[1])
+
+    def test_reading(self):
+        fp = StringIO()
+        csv = CSV(fp)
+
+        self.assertFalse(fp.closed)
+        with csv.reading():
+            pass
+        self.assertFalse(fp.closed)
+
+    def test_writing(self):
+        fp = StringIO()
+        csv = CSV(fp)
+
+        self.assertFalse(fp.closed)
+        with csv.writing():
+            pass
+        self.assertFalse(fp.closed)
+
+        with csv:
+            pass
+        self.assertFalse(fp.closed)
 

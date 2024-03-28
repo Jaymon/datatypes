@@ -1938,6 +1938,17 @@ class Filepath(Path):
         if not mode:
             mode = "r" if encoding else "rb"
 
+        open_kwargs = dict(
+            mode=mode,
+            #encoding=encoding,
+            errors=errors,
+            buffering=buffering,
+            newline=newline,
+        )
+
+        if "b" not in mode:
+            open_kwargs["encoding"] = encoding
+
         logger.debug(
             f"Opening: {self.path} with mode: {mode} and encoding: {encoding}"
         )
@@ -1945,12 +1956,17 @@ class Filepath(Path):
         try:
             fp = open(
                 self.path,
-                mode=mode,
-                encoding=encoding,
-                errors=errors,
-                buffering=buffering,
-                newline=newline,
+                **open_kwargs
             )
+
+#             fp = open(
+#                 self.path,
+#                 mode=mode,
+#                 encoding=encoding,
+#                 errors=errors,
+#                 buffering=buffering,
+#                 newline=newline,
+#             )
 
         except IOError:
             if self.exists():
