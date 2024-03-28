@@ -3,6 +3,7 @@ import os
 import codecs
 import csv
 from contextlib import contextmanager
+import io
 
 from .compat import *
 from .config.environ import environ
@@ -46,8 +47,8 @@ class CSV(object):
 
     writer_row_class = None
     """You can set this to a class and rows returned from the default
-    .normalize_writer_row() will be this type, this class should act like a dict
-    unless you also change .writer_class"""
+    .normalize_writer_row() will be this type, this class should act like a
+    dict unless you also change .writer_class"""
 
     class ContinueError(Exception):
         """Can be thrown to have CSV skip the current row"""
@@ -55,8 +56,9 @@ class CSV(object):
 
     def __init__(self, path, fieldnames=None, encoding="", **kwargs):
         """Create the csv instance
-        :param path: str, the path to the csv file that will be read/written
-        :param fieldnames: list, the fieldnames, when writing, if this is
+        :param path: str|IOBase, the path to the csv file that will be
+            read/written :param fieldnames: list, the fieldnames, when writing,
+            if this is. This can also already be a file pointer like object
             omitted then the keys of the first row dictionary passed to .add()
             will be used for the fieldnames. If omitted when reading then the
             first line of the csv file will be used for the fieldnames
@@ -72,7 +74,7 @@ class CSV(object):
                 stream for writing
             readonly: bool, True if writing operations should fail
         """
-        self.path = Filepath(path)
+        self.path = path
         self.fieldnames = self.normalize_fieldnames(fieldnames or [])
         self.writer = None
         self.reader = None
@@ -102,10 +104,16 @@ class CSV(object):
         :param mode: string, the open mode
         :returns: file pointer
         """
-        if not mode or self.readonly:
-            mode = "r"
+        if isinstance(self.path, io.IOBase):
+            return self.path
 
-        return codecs.open(self.path, encoding=self.encoding, mode=mode)
+        else:
+            if not mode or self.readonly:
+                mode = "r"
+
+            self.path = Filepath(self.path)
+
+            return codecs.open(self.path, encoding=self.encoding, mode=mode)
 
     @contextmanager
     def appending(self, mode="ab+"):
@@ -162,7 +170,8 @@ class CSV(object):
         writer = self.writer_class(queue, **kwargs)
         writer.f = f
         writer.queue = queue
-        writer.has_header = True if os.path.getsize(self.path) > 0 else False
+        writer.has_header = True if f.tell() > 0 else False
+        #writer.has_header = True if os.path.getsize(self.path) > 0 else False
         return writer
 
     def create_reader(self, f, **kwargs):
@@ -257,17 +266,35 @@ class CSV(object):
 
     def normalize_reader_file(self, f):
         # https://stackoverflow.com/a/30031962/5006
-        class FileWrapper(object):
-            def __init__(self, f):
-                self.f = f
+        class FileWrapper(io.TextIOWrapper):
+            def __init__(self, buffer):
+                super().__init__(
+                    buffer,
+                    encoding=self.encoding,
+                    write_through=True
+                )
+
                 self.last_line = "" # will contain raw CSV row
 
-            def __iter__(self):
-                return self
-
             def __next__(self):
-                self.last_line = next(self.f)
+                self.last_line = super().__next__()
                 return self.last_line
+
+        # https://stackoverflow.com/a/30031962/5006
+#         class FileWrapper(io.IOBase):
+#             def __init__(self, f):
+#                 self.f = f
+#                 self.last_line = "" # will contain raw CSV row
+# 
+#             def __iter__(self):
+#                 return self
+# 
+#             def __next__(self):
+#                 self.last_line = next(self.f)
+#                 return self.last_line
+# 
+#             def __getattr__(self, k):
+#                 return getattr(self.f, k)
 
         return FileWrapper(f)
 
@@ -275,7 +302,8 @@ class CSV(object):
         """prepare row for reading, meant to be overridden in child classes if
         needed"""
         if not self.strict:
-            # we're checking for a None key, which means there were extra commas
+            # we're checking for a None key, which means there were extra
+            # commas
             if None in row and not any(row.get(None, [])):
                 # the CSV file has extra commas at the end of the row, this is 
                 # pretty common with simple auto csv generators that just put a
@@ -299,10 +327,12 @@ class CSV(object):
             rowcount = len(row)
             fncount = len(self.fieldnames)
             if rowcount != fncount:
-                raise ValueError("mismatch {} row(s) to {} fieldname(s)".format(
-                    rowcount,
-                    fncount
-                ))
+                raise ValueError(
+                    "mismatch {} row(s) to {} fieldname(s)".format(
+                        rowcount,
+                        fncount
+                    )
+                )
 
         if self.writer_row_class:
             row = self.writer_row_class(row)
@@ -323,8 +353,8 @@ class CSV(object):
 
         else:
             # NOTE -- for some reason, the internal writer treats b"" and
-            # ByteString(b"") differently, the b"" would be written out as "b"""
-            # which make me think it's doing repr(value) internally or
+            # ByteString(b"") differently, the b"" would be written out as
+            # "b""" which make me think it's doing repr(value) internally or
             # something
             return ByteString(b"" if value is None else value)
 
@@ -395,6 +425,9 @@ class CSV(object):
         return count
 
     def __str__(self):
+        return self.read_text()
+
+    def read_text(self):
         """This will print out all rows so it might not be ideal to use for 
         bigger CSVs"""
         with self.open() as fp:

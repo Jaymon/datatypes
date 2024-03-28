@@ -54,6 +54,14 @@ class CSVTest(TestCase):
         return
         self.assertEqual(row, row2)
 
+    def test_header_2(self):
+        path = testdata.create_file()
+        csv = CSV(path)
+
+        csv.add({"foo": 1, "bar": 2})
+        csv.add({"foo": 3, "bar": 4})
+        self.assertEqual(1, csv.read_text().count("foo"))
+
     def test_read_unicode(self):
         """make sure we can read a utf encoded csv file"""
         csvfile = testdata.create_csv({

@@ -32,7 +32,7 @@ class Settings(Namespace):
     This extends Namespace so both attribute (.foo) and item (["foo"]) access
     are supported.
 
-    Retrieve an Environ instance by requesting it's prefix:
+    Retrieve an Environ instance by requesting its prefix:
 
         s = Settings(prefix="FOOBAR_")
         s.foobar # Environ instance
