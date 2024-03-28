@@ -280,22 +280,6 @@ class CSV(object):
                 self.last_line = super().__next__()
                 return self.last_line
 
-        # https://stackoverflow.com/a/30031962/5006
-#         class FileWrapper(io.IOBase):
-#             def __init__(self, f):
-#                 self.f = f
-#                 self.last_line = "" # will contain raw CSV row
-# 
-#             def __iter__(self):
-#                 return self
-# 
-#             def __next__(self):
-#                 self.last_line = next(self.f)
-#                 return self.last_line
-# 
-#             def __getattr__(self, k):
-#                 return getattr(self.f, k)
-
         return FileWrapper(f)
 
     def normalize_reader_row(self, row):
@@ -363,15 +347,18 @@ class CSV(object):
         return list(map(String, fieldnames))
 
     def normalize_writer_fieldnames(self, fieldnames):
-        """run this right before setting fieldnames onto the writer instance"""
+        """run this right before setting fieldnames onto the writer instance
+        """
         return fieldnames
 
     def normalize_reader_fieldnames(self, fieldnames):
-        """run this right before setting fieldnames onto the reader instance"""
+        """run this right before setting fieldnames onto the reader instance
+        """
         return fieldnames
 
     def find_fieldnames(self):
-        """attempt to get the field names from the first line in the csv file"""
+        """attempt to get the field names from the first line in the csv file
+        """
         with self.open() as f:
             reader = self.create_reader(f)
             return list(map(String, reader.fieldnames))
@@ -396,14 +383,14 @@ class CSV(object):
                     row = self.normalize_reader_row(row)
                     if row:
                         if self.fieldnames and first_row:
-                            # if you've passed in fieldnames then it will return
-                            # fieldnames mapped to fieldnames as the first row,
-                            # this will catch that and ignore it
+                            # if you've passed in fieldnames then it will
+                            # return fieldnames mapped to fieldnames as the
+                            # first row, this will catch that and ignore it
                             #
-                            # if we pass in fieldnames then DictReader won't use
-                            # the first row as fieldnames, so we need to check
-                            # to make sure the first row isn't a field_name:
-                            # field_name mapping
+                            # if we pass in fieldnames then DictReader won't
+                            # use the first row as fieldnames, so we need to
+                            # check to make sure the first row isn't a
+                            # field_name: field_name mapping
                             if cbany(lambda r: r[0] != r[1], row.items()):
                                 yield row
 
@@ -417,8 +404,8 @@ class CSV(object):
                     first_row = False
 
     def __len__(self):
-        """Returns how many rows are in this csv, this actually goes through all
-        the rows, so this is not a resource light method"""
+        """Returns how many rows are in this csv, this actually goes through
+        all the rows, so this is not a resource light method"""
         count = 0
         for r in self:
             count += 1

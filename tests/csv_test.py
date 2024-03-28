@@ -51,7 +51,6 @@ class CSVTest(TestCase):
 
         csv2 = CSV(path)
         row2 = csv2.rows()[0]
-        return
         self.assertEqual(row, row2)
 
     def test_header_2(self):
@@ -77,7 +76,7 @@ class CSVTest(TestCase):
                 self.assertTrue(bool(row[k]))
         self.assertLess(0, count)
 
-    def test_write(self):
+    def test_write_1(self):
         filepath = testdata.get_file(testdata.get_filename(ext="csv"))
         with CSV(filepath) as c:
             for x in range(10):
@@ -94,6 +93,20 @@ class CSVTest(TestCase):
                 self.assertTrue(row[k])
             self.assertEqual(2, len(row))
         self.assertLess(0, count)
+
+    def test_write_read_unicode(self):
+        row = {
+            testdata.get_unicode_word(): testdata.get_unicode_words(),
+            testdata.get_unicode_word(): testdata.get_unicode_words(),
+        }
+        path = testdata.create_file()
+        csv = CSV(path, fieldnames=row.keys())
+        with csv:
+            csv.add(row)
+
+        csv2 = CSV(path)
+        row2 = csv2.rows()[0]
+        self.assertEqual(row, row2)
 
     def test_find_fieldnames(self):
         csvfile = testdata.create_csv({
