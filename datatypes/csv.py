@@ -162,17 +162,23 @@ class CSV(object):
         kwargs.setdefault("quoting", csv.QUOTE_MINIMAL)
         kwargs.setdefault("fieldnames", self.fieldnames)
 
+        f = self.normalize_writer_file(f)
+        writer = self.writer_class(f, **kwargs)
+        writer.f = f
+        writer.has_header = True if f.tell() > 0 else False
+        return writer
+
         # from testdata CSVpath code:
         # in order to make unicode csvs work we are going to do a round about
         # thing where we write to a string buffer and then pull that out and
         # write it to the file, this is the only way I can make utf-8 work
-        queue = self.normalize_writer_file(f)
-        writer = self.writer_class(queue, **kwargs)
-        writer.f = f
-        writer.queue = queue
-        writer.has_header = True if f.tell() > 0 else False
-        #writer.has_header = True if os.path.getsize(self.path) > 0 else False
-        return writer
+#         queue = self.normalize_writer_file(f)
+#         writer = self.writer_class(queue, **kwargs)
+#         writer.f = f
+#         writer.queue = queue
+#         writer.has_header = True if f.tell() > 0 else False
+#         #writer.has_header = True if os.path.getsize(self.path) > 0 else False
+#         return writer
 
     def create_reader(self, f, **kwargs):
         """create a csv reader, this exists to make it easy to customize
@@ -223,10 +229,10 @@ class CSV(object):
                         writer.has_header = True
 
                     writer.writerow(row)
-                    data = writer.queue.getvalue()
-                    writer.f.write(data)
-                    writer.queue.truncate(0)
-                    writer.queue.seek(0)
+#                     data = writer.queue.getvalue()
+#                     writer.f.write(data)
+#                     writer.queue.truncate(0)
+#                     writer.queue.seek(0)
 
             except self.ContinueError:
                 pass
@@ -261,12 +267,13 @@ class CSV(object):
         return self.extend(rows)
 
     def normalize_writer_file(self, f):
-        queue = StringIO()
-        return queue
+        return f
+#         queue = StringIO()
+#         return queue
 
     def normalize_reader_file(self, f):
         # https://stackoverflow.com/a/30031962/5006
-        class FileWrapper(io.TextIOWrapper):
+        class IOWrapper(io.TextIOWrapper):
             def __init__(self, buffer):
                 super().__init__(
                     buffer,
@@ -280,7 +287,7 @@ class CSV(object):
                 self.last_line = super().__next__()
                 return self.last_line
 
-        return FileWrapper(f)
+        return IOWrapper(f)
 
     def normalize_reader_row(self, row):
         """prepare row for reading, meant to be overridden in child classes if
