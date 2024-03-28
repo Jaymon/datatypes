@@ -105,29 +105,26 @@ class CSV(object):
         :param mode: string, the open mode
         :returns: file pointer
         """
-        if isinstance(self.path, io.IOBase):
+        if not mode or self.readonly:
+            mode = "r"
 
-            logger.debug("Opening io: {}".format(self.path))
+        path = Filepath(self.path)
 
-            return self.path
+        logger.debug("Opening csv file: {} using mode: {}".format(
+            path,
+            mode,
+        ))
 
-        else:
-            if not mode or self.readonly:
-                mode = "r"
-
-            path = Filepath(self.path)
-
-            logger.debug("Opening csv file: {} using mode: {}".format(
-                path,
-                mode,
-            ))
-
-            return path.open(mode=mode, encoding=self.encoding)
-            #return codecs.open(self.path, encoding=self.encoding, mode=mode)
+        return path.open(mode=mode, encoding=self.encoding)
 
     @contextmanager
     def reading(self):
+        """Internal method to manage reading operations
+
+        :returns: IOBase, the file pointer ready to be fully read
+        """
         if isinstance(self.path, io.IOBase):
+            logger.debug("Reading io: {}".format(self.path))
             tell = self.path.tell()
             self.path.seek(0)
             try:
@@ -140,26 +137,20 @@ class CSV(object):
             with self.open() as f:
                 yield f
 
-#     def xreading(self):
-#         if isinstance(self.path, io.IOBase):
-#             tell = self.path.tell()
-#             self.path.seek(0)
-#             try:
-#                 return self.path
-# 
-#             finally:
-#                 self.path.seek(tell)
-# 
-#         else:
-#             return self.open()
-
     @contextmanager
     def writing(self):
+        """Internal method to manage writing operations
+
+        :returns: IOBase, the file pointer ready to be written to
+        """
+        if self.readonly:
+            raise IOError("CSV is in readonly mode")
+
         if isinstance(self.path, io.IOBase):
+            logger.debug("Writing io: {}".format(self.path))
             yield self.path
 
         else:
-
             with self.open(self.writer_mode) as f:
                 yield f
 
@@ -187,8 +178,7 @@ class CSV(object):
         if not self.writer:
             #f = self.open(self.writer_mode)
             cm = self.writing()
-            f = cm.__enter__()
-            self.writer = self.create_writer(f)
+            self.writer = self.create_writer(cm.__enter__())
             self.writer.cm = cm
         return self
 
@@ -196,8 +186,6 @@ class CSV(object):
         self.context_depth -= 1
         if self.context_depth <= 0:
             self.writer.cm.__exit__(exception_type, exception_val, trace)
-#             if not isinstance(self.path, io.IOBase):
-#                 self.writer.f.close()
             self.writer = None
             self.context_depth = 0
 
@@ -318,32 +306,6 @@ class CSV(object):
             def __getattr__(self, k):
                 return getattr(self.f, k)
 
-
-
-#         class IOWrapper(io.BufferedReader):
-#             def __init__(self, buffer):
-#                 super().__init__(buffer)
-# 
-#                 self.last_line = "" # will contain raw CSV row
-# 
-#             def __next__(self):
-#                 self.last_line = super().__next__()
-#                 return self.last_line
-
-#         class IOWrapper(io.TextIOWrapper):
-#             def __init__(self, buffer):
-#                 super().__init__(
-#                     buffer,
-#                     encoding=self.encoding,
-#                     write_through=True
-#                 )
-# 
-#                 self.last_line = "" # will contain raw CSV row
-# 
-#             def __next__(self):
-#                 self.last_line = super().__next__()
-#                 return self.last_line
-
         return IOWrapper(f)
 
     def normalize_reader_row(self, row):
@@ -442,7 +404,7 @@ class CSV(object):
 
     def clear(self):
         """clear the csv file"""
-        with self.open("w") as f:
+        with self.writing() as f:
             f.truncate(0)
 
     def __iter__(self):
@@ -488,8 +450,8 @@ class CSV(object):
     def read_text(self):
         """This will print out all rows so it might not be ideal to use for 
         bigger CSVs"""
-        with self.reading() as fp:
-            return fp.read()
+        with self.reading() as f:
+            return f.read()
 
 
 class TempCSV(CSV):

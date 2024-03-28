@@ -1940,7 +1940,6 @@ class Filepath(Path):
 
         open_kwargs = dict(
             mode=mode,
-            #encoding=encoding,
             errors=errors,
             buffering=buffering,
             newline=newline,
@@ -1958,15 +1957,6 @@ class Filepath(Path):
                 self.path,
                 **open_kwargs
             )
-
-#             fp = open(
-#                 self.path,
-#                 mode=mode,
-#                 encoding=encoding,
-#                 errors=errors,
-#                 buffering=buffering,
-#                 newline=newline,
-#             )
 
         except IOError:
             if self.exists():
