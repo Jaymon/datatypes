@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import re
+from configparser import RawConfigParser
 
 from .compat import *
 from .string import String
@@ -184,4 +184,53 @@ class Exponential(object):
             ret.append(self.initial * pow(rate, i))
 
         return ret
+
+
+class Bool(object):
+    """A casting class that allows for more values to be considered True or
+    False
+
+    This differs from a normal bool(x) cast in that:
+
+        * Any int/float > 0 will be True and any int/float <= 0 will be False,
+            so negative values are False
+        * Yes/no, on/off, and things like that evaluate to True/False, see
+
+            https://github.com/python/cpython/blob/3.11/Lib/configparser.py
+
+            RawConfigParser.BOOLEAN_STATES for what string values are True and
+            False
+        * A string of all whitespace is False
+
+    This isn't a real class but is more akin to a method, the __new__ method
+    returns a builtin bool instance because bool can't be subclassed:
+
+        https://stackoverflow.com/questions/2172189/why-i-cant-extend-bool-in-python
+    """
+
+    __class__ = bool
+    """This is extraneous because __new__ just returns a vanilla bool instance
+    but here for completeness I guess and if I ever want to add more
+    functionality to this class
+
+    https://docs.python.org/3/library/unittest.mock.html#unittest.mock.Mock.__class__
+    """
+    def __new__(cls, v):
+        if not isinstance(v, bool):
+            if isinstance(v, (int, float)):
+                v = True if v > 0 else False
+
+            elif isinstance(v, str):
+                k = v.lower()
+                if k in RawConfigParser.BOOLEAN_STATES:
+                    v = RawConfigParser.BOOLEAN_STATES[k]
+
+                else:
+                    if v.isdigit():
+                        v = True if int(v) > 0 else False
+
+                    else:
+                        v = True if v.strip() else False
+
+        return bool(v)
 

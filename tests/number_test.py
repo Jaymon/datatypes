@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.number import (
@@ -8,6 +7,7 @@ from datatypes.number import (
     Exponential,
     Hex,
     #Binary,
+    Bool,
 )
 
 from . import TestCase, testdata
@@ -131,4 +131,22 @@ class ExponentialTest(TestCase):
     def test_rate(self):
         exp = Exponential(10, 25)
         self.assertEqual(0.25, exp.rate)
+
+
+class BoolTest(TestCase):
+    def test_true(self):
+        self.assertTrue(Bool(100))
+        self.assertTrue(Bool(1.1))
+        self.assertTrue(Bool("yes"))
+        self.assertTrue(Bool("YES"))
+        self.assertTrue(Bool("ok"))
+        self.assertTrue(isinstance(Bool(1), bool))
+
+    def test_false(self):
+        self.assertFalse(Bool(-100))
+        self.assertFalse(Bool(-1.1))
+        self.assertFalse(Bool(0))
+        self.assertFalse(Bool("no"))
+        self.assertFalse(Bool("OFF"))
+        self.assertFalse(Bool("   "))
 

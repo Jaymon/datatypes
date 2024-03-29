@@ -115,7 +115,7 @@ class OrderedSet(MembershipSet):
 
     https://github.com/Jaymon/datatypes/issues/34
 
-    This implementation based on a doubly-linked list is more big-O efficient
+    This implementation based on a doubly-linked list is more big-Oh efficient
     than this implementation:
 
         https://code.activestate.com/recipes/576694/
