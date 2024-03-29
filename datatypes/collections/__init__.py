@@ -4,7 +4,7 @@ from .mapping import (
     Pool,
     Dict,
     NormalizeDict,
-    idict, IDict, Idict, iDict,
+    idict,
     Namespace,
     ContextNamespace,
     DictTree,
@@ -12,7 +12,7 @@ from .mapping import (
 from .sequence import (
     PriorityQueue,
     AppendList,
-    OrderedList,
+    SortedList,
     Stack,
     ListIterator,
 )

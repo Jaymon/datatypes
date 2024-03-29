@@ -7,7 +7,7 @@ from datatypes.collections.mapping import (
     Pool,
     Dict,
     NormalizeDict,
-    idict, IDict, Idict, iDict,
+    idict,
     Namespace,
     ContextNamespace,
     DictTree,
@@ -15,7 +15,7 @@ from datatypes.collections.mapping import (
 from datatypes.collections.sequence import (
     PriorityQueue,
     AppendList,
-    OrderedList,
+    SortedList,
     Stack,
     ListIterator,
 )
@@ -340,7 +340,7 @@ class TrieTest(TestCase):
         self.assertFalse(t.has("bars"))
 
 
-class OrderedListTest(TestCase):
+class SortedListTest(TestCase):
     def test_storage(self):
         class Val(object):
             def __init__(self, priority, val):
@@ -351,7 +351,7 @@ class OrderedListTest(TestCase):
         x2 = Val(4, "bar")
         x3 = Val(1, "foo")
 
-        ol = OrderedList([x1, x2, x3], lambda x: x.priority)
+        ol = SortedList([x1, x2, x3], lambda x: x.priority)
 
         for x in ol:
             self.assertTrue(isinstance(x, Val))
@@ -360,7 +360,7 @@ class OrderedListTest(TestCase):
             self.assertTrue(isinstance(x, Val))
 
         iterable = [(30, "che"), (4, "bar"), (1, "foo")]
-        ol = OrderedList(iterable)
+        ol = SortedList(iterable)
         for i, v in enumerate(reversed(iterable)):
             self.assertEqual(v, ol[i])
 
@@ -371,7 +371,7 @@ class OrderedListTest(TestCase):
                 self.priority = priority
                 self.val = val
 
-        class MyOL(OrderedList):
+        class MyOL(SortedList):
             def key(self, x):
                 return x.priority
 
@@ -386,7 +386,7 @@ class OrderedListTest(TestCase):
         self.assertEqual("che", ol[2].val)
 
     def test_order(self):
-        h = OrderedList(key=lambda x: x[0])
+        h = SortedList(key=lambda x: x[0])
 
         h.append((30, "che"))
         h.append((4, "bar"))

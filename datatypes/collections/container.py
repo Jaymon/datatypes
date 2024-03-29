@@ -109,16 +109,18 @@ class HotSet(MembershipSet):
 class OrderedSet(MembershipSet):
     """An ordered set (a unique list)
 
-    This is different than OrderedList in that it doesn't keep elem order, it
-    keeps the order that elements were added in, so basically it is like a
-    unique list, in fact, it could totally be called UniqueList. It is
-    similar to OrderedDict.keys
+    This keeps the order that elements were added in, so basically it is like a
+    unique list, in fact, it could totally be called UniqueList. It is similar
+    to OrderedDict.keys
+
+    https://github.com/Jaymon/datatypes/issues/34
 
     This implementation based on a doubly-linked list is more big-O efficient
-    than this implementation
+    than this implementation:
 
-    https://code.activestate.com/recipes/576694/
-    https://github.com/Jaymon/datatypes/issues/34
+        https://code.activestate.com/recipes/576694/
+
+    This implementation has O(1) for add and contains, but O(n) for remove
     """
     def __init__(self, iterable=None):
         self.order = []
@@ -156,6 +158,10 @@ class OrderedSet(MembershipSet):
     def __iter__(self):
         """iterate through the set in add order"""
         for elem in self.order:
+            yield elem
+
+    def __reversed__(self):
+        for elem in reversed(self):
             yield elem
 
 

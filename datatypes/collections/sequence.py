@@ -206,10 +206,10 @@ class AppendList(list):
         raise NotImplementedError()
 
 
-class OrderedList(list):
+class SortedList(list):
     """Keep a list sorted as you append or extend it
 
-    An ordered list, this sorts items from smallest to largest using key, so
+    A sorted list, this sorts items from smallest to largest using key, so
     if you want MaxQueue like functionality use negative values: .pop(-1) and
     if you want MinQueue like functionality use positive values: .pop(0)
 

@@ -5,9 +5,9 @@ from .collections import (
     PriorityQueue,
     Dict,
     NormalizeDict,
-    idict, IDict, Idict, iDict,
+    idict, idict as IDict, idict as Idict, idict as iDict,
     AppendList,
-    OrderedList,
+    SortedList, SortedList as OrderedList,
     ListIterator,
     Trie,
     Namespace,
@@ -104,8 +104,7 @@ from .path import (
 )
 from .profile import (
     Profiler,
-    AggregateProfiler,
-    AggregateProfiler as AProfiler
+    AggregateProfiler, AggregateProfiler as AProfiler
 )
 from .reflection import (
     OrderedSubclasses,
@@ -132,8 +131,8 @@ from .string import (
     Password,
 )
 from .token import (
-    # we don't import Token because it's too generic for toplevel, if you need it
-    # then import it directly from the submodule
+    # we don't import Token because it's too generic for toplevel, if you need
+    # it then import it directly from the submodule
     Tokenizer,
     Scanner,
     WordTokenizer,

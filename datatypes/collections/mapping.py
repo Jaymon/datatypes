@@ -321,9 +321,6 @@ class idict(NormalizeDict):
             k = self.ikeys[nk]
         self.ikeys[nk] = k
         return k
-Idict = idict
-IDict = idict
-iDict = idict
 
 
 class NamespaceMixin(object):
@@ -644,9 +641,9 @@ class ContextNamespace(Namespace):
 
 
 class DictTree(NamespaceMixin, Dict):
-    """A dict/tree hybrid, what that means is you can pass in a list of keys and
-    it will create sub DictTrees at each key so you can nest values. This could
-    also be called a NestingDict, hierarchyDict, or something like that
+    """A dict/tree hybrid, what that means is you can pass in a list of keys
+    and it will create sub DictTrees at each key so you can nest values. This
+    could also be called a NestingDict, hierarchyDict, or something like that
 
     https://github.com/Jaymon/datatypes/issues/29
 
