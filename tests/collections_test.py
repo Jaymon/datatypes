@@ -22,6 +22,7 @@ from datatypes.collections.sequence import (
 from datatypes.collections.container import (
     Trie,
     HotSet,
+    OrderedSet,
 )
 
 from . import TestCase, testdata
@@ -809,4 +810,23 @@ class DictTreeTest(TestCase):
         self.assertFalse(["foo", "bar"] in d)
         self.assertTrue(["foo"] in d)
         self.assertTrue("foo" in d)
+
+
+class OrderedSetTest(TestCase):
+    def test_order(self):
+        s = OrderedSet()
+
+        s.add(1)
+        s.add(10)
+        s.add(5)
+        s.add(10)
+
+        self.assertEqual([1, 10, 5], list(s))
+
+        self.assertEqual(1, s.pop())
+        self.assertEqual(10, s.pop())
+        self.assertEqual(5, s.pop())
+
+        with self.assertRaises(KeyError):
+            s.pop()
 

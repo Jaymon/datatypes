@@ -14,38 +14,41 @@ class MembershipSet(set):
     """A set with all the AND, OR, and UNION operations disabled, making it
     really only handy for testing membership
 
-    This is really more of a skeleton for the few times I've had to do this in a
-    project, usually we are implementing custom functionality that acts like a
-    set and so it will be nice to just be able to extend this and not have to
+    This is really more of a skeleton for the few times I've had to do this in
+    a project, usually we are implementing custom functionality that acts like
+    a set and so it will be nice to just be able to extend this and not have to
     worry about disabling the unsupported methods
+
+    https://docs.python.org/3/library/stdtypes.html#set
 
     If you need a readonly set, use frozenset:
         https://docs.python.org/3/library/stdtypes.html#frozenset
     """
     def __init__(self, iterable=None):
-        if not iterable:
-            iterable = []
+        super().__init__()
 
-        super(MembershipSet, self).__init__(iterable)
-
-    def add(self, elem):
-        super(MembershipSet, self).add(perm)
-
-    def remove(self, elem):
-        super(MembershipSet, self).remove(perm)
+        if iterable:
+            self.update(iterable)
 
     def discard(self, elem):
         try:
             self.remove(elem)
+
         except KeyError:
             pass
 
-    def clear(self):
-        super(MembershipSet, self).clear()
+    # def add(self, elem):
+    #     super().add(elem)
 
-    def update(self, *others):
-        for iterable in others:
-            super(MembershipSet, self).update(iterable)
+    # def remove(self, elem):
+    #     super().remove(elem)
+
+    # def clear(self):
+    #     super().clear()
+
+    # def update(self, *others):
+    #     for iterable in others:
+    #         super().update(iterable)
 
     def noimp(self, *args, **kwargs):
         raise NotImplementedError()
@@ -99,8 +102,61 @@ class HotSet(MembershipSet):
 
     def pop(self):
         elem = self.pq.get()
-        self.discard(elem)
+        self.remove(elem)
         return elem
+
+
+class OrderedSet(MembershipSet):
+    """An ordered set (a unique list)
+
+    This is different than OrderedList in that it doesn't keep elem order, it
+    keeps the order that elements were added in, so basically it is like a
+    unique list, in fact, it could totally be called UniqueList. It is
+    similar to OrderedDict.keys
+
+    This implementation based on a doubly-linked list is more big-O efficient
+    than this implementation
+
+    https://code.activestate.com/recipes/576694/
+    https://github.com/Jaymon/datatypes/issues/34
+    """
+    def __init__(self, iterable=None):
+        self.order = []
+        super().__init__(iterable)
+
+    def update(self, *others):
+        for other in others:
+            for elem in other:
+                self.add(elem)
+
+    def add(self, elem):
+        if elem not in self:
+            super().add(elem)
+            self.order.append(elem)
+
+    def remove(self, elem):
+        super().remove(elem)
+        self.order.remove(elem)
+
+    def pop(self):
+        """Pop from the beginning of the set (this will always pop the oldest
+        item added to the set"""
+        try:
+            elem = self.order[0]
+            self.remove(elem)
+            return elem
+
+        except IndexError as e:
+            raise KeyError("pop from an empty set") from e
+
+    def clear(self):
+        self.order = []
+        super().clear()
+
+    def __iter__(self):
+        """iterate through the set in add order"""
+        for elem in self.order:
+            yield elem
 
 
 class Trie(object):

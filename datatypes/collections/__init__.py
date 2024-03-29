@@ -19,5 +19,6 @@ from .sequence import (
 from .container import (
     Trie,
     HotSet,
+    OrderedSet,
 )
 
