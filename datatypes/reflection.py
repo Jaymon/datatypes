@@ -26,8 +26,8 @@ class OrderedSubclasses(list):
     their parents in the list
 
     Basically, it makes sure all subclasses get placed before the parent class,
-    so if you want your ChildClass to be before ParentClass, you would just have
-    ChildClass extend ParentClass
+    so if you want your ChildClass to be before ParentClass, you would just
+    have ChildClass extend ParentClass
 
     You'd think this would be a niche thing and not worth being in a common
     library but I've actually had to do this exact thing multiple times, so I'm
@@ -37,13 +37,20 @@ class OrderedSubclasses(list):
 
     https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
     """
-    def __init__(self, cutoff_classes=None, classes=None):
+
+    include_cutoff_classes = True
+    """True if cutoff classes should be included when inserting classes"""
+
+    def __init__(self, cutoff_classes=None, classes=None, **kwargs):
         """
         :param cutoff_classes: tuple[type, ...], you should ignore anything
             before these classes when working out order
         :param classes: list, any classes you want to insert right away
         """
         super().__init__()
+
+        if "include_cutoff_classes" in kwargs:
+            self.include_cutoff_classes = kwargs["include_cutoff_classes"]
 
         self.info = {}
         self.set_cutoff(cutoff_classes)
@@ -86,9 +93,9 @@ class OrderedSubclasses(list):
     def insert(self, klass, cutoff_classes=None):
         """Insert class into the ordered list
 
-        :param klass: the class to add to the ordered list, this klass will come
-            before all its parents in the list (this class and its parents will
-            be added to the list up to .cutoff_classes)
+        :param klass: the class to add to the ordered list, this klass will
+            come before all its parents in the list (this class and its parents
+            will be added to the list up to .cutoff_classes)
         """
         for klass, klass_info in self._subclasses(klass, cutoff_classes):
             self._insert(klass, klass_info)
@@ -98,10 +105,8 @@ class OrderedSubclasses(list):
 
         :param module: the module to check for subclasses of cutoff_classes
         """
-        cutoff_classes = self.get_cutoff(cutoff_classes)
-
         for name, klass in inspect.getmembers(module, inspect.isclass):
-            if issubclass(klass, cutoff_classes):
+            if self._is_valid_subclass(klass, cutoff_classes):
                 self.insert(klass)
 
     def insert_modules(self, module, cutoff_classes=None):
@@ -188,8 +193,8 @@ class OrderedSubclasses(list):
         return (object,)
 
     def edges(self, **kwargs):
-        """Iterate through the absolute children and only the absolute children,
-        no intermediate classes.
+        """Iterate through the absolute children and only the absolute
+        children, no intermediate classes.
 
         :Example:
             class Foo(object): pass
@@ -250,48 +255,76 @@ class OrderedSubclasses(list):
             from earliest ancestor to current klass
             """
         ret = []
-        cutoff_classes = self.get_cutoff(cutoff_classes)
-        klasses = inspect.getmro(klass)
+        klasses = list(self.getmro(klass, cutoff_classes))
         child_count = len(klasses)
         index = len(self)
         descendants = []
 
         for offset, subclass in enumerate(reversed(klasses), 1):
-            if self._is_valid_subclass(subclass, cutoff_classes):
-                rc = ReflectClass(subclass)
-                index_name = rc.classpath
+            rc = ReflectClass(subclass)
+            index_name = rc.classpath
 
-                d = {
-                    "index_name": index_name,
-                    "child_count": child_count - offset,
-                    "in_info": index_name in self.info,
-                    "edge": False,
-                }
+            d = {
+                "index_name": index_name,
+                "child_count": child_count - offset,
+                "in_info": index_name in self.info,
+                "edge": False,
+            }
 
-                if d["in_info"]:
-                    index = min(index, self.info[index_name]["index"])
+            if d["in_info"]:
+                index = min(index, self.info[index_name]["index"])
 
-                else:
-                    d["descendants"] = list(descendants)
+            else:
+                d["descendants"] = list(descendants)
 
-                d["index"] = index
+            d["index"] = index
 
-                if not d["in_info"] and not d["child_count"]:
-                    d["edge"] = True
+            if not d["in_info"] and not d["child_count"]:
+                d["edge"] = True
 
-                yield subclass, d
+            yield subclass, d
 
-                descendants.append(d)
+            descendants.append(d)
 
     def _is_valid_subclass(self, klass, cutoff_classes):
         """Return True if klass is a valid subclass that should be iterated
         in ._subclasses
 
+        This is dependent on the value of .include_cutoff_classes, if it is
+        True then True will be returned if klass is a subclass of the cutoff
+        classes. If it is False then True will only be returned if klass
+        is a subclass and it's not any of the cutoff classes
+
         :param klass: type, the class to check
-        :param tuple[type], the cutoff classes returned from .get_cutoff
+        :param cutoff_classes: tuple[type], the cutoff classes returned from
+            .get_cutoff
         :returns: bool, True if klass should be yield by ._subclasses
         """
-        return issubclass(klass, cutoff_classes)
+        ret = False
+        if issubclass(klass, cutoff_classes):
+            ret = True
+            if not self.include_cutoff_classes:
+                for cutoff_class in cutoff_classes:
+                    if klass is cutoff_class:
+                        ret = False
+                        break
+
+        return ret
+
+    def getmro(self, klass, cutoff_classes=None):
+        """Get the method resolution order of klass taking into account the
+        cutoff classes
+
+        :param klass: type, the class to get the method resolution order for
+        :param cutoff_classes: tuple[type], the cutoff classes returned from
+            .get_cutoff
+        :returns: generator[type]
+        """
+        cutoff_classes = self.get_cutoff(cutoff_classes)
+        klasses = inspect.getmro(klass)
+        for klass in klasses:
+            if self._is_valid_subclass(klass, cutoff_classes):
+                yield klass
 
     def clear(self):
         super().clear()

@@ -20,8 +20,8 @@ class OrderedSubclassesTest(TestCase):
     """
     NOTE -- I've learned that this is now an incredibly difficult class to test
     because it is a vital class to testdata, so if it starts failing then you
-    can't even get to the test because testdata will raise an error as it starts
-    up
+    can't even get to the test because testdata will raise an error as it
+    starts up
     """
     def test_edges_1(self):
         class Base(object): pass
@@ -155,6 +155,23 @@ class OrderedSubclassesTest(TestCase):
 
         ocs = OrderedSubclasses(classes=[Che, Bar, Foo, Base])
         self.assertEqual(order, list(ocs))
+
+    def test_getmro(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Foo): pass
+        class Che(Bar): pass
+
+        ocs = OrderedSubclasses(
+            cutoff_classes=[Base],
+            classes=[Base, Foo, Bar, Che],
+            include_cutoff_classes=False,
+        )
+
+        orders = []
+        for c in ocs.getmro(Bar):
+            orders.append(c)
+        self.assertEqual([Bar, Foo], orders)
 
 
 class ExtendTest(TestCase):
