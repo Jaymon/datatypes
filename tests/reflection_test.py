@@ -165,7 +165,7 @@ class OrderedSubclassesTest(TestCase):
         ocs = OrderedSubclasses(
             cutoff_classes=[Base],
             classes=[Base, Foo, Bar, Che],
-            include_cutoff_classes=False,
+            insert_cutoff_classes=False,
         )
 
         orders = []

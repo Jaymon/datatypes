@@ -38,7 +38,7 @@ class OrderedSubclasses(list):
     https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
     """
 
-    include_cutoff_classes = True
+    insert_cutoff_classes = True
     """True if cutoff classes should be included when inserting classes"""
 
     def __init__(self, cutoff_classes=None, classes=None, **kwargs):
@@ -49,8 +49,8 @@ class OrderedSubclasses(list):
         """
         super().__init__()
 
-        if "include_cutoff_classes" in kwargs:
-            self.include_cutoff_classes = kwargs["include_cutoff_classes"]
+        if "insert_cutoff_classes" in kwargs:
+            self.insert_cutoff_classes = kwargs["insert_cutoff_classes"]
 
         self.info = {}
         self.set_cutoff(cutoff_classes)
@@ -290,7 +290,7 @@ class OrderedSubclasses(list):
         """Return True if klass is a valid subclass that should be iterated
         in ._subclasses
 
-        This is dependent on the value of .include_cutoff_classes, if it is
+        This is dependent on the value of .insert_cutoff_classes, if it is
         True then True will be returned if klass is a subclass of the cutoff
         classes. If it is False then True will only be returned if klass
         is a subclass and it's not any of the cutoff classes
@@ -303,7 +303,7 @@ class OrderedSubclasses(list):
         ret = False
         if issubclass(klass, cutoff_classes):
             ret = True
-            if not self.include_cutoff_classes:
+            if not self.insert_cutoff_classes:
                 for cutoff_class in cutoff_classes:
                     if klass is cutoff_class:
                         ret = False
@@ -417,7 +417,8 @@ class Extend(object):
         setattr(o, name, callback)
 
     def patch_instance(self, o, name, callback):
-        """internal method that patches an instance o with a callback at name"""
+        """internal method that patches an instance o with a callback at name
+        """
         if isinstance(callback, property):
             setattr(o.__class__, name, callback)
         else:
@@ -437,8 +438,8 @@ class ReflectPath(Path):
     def reflect_modules(self, depth=-1):
         """Yield all the python modules found in this path
 
-        :param depth: int, how deep into the path you would like to go, defaults
-            to all depths
+        :param depth: int, how deep into the path you would like to go,
+            defaults to all depths
         :returns: generator[ReflectModule], yields reflection instances for
             every found python module
         """
@@ -459,8 +460,8 @@ class ReflectPath(Path):
     def get_modules(self, depth=-1, ignore_errors=False):
         """Yield all the python modules found in this path
 
-        :param depth: int, how deep into the path you would like to go, defaults
-            to all depths
+        :param depth: int, how deep into the path you would like to go,
+            defaults to all depths
         :param ignore_errors: bool, True if you would like to just ignore
             errors when trying to load the module
         :returns: generator[module], yields every found python module
@@ -789,7 +790,8 @@ class ReflectDecorator(object):
     """
     @cachedproperty(cached="_parents")
     def parents(self):
-        """If this decorator is a class then this will return all the parents"""
+        """If this decorator is a class then this will return all the parents
+        """
         ret = []
         decor = self.decorator
         if inspect.isclass(decor):
@@ -821,11 +823,11 @@ class ReflectDecorator(object):
 class ReflectMethod(object):
     """Internal class used by ReflectClass
 
-    Reflects a method on a class. This is kind of a strange situation where this
-    class is entirely dependant on ReflectClass for its information. This is 
-    because this figures out all the decorators that were defined on this method
-    and that information is only available in the full actual python code of the
-    class, as retrieved using the ast module, so this really wraps
+    Reflects a method on a class. This is kind of a strange situation where
+    this class is entirely dependant on ReflectClass for its information. This
+    is because this figures out all the decorators that were defined on this
+    method and that information is only available in the full actual python
+    code of the class, as retrieved using the ast module, so this really wraps
     ReflectClass.get_info()
 
     Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
@@ -996,14 +998,14 @@ class ReflectClass(object):
 
         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
-        Note -- this will fail when the object isn't accessible from the module,
-        that means you can't define your class object in a function and expect
-        this function to work, the reason why this doesn't work is because the
-        class is on the local stack of the function, so it only exists when that
-        function is running, so there's no way to get the class object outside
-        of the function, and you can't really separate it from the class (like
-        using the code object to create the class object) because it might use
-        local variables and things like that
+        Note -- this will fail when the object isn't accessible from the
+        module, that means you can't define your class object in a function and
+        expect this function to work, the reason why this doesn't work is
+        because the class is on the local stack of the function, so it only
+        exists when that function is running, so there's no way to get the
+        class object outside of the function, and you can't really separate it
+        from the class (like using the code object to create the class object)
+        because it might use local variables and things like that
 
         :Example:
             # -- THIS IS BAD --
@@ -1240,8 +1242,8 @@ class ReflectClass(object):
                         "kwargs": kwargs
                     }
 
-                    # get the actual decorator from either the module (imported)
-                    # or from the global builtins
+                    # get the actual decorator from either the module
+                    # (imported) or from the global builtins
                     decor = None
                     if self.reflect_module():
                         m = self.reflect_module().get_module()
@@ -1311,7 +1313,7 @@ class ReflectClass(object):
 
         return ret
 
-    def members(self, *args, **kwargs):
+    def getmembers(self, *args, **kwargs):
         """Get all the actual members of this class, passthrough for
         inspect.getmembers"""
         ret = {}
@@ -1319,16 +1321,32 @@ class ReflectClass(object):
             ret[method_name] = method
         return ret
 
-    def parents(self, cutoff_class=object):
-        for parent_class in self.classes(cutoff_class=cutoff_class):
+    def get_parents(self, cutoff_class=object):
+        """Get all the parent classes up to cutoff_class
+
+        see .getmro
+
+        :param cutoff_class: type, iterate the classes ending at this class
+        :returns: generator[type]
+        """
+        for parent_class in self.getmro(cutoff_class=cutoff_class):
             if parent_class is not self.cls:
                 yield parent_class
 
     def reflect_parents(self, cutoff_class=object):
+        """Same as .get_parents but returns ReflectClass instances"""
         for parent_class in self.parents(cutoff_class=cutoff_class):
             yield type(self)(parent_class)
 
-    def classes(self, cutoff_class=object):
+    def getmro(self, cutoff_class=object):
+        """Get the classes for method resolution order, this is basically
+        class and all its parents up to cutoff_class (if passed in)
+
+        passthrough for inspect.getmro
+
+        :param cutoff_class: type, iterate the classes ending at this class
+        :returns: generator[type]
+        """
         for klass in inspect.getmro(self.cls):
             if cutoff_class and klass is cutoff_class:
                 break
@@ -1336,8 +1354,9 @@ class ReflectClass(object):
             else:
                 yield klass
 
-    def reflect_classes(self, cutoff_class=object):
-        for klass in self.classes(cutoff_class=cutoff_class):
+    def reflectmro(self, cutoff_class=object):
+        """Same as .getmro but returns ReflectClass instances"""
+        for klass in self.getmro(cutoff_class=cutoff_class):
             yield type(self)(klass)
 
 
@@ -1362,7 +1381,8 @@ class ReflectModule(object):
 
     @property
     def modpath(self):
-        """Return the full qualified python path of the module (eg, foo.bar.che)
+        """Return the full qualified python path of the module (eg,
+        foo.bar.che)
         """
         return self.get_module().__name__
 
@@ -1421,8 +1441,9 @@ class ReflectModule(object):
     def find_module_package(cls, module_name):
         """This will attempt to find the package if module_name is relative
 
-        :param module_name: str, if relative (starts with dot) then try and find
-            the calling package which you can pass into importlib.import_module()
+        :param module_name: str, if relative (starts with dot) then try and
+            find the calling package which you can pass into
+            importlib.import_module()
         :returns: str, the calling package modpath
         """
         module_package = None
@@ -1431,8 +1452,10 @@ class ReflectModule(object):
             for frame in frames:
                 frame_cls = frame[0].f_locals.get("cls", None)
                 frame_self = frame[0].f_locals.get("self", None)
-                is_first_outside_call = (frame_cls and frame_cls is not cls) \
+                is_first_outside_call = (
+                    (frame_cls and frame_cls is not cls)
                     or (frame_self and type(frame_self) is not cls)
+                )
                 if is_first_outside_call:
                     module_package = frame[0].f_globals["__name__"]
                     break
@@ -1446,8 +1469,8 @@ class ReflectModule(object):
         :param module_name: str, the module name/path (eg foo.bar)
         :param module_package: str, if module_name is relative (eg ..foo) then
             this will be used to resolve the relative path
-        :param path: str, if passed in then this will be added to the importable
-            paths and removed after the module is imported
+        :param path: str, if passed in then this will be added to the
+            importable paths and removed after the module is imported
         """
         if path:
             sys.path.append(path)
