@@ -1054,10 +1054,16 @@ class ReflectClass(object):
         return self._reflect_module or ReflectModule(self.cls.__module__)
 
     def method_names(self):
+        # Rename to get_method_names
+        # https://github.com/Jaymon/datatypes/issues/54
         for method_name in self.get_info().keys():
             yield method_name
 
     def methods(self):
+        # TODO -- this should be renamed to get_methods and it should use
+        # inpsect instead of the ast parser in get_info. reflect_methods can
+        # still use the get_info ast parser
+        # https://github.com/Jaymon/datatypes/issues/54
         for method_name, method_info in self.get_info().items():
             yield method_name, method_info["method"]
 
@@ -1313,13 +1319,31 @@ class ReflectClass(object):
 
         return ret
 
-    def getmembers(self, *args, **kwargs):
+    def getmembers(self, predicate=None, **kwargs):
         """Get all the actual members of this class, passthrough for
-        inspect.getmembers"""
-        ret = {}
-        for method_name, method in inspect.getmembers(self.cls, *args, **kwargs):
-            ret[method_name] = method
-        return ret
+        inspect.getmembers
+
+        :param predicate: callable[type], this callback will passed through
+            to `inpsect.getmembers`
+        :param **kwargs:
+            * regex: str, a regex that will be used to filter the members by
+                name
+            * name_redicate: callable[str], a callback that will be used to
+                filter the members by name, returns True to yield the member
+        :returns: generator[Any]
+        """
+        regex = kwargs.pop("regex", "")
+        name_predicate = kwargs.pop("name_predicate", None)
+
+        for name, member in inspect.getmembers(self.cls, predicate):
+            if regex and re.search(regex, name, re.I):
+                yield name, member
+
+            elif name_predicate and name_predicate(name):
+                yield name, member
+
+            else:
+                yield name, member
 
     def get_parents(self, cutoff_class=object):
         """Get all the parent classes up to cutoff_class
