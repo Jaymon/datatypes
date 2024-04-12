@@ -14,8 +14,8 @@ class Token(object):
         :param tokenizer: Tokenizer, the tokenizer creating this token
         :param start: int, the cursor offset this token starts at in the
             buffer the tokenizer is tokenizing
-        :param stop: int, the cursor offset this token ends at in the buffer the
-            tokenizer is tokenizing
+        :param stop: int, the cursor offset this token ends at in the buffer
+            the tokenizer is tokenizing
         """
         self.start = start
         self.stop = stop
@@ -23,7 +23,14 @@ class Token(object):
 
 
 class TokenizerABC(io.IOBase):
-    def set_buffer(self, buffer):
+    def normalize_buffer(self, buffer):
+        """Implemented in Tokenizer and called by Tokenizer.set_buffer,
+        this is here because children might want to customize what the
+        buffer actually is
+
+        :param buffer: str|IOBase
+        :returns: IOBase, it needs to be seekable
+        """
         raise NotImplementedError()
 
     def next(self):
@@ -37,7 +44,7 @@ class Tokenizer(io.IOBase):
     """The base class for building a tokenizer
 
     A Tokenizer class acts like an IO object but returns tokens instead of
-    strings and all read operations return Token isntances and all setting
+    strings and all read operations return Token instances and all setting
     operations manipulate positions according to tokens
 
     Summarized from https://stackoverflow.com/a/380487
@@ -73,11 +80,14 @@ class Tokenizer(io.IOBase):
     def __exit__(self, exception_type, exception_value, traceback):
         return False if exception_value else True
 
-    def set_buffer(self, buffer):
+    def normalize_buffer(self, buffer):
         if isinstance(buffer, basestring):
             buffer = io.StringIO(String(buffer))
 
-        self.buffer = buffer
+        return buffer
+
+    def set_buffer(self, buffer):
+        self.buffer = self.normalize_buffer(buffer)
 
         if not self.seekable():
             raise ValueError("Unseekable streams are not supported")
@@ -94,8 +104,8 @@ class Tokenizer(io.IOBase):
                 pass
 
     def tell(self):
-        """Return the starting position of the current token but don't increment
-        the cursor offset"""
+        """Return the starting position of the current token but don't
+        increment the cursor offset"""
         t = self.peek()
         return t.start if t else self.buffer.tell() 
 
@@ -105,8 +115,8 @@ class Tokenizer(io.IOBase):
     def read(self, count=-1):
         """Read count tokens and return them
 
-        :param count: int, if >0 then return count tokens, if -1 then return all
-            remaining tokens
+        :param count: int, if >0 then return count tokens, if -1 then return
+            all remaining tokens
         :returns: list, the read Token instances
         """
         ret = []

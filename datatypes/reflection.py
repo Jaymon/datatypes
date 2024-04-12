@@ -105,6 +105,8 @@ class OrderedSubclasses(list):
 
         :param module: the module to check for subclasses of cutoff_classes
         """
+        cutoff_classes = self.get_cutoff(cutoff_classes)
+
         for name, klass in inspect.getmembers(module, inspect.isclass):
             if self._is_valid_subclass(klass, cutoff_classes):
                 self.insert(klass)

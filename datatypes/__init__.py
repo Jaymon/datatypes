@@ -84,7 +84,7 @@ from .number import (
     Hex,
     Binary,
     Exponential,
-    Bool,
+    Bool, Bool as Boolean
 )
 from .parse import (
     ArgvParser,

@@ -33,7 +33,7 @@ class WordToken(Token):
             '"{}"'.format(self.rdelim.text) if self.rdelim else None,
         )
 
-        return "{}, {}, {}".format(tokens[0], tokens[1], tokens[2])
+        return "{} <- {} -> {}".format(tokens[0], tokens[1], tokens[2])
 
 
 class WordTokenizer(Tokenizer):
@@ -41,7 +41,7 @@ class WordTokenizer(Tokenizer):
     characters
     """
     DEFAULT_CHARS = String.WHITESPACE + String.PUNCTUATION
-    """IF no deliminators are passed into the constructor then use these"""
+    """If no deliminators are passed into the constructor then use these"""
 
     token_class = WordToken
     """The token class this class will use to create Token instances"""
@@ -77,14 +77,14 @@ class WordTokenizer(Tokenizer):
         return ret
 
     def tell_ldelim(self):
-        """Tell the current ldelim start position, this is mainly used internally
+        """Tell the current ldelim start position, this is mainly used
+        internally
 
-        :returns: int, the cursor position of the start of the left deliminator of
-            the current token
+        :returns: int, the cursor position of the start of the left deliminator
+            of the current token
         """
         pos = self.buffer.tell()
         ch = self.buffer.read(1)
-#         pout.v(pos, ch)
         if not ch:
             # EOF, stream is exhausted
             raise StopIteration()
@@ -190,8 +190,8 @@ class WordTokenizer(Tokenizer):
     def prev(self):
         """Returns the previous Token
 
-        :returns: Token, the previous token found in the stream, None if there are
-            no previous tokens
+        :returns: Token, the previous token found in the stream, None if there
+            are no previous tokens
         """
         token = None
         try:

@@ -704,12 +704,12 @@ class EnglishWord(String):
     def plural(self):
         """Pluralize a singular word
 
-        the purpose of this method is not to be right 100% of the time but to be
-        good enough for my purposes, for example, it won't return words that
+        the purpose of this method is not to be right 100% of the time but to
+        be good enough for my purposes, for example, it won't return words that
         have the same singular and plural, so it would return sheeps for sheep,
-        this is because I usually need the plural to be different. If that isn't
-        the case in the future I should pass a flag in to keep that "always
-        different" functionality
+        this is because I usually need the plural to be different. If that
+        isn't the case in the future I should pass a flag in to keep that
+        "always different" functionality
 
         the algo is based off of this:
             https://www.grammarly.com/blog/plural-nouns/
@@ -875,8 +875,8 @@ class Character(String):
     def unified(self, separator=" "):
         """return the unified codepoints joined by separator
 
-        this is just a handy way to get the codepoints with some separator, name
-        comes from emojitracker
+        this is just a handy way to get the codepoints with some separator,
+        name comes from emojitracker
 
         https://medium.com/@mroth/how-i-built-emojitracker-179cfd8238ac
 
@@ -949,8 +949,9 @@ class Character(String):
     def eawidth(self):
         """Return the east asian width of the character
 
-        In a broad sense, wide characters include W, F, and A (when in East Asian context),
-        and narrow characters include N, Na, H, and A (when not in East Asian context)
+        In a broad sense, wide characters include W, F, and A (when in East
+        Asian context), and narrow characters include N, Na, H, and A (when not
+        in East Asian context)
 
         http://www.unicode.org/reports/tr11/tr11-36.html
         http://www.unicode.org/Public/UNIDATA/EastAsianWidth.txt
@@ -967,7 +968,8 @@ class Character(String):
             * https://andysalerno.com/posts/weird-emojis/
             * https://www.reddit.com/r/programming/comments/o0il4b/unicode_weirdness_bear_plus_snowflake_equals/
 
-        :returns: bool, True if this is a complete UTF-8 character, False otherwise
+        :returns: bool, True if this is a complete UTF-8 character, False
+            otherwise
         """
         from .number import Integer # avoid circular dependency
 
@@ -1019,7 +1021,8 @@ class Character(String):
 
 
 class Codepoint(String):
-    """Grapheme - a grapheme is the smallest unit of a writing system of any given language
+    """Grapheme - a grapheme is the smallest unit of a writing system of any
+    given language
 
     https://en.wikipedia.org/wiki/Grapheme
     https://docs.python.org/3/howto/unicode.html
@@ -1198,7 +1201,8 @@ class Codepoint(String):
 
 
 class Regex(object):
-    """Provides a passthrough interface to the re module to run pattern against s
+    """Provides a passthrough interface to the re module to run pattern against
+    s
 
     :Example:
         r = Regex(r"foo", "foo bar foo")
