@@ -1853,7 +1853,7 @@ class PathIteratorTest(TestCase):
             r_count += 1
         self.assertEqual(len(r), r_count)
 
-    def test_callback(self):
+    def test_callback_1(self):
         dirpath = testdata.create_files({
             "1.txt": "body 1",
             "bar/2.txt": "body 2",
@@ -1892,6 +1892,25 @@ class PathIteratorTest(TestCase):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
+
+    def test_callback_files(self):
+        dirpath = testdata.create_files({
+            "foo/page.md": "1",
+            "bar/_page.md": "2",
+            "bar/_baz/NOTES.txt": "3",
+            "_NOTES_2.txt": "4",
+            "boo/_che/bam/page.md": "5",
+            "boo/page.md": "6",
+            "boo/NOTES_3.txt": "7",
+        })
+
+        def cb(basename):
+            return basename.startswith("_") or basename.startswith(".")
+
+        files = dirpath.files()
+        files.ne_basename(callback=cb) # ignore files matching cb
+        files.nin_basename(callback=cb) # ignore directories matching cb
+        self.assertEqual(3, len(files))
 
     def test_inverse(self):
         dirpath = testdata.create_files({

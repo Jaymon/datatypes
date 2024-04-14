@@ -191,11 +191,19 @@ class UrlTest(TestCase):
         u2 = u.base("foo", "bar", che=4)
         self.assertEqual("http://example.com/foo/bar?che=4", u2)
 
-    def test_host(self):
+    def test_host_1(self):
         u = Url("http://example.com/path/part/?che=3")
         u2 = u.host("foo", "bar", che=4)
         self.assertEqual("http://example.com/foo/bar?che=4", u2)
         self.assertEqual(u2.host(), u.host())
+
+    def test_host_empty(self):
+        u = Url("/page/2")
+        self.assertEqual("", u.host())
+
+        u2 = u.host("page", 3)
+        self.assertEqual("", u2.host())
+        self.assertEqual("/page/3", u2)
 
     def test_copy(self):
         u = Url("http://example.com/path/part/?che=3")

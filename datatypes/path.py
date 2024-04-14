@@ -2343,8 +2343,8 @@ class PathIterator(ListIterator):
         pi = dp.files() # equal to PathIterator(dp).files()
         pi = dp.dirs() # equal to PathIterator(dp).dirs()
 
-    Sadly, you can't do this even though Dirpath.__iter__ returns a PathIterator
-    instance:
+    Sadly, you can't do this even though Dirpath.__iter__ returns a
+    PathIterator instance:
 
         # this does not work
         for p in Dirpath("<SOME-PATH>").pattern(".txt"):
@@ -2361,7 +2361,7 @@ class PathIterator(ListIterator):
         for p in Dirpath("<SOME-PATH>").iteratory.pattern(".txt"):
             print(p)
 
-    For the most part, there are 4 types of filtering critieria:
+    For the most part, there are 4 types of filtering criteria:
 
         * pattern - matches an fnmatch pattern
         * regex - matches a re.search regex
@@ -2377,9 +2377,9 @@ class PathIterator(ListIterator):
         * in - Used for traversing directories, only applies to directories, if
             the directory matches it will be traversed, directories that don't
             match will not be traversed
-        * nin - inverse of `in`
+        * nin - inverse of `in` and also only applies to directories
 
-    The filtering criteria methods have the same signature:
+    The filtering criteria methods all have the same signature:
 
         .<METHOD-NAME>(<VALUE>, **<KEYWORDS>)
 
@@ -2402,15 +2402,15 @@ class PathIterator(ListIterator):
         * basename: bool, applies to Path.basename instead of the whole path
         * inverse: bool, reverse the match, so if it returned True is would be
             False
-        * traverse: bool, only apply the criteria to traversing directories, not
-            matching directories, this is handy when you want to match certain
-            files/directories that only reside in certain directories
+        * traverse: bool, only apply the criteria to traversing directories,
+            not matching directories, this is handy when you want to match
+            certain files/directories that only reside in certain directories
 
     There are also wrapper methods:
 
         * eq_dir and ne_dir
         * eq_file and ne_file
-        * eq_<PATH-ATTRIBUTE> and ne_<PATH-ATTRIBUTE> (eg eq_fileroot or ne_ext)
+        * eq_<PATH-ATTRIBUTE> and ne_<PATH-ATTRIBUTE> (eg eq_fileroot, ne_ext)
         * in_dir and nin_dir
         * files
         * dirs
@@ -2784,8 +2784,8 @@ class PathIterator(ListIterator):
         return self._add_criteria(self._yield_callbacks, cb, **kwargs)
 
     def eq_callback(self, cb, **kwargs):
-        """alias of .callback to make the fluid more consistent with the wrapper
-        methods"""
+        """alias of .callback to make the fluid more consistent with the
+        wrapper methods"""
         return self.callback(cb, **kwargs)
 
     def ne_callback(self, cb, **kwargs):
@@ -2923,7 +2923,7 @@ class PathIterator(ListIterator):
     def _add_kwargs(self, criteria, **kwargs):
         """Certain methods are considered "wrapper" methods that allow
         passthrough kwargs in order to set criteria (eg eq_<PATH-ATTRIBUTE>
-        dynamic methods and instance methods like: .dirs, .files, .in_dir, etc),
+        dynamic methods and instance methods like: .dirs, .files, .eq_ext, etc)
 
         This internal method will take those passed in kwargs to those methods
         and match them to the passed in criteria. Basically, it takes the
@@ -3080,7 +3080,7 @@ class PathIterator(ListIterator):
         callbacks) and accounts for inverse values
 
         :param criteria_key: str, each criteria dict has various keys, if the
-            key exists on the criteria dict then the values/patterns/regexes/etc
+            key exists on the criteria dict then the values/patterns/regexes
             found at this key will be checked against path
         :param path: Path
         :returns: bool, True if path should be yielded

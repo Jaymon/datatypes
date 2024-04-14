@@ -69,13 +69,23 @@ class Url(String):
     @property
     def root(self):
         """just return scheme://netloc"""
-        return parse.urlunsplit((
-            self.scheme,
-            self.netloc,
-            "",
-            "",
-            ""
-        ))
+        if netloc := self.netloc:
+            ret = parse.urlunsplit((
+                self.scheme,
+                self.netloc,
+                "",
+                "",
+                ""
+            ))
+
+        else:
+            if self.scheme.startswith("http"):
+                ret = ""
+
+            else:
+                ret = self.scheme
+
+        return ret
 
     @property
     def anchor(self):
@@ -524,11 +534,12 @@ class Url(String):
         return self.create(**sub_kwargs)
 
     def _normalize_params(self, *paths, **query_kwargs):
-        """a lot of the helper methods are very similar, this handles their arguments"""
+        """a lot of the helper methods are very similar, this handles their
+        arguments"""
         kwargs = {}
 
         if paths:
-            fragment = paths[-1]
+            fragment = String(paths[-1])
             if fragment:
                 if fragment.startswith("#"):
                     kwargs["fragment"] = fragment
@@ -598,11 +609,15 @@ class Url(String):
             print(url.host()) # http://host.com/
             print(url.host("che", boom="bam")) # http://host/che?boom=bam
 
-        :param *paths: list, the paths to append to the current path without
-            query params
+        :param *paths: list, the path parts to append to the current host
         :param **query_kwargs: dict, any query string params to add
         """
         kwargs = self._normalize_params(*paths, **query_kwargs)
+
+        # because path is from host then it is automatically absolute
+        if "path" in kwargs and not kwargs["path"].startswith("/"):
+            kwargs["path"] = "/" + kwargs["path"]
+
         return self.create(self.root, **kwargs)
 
     def child(self, *paths, **kwargs):
