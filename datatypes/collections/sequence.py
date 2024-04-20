@@ -351,7 +351,7 @@ class ListIterator(list):
     http://docs.python.org/2/library/stdtypes.html#iterator-types
     """
     def __init__(self, *args, **kwargs):
-        super(Iterator, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __next__(self):
         """needed for py3 api compatibility"""
