@@ -3,7 +3,7 @@
 from .collections import (
     Pool,
     PriorityQueue,
-    Dict,
+    Dict, Dict as Dictionary,
     NormalizeDict,
     idict, idict as IDict, idict as Idict, idict as iDict,
     AppendList,
@@ -81,11 +81,11 @@ from .logging import (
 )
 from .number import (
     Shorten,
-    Integer,
+    Integer, Integer as Int,
     Hex,
     Binary,
     Exponential,
-    Bool, Bool as Boolean
+    Boolean, Boolean as Bool
 )
 from .parse import (
     ArgvParser,
@@ -125,8 +125,8 @@ from .server import (
     ThreadingWSGIServer,
 )
 from .string import (
-    String,
-    ByteString,
+    String, String as Str,
+    ByteString, ByteString as Bytes,
     Base64,
     NamingConvention,
     EnglishWord,

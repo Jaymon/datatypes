@@ -7,7 +7,7 @@ from datatypes.number import (
     Exponential,
     Hex,
     #Binary,
-    Bool,
+    Boolean,
 )
 
 from . import TestCase, testdata
@@ -133,20 +133,24 @@ class ExponentialTest(TestCase):
         self.assertEqual(0.25, exp.rate)
 
 
-class BoolTest(TestCase):
+class BooleanTest(TestCase):
     def test_true(self):
-        self.assertTrue(Bool(100))
-        self.assertTrue(Bool(1.1))
-        self.assertTrue(Bool("yes"))
-        self.assertTrue(Bool("YES"))
-        self.assertTrue(Bool("ok"))
-        self.assertTrue(isinstance(Bool(1), bool))
+        self.assertTrue(Boolean(100))
+        self.assertTrue(Boolean(1.1))
+        self.assertTrue(Boolean("yes"))
+        self.assertTrue(Boolean("YES"))
+        self.assertTrue(Boolean("ok"))
+        self.assertTrue(Boolean("t"))
+        self.assertTrue(Boolean("true"))
+        self.assertTrue(isinstance(Boolean(1), bool))
 
     def test_false(self):
-        self.assertFalse(Bool(-100))
-        self.assertFalse(Bool(-1.1))
-        self.assertFalse(Bool(0))
-        self.assertFalse(Bool("no"))
-        self.assertFalse(Bool("OFF"))
-        self.assertFalse(Bool("   "))
+        self.assertFalse(Boolean(-100))
+        self.assertFalse(Boolean(-1.1))
+        self.assertFalse(Boolean(0))
+        self.assertFalse(Boolean("no"))
+        self.assertFalse(Boolean("OFF"))
+        self.assertFalse(Boolean("   "))
+        self.assertFalse(Boolean("f"))
+        self.assertFalse(Boolean("false"))
 

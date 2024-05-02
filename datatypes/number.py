@@ -186,7 +186,7 @@ class Exponential(object):
         return ret
 
 
-class Bool(object):
+class Boolean(object):
     """A casting class that allows for more values to be considered True or
     False
 
@@ -221,16 +221,23 @@ class Bool(object):
                 v = True if v > 0 else False
 
             elif isinstance(v, str):
-                k = v.lower()
+                k = v.lower().strip()
                 if k in RawConfigParser.BOOLEAN_STATES:
                     v = RawConfigParser.BOOLEAN_STATES[k]
 
                 else:
-                    if v.isdigit():
+                    if k.isdigit():
                         v = True if int(v) > 0 else False
 
                     else:
-                        v = True if v.strip() else False
+                        if k == "t":
+                            v = True
+
+                        elif k == "f":
+                            v = False
+
+                        else:
+                            v = True if k else False
 
         return bool(v)
 
