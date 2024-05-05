@@ -245,7 +245,21 @@ class PathServer(BaseServer):
 
 
 class CallbackHandler(SimpleHTTPRequestHandler):
-    """This is the handler that makes the CallbackServer work"""
+    """This is the handler that makes the CallbackServer work
+
+    https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler
+    https://docs.python.org/3/library/http.server.html#http.server.SimpleHTTPRequestHandler
+    https://github.com/python/cpython/blob/3.12/Lib/http/server.py
+
+    You have access to:
+
+        * .path - the requested path
+        * .headers - the request headers
+        * .command - the request method (eg, GET, POST)
+        * .server - the server handling the request
+        * .server.server_name - the name of the server
+        * .server.server_port - the port of the server
+    """
     @property
     def uri(self):
         uri = self.path
@@ -253,6 +267,11 @@ class CallbackHandler(SimpleHTTPRequestHandler):
         if i >= 0:
             uri = uri[:i]
         return uri
+
+    @property
+    def url(self):
+        # TODO: figure out how to get the scheme (http or https)
+        return self.server.get_url(self.path)
 
     @cachedproperty(cached="_query")
     def query(self):

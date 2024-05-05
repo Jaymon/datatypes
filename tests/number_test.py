@@ -135,6 +135,7 @@ class ExponentialTest(TestCase):
 
 class BooleanTest(TestCase):
     def test_true(self):
+        self.assertTrue(Boolean(True))
         self.assertTrue(Boolean(100))
         self.assertTrue(Boolean(1.1))
         self.assertTrue(Boolean("yes"))
@@ -145,6 +146,7 @@ class BooleanTest(TestCase):
         self.assertTrue(isinstance(Boolean(1), bool))
 
     def test_false(self):
+        self.assertFalse(Boolean(False))
         self.assertFalse(Boolean(-100))
         self.assertFalse(Boolean(-1.1))
         self.assertFalse(Boolean(0))

@@ -186,7 +186,17 @@ class Exponential(object):
         return ret
 
 
-class Boolean(object):
+class BooleanMeta(type):
+    @property
+    def __bases__(self):
+        return (bool,) + bool.__bases__
+
+    @property
+    def __mro__(self):
+        return (Boolean,) + bool.__mro__
+
+
+class Boolean(int, metaclass=BooleanMeta):
     """A casting class that allows for more values to be considered True or
     False
 
@@ -206,14 +216,6 @@ class Boolean(object):
     returns a builtin bool instance because bool can't be subclassed:
 
         https://stackoverflow.com/questions/2172189/why-i-cant-extend-bool-in-python
-    """
-
-    __class__ = bool
-    """This is extraneous because __new__ just returns a vanilla bool instance
-    but here for completeness I guess and if I ever want to add more
-    functionality to this class
-
-    https://docs.python.org/3/library/unittest.mock.html#unittest.mock.Mock.__class__
     """
     def __new__(cls, v):
         if not isinstance(v, bool):
