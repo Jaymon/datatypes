@@ -187,6 +187,21 @@ class Exponential(object):
 
 
 class BooleanMeta(type):
+    """This class enables Boolean to quack like a boolean
+
+    Sadly, no matter how hard I try, I don't think it is possible to get
+    Boolean to pass `issubclass(Boolean, bool)` because the python C
+    implementation of `issubclass` uses ->tp_mro which is what is used to
+    originally set the .__mro__ attribute, but that means you can't override
+    the functionality anywhere in actual python
+
+    This metaclass isn't strictly necessary, I just find it kind of
+    interesting
+    """
+    @property
+    def __base__(self):
+        return bool
+
     @property
     def __bases__(self):
         return (bool,) + bool.__bases__
