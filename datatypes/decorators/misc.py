@@ -43,11 +43,14 @@ class cache(FuncDecorator):
                         name += str(hash(a))
 
                     except TypeError:
-                        # if it's the first value passed to the callable and
-                        # it failed hashing then let's just skip it because
-                        # this is most likely an instance method and the
-                        # unhashable value is `self`
-                        if i > 0:
+                        if i == 0:
+                            # if it's the first value passed to the callable
+                            # and it failed hashing then let's just use the id
+                            # because this is most likely an instance method
+                            # and the unhashable value is `self`
+                            name += str(id(a))
+
+                        else:
                             raise
 
             if kwargs:

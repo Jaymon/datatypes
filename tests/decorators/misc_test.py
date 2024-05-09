@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 from collections import Counter
 
 from datatypes.compat import *
@@ -146,6 +147,20 @@ class CacheTest(TestCase):
 
         self.assertEqual(6, Bar.bar())
         self.assertEqual(6, Bar.bar())
+
+    def test_instance_unique(self):
+        class Foo(dict):
+            @cache()
+            def bar(self):
+                return os.environ["FOO_BAR"]
+
+        with self.environ(FOO_BAR="one"):
+            f = Foo()
+            print(f.bar()) # one
+
+        with self.environ(FOO_BAR="two"):
+            f = Foo()
+            print(f.bar()) # "one" when it should be "two"
 
 
 class DeprecatedTest(TestCase):
