@@ -33,6 +33,19 @@ class cache(FuncDecorator):
             def func(self):
                 # functools.cache would normally fail on this
                 return 1
+
+        # The cache can be wrong when the first value is non-hashable and it
+        # is important to the returned value, however, I think this would
+        # be an uncommon use case for this decorator:
+        @cache
+        def func(d, v):
+            return d.get("foo", v)
+
+        d = {}
+        func(d, 1) # 1
+
+        d["foo"] = 2
+        func(d, 1) # 1 instead of 2 because value was already cached
     """
     def decorate(self, f, *cache_args, **cache_kwargs):
         def wrapped(*args, **kwargs):

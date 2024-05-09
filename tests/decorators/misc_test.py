@@ -156,11 +156,11 @@ class CacheTest(TestCase):
 
         with self.environ(FOO_BAR="one"):
             f = Foo()
-            print(f.bar()) # one
+            self.assertEqual("one", f.bar())
 
         with self.environ(FOO_BAR="two"):
             f = Foo()
-            print(f.bar()) # "one" when it should be "two"
+            self.assertEqual("two", f.bar())
 
 
 class DeprecatedTest(TestCase):
