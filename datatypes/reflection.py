@@ -627,6 +627,10 @@ class ReflectName(String):
     def method(self):
         return self.get_method()
 
+    @property
+    def module_parts(self):
+        return self.module_name.split(".")
+
     def __new__(cls, name):
         name, properties = cls.normalize(name)
 
@@ -817,6 +821,32 @@ class ReflectName(String):
         """
         smpath = self.relative_module(other)
         return smpath.split(".") if smpath else []
+
+    def absolute_module_parts(self, other):
+        """Same as .absolute_module but returns the remainder submodule as a
+        list of parts.
+
+        :param other: str, see .absolute_module
+        :returns: list[str]
+        """
+        smparts = self.relative_module_parts(other)
+        parts = self.module_parts
+        return parts[0:-len(smparts)] if smparts else parts
+
+    def absolute_module(self, other):
+        """The opposite of .relative_module, this returns the parent module
+        ending with other
+
+        :Example:
+            rn = ReflectName("foo.bar.che.boo")
+            print(rn.absolute_module("bar")) # foo.bar
+            print(rn.absolute_module("foo.bar")) # foo.bar
+
+        :param other: str, the module path. This will usually be a partial
+            module prefix
+        :returns: str, the parent module that ends with other
+        """
+        return ".".join(self.absolute_module_parts(other))
 
 
 class ReflectDecorator(object):

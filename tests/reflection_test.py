@@ -298,6 +298,30 @@ class ReflectNameTest(TestCase):
         with self.assertRaises(ValueError):
             p.relative_module("baz")
 
+    def test_absolute_module(self):
+        p = ReflectName("foo.bar.che.boo")
+
+        smpath = p.absolute_module("boo")
+        self.assertEqual("foo.bar.che.boo", smpath)
+
+        smpath = p.absolute_module("bar")
+        self.assertEqual("foo.bar", smpath)
+
+        smpath = p.absolute_module("bar.che")
+        self.assertEqual("foo.bar.che", smpath)
+
+        smpath = p.absolute_module(".bar.che.")
+        self.assertEqual("foo.bar.che", smpath)
+
+        smpath = p.absolute_module("foo")
+        self.assertEqual("foo", smpath)
+
+        smpath = p.absolute_module("boo")
+        self.assertEqual("foo.bar.che.boo", smpath)
+
+        with self.assertRaises(ValueError):
+            p.absolute_module("baz")
+
 
 class ReflectMethodTest(TestCase):
     def test_method_docblock_1(self):
