@@ -563,7 +563,7 @@ class ReflectPath(Path):
 
 
 class ReflectName(String):
-    """A relfection object similar to python's built-in resolve_name
+    """A reflection object similar to python's built-in resolve_name
 
     take something like some.full.module.Path and return the actual Path
     class object
@@ -780,6 +780,43 @@ class ReflectName(String):
 
     def resolve(self):
         return pkgutil.resolve_name(self)
+
+    def relative_module(self, other):
+        """Return the relative module path relative to other. This is similar
+        to Path.relative_to except it allows a partial other
+
+        :Example:
+            rn = ReflectName("foo.bar.che.boo")
+            print(rn.relative_module("bar")) # che.boo
+            print(rn.relative_module("foo.bar")) # che.boo
+
+        :param other: str, the module path. This can either be the full module
+            prefix or a partial module prefix
+        :returns: str, the submodule path that comes after other
+        """
+        other = re.escape(other.strip("."))
+        parts = re.split(
+            rf"(?:^|\.){other}(?:\.|$)",
+            self.module_name,
+            maxsplit=1
+        )
+
+        if len(parts) > 1:
+            return parts[1]
+
+        raise ValueError(
+            f"{other} is not a parent module of {self.module_name}"
+        )
+
+    def relative_module_parts(self, other):
+        """Same as .relative_module but returns the remainder submodule as a
+        list of parts. Similar to Path.relative_parts
+
+        :param other: str, see .relative_module
+        :returns: list[str]
+        """
+        smpath = self.relative_module(other)
+        return smpath.split(".") if smpath else []
 
 
 class ReflectDecorator(object):
