@@ -785,14 +785,14 @@ class ReflectName(String):
     def resolve(self):
         return pkgutil.resolve_name(self)
 
-    def relative_module(self, other):
+    def relative_module_name(self, other):
         """Return the relative module path relative to other. This is similar
         to Path.relative_to except it allows a partial other
 
         :Example:
             rn = ReflectName("foo.bar.che.boo")
-            print(rn.relative_module("bar")) # che.boo
-            print(rn.relative_module("foo.bar")) # che.boo
+            print(rn.relative_module_name("bar")) # che.boo
+            print(rn.relative_module_name("foo.bar")) # che.boo
 
         :param other: str, the module path. This can either be the full module
             prefix or a partial module prefix
@@ -816,31 +816,31 @@ class ReflectName(String):
         """Same as .relative_module but returns the remainder submodule as a
         list of parts. Similar to Path.relative_parts
 
-        :param other: str, see .relative_module
+        :param other: str, see .relative_module_name
         :returns: list[str]
         """
-        smpath = self.relative_module(other)
+        smpath = self.relative_module_name(other)
         return smpath.split(".") if smpath else []
 
     def absolute_module_parts(self, other):
         """Same as .absolute_module but returns the remainder submodule as a
         list of parts.
 
-        :param other: str, see .absolute_module
+        :param other: str, see .absolute_module_name
         :returns: list[str]
         """
         smparts = self.relative_module_parts(other)
         parts = self.module_parts
         return parts[0:-len(smparts)] if smparts else parts
 
-    def absolute_module(self, other):
+    def absolute_module_name(self, other):
         """The opposite of .relative_module, this returns the parent module
         ending with other
 
         :Example:
             rn = ReflectName("foo.bar.che.boo")
-            print(rn.absolute_module("bar")) # foo.bar
-            print(rn.absolute_module("foo.bar")) # foo.bar
+            print(rn.absolute_module_name("bar")) # foo.bar
+            print(rn.absolute_module_name("foo.bar")) # foo.bar
 
         :param other: str, the module path. This will usually be a partial
             module prefix

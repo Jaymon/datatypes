@@ -278,49 +278,49 @@ class ReflectNameTest(TestCase):
         self.assertEqual("", p.class_name)
         self.assertEqual("", p.method_name)
 
-    def test_relative_module(self):
+    def test_relative_module_name(self):
         p = ReflectName("foo.bar.che.boo")
-        smpath = p.relative_module("bar")
+        smpath = p.relative_module_name("bar")
         self.assertEqual("che.boo", smpath)
 
-        smpath = p.relative_module("bar.che")
+        smpath = p.relative_module_name("bar.che")
         self.assertEqual("boo", smpath)
 
-        smpath = p.relative_module(".bar.che.")
+        smpath = p.relative_module_name(".bar.che.")
         self.assertEqual("boo", smpath)
 
-        smpath = p.relative_module("foo")
+        smpath = p.relative_module_name("foo")
         self.assertEqual("bar.che.boo", smpath)
 
-        smpath = p.relative_module("boo")
+        smpath = p.relative_module_name("boo")
         self.assertEqual("", smpath)
 
         with self.assertRaises(ValueError):
-            p.relative_module("baz")
+            p.relative_module_name("baz")
 
-    def test_absolute_module(self):
+    def test_absolute_module_name(self):
         p = ReflectName("foo.bar.che.boo")
 
-        smpath = p.absolute_module("boo")
+        smpath = p.absolute_module_name("boo")
         self.assertEqual("foo.bar.che.boo", smpath)
 
-        smpath = p.absolute_module("bar")
+        smpath = p.absolute_module_name("bar")
         self.assertEqual("foo.bar", smpath)
 
-        smpath = p.absolute_module("bar.che")
+        smpath = p.absolute_module_name("bar.che")
         self.assertEqual("foo.bar.che", smpath)
 
-        smpath = p.absolute_module(".bar.che.")
+        smpath = p.absolute_module_name(".bar.che.")
         self.assertEqual("foo.bar.che", smpath)
 
-        smpath = p.absolute_module("foo")
+        smpath = p.absolute_module_name("foo")
         self.assertEqual("foo", smpath)
 
-        smpath = p.absolute_module("boo")
+        smpath = p.absolute_module_name("boo")
         self.assertEqual("foo.bar.che.boo", smpath)
 
         with self.assertRaises(ValueError):
-            p.absolute_module("baz")
+            p.absolute_module_name("baz")
 
 
 class ReflectMethodTest(TestCase):

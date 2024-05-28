@@ -811,6 +811,48 @@ class DictTreeTest(TestCase):
         self.assertTrue(["foo"] in d)
         self.assertTrue("foo" in d)
 
+    def test_trees(self):
+        d = DictTree()
+        d[["foo", "bar"]] = 1
+        d[["foo", "che", "baz"]] = 2
+        d[["foo", "che", "boo", "far"]] = 3
+
+        td = {
+            None: ["foo"],
+            "foo": ["bar", "che"],
+            "che": ["baz", "boo"],
+            "boo": ["far"],
+        }
+
+        for ks, v in d.trees():
+            for k in td[ks[-1] if ks else None]:
+                self.assertTrue(k in v)
+
+    def test_leaves(self):
+        d = DictTree()
+        d[["foo", "bar"]] = 1
+        d[["foo", "che", "baz"]] = 2
+        d[["foo", "che", "boo", "far"]] = 3
+
+        td = {
+            "bar": 1,
+            "baz": 2,
+            "far": 3,
+        }
+
+        for ks, v in d.leaves():
+            self.assertEqual(td[ks[-1]], v)
+
+        count = 0
+        for ks, v in d.leaves(1):
+            count += 1
+        self.assertEqual(0, count)
+
+        count = 0
+        for ks, v in d.leaves(2):
+            count += 1
+        self.assertEqual(1, count)
+
 
 class OrderedSetTest(TestCase):
     def test_order(self):

@@ -786,3 +786,39 @@ class DictTree(NamespaceMixin, Dict):
         else:
             return super().setdefault(keys, default)
 
+    def trees(self, depth=-1):
+        """Iterate through the trees in this tree
+
+        A tree is a node that contains other trees
+
+        :param depth: int, If above 0 only proceed to that depth. If -1 then
+            don't worry about depth
+        :returns: generator[tuple(list, DictTree)], index 0 is the path of keys
+            to get to this tree, and empty list is the root tree. Index 1 is
+            the tree
+        """
+        if depth > 0 or depth < 0:
+            yield [], self
+            for k, v in self.items():
+                if isinstance(v, self.__class__):
+                    for sk, sv in v.trees(depth=depth-1):
+                        if sk:
+                            yield [k] + sk, sv
+
+                        else:
+                            yield [k], sv
+
+    def leaves(self, depth=-1):
+        """Iterate through the leaves in this tree
+
+        A leaf is a node that is the end of a tree
+
+        :param depth: int, see .trees
+        :returns: generator[tuple(list, Any)], Index 0 is the path of keys.
+            Index 1 is the value of the leaf node
+        """
+        for ks, tree in self.trees(depth=depth):
+            for k, v in tree.items():
+                if not isinstance(v, self.__class__):
+                    yield ks + [k], v
+
