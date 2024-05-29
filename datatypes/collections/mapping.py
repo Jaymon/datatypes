@@ -654,8 +654,11 @@ class DictTree(Dict):
         d.foo.bar.che # 1
         d.foo.bar # {"che": 1}
 
-    Each tree node in the tree has 3 properties:
-        * .tree_head - points to the tree node above this tree, this will be
+    This is the terminology (with tree_ prefix) I'm trying to adhere to:
+        https://en.wikipedia.org/wiki/Tree_(data_structure)#Terminology
+
+    Each tree node in the tree has these properties:
+        * .tree_parent - points to the tree node above this tree, this will be
             None if this is the absolute head tree
         * .tree_name - the name of the key this tree is in (so 
             self.tree_head[self.tree_name] is self), this will be "" if this
@@ -663,6 +666,7 @@ class DictTree(Dict):
         * .tree_path - similar to .tree_name but returns the entire set of
             names in the order needed to traverse from the absolute head tree
             back to this tree
+        * .tree_root - the absolute head of the tree
     """
     @property
     def tree_path(self):
@@ -671,13 +675,25 @@ class DictTree(Dict):
         :returns: list[str]
         """
         path = [self.tree_name]
-        head = self
-        while head := head.tree_head:
-            path.append(head.tree_name)
+        parent = self
+        while parent := parent.tree_parent:
+            path.append(parent.tree_name)
         return list(reversed(path[:-1]))
 
+#     @property
+#     def tree_head(self):
+#         """the absolute head of the tree
+# 
+#         :returns DictTree
+#         """
+#         head = self
+#         while parent := head.tree_parent:
+#             head = parent
+#         return head
+
     def __init__(self, mapping_or_iterable=None, **kwargs):
-        self.tree_head = None
+        self.tree_root = self
+        self.tree_parent = None
         self.tree_name = ""
 
         super().__init__()
@@ -699,11 +715,20 @@ class DictTree(Dict):
         :returns: DictTree, our new instance already nested
         """
         dt = type(self)()
-        dt.tree_head = self
+        dt.tree_parent = self
         dt.tree_name = key
+        dt.tree_root = self.tree_root
         return dt
 
     def __getattr__(self, key):
+        """This allows for fluid interface reading, fluid interface is only for
+        reading, not for writing
+
+        :Example:
+            d = DictTree()
+            d[["foo", "bar"]] = 1
+            print(d.foo.bar) # 1
+        """
         try:
             return super().__getattr__(key)
 

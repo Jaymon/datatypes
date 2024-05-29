@@ -855,15 +855,17 @@ class DictTreeTest(TestCase):
 
     def test_tree_properties(self):
         d = DictTree()
-        self.assertEqual(None, d.tree_head)
+        self.assertEqual(None, d.tree_parent)
 
         d[["foo", "bar"]] = 1
-        self.assertEqual(d, d["foo"].tree_head)
+        self.assertEqual(d, d["foo"].tree_parent)
         self.assertEqual("foo", d["foo"].tree_name)
 
         d[["foo", "baz", "che"]] = 2
         self.assertEqual("baz", d[["foo", "baz"]].tree_name)
         self.assertEqual(["foo", "baz"], d[["foo", "baz"]].tree_path)
+
+        self.assertEqual(d, d[["foo", "baz"]].tree_root)
 
     def test___missing__(self):
         d = DictTree()
