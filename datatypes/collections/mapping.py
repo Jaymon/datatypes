@@ -680,17 +680,6 @@ class DictTree(Dict):
             path.append(parent.tree_name)
         return list(reversed(path[:-1]))
 
-#     @property
-#     def tree_head(self):
-#         """the absolute head of the tree
-# 
-#         :returns DictTree
-#         """
-#         head = self
-#         while parent := head.tree_parent:
-#             head = parent
-#         return head
-
     def __init__(self, mapping_or_iterable=None, **kwargs):
         self.tree_root = self
         self.tree_parent = None
