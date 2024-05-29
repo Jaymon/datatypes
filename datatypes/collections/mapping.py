@@ -640,7 +640,7 @@ class ContextNamespace(Namespace):
             yield v
 
 
-class DictTree(NamespaceMixin, Dict):
+class DictTree(Dict):
     """A dict/tree hybrid, what that means is you can pass in a list of keys
     and it will create sub DictTrees at each key so you can nest values. This
     could also be called a NestingDict, hierarchyDict, or something like that
@@ -653,15 +653,66 @@ class DictTree(NamespaceMixin, Dict):
         d.get(["foo", "bar", "che"]) # 1
         d.foo.bar.che # 1
         d.foo.bar # {"che": 1}
+
+    Each tree node in the tree has 3 properties:
+        * .tree_head - points to the tree node above this tree, this will be
+            None if this is the absolute head tree
+        * .tree_name - the name of the key this tree is in (so 
+            self.tree_head[self.tree_name] is self), this will be "" if this
+            tree is the absolute head tree
+        * .tree_path - similar to .tree_name but returns the entire set of
+            names in the order needed to traverse from the absolute head tree
+            back to this tree
     """
+    @property
+    def tree_path(self):
+        """Get the path from the absolute head tree to this tree
+
+        :returns: list[str]
+        """
+        path = [self.tree_name]
+        head = self
+        while head := head.tree_head:
+            path.append(head.tree_name)
+        return list(reversed(path[:-1]))
+
+    def __init__(self, mapping_or_iterable=None, **kwargs):
+        self.tree_head = None
+        self.tree_name = ""
+
+        super().__init__()
+
+        if mapping_or_iterable:
+            if isinstance(mapping_or_iterable, Mapping):
+                self.update(mapping_or_iterable)
+
+            else:
+                for k, v in mapping_or_iterable:
+                    self.set(k, v)
+
+        if kwargs:
+            self.update(kwargs)
+
     def __missing__(self, key):
         """If the key doesn't exist then create a new DictTree instance at key
 
         :returns: DictTree, our new instance already nested
         """
-        d = type(self)()
-        self[key] = d
-        return d
+        dt = type(self)()
+        dt.tree_head = self
+        dt.tree_name = key
+        return dt
+
+    def __getattr__(self, key):
+        try:
+            return super().__getattr__(key)
+
+        except AttributeError:
+            if key.startswith("__"):
+                raise
+
+            else:
+                return super().__getitem__(key)
 
     def __getitem__(self, keys):
         """Allow list access in normal dict interactions"""
@@ -712,6 +763,9 @@ class DictTree(NamespaceMixin, Dict):
         """
         if isinstance(keys, list):
             if len(keys) > 1:
+                if keys[0] not in self:
+                    self[keys[0]] = self.__missing__(keys[0])
+
                 self[keys[0]].set(keys[1:], value)
 
             else:
@@ -778,6 +832,9 @@ class DictTree(NamespaceMixin, Dict):
         """As with .set and .get this allows a list of keys or key"""
         if isinstance(keys, list):
             if len(keys) > 1:
+                if keys[0] not in self:
+                    self[keys[0]] = self.__missing__(keys[0])
+
                 return self[keys[0]].setdefault(keys[1:], default)
 
             else:

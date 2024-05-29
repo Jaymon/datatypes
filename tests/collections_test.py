@@ -786,7 +786,7 @@ class DictTreeTest(TestCase):
     def test_pop(self):
         d = DictTree()
 
-        d.foo.bar.che = 2
+        d.set(["foo", "bar", "che"], 2)
         self.assertEqual(2, d.pop(["foo", "bar", "che"]))
         self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
 
@@ -852,6 +852,45 @@ class DictTreeTest(TestCase):
         for ks, v in d.leaves(2):
             count += 1
         self.assertEqual(1, count)
+
+    def test_tree_properties(self):
+        d = DictTree()
+        self.assertEqual(None, d.tree_head)
+
+        d[["foo", "bar"]] = 1
+        self.assertEqual(d, d["foo"].tree_head)
+        self.assertEqual("foo", d["foo"].tree_name)
+
+        d[["foo", "baz", "che"]] = 2
+        self.assertEqual("baz", d[["foo", "baz"]].tree_name)
+        self.assertEqual(["foo", "baz"], d[["foo", "baz"]].tree_path)
+
+    def test___missing__(self):
+        d = DictTree()
+
+        v = d["foo"]
+        self.assertEqual(0, len(d))
+
+        v = d.foo.bar.che
+        self.assertEqual(0, len(d))
+
+    def test___init__(self):
+        d = DictTree([
+            (["foo", "bar"], 1),
+            (["foo", "che"], 2),
+        ])
+        self.assertEqual(1, d.foo.bar)
+        self.assertEqual(2, d.foo.che)
+        self.assertEqual(1, len(d))
+        self.assertEqual(2, len(d["foo"]))
+
+        d = DictTree(
+            [
+                (["foo", "bar"], 1),
+            ],
+            foo=2
+        )
+        self.assertEqual(2, d.foo)
 
 
 class OrderedSetTest(TestCase):
