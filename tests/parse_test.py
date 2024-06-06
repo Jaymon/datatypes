@@ -54,10 +54,66 @@ class ArgvParserTest(TestCase):
         for k in ["foo_bar", "che_bar", "baz_bar"]:
             self.assertTrue(k in d)
 
+    def test_unwrap_optionals(self):
+        extra_args = [
+            "--foo=1",
+            "--foo=2",
+            "--foo", "3",
+            "--bar", "4",
+        ]
+        d = ArgvParser(extra_args).unwrap_optionals()
+        self.assertEqual(3, len(d["foo"]))
+        self.assertEqual("4", d["bar"])
+
+    def test_info(self):
+        extra_args = [
+            "--foo=1",
+            "--foo=2",
+            "--bar", "4",
+            "--foo", "3",
+        ]
+        d = ArgvParser(extra_args)
+
+        self.assertEqual([0, 1, 4, 5], d.info["foo"]["indexes"])
+        self.assertEqual([2, 3], d.info["bar"]["indexes"])
+
+    def test_infer_types(self):
+        extra_args = [
+            "--foo=1",
+            "--bar=2.5",
+            "--che", "True",
+            "--bam", "normal string",
+        ]
+        d = ArgvParser(extra_args, infer_types=True)
+        self.assertEqual(1, d["foo"][0])
+        self.assertEqual(2.5, d["bar"][0])
+        self.assertEqual(True, d["che"][0])
+        self.assertEqual("normal string", d["bam"][0])
+
+    def test_types_dict(self):
+        extra_args = [
+            "--foo=1",
+            "--bar=2.5",
+            "--che", "True",
+            "--bam", "normal string",
+        ]
+        types = {
+            "foo": int,
+            "bar": float,
+        }
+        d = ArgvParser(extra_args, types=types)
+        self.assertEqual(1, d["foo"][0])
+        self.assertEqual(2.5, d["bar"][0])
+        self.assertEqual("True", d["che"][0])
+        self.assertEqual("normal string", d["bam"][0])
+
+
 
 class ArgParserTest(TestCase):
     def test_parse(self):
-        d = ArgParser("--foo=1 --che --baz=\"this=that\" --bar 2 --foo=2 -z 3 4")
+        d = ArgParser(
+            "--foo=1 --che --baz=\"this=that\" --bar 2 --foo=2 -z 3 4"
+        )
         self.assertEqual(["1", "2"], d["foo"])
         self.assertEqual(["4"], d["*"])
         self.assertEqual(["2"], d["bar"])

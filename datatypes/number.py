@@ -9,13 +9,13 @@ from .string import String
 class Shorten(object):
     """Converts an integer to a base58-like string and vice versa
 
-    This code was used in Undrip for its link shortener and was originally written
-    by Cahlan Sharp and Ryan Johnson (I believe) and based off of this:
+    This code was used in Undrip for its link shortener and was originally
+    written by Cahlan Sharp and Ryan Johnson (I believe) and based off of this:
 
         https://stackoverflow.com/a/2549514/5006
 
-    any ambiguous characters were removed from BASE_LIST (notice no I, 1, or l) to
-    make it easier for humans to copy the url by hand
+    any ambiguous characters were removed from BASE_LIST (notice no I, 1, or l)
+    to make it easier for humans to copy the url by hand
 
     this is a version of base58 that takes strings:
         https://github.com/keis/base58
@@ -232,13 +232,25 @@ class Boolean(int, metaclass=BooleanMeta):
 
         https://stackoverflow.com/questions/2172189/why-i-cant-extend-bool-in-python
     """
-    def __new__(cls, v):
+    @classmethod
+    def isbool(cls, v):
+        """Return True if v is considered a valid boolean-ish value"""
+        try:
+            cls.getbool(v)
+            return True
+
+        except TypeError:
+            return False
+
+    @classmethod
+    def getbool(cls, v):
+        """Try and convert v to a bool value, raise TypeError on failure"""
         if not isinstance(v, bool):
             if isinstance(v, (int, float)):
                 v = True if v > 0 else False
 
             elif isinstance(v, str):
-                k = v.lower().strip()
+                k = v.lower()
                 if k in RawConfigParser.BOOLEAN_STATES:
                     v = RawConfigParser.BOOLEAN_STATES[k]
 
@@ -254,7 +266,20 @@ class Boolean(int, metaclass=BooleanMeta):
                             v = False
 
                         else:
-                            v = True if k else False
+                            raise TypeError(f"{k} is not a bool")
+
+        return v
+
+    def __new__(cls, v):
+        try:
+            v = cls.getbool(v)
+
+        except TypeError:
+            if isinstance(v, str):
+                v = True if v.strip() else False
+
+            else:
+                raise
 
         return bool(v)
 
