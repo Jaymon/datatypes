@@ -1350,7 +1350,8 @@ class Dirpath(Path):
 
     @classmethod
     def cwd(cls):
-        """Return a new path object representing the current directory (as returned by os.getcwd())
+        """Return a new path object representing the current directory (as
+        returned by os.getcwd())
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.cwd
         """
@@ -1370,8 +1371,10 @@ class Dirpath(Path):
         """normalizes the paths from methods like .add_paths() and .add()
 
         :param paths: see .add_paths() for description
-        :param baseparts: list, will be merged with the paths keys to create the full path
-        :returns list of tuples, each tuple will be in the form of (parts, data)
+        :param baseparts: list, will be merged with the paths keys to create
+            the full path
+        :returns list of tuples, each tuple will be in the form of (parts,
+            data)
         """
         ret = []
         baseparts = cls.splitparts(baseparts or [], **kwargs)
@@ -1397,6 +1400,32 @@ class Dirpath(Path):
             ret.append((baseparts, None))
 
         return ret
+
+    @contextmanager
+    def as_cwd(self, orig_cwd=None):
+        """Switch over to self as the current working directory (cwd) for
+        the life of the context, then switch back to the original cwd
+
+        :Example:
+            print(Dirpath.cwd()) # /current
+
+            with Dirpath("/not/current") as path:
+                print(Dirpath.cwd()) # /not/current
+
+            print(Dirpath.cwd()) # /current
+
+        :param orig_cwd: Path|str, the original cwd, if not supplied then
+            the system cwd will be used
+        """
+        if not orig_cwd:
+            orig_cwd = os.getcwd()
+
+        try:
+            os.chdir(self)
+            yield self
+
+        finally:
+            os.chdir(orig_cwd)
 
     def add_files(self, paths, **kwargs):
         return self.add_paths(paths, **kwargs)
