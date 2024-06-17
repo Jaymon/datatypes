@@ -11,6 +11,43 @@ from collections.abc import (
 from string import Formatter
 
 
+def get_loggers(prefix=""):
+    """Return loggers matching prefix or all loggers if prefix is empty
+
+    :params prefix: str, the logger prefix to filter returned loggers
+    :returns: dict[str, logging.Logger]
+    """
+    loggers = Logger.manager.loggerDict
+    if prefix:
+        loggers = {}
+        for logname, logger in Logger.manager.loggerDict.items():
+            if logname.startswith(prefix):
+                loggers[logname] = logger
+
+    else:
+        loggers = Logger.manager.loggerDict
+
+    return loggers
+
+
+def getlro(logger):
+    """Get the Logger Resolution Order for the given logger
+
+    This is named similar to `inspect.getmro`
+
+    :param logger: logging.Logger
+    :returns: list[logging.Logger]
+    """
+    loggers = [logger]
+    if logger.propagate:
+        while pl := logger.parent:
+            loggers.append(pl)
+            if not pl.propagate:
+                break
+
+    return loggers
+
+
 def setdefault(name, val):
     """Set the default logging level for name to val, this will only be set if
     it wasn't configured previously
@@ -37,7 +74,7 @@ def null_config(name):
     :param name: str, usually __name__
     """
     # get rid of "No handler found" warnings (cribbed from requests)
-    logging.getLogger(__name__).addHandler(logging.NullHandler())
+    logging.getLogger(name).addHandler(logging.NullHandler())
 
 
 def quick_config(levels=None, **kwargs):

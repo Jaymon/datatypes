@@ -177,9 +177,19 @@ class SimpleCommand(object):
             self.logger.info("{}{}".format(self.logger_prefix, line.rstrip()))
 
     def get_logger(self, **kwargs):
+        """Get/create the command logger
+
+        The command logger is named: datatypes.command.Command
+
+        The command logger is used in ._flush() and it doesn't propogate or
+        inherit like standard loggers
+
+        :returns: logging.Logger
+        """
         logger = logging.getLogger(f"{__name__}.Command")
         if len(logger.handlers) == 0:
-            logger.setLevel(logging.INFO)
+            if logger.level == logging.NOTSET:
+                logger.setLevel(logging.INFO)
             log_handler = logging.StreamHandler(stream=sys.stdout)
             log_handler.setFormatter(logging.Formatter('%(message)s'))
             logger.addHandler(log_handler)
