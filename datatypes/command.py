@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 import os
 import subprocess
 from subprocess import (
-    CalledProcessError,
+    #CalledProcessError,
     SubprocessError,
     TimeoutExpired,
 )
@@ -20,33 +19,35 @@ from .collections import Dict
 from .utils import make_list
 from .decorators import property as cachedproperty
 from .string import String
+from .exception import CalledProcessError
 
 
 logger = logging.getLogger(__name__)
 
 
 class CaptureProcess(subprocess.Popen):
-    """
+    """Handle stream capturing
+
+    Our default is to capture both stdout and stderr. We change the default
+    behavior a little bit in that None will be treated as /dev/null
+
+    From the docs:
+        If you wish to capture and combine both streams into one,
+        use stdout=PIPE and stderr=STDOUT
+
+        Valid values are PIPE, DEVNULL, an existing file descriptor (a
+        positive integer), an existing file object with a valid file
+        descriptor, and None. PIPE indicates that a new pipe to the child
+        should be created. DEVNULL indicates that the special file os.devnull
+        will be used. 
+
+        Additionally, stderr can be STDOUT, which indicates that the stderr
+        data from the child process should be captured into the same file
+        handle as for stdout.
+
     https://docs.python.org/3/library/subprocess.html#subprocess.Popen
     """
     def __init__(self, *args, **kwargs):
-
-        # our default is to capture both stdout and stderr. We change the default
-        # behavior a little bit in that None will be treated as /dev/null
-        #
-        # From the docs:
-        #   If you wish to capture and combine both streams into one,
-        #   use stdout=PIPE and stderr=STDOUT
-        #
-        #   Valid values are PIPE, DEVNULL, an existing file descriptor (a
-        #   positive integer), an existing file object with a valid file
-        #   descriptor, and None. PIPE indicates that a new pipe to the child
-        #   should be created. DEVNULL indicates that the special file os.devnull
-        #   will be used. 
-        #
-        #   Additionally, stderr can be STDOUT, which indicates that the stderr
-        #   data from the child process should be captured into the same file
-        #   handle as for stdout.
         kwargs.setdefault("stderr", subprocess.STDOUT)
         kwargs.setdefault("stdout", subprocess.PIPE)
         self.pipe_name = "stdout"
@@ -293,9 +294,11 @@ class SimpleCommand(object):
     def run(self, arg_str="", **kwargs):
         """runs the passed in arguments
 
-        :param arg_str: string, the argument flags that will be passed to the command
+        :param arg_str: string, the argument flags that will be passed to the
+            command
         :param **kwargs: These will be passed to subprocess or consumed
-        :returns: string, the string of the output and will have .returncode attribute
+        :returns: string, the string of the output and will have .returncode
+            attribute
         """
         process = self.create_process(arg_str, **kwargs)
 
@@ -338,15 +341,19 @@ class Command(SimpleCommand):
 
     def quit(self, timeout=1):
         """same as .terminate but uses signals"""
-        return self.finish("send_signal", timeout=timeout, args=(signal.SIGTERM,))
+        return self.finish(
+            "send_signal",
+            timeout=timeout,
+            args=(signal.SIGTERM,)
+        )
 
     def kill(self, timeout=1):
         """kill -9 the script running asyncronously"""
         return self.finish("kill", timeout=timeout)
 
     def stop(self, timeout=1):
-        """This is just here because I use .start/.stop a lot and so it's strange
-        not having a .stop method"""
+        """This is just here because I use .start/.stop a lot and so it's
+        strange not having a .stop method"""
         self.kill()
 
     def terminate(self, timeout=1):
@@ -362,11 +369,12 @@ class Command(SimpleCommand):
         return self.wait(timeout)
 
     def finish(self, method_name, timeout=1, maxcount=5, args=None, kwargs=None):
-        """Internal method that kills the async process, if it can't shut it down
-        soft it will shut it down hard
+        """Internal method that kills the async process, if it can't shut it
+        down soft it will shut it down hard
 
         :param method_name: str, the method name that will first be attempted
-        :param timeout: int, how long to wait for each attempted method_name call
+        :param timeout: int, how long to wait for each attempted method_name
+            call
         :param maxcount: int, how many times to attempt calling method_name
         :param *args: passed to method_name call
         :param **kwargs: passed to method_name call
@@ -414,7 +422,7 @@ class Command(SimpleCommand):
         try:
             self.process.wait(timeout=timeout)
 
-        except subprocess.TimeoutExpired:
+        except TimeoutExpired:
             pass
 
         retcode = self.process.returncode
@@ -436,8 +444,8 @@ class Command(SimpleCommand):
             program output to callable until it returns True. If a string then
             check string in output. If regex pattern then run search on output
         :param timeout: float, each incremental timeout before next check
-        :param maxcount: int, the maximum times to check callback before failing
-            and just returning output
+        :param maxcount: int, the maximum times to check callback before
+            failing and just returning output
         :returns str, the output, same as .wait()
         """
         if not callable(callback):
@@ -473,8 +481,8 @@ class Command(SimpleCommand):
 
 
 class ModuleCommand(Command):
-    """This sets the client up so you can just pass the module name and have everything
-    just work
+    """This sets the client up so you can just pass the module name and have
+    everything just work
 
     Moved here from testdata.client.Command on 7-12-2023
 
@@ -490,8 +498,8 @@ class ModuleCommand(Command):
         c = MyCommand()
     """
     cmd_prefix = "{} -m".format(sys.executable)
-    """this is what will be used to invoke captain from the command line when run()
-    is called"""
+    """this is what will be used to invoke captain from the command line when
+    run() is called"""
 
     name = ""
     """This is the module name you want to run"""
