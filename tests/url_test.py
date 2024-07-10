@@ -595,6 +595,20 @@ class UrlTest(TestCase):
         uc2 = uc.child(path=["foo", 2])
         self.assertEqual("foo/2", uc2)
 
+    def test_combine(self):
+        """Moved from bounce on 7-10-2024"""
+        url = Url.create_instance(
+            "http://example.com",
+            query_kwargs=dict(foo="bar", che="*")
+        )
+        self.assertEqual("http://example.com?foo=bar&che=%2A", url)
+
+        url = Url(
+            "http://foo.com?foo=bar",
+            query_kwargs=dict(che="1/2/3")
+        )
+        self.assertEqual("http://foo.com?foo=bar&che=1%2F2%2F3", url)
+
 
 class HostTest(TestCase):
     def test___new__(self):
