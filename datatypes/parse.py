@@ -15,8 +15,6 @@ class ArgvParser(dict):
     """Parses what is contained in sys.argv or the extra list of
     argparse.parse_known_args()
 
-    This uses the special key value "*" to denote found positionals
-
     :Example:
         d = ArgvParser([
             "--foo=1",
@@ -34,12 +32,15 @@ class ArgvParser(dict):
             https://docs.python.org/3/library/sys.html#sys.argv
             https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.parse_known_args
         :param **kwargs: passed through to .normalize_* methods
+            - var_positional: str, defaults to "*", this is the name for the
+                found positional values
         :returns: dict[str, list[str]], key is the arg name (* for non
             positional args) and value is a list of found arguments (so --foo 1
             --foo 2 is supported). The value is always a list of strings
         """
         self.info = defaultdict(lambda: {"arg_strings": [], "indexes": []})
         d = defaultdict(list)
+        self.positional_name = kwargs.get("var_positional", "*")
         i = 0
         length = len(argv)
         while i < length:
@@ -100,11 +101,15 @@ class ArgvParser(dict):
                         self.info[s]["indexes"].append(i)
 
             else:
-                val = self.normalize_value("*", argv[i], **kwargs)
-                d["*"].append(val)
+                val = self.normalize_value(
+                    self.positional_name,
+                    argv[i],
+                    **kwargs
+                )
+                d[self.positional_name].append(val)
 
-                self.info["*"]["arg_strings"].append(argv[i])
-                self.info["*"]["indexes"].append(i)
+                self.info[self.positional_name]["arg_strings"].append(argv[i])
+                self.info[self.positional_name]["indexes"].append(i)
 
             i += 1
 
@@ -161,7 +166,7 @@ class ArgvParser(dict):
 
         :returns: list[Any]
         """
-        return self.get("*", [])
+        return self.get(self.positional_name, [])
 
     def optionals(self):
         """Return all the found positionals
@@ -171,7 +176,7 @@ class ArgvParser(dict):
         d = {}
 
         for k, v in self.items():
-            if k != "*":
+            if k != self.positional_name:
                 d[k] = v
 
         return d
@@ -194,7 +199,7 @@ class ArgvParser(dict):
         :returns: dict[str, list|Any], a dictionary with values unrwapped
         """
         ignore_keys = set(ignore_keys or [])
-        ignore_keys.add("*")
+        ignore_keys.add(self.positional_name)
 
         d = {}
         for k, v in self.items():
@@ -213,9 +218,9 @@ class ArgParser(ArgvParser):
     converts them to a usable state
 
     :Example:
-        d = ArgumentParser("--foo=1 --bar 'che'")
+        d = ArgumentParser("--foo=1 --bar 'che boo'")
         print(d["foo"]) # ["1"]
-        print(d["bar"]) # ["che"]
+        print(d["bar"]) # ["che boo"]
 
     all values will be lists, this is for uniformity, if you want to squash
     lists that only contain one value to just have the value then call
