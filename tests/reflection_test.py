@@ -11,6 +11,7 @@ from datatypes.reflection import (
     ReflectDecorator,
     OrderedSubclasses,
     ReflectPath,
+    ReflectFunction,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
@@ -321,6 +322,40 @@ class ReflectNameTest(TestCase):
 
         with self.assertRaises(ValueError):
             p.absolute_module_name("baz")
+
+
+class ReflectFunctionTest(TestCase):
+    def test_get_docblock_comment(self):
+        m = self.create_module([
+            "",
+            "def _ignore(): pass",
+            "",
+            "# here is comment line 1",
+            "# here is comment line 2",
+            "def foo(*args, **kwargs):",
+            "    pass",
+        ])
+
+        rf = ReflectFunction(m.get_module().foo)
+        doc = rf.get_docblock()
+        for v in ["comment line 1", "comment line 2", "\n"]:
+            self.assertTrue(v in doc)
+
+    def test_get_docblock_docstring(self):
+        m = self.create_module([
+            "def foo(*args, **kwargs):",
+            "    \"\"\"here is comment line 1",
+            "    here is comment line 2:",
+            "",
+            "        Indented line 1",
+            "    \"\"\"",
+            "    pass",
+        ])
+
+        rf = ReflectFunction(m.get_module().foo)
+        doc = rf.get_docblock()
+        for v in ["comment line 1", "comment line 2", "\n", " Indented"]:
+            self.assertTrue(v in rf.get_docblock())
 
 
 class ReflectMethodTest(TestCase):

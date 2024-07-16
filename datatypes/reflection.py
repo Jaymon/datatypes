@@ -889,6 +889,22 @@ class ReflectDecorator(object):
         return self.contains(obj)
 
 
+class ReflectFunction(object):
+    """Reflect a function"""
+    def __init__(self, function):
+        self.function = function
+
+    def get_docblock(self):
+        doc = inspect.getdoc(self.function)
+        if not doc:
+            doc = inspect.getcomments(self.function)
+            if doc:
+                doc = re.sub(r"^\s*#", "", doc, flags=re.MULTILINE).strip()
+                doc = inspect.cleandoc(doc)
+
+        return doc
+
+
 class ReflectMethod(object):
     """Internal class used by ReflectClass
 
@@ -954,7 +970,10 @@ class ReflectMethod(object):
 
     @cachedproperty(cached="_desc")
     def desc(self):
-        """return the description of this method"""
+        """return the description of this method
+
+        ??? why does this exist over using inspect.getdoc?
+        """
         doc = None
         def visit_FunctionDef(node):
             """

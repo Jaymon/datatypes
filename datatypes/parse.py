@@ -168,8 +168,8 @@ class ArgvParser(dict):
         """
         return self.get(self.positional_name, [])
 
-    def optionals(self):
-        """Return all the found positionals
+    def keywords(self):
+        """Return all the found keywords/optionals
 
         :returns: dict[str, list[Any]]
         """
@@ -181,7 +181,10 @@ class ArgvParser(dict):
 
         return d
 
-    def unwrap_optionals(self, ignore_keys=None):
+    def positionals(self):
+        return self.keywords()
+
+    def unwrap_keywords(self, ignore_keys=None):
         """remove list wrapper of any value that has a count of 1
 
         by default, this returns lists for everything because it has no idea
@@ -211,6 +214,9 @@ class ArgvParser(dict):
                     d[k] = v
 
         return d
+
+    def unwrap_optionals(self, ignore_keys=None):
+        return self.unwrap_keywords(ignore_keys=ignore_keys)
 
 
 class ArgParser(ArgvParser):
