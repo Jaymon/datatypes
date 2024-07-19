@@ -114,7 +114,7 @@ from .reflection import (
     ReflectName,
     ReflectModule,
     ReflectClass,
-    ReflectFunction,
+    ReflectCallable,
     ReflectMethod,
     ReflectPath,
 )

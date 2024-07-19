@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
+import functools
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -11,7 +12,7 @@ from datatypes.reflection import (
     ReflectDecorator,
     OrderedSubclasses,
     ReflectPath,
-    ReflectFunction,
+    ReflectCallable,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
@@ -324,7 +325,7 @@ class ReflectNameTest(TestCase):
             p.absolute_module_name("baz")
 
 
-class ReflectFunctionTest(TestCase):
+class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
         m = self.create_module([
             "",
@@ -336,10 +337,97 @@ class ReflectFunctionTest(TestCase):
             "    pass",
         ])
 
-        rf = ReflectFunction(m.get_module().foo)
+        rf = ReflectCallable(m.get_module().foo)
         doc = rf.get_docblock()
         for v in ["comment line 1", "comment line 2", "\n"]:
             self.assertTrue(v in doc)
+
+    def test_get_class(self):
+        RC = ReflectCallable
+        m = self.create_module([
+            "class Foo(object):",
+            "    @staticmethod",
+            "    def static_foo(): return \"static_foo\"",
+            "    @classmethod",
+            "    def class_foo(cls): return \"class_foo\"",
+            "    def method_foo(self): return \"method_foo\"",
+            "",
+            "def function_foo(): return \"function_foo\"",
+            "",
+            "class C:",
+            "    def f(): pass",
+            "    class D:",
+            "        def g(): pass",
+            "",
+            # examples from: https://stackoverflow.com/a/25959545
+            "import io",
+            "bm1 = io.BytesIO().__enter__",
+            "bm2 = set().union",
+            "",
+            "def x(self): pass",
+            "class Z:",
+            "    y = x",
+            "    v = lambda self: \"lambda\"",
+            "    z = (lambda: lambda: 1)()",
+        ]).get_module()
+
+        with self.assertRaises(ValueError):
+            RC(m.Z.z).get_class()
+        rf = RC(m.Z().z)
+        self.assertEqual(m.Z, rf.get_class())
+
+        rf = RC(m.Z.v)
+        self.assertEqual(m.Z, rf.get_class())
+        rf = RC(m.Z().v)
+        self.assertEqual(m.Z, rf.get_class())
+
+        # there just isn't any way to infer this one
+        rf = RC(m.Z.y)
+        self.assertIsNone(rf.get_class())
+
+        # this one gets inferred correctly though because the class instance
+        # binds the method
+        rf = RC(m.Z().y)
+        self.assertEqual(m.Z, rf.get_class())
+
+        rf = RC(m.Foo.class_foo)
+        self.assertEqual(m.Foo, rf.get_class())
+        rf = RC(m.Foo().class_foo)
+        self.assertEqual(m.Foo, rf.get_class())
+
+        rf = RC(functools.partial(m.Foo.method_foo))
+        self.assertEqual(m.Foo, rf.get_class())
+
+        rf = RC(m.Foo.static_foo)
+        self.assertEqual(m.Foo, rf.get_class())
+        rf = RC(m.Foo().static_foo)
+        self.assertEqual(m.Foo, rf.get_class())
+
+        rf = RC(m.Foo.method_foo)
+        self.assertEqual(m.Foo, rf.get_class())
+        rf = RC(m.Foo().method_foo)
+        self.assertEqual(m.Foo, rf.get_class())
+        rf = RC(m.Foo.method_foo, m.Foo)
+        self.assertEqual(m.Foo, rf.get_class())
+
+        rf = RC(m.function_foo)
+        self.assertIsNone(rf.get_class())
+
+        rf = RC(m.bm1)
+        self.assertEqual(m.io.BytesIO, rf.get_class())
+
+        rf = RC(m.bm2)
+        self.assertEqual(set, rf.get_class())
+
+        rf = RC(m.C.D.g)
+        self.assertEqual(m.C.D, rf.get_class())
+
+        class Bar(object):
+            def foo(self): pass
+        with self.assertRaises(ValueError):
+            RC(Bar.foo).get_class()
+        rf = RC(Bar.foo, Bar)
+        self.assertEqual(Bar, rf.get_class())
 
     def test_get_docblock_docstring(self):
         m = self.create_module([
@@ -356,6 +444,92 @@ class ReflectFunctionTest(TestCase):
         doc = rf.get_docblock()
         for v in ["comment line 1", "comment line 2", "\n", " Indented"]:
             self.assertTrue(v in rf.get_docblock())
+
+
+    def test_is_type_methods(self):
+        RC = ReflectCallable
+        m = self.create_module([
+            "class Foo(object):",
+            "    @staticmethod",
+            "    def static_foo(): return \"static_foo\"",
+            "    @classmethod",
+            "    def class_foo(cls): return \"class_foo\"",
+            "    def method_foo(self): return \"method_foo\"",
+            "",
+            "def function_foo(): return \"function_foo\"",
+        ]).get_module()
+
+        class Bar(object):
+            def __call__(self): return "class call"
+
+        for rf in [RC(m.function_foo), RC(m.function_foo)]:
+            self.assertFalse(rf.is_staticmethod())
+            self.assertTrue(rf.is_function())
+            self.assertFalse(rf.is_method())
+            self.assertFalse(rf.is_classmethod())
+            self.assertFalse(rf.is_class())
+            self.assertFalse(rf.is_instance())
+
+        for rf in [RC(m.Foo.method_foo), RC(m.Foo().method_foo)]:
+            self.assertFalse(rf.is_staticmethod())
+            self.assertFalse(rf.is_function())
+            self.assertTrue(rf.is_method())
+            self.assertFalse(rf.is_classmethod())
+            self.assertFalse(rf.is_class())
+            self.assertFalse(rf.is_instance())
+
+        for rf in [RC(m.Foo.class_foo), RC(m.Foo().class_foo)]:
+            self.assertFalse(rf.is_staticmethod())
+            self.assertFalse(rf.is_function())
+            self.assertTrue(rf.is_method())
+            self.assertTrue(rf.is_classmethod())
+            self.assertFalse(rf.is_class())
+            self.assertFalse(rf.is_instance())
+
+        for rf in [RC(m.Foo.static_foo), RC(m.Foo().static_foo)]:
+            self.assertTrue(rf.is_staticmethod())
+            self.assertFalse(rf.is_function())
+            self.assertTrue(rf.is_method())
+            self.assertFalse(rf.is_classmethod())
+            self.assertFalse(rf.is_class())
+            self.assertFalse(rf.is_instance())
+
+        class Bar(object):
+            def __call__(self): return "class call"
+
+        rf = RC(Bar)
+        self.assertFalse(rf.is_staticmethod())
+        self.assertFalse(rf.is_function())
+        self.assertFalse(rf.is_method())
+        self.assertFalse(rf.is_classmethod())
+        self.assertTrue(rf.is_class())
+        self.assertFalse(rf.is_instance())
+
+        rf = RC(Bar())
+        self.assertFalse(rf.is_staticmethod())
+        self.assertFalse(rf.is_function())
+        self.assertFalse(rf.is_method())
+        self.assertFalse(rf.is_classmethod())
+        self.assertFalse(rf.is_class())
+        self.assertTrue(rf.is_instance())
+
+
+
+    def test_get_signature_info_func(self):
+        def foo(one, two, *args, **kwargs): pass
+
+        rf = ReflectFunction(foo)
+        info = rf.get_signature_info()
+
+    def test_get_signature_info_method(self):
+        class Foo(object):
+            def foo(self): pass
+            #def foo(self, one, two, *args, **kwargs): pass
+
+        rf = ReflectFunction(Foo.foo)
+        info = rf.get_signature_info()
+
+
 
 
 class ReflectMethodTest(TestCase):

@@ -889,10 +889,249 @@ class ReflectDecorator(object):
         return self.contains(obj)
 
 
-class ReflectFunction(object):
+class ReflectCallable(object):
     """Reflect a function"""
-    def __init__(self, function):
+
+    @property
+    def name(self):
+        name = getattr(self.function, "__name__", "")
+        if not name:
+            name = self.function.__class__.__name__
+
+        return name
+        #return self.function.__name__
+
+    def __init__(self, function, callable_class=None):
+        """
+        :param function: callable, the callable
+        :param callable_class: type, if you've got access to the class then it
+            would be best to pass it in here so .find_class doesn't have to
+            find the class
+        :raises: ValueError, if function isn't callable
+        """
+        if not callable(function):
+            raise ValueError(f"Passed in callable {function} is not callable")
+
         self.function = function
+        self.callable_class = callable_class
+
+    def find_class(self, cb):
+        """Try everything it can to find the class where `cb` is defined.
+
+        This is largely based on these two answers:
+            * https://stackoverflow.com/a/25959545
+            * https://stackoverflow.com/a/54597033
+        """
+        if isinstance(cb, functools.partial):
+            return self._get_class(cb.func)
+
+        if (
+            inspect.ismethod(cb)
+            or (
+                inspect.isbuiltin(cb)
+                and getattr(cb, '__self__', None) is not None
+                and getattr(cb.__self__, '__class__', None)
+            )
+        ):
+            cls = cb.__self__
+            if isinstance(cls, type):
+                return cls
+
+            else:
+                return cls.__class__
+
+        if inspect.isfunction(cb):
+            class_parts = cb.__qualname__.split(".")
+            if len(class_parts) == 1:
+                return None
+
+            try:
+                cls = getattr(inspect.getmodule(cb), class_parts[0])
+
+            except AttributeError:
+                cls = cb.__globals__.get(class_parts[0])
+
+            if cls:
+                for class_name in class_parts[1:-1]:
+                    # https://peps.python.org/pep-3155/
+                    # With nested functions (and classes defined inside
+                    # functions), the dotted path will not be walkable
+                    # programmatically as a function’s namespace is not
+                    # available from the outside.
+                    if "<" in class_name:
+                        raise ValueError(
+                            "Classes inside functions cannot be retrieved"
+                            f": {cb.__qualname__}"
+                        )
+
+                    cls = getattr(cls, class_name)
+
+            if isinstance(cls, type):
+                return cls
+
+        # handle special descriptor objects
+        return getattr(cb, '__objclass__', None)
+
+    def get_class(self):
+        """Get the class for the callable
+
+        :returns: type|None
+            - Returns the class a method is defined in if it's
+                possible to find it.
+            - Returns the class if callable is an instance or class
+            - Returns None if callable is a function
+        :raises: ValueError if the class can't be found and it wasn't passed in
+        """
+        if not self.callable_class:
+            if self.is_class():
+                self.callable_class = self.function
+
+            elif self.is_instance():
+                self.callable_class = self.function.__class__
+
+            else:
+                self.callable_class = self.find_class(self.function)
+
+        return self.callable_class
+
+    def get_descriptor(self):
+        """Get the descriptor of the callable, this only returns something
+        if the callable is defined a class
+
+        :returns: callable, the descriptor
+        :raises: ValueError, if a class can't be found
+        """
+        cb_class = self.get_class()
+        if cb_class:
+            cb_descriptor = inspect.getattr_static(
+                cb_class,
+                self.name,
+                None
+            )
+
+        else:
+            cb_descriptor = self.function
+
+        return cb_descriptor
+
+    def is_class(self):
+        """Returns True if this is a class, in which case the callable is
+        the __init__ method if the class is mutable and the __new__ method
+        if it is immutable
+        """
+        return isinstance(self.function, type)
+
+    def is_instance(self):
+        """Returns True if the callable is an instance of a class with a
+        `__call__` method defined
+
+        :returns: bool
+        """
+        # class instances don't have a qualifying name
+        ret = False
+        qname = getattr(self.function, "__qualname__", "")
+        if not qname:
+            ret = not self.is_class()
+
+        return ret
+
+
+#         ret = False
+#         if (
+#             not self.is_method()
+#             and not self.is_function()
+#             and not self.is_class()
+#         ):
+#             ret = isinstance(
+#                 self.function,
+#                 getattr(types, "InstanceType", object)
+#             )
+# 
+#         return ret
+
+    def is_function(self):
+        """Returns True if this is just a plain old function defined outside
+        of a class
+
+        :returns: bool
+        """
+        return (
+            isinstance(self.function, types.FunctionType)
+            and not self.is_method()
+        )
+
+    def is_instance_method(self):
+        """Returns True if this is classic instance method defined in a class
+
+        An instance method is usually a method whose first argument is self
+
+        :returns: bool
+        """
+        return (
+            self.is_method()
+            and not self.is_classmethod()
+            and not self.is_staticmethod()
+        )
+
+    def is_method(self):
+        """Returns True if the callable is a method, this is all encompassing
+        so static and class methods are also methods because they are also
+        defined on a class
+
+        Use .is_instance_method if you just want to know if this is a
+        traditional method of a class
+
+        :returns: bool
+        """
+        ret = isinstance(self.function, types.MethodType)
+        if not ret:
+            name = getattr(self.function, "__qualname__", "")
+            # if the fully qualified name has a period it's a class method
+            # something, unless it's something like
+            # <locals>.<CLASS-NAME>.<NAME> then it is a method
+            if "." in name and not re.search(r">\.[^\.]+$", name):
+                ret = True
+
+        return ret
+
+    def is_staticmethod(self):
+        """Return True if the callable is a static method
+
+        https://stackoverflow.com/questions/31916048/
+
+        The actual c code for the staticmethod decorator is here:
+            https://github.com/python/cpython/blob/main/Objects/funcobject.c#L1392
+
+        A static method is a usually a method defined on a class with the
+        @staticmethod decorator
+
+        In order to tell if a method is static you have to have access to
+        the class that the method is defined in because a static method uses
+        the descriptor protocol so you have to retrieve the actual descriptor
+        instance from the class. I was not able to figure out any other way
+        to do it and I looked, believe me I looked
+
+        :returns: bool, True if this callable is a static method
+        """
+        ret = isinstance(self.function, staticmethod)
+        if not ret:
+            cb_descriptor = self.get_descriptor()
+            ret = isinstance(cb_descriptor, staticmethod)
+
+        return ret
+
+    def is_classmethod(self):
+        """Returns True if the callable is a class method
+
+        A class method is a method defined on a class using the @classmethod
+        decorator and usually has `cls` as the first argument
+
+        Class methods have __self__ and __func__ attributes
+
+        :returns: bool
+        """
+        v = getattr(self.function, "__self__", None)
+        return isinstance(v, type)
 
     def get_docblock(self):
         doc = inspect.getdoc(self.function)
@@ -904,6 +1143,61 @@ class ReflectFunction(object):
 
         return doc
 
+    # https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
+    # https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
+
+    def get_signature_info(self):
+        """Get call signature information of the reflected function
+
+        Moved from captain.reflection and refactored on 7-17-2024
+        """
+        names = []
+        required = set()
+        defaults = {}
+        positionals_name = ""
+        keywords_name = ""
+
+#         klass = getattr(self.function, "__self__", None)
+#         pout.v(klass)
+#         pout.i(self.function)
+
+        skip = self.is_method()
+        signature = inspect.signature(self.function)
+        for name, param in signature.parameters.items():
+            if skip:
+                skip = False
+                continue
+
+            pout.v(param)
+
+        return
+
+
+        # remove self which will always get passed in automatically
+        args = signature[0][1:]
+        if not args:
+            args = []
+
+        args_default = {}
+        if signature[3]:
+            start = len(args) - len(signature[3])
+            args_default = dict(zip(args[start:], signature[3]))
+
+        args_required = set()
+        for arg in args:
+            if arg not in args_default:
+                args_required.add(String(arg))
+
+        args_name = signature[1]
+        kwargs_name = signature[2]
+
+        return {
+            "names": list(map(String, args)),
+            "required": args_required,
+            "defaults": args_default,
+            "*_name": String(args_name) if args_name else args_name,
+            "**_name": String(kwargs_name) if kwargs_name else kwargs_name,
+        }
 
 class ReflectMethod(object):
     """Internal class used by ReflectClass
