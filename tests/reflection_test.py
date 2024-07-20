@@ -371,6 +371,9 @@ class ReflectCallableTest(TestCase):
             "    z = (lambda: lambda: 1)()",
         ]).get_module()
 
+        rf = RC(functools.partial(m.Foo.method_foo))
+        self.assertEqual(m.Foo, rf.get_class())
+
         with self.assertRaises(ValueError):
             RC(m.Z.z).get_class()
         rf = RC(m.Z().z)
@@ -393,9 +396,6 @@ class ReflectCallableTest(TestCase):
         rf = RC(m.Foo.class_foo)
         self.assertEqual(m.Foo, rf.get_class())
         rf = RC(m.Foo().class_foo)
-        self.assertEqual(m.Foo, rf.get_class())
-
-        rf = RC(functools.partial(m.Foo.method_foo))
         self.assertEqual(m.Foo, rf.get_class())
 
         rf = RC(m.Foo.static_foo)
@@ -440,11 +440,10 @@ class ReflectCallableTest(TestCase):
             "    pass",
         ])
 
-        rf = ReflectFunction(m.get_module().foo)
+        rf = ReflectCallable(m.get_module().foo)
         doc = rf.get_docblock()
         for v in ["comment line 1", "comment line 2", "\n", " Indented"]:
             self.assertTrue(v in rf.get_docblock())
-
 
     def test_is_type_methods(self):
         RC = ReflectCallable
@@ -513,23 +512,92 @@ class ReflectCallableTest(TestCase):
         self.assertFalse(rf.is_class())
         self.assertTrue(rf.is_instance())
 
+    def test_get_signature_info_positional_only(self):
+        def foo(one, two, three=3, /): pass
 
+        info = ReflectCallable(foo).get_signature_info()
+
+        self.assertEqual(3, len(info["positional_only_names"]))
+        for name in ["one", "two", "three"]:
+            self.assertTrue(name in info["names"])
+
+    def test_get_signature_info_keyword_only(self):
+        def foo(one, two, *, three, four=4): pass
+
+        info = ReflectCallable(foo).get_signature_info()
+
+        self.assertEqual(2, len(info["keyword_only_names"]))
+        for name in ["three", "four"]:
+            self.assertTrue(name in info["names"])
 
     def test_get_signature_info_func(self):
-        def foo(one, two, *args, **kwargs): pass
+        def foo(one, two, three=3, *args, **kwargs): pass
 
-        rf = ReflectFunction(foo)
+        rf = ReflectCallable(foo)
         info = rf.get_signature_info()
 
-    def test_get_signature_info_method(self):
+        self.assertEqual(3, len(info["names"]))
+        for name in ["one", "two", "three"]:
+            self.assertTrue(name in info["names"])
+
+        self.assertEqual(2, len(info["required"]))
+        for name in ["one", "two"]:
+            self.assertTrue(name in info["required"])
+
+        self.assertEqual(1, len(info["defaults"]))
+        self.assertEqual(3, info["defaults"]["three"])
+
+        self.assertEqual("args", info["positionals_name"])
+        self.assertEqual("kwargs", info["keywords_name"])
+
+    def test_get_signature_info_method_1(self):
         class Foo(object):
-            def foo(self): pass
-            #def foo(self, one, two, *args, **kwargs): pass
+            #def foo(self): pass
+            def foo(self, one, two, three=3, *args, **kwargs): pass
 
-        rf = ReflectFunction(Foo.foo)
+        rf = ReflectCallable(Foo.foo, Foo)
         info = rf.get_signature_info()
 
+        self.assertEqual(3, len(info["names"]))
+        for name in ["one", "two", "three"]:
+            self.assertTrue(name in info["names"])
 
+        self.assertEqual(2, len(info["required"]))
+        for name in ["one", "two"]:
+            self.assertTrue(name in info["required"])
+
+        self.assertEqual(1, len(info["defaults"]))
+        self.assertEqual(3, info["defaults"]["three"])
+
+        self.assertEqual("args", info["positionals_name"])
+        self.assertEqual("kwargs", info["keywords_name"])
+
+    def test_get_signature_info_method_2(self):
+        class Foo(object):
+            def foo(self, foo, bar=1, che=3, **kwargs): pass
+
+        sig = ReflectCallable(Foo.foo, Foo).get_signature_info()
+        self.assertEqual(set(["foo"]), sig["required"])
+        self.assertEqual(["foo", "bar", "che"], sig["names"])
+        self.assertEqual(1, sig["defaults"]["bar"])
+        self.assertEqual("kwargs", sig["keywords_name"])
+        self.assertEqual("", sig["positionals_name"])
+
+    def test_get_bind_info(self):
+        class Foo(object):
+            def foo(self, foo, bar=2, che=3, **kwargs): pass
+
+        args = [1, 2, 3, 4]
+        kwargs = {
+            "foo": 10,
+            "bar": 20,
+            "che": 30,
+            "boo": 40
+        }
+        info = ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
+        self.assertEqual([10, 20, 30], info["args"])
+        self.assertEqual({"boo": 40}, info["kwargs"])
+        self.assertEqual(args, info["unknown_args"])
 
 
 class ReflectMethodTest(TestCase):

@@ -890,7 +890,14 @@ class ReflectDecorator(object):
 
 
 class ReflectCallable(object):
-    """Reflect a function"""
+    """Reflect a callable"""
+    @property
+    def qualname(self):
+        qname = getattr(self.function, "__qualname__", "")
+        if not qname:
+            qname = self.function.__class__.__qualname__
+
+        return qname
 
     @property
     def name(self):
@@ -899,7 +906,37 @@ class ReflectCallable(object):
             name = self.function.__class__.__name__
 
         return name
-        #return self.function.__name__
+
+    @property
+    def modpath(self):
+        return self.function.__module__
+
+    @property
+    def classpath(self):
+        """return the full classpath of the callable if callable is a method
+
+        :returns: str, the full classpath (eg, foo.bar.che:Classname) or
+            empty string if callable is not a method
+        """
+        ret = ""
+        if klass := self.get_class():
+            ret = ":".join([
+                self.modpath,
+                klass.__qualname__
+            ])
+
+        return ret
+
+    @property
+    def callpath(self):
+        """Returns the full call path for this callable
+
+        :returns: str, the full callpath (eg foo.bar:<CALLABLE_QUALNAME>)
+        """
+        return ":".join([
+            self.modpath,
+            self.qualname
+        ])
 
     def __init__(self, function, callable_class=None):
         """
@@ -915,6 +952,9 @@ class ReflectCallable(object):
         self.function = function
         self.callable_class = callable_class
 
+    def __call__(self, *args, **kwargs):
+        return self.function(*args, **kwargs)
+
     def find_class(self, cb):
         """Try everything it can to find the class where `cb` is defined.
 
@@ -923,7 +963,7 @@ class ReflectCallable(object):
             * https://stackoverflow.com/a/54597033
         """
         if isinstance(cb, functools.partial):
-            return self._get_class(cb.func)
+            return self.find_class(cb.func)
 
         if (
             inspect.ismethod(cb)
@@ -1027,27 +1067,19 @@ class ReflectCallable(object):
 
         :returns: bool
         """
+        # special handling for functools partial instances since they
+        # shouldn't be considered the actual callable
+        cb = self.function
+        if isinstance(cb, functools.partial):
+            cb = cb.func
+
         # class instances don't have a qualifying name
         ret = False
-        qname = getattr(self.function, "__qualname__", "")
+        qname = getattr(cb, "__qualname__", "")
         if not qname:
             ret = not self.is_class()
 
         return ret
-
-
-#         ret = False
-#         if (
-#             not self.is_method()
-#             and not self.is_function()
-#             and not self.is_class()
-#         ):
-#             ret = isinstance(
-#                 self.function,
-#                 getattr(types, "InstanceType", object)
-#             )
-# 
-#         return ret
 
     def is_function(self):
         """Returns True if this is just a plain old function defined outside
@@ -1086,9 +1118,9 @@ class ReflectCallable(object):
         ret = isinstance(self.function, types.MethodType)
         if not ret:
             name = getattr(self.function, "__qualname__", "")
-            # if the fully qualified name has a period it's a class method
-            # something, unless it's something like
-            # <locals>.<CLASS-NAME>.<NAME> then it is a method
+            # if the fully qualified name has a period it's a method
+            # unless it's something like <locals>.<NAME> then it is a
+            # function
             if "." in name and not re.search(r">\.[^\.]+$", name):
                 ret = True
 
@@ -1134,6 +1166,10 @@ class ReflectCallable(object):
         return isinstance(v, type)
 
     def get_docblock(self):
+        """Get the docblock comment for the callable
+
+        :returns: str
+        """
         doc = inspect.getdoc(self.function)
         if not doc:
             doc = inspect.getcomments(self.function)
@@ -1143,13 +1179,93 @@ class ReflectCallable(object):
 
         return doc
 
-    # https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
-    # https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
+    def get_bind_info(self, *args, **kwargs):
+        """Get information on how callable would bind *args and **kwargs
+
+        https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
+        https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
+
+        :param *args: all the positional arguments for callable
+        :param **kwargs: all the keyword arguments for callable
+        :returns: dict[str, dict[str, Any]|list[Any]]
+            - args: list[Any], all the successfully bound positionals
+                for callable
+            - kwargs: dict[str, Any], all the successfully bound keywords
+                for callable
+            - unknown_args: list[Any], all positionals that failed to be
+                bound
+            - unknown_kwargs: dict[str, Any], all keywords that failed to
+                be bound
+            - signature_info: dict, the .get_signature_info return value
+        """
+        args = list(args) # we need args to be mutable
+        param_args = []
+        param_kwargs = {}
+        info = self.get_signature_info()
+
+        for index, name in enumerate(info["names"]):
+            if name in kwargs:
+                if name in info["keyword_only_names"]:
+                    param_kwargs[name] = kwargs.pop(name)
+
+                else:
+                    param_args.append(kwargs.pop(name))
+
+            elif args:
+                if name in info["keyword_only_names"]:
+                    param_kwargs[name] = args.pop(0)
+
+                else:
+                    param_args.append(args.pop(0))
+
+            elif name in info["defaults"]:
+                if name in info["keyword_only_names"]:
+                    param_kwargs[name] = info["defaults"][name]
+
+                else:
+                    param_args.append(info["defaults"][name])
+
+            else:
+                raise ValueError(
+                    f"Could not bind callable"
+                    " {self.callpath} param {index} {name}"
+                )
+
+        if info["positionals_name"] and args:
+            param_args.extend(args)
+            args = []
+
+        if info["keywords_name"] and kwargs:
+            param_kwargs.update(kwargs)
+            kwargs = {}
+
+        return {
+            "args": param_args,
+            "kwargs": param_kwargs,
+            "unknown_args": args,
+            "unknown_kwargs": kwargs,
+            "signature_info": info
+        }
 
     def get_signature_info(self):
         """Get call signature information of the reflected function
 
         Moved from captain.reflection and refactored on 7-17-2024
+
+        :returns: dict[str, str|set|list|dict]
+            - signature: the inspect signature
+            - names: list[str], all the param names in the order they are
+                defined in the signature
+            - positional_only_names: set[str], the set of names that can
+                only be passed in as positionals
+            - keyword_only_names: set[str], the set of names taht can
+                only be passed in as keywords
+            - required: dict[str, Any], the default values for any of the
+                names
+            - positionals_name: str, the name of the *args-like param that
+                captures all undefined positionals passed into the callable
+            - keywords_name: str, the name of the **kwargs-like param that
+                captures all undefined keywords passed into the callable
         """
         names = []
         required = set()
@@ -1157,47 +1273,53 @@ class ReflectCallable(object):
         positionals_name = ""
         keywords_name = ""
 
-#         klass = getattr(self.function, "__self__", None)
-#         pout.v(klass)
-#         pout.i(self.function)
+        # https://peps.python.org/pep-0570/
+        positional_only_names = set()
+        keyword_only_names = set()
 
-        skip = self.is_method()
+        # we skip the first argument if it's a method that usually has self
+        # or cls as the first argument
+        skip = self.is_instance_method() or self.is_classmethod()
         signature = inspect.signature(self.function)
         for name, param in signature.parameters.items():
             if skip:
                 skip = False
                 continue
 
-            pout.v(param)
+            if param.kind is param.POSITIONAL_ONLY:
+                positional_only_names.add(name)
 
-        return
+            elif param.kind is param.KEYWORD_ONLY:
+                keyword_only_names.add(name)
 
+            if param.default is param.empty:
+                if param.kind is param.VAR_POSITIONAL:
+                    positionals_name = name
 
-        # remove self which will always get passed in automatically
-        args = signature[0][1:]
-        if not args:
-            args = []
+                elif param.kind is param.VAR_KEYWORD:
+                    keywords_name = name
 
-        args_default = {}
-        if signature[3]:
-            start = len(args) - len(signature[3])
-            args_default = dict(zip(args[start:], signature[3]))
+                else:
+                    names.append(name)
+                    required.add(name)
 
-        args_required = set()
-        for arg in args:
-            if arg not in args_default:
-                args_required.add(String(arg))
-
-        args_name = signature[1]
-        kwargs_name = signature[2]
+            else:
+                names.append(name)
+                defaults[name] = param.default
 
         return {
-            "names": list(map(String, args)),
-            "required": args_required,
-            "defaults": args_default,
-            "*_name": String(args_name) if args_name else args_name,
-            "**_name": String(kwargs_name) if kwargs_name else kwargs_name,
+            "signature": signature,
+            "names": names,
+            "positional_only_names": positional_only_names,
+            "keyword_only_names": keyword_only_names,
+            "required": required,
+            "defaults": defaults,
+            "positionals_name": positionals_name,
+            "*_name": positionals_name, # DEPRECATED?
+            "keywords_name": keywords_name,
+            "**_name": keywords_name, # DEPRECATED?
         }
+
 
 class ReflectMethod(object):
     """Internal class used by ReflectClass
