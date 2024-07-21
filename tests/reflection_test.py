@@ -583,6 +583,51 @@ class ReflectCallableTest(TestCase):
         self.assertEqual("kwargs", sig["keywords_name"])
         self.assertEqual("", sig["positionals_name"])
 
+    def test_is_bound_method(self):
+        RC = ReflectCallable
+        class Foo(object):
+            @classmethod
+            def class_foo(cls, bar): pass
+            @staticmethod
+            def static_foo(bar): pass
+            def method_foo(self, bar): pass
+
+        rf = RC(Foo.method_foo, Foo)
+        self.assertFalse(rf.is_bound_method())
+        self.assertTrue(rf.is_unbound_method())
+        info = rf.get_signature_info()
+        self.assertEqual(["bar"], info["names"])
+
+        rf = RC(Foo().method_foo, Foo)
+        self.assertTrue(rf.is_bound_method())
+        self.assertFalse(rf.is_unbound_method())
+        info = rf.get_signature_info()
+        self.assertEqual(["bar"], info["names"])
+
+        rf = RC(Foo.class_foo, Foo)
+        self.assertTrue(rf.is_bound_method())
+        self.assertFalse(rf.is_unbound_method())
+        info = rf.get_signature_info()
+        self.assertEqual(["bar"], info["names"])
+
+        rf = RC(Foo().class_foo, Foo)
+        self.assertTrue(rf.is_bound_method())
+        self.assertFalse(rf.is_unbound_method())
+        info = rf.get_signature_info()
+        self.assertEqual(["bar"], info["names"])
+
+        rf = RC(Foo.static_foo, Foo)
+        self.assertFalse(rf.is_bound_method())
+        self.assertFalse(rf.is_unbound_method())
+        info = rf.get_signature_info()
+        self.assertEqual(["bar"], info["names"])
+
+        rf = RC(Foo().static_foo, Foo)
+        self.assertFalse(rf.is_bound_method())
+        self.assertFalse(rf.is_unbound_method())
+        info = rf.get_signature_info()
+        self.assertEqual(["bar"], info["names"])
+
     def test_get_bind_info(self):
         class Foo(object):
             def foo(self, foo, bar=2, che=3, **kwargs): pass

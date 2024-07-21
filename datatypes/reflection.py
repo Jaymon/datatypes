@@ -1165,6 +1165,64 @@ class ReflectCallable(object):
         v = getattr(self.function, "__self__", None)
         return isinstance(v, type)
 
+    def is_bound_method(self):
+        """Returns True if callable is a bound method
+
+        This is a little inside baseball, but basically a bound method is
+        the method object returned from an instance
+
+        :example:
+            class Foo(object):
+                def bar(self): pass
+
+                @classmethod
+                def che(cls): pass
+
+            ReflectCallable(Foo.bar).is_bound_method() # False
+            ReflectCallable(Foo().bar).is_bound_method() # True
+
+            ReflectCallable(Foo.che).is_bound_method() # True
+            ReflectCallable(Foo().che).is_bound_method() # True
+
+        :returns: bool
+        """
+        ret = False
+        if getattr(self.function, "__self__", None):
+            ret = True
+
+        return ret
+
+    def is_unbound_method(self):
+        """Returns True if this is an unbound instance method
+
+        This will only ever be True for an instance method that isn't bound.
+        This isn't synonomous with `not self.is_bound_method` because there
+        needed to be a way to tell the different between an unbound method
+        and a function, which will both return True for
+        `not .is_bound_method()`
+
+        :example:
+            def func(): pass
+
+            rf = ReflectCallable(func)
+            rf.is_bound_method() # False
+            rf.is_unbound_method() # False
+
+            class Foo(object):
+                def method(self): pass
+
+            rf = ReflectCallable(Foo.method, Foo)
+            rf.is_bound_method() # False
+            rf.is_unbound_method() # True
+
+            rf = ReflectCallable(Foo().method, Foo)
+            rf.is_bound_method() # True
+            rf.is_unbound_method() # False
+
+        :returns: bool
+        """
+        return self.is_instance_method() and not self.is_bound_method()
+
     def get_docblock(self):
         """Get the docblock comment for the callable
 
@@ -1181,6 +1239,10 @@ class ReflectCallable(object):
 
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable would bind *args and **kwargs
+
+        This will favor keywords over positionals and checks for
+        positionals_name and keywords_name in kwargs and will move those into
+        the main namespaces
 
         https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
         https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
@@ -1231,13 +1293,21 @@ class ReflectCallable(object):
                     " {self.callpath} param {index} {name}"
                 )
 
-        if info["positionals_name"] and args:
-            param_args.extend(args)
-            args = []
+        if info["positionals_name"]:
+            if info["positionals_name"] in kwargs:
+                param_args.extend(kwargs.pop(info["positionals_name"]))
 
-        if info["keywords_name"] and kwargs:
-            param_kwargs.update(kwargs)
-            kwargs = {}
+            if args:
+                param_args.extend(args)
+                args = []
+
+        if info["keywords_name"]:
+            if info["keywords_name"] in kwargs:
+                param_kwargs.update(kwargs.pop(info["keywords_name"]))
+
+            if kwargs:
+                param_kwargs.update(kwargs)
+                kwargs = {}
 
         return {
             "args": param_args,
@@ -1278,8 +1348,9 @@ class ReflectCallable(object):
         keyword_only_names = set()
 
         # we skip the first argument if it's a method that usually has self
-        # or cls as the first argument
-        skip = self.is_instance_method() or self.is_classmethod()
+        # or cls as the first argument. This only applies if we passed in the
+        # non-bound version of the method though, so we also check 
+        skip = self.is_unbound_method()
         signature = inspect.signature(self.function)
         for name, param in signature.parameters.items():
             if skip:
