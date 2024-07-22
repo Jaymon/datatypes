@@ -33,11 +33,12 @@ class StringMixin(object):
 
 class ByteString(Bytes, StringMixin):
     """Wrapper around a byte string b"" to make sure we have a byte string that
-    will work across python versions and handle the most annoying encoding issues
-    automatically
+    will work across python versions and handle the most annoying encoding
+    issues automatically
 
-    We treat integers like how py2.7 treats them because this is a Byte STRING and
-    not just bytes, so it makes sense to return b'10' instead of 10 \x00 bytes
+    We treat integers like how py2.7 treats them because this is a Byte STRING
+    and not just bytes, so it makes sense to return b'10' instead of 10 \x00
+    bytes
 
     :Example:
         s = ByteString("foo")
@@ -212,13 +213,13 @@ class String(Str, StringMixin):
     def hash(self, key="", name="sha256", nonce="", rounds=100000):
         """hash self with key and return the 64 byte hash
 
-        This will produce the same hash if given the same key, it is designed to
-        hash values with a dedicated key (password) and always produce the same
-        hashed value if the same key (password) is always used.
+        This will produce the same hash if given the same key, it is designed
+        to hash values with a dedicated key (password) and always produce the
+        same hashed value if the same key (password) is always used.
 
         NOTE -- In order to hash to the same value every time the same value,
-        key, name, and nonce needs to be used, if you change any of these values
-        then the hashes will no longer be equivalent
+        key, name, and nonce needs to be used, if you change any of these
+        values then the hashes will no longer be equivalent
 
         :param key: str, the key/salt/password for the hash
         :param name: str, the hash to use, not required
@@ -400,8 +401,8 @@ class String(Str, StringMixin):
         :param chars: same as token.WordTokenizer chars argument
         :param tokenizer_class: Tokenizer, custom class for customized
             tokenize functionality
-        :returns: generator of String instance, each token that will also have a 
-            .token that contains the raw token
+        :returns: generator of String instance, each token that will also have
+            a .token that contains the raw token
         """
         if not tokenizer_class:
             from .token import WordTokenizer # avoid circular dep
@@ -414,7 +415,8 @@ class String(Str, StringMixin):
             yield st
 
     def xmlescape(self):
-        """Perform xml/html escaping (eg, & becomes &amp;) of the current string
+        """Perform xml/html escaping (eg, & becomes &amp;) of the current
+        string
 
         :returns: string, the same string but XML escaped
         """
@@ -456,13 +458,13 @@ class NamingConvention(String):
     be defined and passed in.
 
     For example, python convention for variables is snake case (lower case with
-    underscores between words: foo_bar), but class names are camel case (title case
-    words scrunched together: FooBar) and you would want to pass in values on the
-    commandline using dashes, so this class makes it easy to go from `foo-bar`
-    to `foo_bar` to `FooBar`
+    underscores between words: foo_bar), but class names are camel case (title
+    case words scrunched together: FooBar) and you would want to pass in values
+    on the commandline using dashes, so this class makes it easy to go from
+    `foo-bar` to `foo_bar` to `FooBar`
 
-    Moved here from Captain.reflection.Name on 12-19-2022, also moved all the case
-    methods from String into here
+    Moved here from Captain.reflection.Name on 12-19-2022, also moved all the
+    case methods from String into here
 
     https://en.wikipedia.org/wiki/Naming_convention_(programming)
     """
@@ -502,9 +504,9 @@ class NamingConvention(String):
         return self.split("_")
 
     def split(self, *args, **kwargs):
-        """Overrides the normal string split to also split on camelcasing, dashes,
-        or underscores. If you pass in a value then it will act like the normal
-        split
+        """Overrides the normal string split to also split on camelcasing,
+        dashes, or underscores. If you pass in a value then it will act like
+        the normal split
         """
         if args or kwargs:
             ret = super().split(*args, **kwargs)
@@ -585,7 +587,8 @@ class NamingConvention(String):
         return self.kebabcase()
 
     def camelcase(self):
-        """Convert a string to use camel case (spaces removed and capital letters)
+        """Convert a string to use camel case (spaces removed and capital
+        letters)
 
         CamelCase
 
@@ -627,8 +630,8 @@ class NamingConvention(String):
         return self.lower_camelcase()
 
     def snakecase(self):
-        """Convert a string to use snake case (lowercase with underscores in place
-        of spaces: snake_case)
+        """Convert a string to use snake case (lowercase with underscores in
+        place of spaces: snake_case)
 
         :Example:
             NamingConvention("FooBar").snakecase() # foo_bar
@@ -666,7 +669,8 @@ class NamingConvention(String):
         return self.snakecase()
 
     def screaming_snakecase(self):
-        """snake case but all capital letters instead of lowercase (eg, SCREAMING_SNAKE_CASE)
+        """snake case but all capital letters instead of lowercase (eg,
+        SCREAMING_SNAKE_CASE)
 
         :Example:
             NamingConvention("FooBar").screaming_snakecase() # FOO_BAR

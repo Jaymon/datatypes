@@ -446,6 +446,14 @@ class UrlTest(TestCase):
         self.assertTrue(u.is_hostname("EXAMPLE.COM"))
         self.assertEqual("/foo/bar.jpg", u.path)
 
+    def test_parts_2(self):
+        """.parts was returning [""] when it just had "/" as the path"""
+        u = Url("http://example.com/")
+        self.assertEqual([], u.parts)
+
+        u = Url("http://example.com")
+        self.assertEqual([], u.parts)
+
     def test_is_relative_and_path(self):
         u = Url("//hostname.tld/foo/bar")
         self.assertTrue(u.is_relative())

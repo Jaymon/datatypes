@@ -142,8 +142,8 @@ class Url(String):
     @property
     def parts(self):
         """Return a list of the path parts, similar to path.Path.parts"""
-        path = self.path
-        return path.strip("/").split("/")
+        path = self.path.strip("/")
+        return path.split("/") if path else []
 
     @property
     def ext(self):

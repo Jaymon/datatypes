@@ -259,6 +259,7 @@ class CallbackHandler(SimpleHTTPRequestHandler):
         * .server - the server handling the request
         * .server.server_name - the name of the server
         * .server.server_port - the port of the server
+        * .code - int, the return code
     """
     @property
     def uri(self):
@@ -283,6 +284,7 @@ class CallbackHandler(SimpleHTTPRequestHandler):
 
     def __init__(self, callbacks, *args, encoding=None, **kwargs):
         self.encoding = encoding
+        self.code = 0
 
         if isinstance(callbacks, Mapping):
             self.callbacks = callbacks
@@ -322,41 +324,56 @@ class CallbackHandler(SimpleHTTPRequestHandler):
 
         except TypeError as e:
             if not self.headers_sent:
-                self.send_error(
-                    501,
-                    "Unsupported method {}".format(self.command)
-                )
+                if self.command in self.callbacks:
+                    code = self.code or 500
+                    self.send_error(
+                        code,
+                        "{} - {}".format(e.__class__.__name__, e)
+                    )
+
+                else:
+                    self.send_error(
+                        501,
+                        "Unsupported method {}".format(self.command)
+                    )
 
         except ValueError as e:
+            code = self.code or 400
             if not self.headers_sent:
                 self.send_error(
-                    400,
+                    code,
                     str(e)
                 )
 
         except Exception as e:
+            code = self.code or 500
             logger.exception(e)
             if not self.headers_sent:
-                self.send_error(500, "{} - {}".format(e.__class__.__name__, e))
+                self.send_error(
+                    code,
+                    "{} - {}".format(e.__class__.__name__, e)
+                )
 
         else:
             if ret:
+                code = self.code or 200
                 if not self.headers_sent:
-                    self.send_response(200)
+                    self.send_response(code)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                 b = json.dumps(ret)
                 self.wfile.write(bytes(b, self.encoding))
 
             else:
+                code = self.code or 204
                 if not self.headers_sent:
-                    self.send_response(204)
+                    self.send_response(code)
                     self.end_headers()
 
     def __getattr__(self, k):
         """By default, the handler looks for do_<HTTP_METHOD> (eg, do_GET)
-        methods on the handler. This routes all those requests to .do() and then
-        uses the dict passed in to decide how to route the request"""
+        methods on the handler. This routes all those requests to .do() and
+        then uses the dict passed in to decide how to route the request"""
         if k.startswith("do_"):
             return self.do
         else:

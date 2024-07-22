@@ -554,12 +554,17 @@ class ReflectPath(Path):
                     prefix = ".".join(modparts)
 
                     rm = ReflectModule(prefix)
-                    if submodules:
-                        for m in rm.get_modules():
-                            yield m
+                    try:
+                        if submodules:
+                            for m in rm.get_modules():
+                                yield m
 
-                    else:
-                        yield rm.get_module()
+                        else:
+                            yield rm.get_module()
+
+                    except ModuleNotFoundError:
+                        # what we found wasn't actually a module
+                        pass
 
 
 class ReflectName(String):
