@@ -33,6 +33,17 @@ class CommandTest(TestCase):
         with self.assertRaises(CalledProcessError):
             r = c.run()
 
+    def test_run_output_on_failure(self):
+        """I had an issue where a module command was failing and printing the
+        error but I was just getting the error stacktrace and not the stderr
+        wasn't printing to the terminal"""
+        with self.capture() as output:
+            with self.assertRaises(CalledProcessError):
+                c = Command(">&2 echo 'failure'; false")
+                c.run()
+
+        self.assertTrue("failure" in output)
+
     def test_stdout_capture(self):
         c = Command("for i in {1..10}; do echo $i; done")
         r = c.run()

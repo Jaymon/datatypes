@@ -161,7 +161,11 @@ class SimpleCommand(object):
         self.command = command
 
         self.logger_prefix = kwargs.pop("logger_prefix", None)
-        self.logger = self.get_logger(**kwargs)
+        if "logger" in kwargs:
+            self.logger = kwargs.pop("logger")
+
+        else:
+            self.logger = self.get_logger(**kwargs)
 
         self.sudo = kwargs.pop("sudo", False)
 
