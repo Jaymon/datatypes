@@ -1875,9 +1875,6 @@ class Dirpath(Path):
     def get_file(self, *parts, **kwargs):
         return self.child_file(*parts, **kwargs)
 
-    def get_file(self, *parts, **kwargs):
-        return self.child_file(*parts, **kwargs)
-
     def child_dir(self, *parts, **kwargs):
         return self.dir_class()(self.path, *parts, **kwargs)
 
