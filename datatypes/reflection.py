@@ -651,6 +651,7 @@ class ReflectName(String):
         ret = ""
         filepath = modpath = classname = methodname = ""
         classnames = []
+        unresolvable = []
 
         parts = name.split(":")
         if len(parts) > 1:
@@ -662,24 +663,17 @@ class ReflectName(String):
                 modpath = parts[0]
 
             parts = parts[1].split(".")
-            if len(parts) == 1:
-                classnames = [parts[0]]
-                classname = parts[0]
+            for index, part in enumerate(parts):
+                if re.search(r'^[A-Z]', part):
+                    classnames.append(part)
+                    classname = part
 
-            elif len(parts) == 2:
-                classnames = [parts[0]]
-                classname = parts[0]
-                methodname = parts[1]
-
-            else:
-                if re.search(r'^[A-Z]', parts[-1]):
-                    classnames = parts
-                    classname = parts[-1]
+                elif part.startswith("<"):
+                    unresolvable = parts[index:]
+                    break
 
                 else:
-                    classnames = parts[:-1]
-                    classname = classnames[-1]
-                    methodname = parts[-1]
+                    methodname = part
 
         else:
             # this is old syntax of module_name.class_name(s).method_name and
@@ -738,12 +732,16 @@ class ReflectName(String):
         if methodname:
             ret += f".{methodname}"
 
+        if unresolvable:
+            ret += ".".join(unresolvable)
+
         return ret, {
             "filepath": filepath,
             "module_name": modpath,
             "class_names": classnames,
             "class_name": classname,
             "method_name": methodname,
+            "unresolvable": unresolvable,
         }
 
     def reflect_module(self):

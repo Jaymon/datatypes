@@ -324,6 +324,13 @@ class ReflectNameTest(TestCase):
         with self.assertRaises(ValueError):
             p.absolute_module_name("baz")
 
+    def test_class_names(self):
+        p = ReflectName("<run_path>:Foo.Bar")
+        self.assertEqual(["Foo", "Bar"], p.class_names)
+
+        p = ReflectName("mod1.mod2.mod3:Foo.bar.<locals>.Che.boo")
+        self.assertEqual(["<locals>", "Che", "boo"], p.unresolvable)
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
