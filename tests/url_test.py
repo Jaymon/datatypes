@@ -654,10 +654,10 @@ class HostTest(TestCase):
         self.assertEqual(8080, h.port)
 
         h = Host("localhost")
-        self.assertEqual(None, h.port)
+        self.assertEqual(0, h.port)
 
         h = Host("localhost:")
-        self.assertEqual(None, h.port)
+        self.assertEqual(0, h.port)
 
     def test_trailing_slash(self):
         h = Host("localhost:8080/")

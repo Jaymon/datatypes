@@ -836,6 +836,10 @@ class Host(tuple):
     def __new__(cls, host="", port=None):
         """Create a new server_address tuple
 
+        If nothing is passed in the default address is ("", 0) which in most
+        python stdlib server code will bind to localhost with some random
+        free port
+
         :param host: str|tuple[str, int|str], can handle things strings like
             ":<PORT>", "<HOSTNAME>:<PORT>", "<HOSTNAME>", or
             ["<HOSTNAME>", "<PORT>"]
@@ -853,7 +857,16 @@ class Host(tuple):
             host = ""
 
         u = Url(host, default_port=port)
-        instance = super().__new__(cls, [u.hostname, u.port])
+
+        port = u.port
+        if not port:
+            # If the port is empty we set it to 0 so it can trigger python's
+            # internal server code to find an available port. If we didn't do
+            # this we would get the error: TypeError: 'NoneType' object cannot
+            # be interpreted as an integer
+            port = 0
+
+        instance = super().__new__(cls, [u.hostname, port])
         instance.url = u
         return instance
 
