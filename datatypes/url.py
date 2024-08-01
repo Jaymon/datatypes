@@ -803,8 +803,11 @@ class Host(tuple):
     """Creates a tuple (hostname, port) that can be passed to built-in Python
     server classes and anything that uses that same interface, does all the
     lifting to figure out what the hostname and port should be based on the
-    passed in input, so you can pass things like hostname:port, or (host, port),
-    etc.
+    passed in input, so you can pass things like hostname:port, or (host,
+    port), etc.
+
+    https://docs.python.org/3/library/socket.html#module-socket - creates an
+    AF_INET server address
     """
     @property
     def hostname(self):
@@ -830,17 +833,32 @@ class Host(tuple):
         """
         return self.url.hostloc
 
-    def __new__(cls, host, port=None):
+    def __new__(cls, host="", port=None):
+        """Create a new server_address tuple
+
+        :param host: str|tuple[str, int|str], can handle things strings like
+            ":<PORT>", "<HOSTNAME>:<PORT>", "<HOSTNAME>", or
+            ["<HOSTNAME>", "<PORT>"]
+        :param port: int
+        """
+        if isinstance(host, tuple):
+            # compensate for passing in a server_address tuple which I seem
+            # to do a lot evidently
+            port = host[1]
+            host = host[0]
+
+        if host.startswith(":"):
+            # host is just a port like ":8000"
+            port = host[1:]
+            host = ""
+
         u = Url(host, default_port=port)
-        instance = super().__new__(cls, [u.hostname, u.port if u.port else 0])
+        instance = super().__new__(cls, [u.hostname, u.port])
         instance.url = u
         return instance
 
     def __str__(self):
-        return self.__bytes__() if is_py2 else self.__unicode__()
-
-    def __unicode__(self):
-        return String(self.hostloc)
+        return self.hostloc
 
     def __bytes__(self):
         return ByteString(self.hostloc)
@@ -855,11 +873,19 @@ class Host(tuple):
         :returns: str, a netloc (eg "host:port") that a client can use to make
         a request
         """
-        netloc = ""
         domain, port = self
-        netloc = gethostname() if domain == "0.0.0.0" else domain
+
+        netloc = domain
+
+        if domain == "0.0.0.0":
+            netloc = gethostname()
+
+        elif not domain:
+            netloc = "127.0.0.1"
+
         if port:
             netloc += ":{}".format(port)
+
         return netloc
 
 

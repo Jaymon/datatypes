@@ -654,15 +654,33 @@ class HostTest(TestCase):
         self.assertEqual(8080, h.port)
 
         h = Host("localhost")
-        self.assertEqual(0, h.port)
+        self.assertEqual(None, h.port)
 
         h = Host("localhost:")
-        self.assertEqual(0, h.port)
+        self.assertEqual(None, h.port)
 
     def test_trailing_slash(self):
         h = Host("localhost:8080/")
         self.assertEqual(8080, h.port)
         self.assertEqual("localhost", h.hostname)
+
+    def test_tuple(self):
+        hostname = "localhost"
+        port = 8000
+        sa = (hostname, port)
+        h = Host(sa)
+        self.assertEqual(hostname, h.hostname)
+        self.assertEqual(port, h.port)
+
+    def test_host_port(self):
+        h = Host(":8000")
+        self.assertEqual("", h.hostname)
+        self.assertEqual(8000, h.port)
+
+    def test_only_port(self):
+        h = Host(port=8000)
+        self.assertEqual("", h.hostname)
+        self.assertEqual(8000, h.port)
 
 
 class SlugTest(TestCase):

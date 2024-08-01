@@ -146,7 +146,7 @@ from .token import (
 )
 from .url import (
     Url,
-    Host,
+    Host, Host as ServerAddress,
     Slug,
 )
 from .utils import (
@@ -159,5 +159,5 @@ from .utils import (
 )
 
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
