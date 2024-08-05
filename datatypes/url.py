@@ -10,7 +10,7 @@ from .token import StopWordTokenizer
 
 
 class Url(String):
-    """a url object on steroids, this is here to make it easy to manipulate urls
+    r"""a url object on steroids, this is here to make it easy to manipulate urls
     we try to map the supported fields to their urlparse equivalents, with some
     additions
 

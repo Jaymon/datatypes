@@ -7,8 +7,6 @@ import codecs
 import shutil
 import hashlib
 from collections import deque, defaultdict
-import zipfile
-import tarfile
 import site
 import tempfile
 import itertools
@@ -22,6 +20,9 @@ from pathlib import Path as Pathlib
 import pickle
 from contextlib import contextmanager
 import errno
+import gzip
+#import zipfile
+#import tarfile
 
 # not available on Windows
 try:
@@ -2348,11 +2349,31 @@ class Filepath(Path):
                 return True if data else False
 
         return False
+
+    def gzip(self, target=""):
+        """Gzip the filepath to target
+
+        https://docs.python.org/3/library/gzip.html
+
+        :param target: str, the target output file, if empty then ".gz" will
+            be attached to self's path and that will be used as target
+        :returns: Path, the gzipped file path
+        """
+        if not target:
+            target = f"{self.path}.gz"
+
+        target = self.create_file(target)
+
+        with open(self.path, "rb") as f_in:
+            with gzip.open(target, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+        return target
 FilePath = Filepath
 
 
 class PathIterator(ListIterator):
-    """Iterate through a directory path
+    r"""Iterate through a directory path
 
     I was not happy with all the Dirpath iteration methods I've added over the
     last few years, they all were subtlely different and it was annoying trying
@@ -2766,7 +2787,7 @@ class PathIterator(ListIterator):
         return self.recursive(True)
 
     def regex(self, regex, **kwargs):
-        """Only iterate paths that match regex, regexes match the entire path
+        r"""Only iterate paths that match regex, regexes match the entire path
         by default, if you don't want to match the entire path you will need to
         structure your regex accordingly
 

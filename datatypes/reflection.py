@@ -568,7 +568,7 @@ class ReflectPath(Path):
 
 
 class ReflectName(String):
-    """A reflection object similar to python's built-in resolve_name
+    r"""A reflection object similar to python's built-in resolve_name
 
     take something like some.full.module.Path and return the actual Path
     class object

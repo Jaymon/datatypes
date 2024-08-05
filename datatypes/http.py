@@ -804,19 +804,19 @@ class UserAgent(NormalizeString):
         to error out"""
         d = {}
 
-        regex = "^([^/]+)" # 1 - get everything to first slash
-        regex += "\/" # ignore the slash
-        regex += "(\d[\d.]*)" # 2 - capture the numeric version or build
-        regex += "\s+\(" # ignore whitespace before parens group
-        regex += "([^\)]+)" # 3 - capture the full paren body
-        regex += "\)\s*" # ignore the paren and any space if it is there
-        regex += "(.*)$" # 4 - everything else (most common in browsers)
+        regex = r"^([^/]+)" # 1 - get everything to first slash
+        regex += r"\/" # ignore the slash
+        regex += r"(\d[\d.]*)" # 2 - capture the numeric version or build
+        regex += r"\s+\(" # ignore whitespace before parens group
+        regex += r"([^\)]+)" # 3 - capture the full paren body
+        regex += r"\)\s*" # ignore the paren and any space if it is there
+        regex += r"(.*)$" # 4 - everything else (most common in browsers)
         m = re.match(regex, user_agent)
         if m:
             application = m.group(1)
             version = m.group(2)
             system = m.group(3)
-            system_bits = re.split("\s*;\s*", system)
+            system_bits = re.split(r"\s*;\s*", system)
             tail = m.group(4)
 
             # common
@@ -827,7 +827,7 @@ class UserAgent(NormalizeString):
             if application.startswith("Mozilla"):
                 for browser in ["Chrome", "Safari", "Firefox"]:
                     browser_m = re.search(
-                        "{}\/(\d[\d.]*)".format(browser),
+                        r"{}\/(\d[\d.]*)".format(browser),
                         tail
                     )
                     if browser_m:

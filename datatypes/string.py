@@ -718,6 +718,9 @@ class EnglishWord(String):
         the algo is based off of this:
             https://www.grammarly.com/blog/plural-nouns/
 
+        Ruby on Rails (ActiveSupport) version:
+            https://api.rubyonrails.org/v7.1/classes/ActiveSupport/Inflector.html
+
         :returns: string, the plural version of the word
         """
         singular = self

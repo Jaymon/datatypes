@@ -265,7 +265,7 @@ class Datetime(datetime.datetime):
 
     @classmethod
     def parse_subseconds(cls, subseconds):
-        """Parse the value to the right of the period on a floating point number
+        r"""Parse the value to the right of the period on a floating point number
 
         123456
         \ /\ /
