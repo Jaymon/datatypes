@@ -893,3 +893,35 @@ class DictTree(Dict):
                 if not isinstance(v, self.__class__):
                     yield ks + [k], v
 
+    def walk(self, keys):
+        """Walk each node of the tree in keys.
+
+        Basically, if you passed in ["foo", "bar", "che"] it would first
+        yield the node at ["foo"], then ["foo", "bar"], and finally the
+        node at ["foo", "bar", "che"]
+
+        :param keys: list[str]|str, the path key(s) to walk
+        :returns: generator[DictTree]
+        """
+        if not isinstance(keys, list):
+            keys = [keys]
+
+        d = self
+        i = -(len(keys) - 1)
+        while i < 1:
+            if i < 0:
+                ks = keys[:i]
+
+            else:
+                ks = keys
+
+            i += 1
+
+            k = ks[-1]
+            if isinstance(d, self.__class__) and k in d:
+                d = d[k]
+                yield ks, d
+
+            else:
+                raise KeyError(k)
+

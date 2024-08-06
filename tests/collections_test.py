@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 
@@ -893,6 +892,28 @@ class DictTreeTest(TestCase):
             foo=2
         )
         self.assertEqual(2, d.foo)
+
+    def test_walk(self):
+        d = DictTree()
+        d[["foo", "bar"]] = 1
+        d[["foo", "che", "baz"]] = 2
+        d[["foo", "che", "boo", "far"]] = 3
+
+        it = d.walk(["foo", "che", "boo", "far"])
+        ks, sd = it.__next__()
+        self.assertEqual(["foo"], ks)
+        ks, sd = it.__next__()
+        self.assertEqual(["foo", "che"], ks)
+        ks, sd = it.__next__()
+        self.assertEqual(["foo", "che", "boo"], ks)
+        ks, sd = it.__next__()
+        self.assertEqual(["foo", "che", "boo", "far"], ks)
+        self.assertEqual(3, sd)
+
+
+#         for ks, sd in d.walk(["foo", "che", "boo", "far"]):
+#             pout.v(ks, sd)
+
 
 
 class OrderedSetTest(TestCase):
