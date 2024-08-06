@@ -778,21 +778,20 @@ class DictTreeTest(TestCase):
         d.set(keys, 1)
 
         self.assertEqual(1, d.get(keys))
-        self.assertEqual(1, d.foo.bar.che)
-
+        self.assertEqual(1, d["foo", "bar", "che"])
         self.assertEqual(5, d.get(["foo", "che"], 5))
 
     def test_pop(self):
         d = DictTree()
-
         d.set(["foo", "bar", "che"], 2)
+
         self.assertEqual(2, d.pop(["foo", "bar", "che"]))
         self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
 
     def test_setdefault(self):
         d = DictTree()
         d.setdefault(["foo", "bar", "che"], 3)
-        self.assertEqual(3, d.foo.bar.che)
+        self.assertEqual(3, d["foo", "bar", "che"])
 
     def test_magic_methods(self):
         d = DictTree()
@@ -812,6 +811,9 @@ class DictTreeTest(TestCase):
 
     def test_trees(self):
         d = DictTree()
+
+        self.assertEqual(0, len(list(d.trees())))
+
         d[["foo", "bar"]] = 1
         d[["foo", "che", "baz"]] = 2
         d[["foo", "che", "boo", "far"]] = 3
@@ -840,7 +842,7 @@ class DictTreeTest(TestCase):
         }
 
         for ks, v in d.leaves():
-            self.assertEqual(td[ks[-1]], v)
+            self.assertEqual(td[ks[-1]], v.value)
 
         count = 0
         for ks, v in d.leaves(1):
@@ -857,41 +859,66 @@ class DictTreeTest(TestCase):
         self.assertEqual(None, d.tree_parent)
 
         d[["foo", "bar"]] = 1
-        self.assertEqual(d, d["foo"].tree_parent)
-        self.assertEqual("foo", d["foo"].tree_name)
+        self.assertEqual(d, d.get_node("foo").tree_parent)
+        self.assertEqual("foo", d.get_node("foo").tree_name)
 
         d[["foo", "baz", "che"]] = 2
-        self.assertEqual("baz", d[["foo", "baz"]].tree_name)
-        self.assertEqual(["foo", "baz"], d[["foo", "baz"]].tree_path)
+        self.assertEqual("baz", d.get_node(["foo", "baz"]).tree_name)
+        self.assertEqual(["foo", "baz"], d.get_node(["foo", "baz"]).tree_path)
 
-        self.assertEqual(d, d[["foo", "baz"]].tree_root)
+        self.assertEqual(d, d.get_node(["foo", "baz"]).tree_root)
 
-    def test___missing__(self):
-        d = DictTree()
+#     def test___missing__(self):
+#         d = DictTree()
+# 
+#         v = d["foo"]
+#         self.assertEqual(0, len(d))
+# 
+#         v = d.foo.bar.che
+#         self.assertEqual(0, len(d))
 
-        v = d["foo"]
-        self.assertEqual(0, len(d))
-
-        v = d.foo.bar.che
-        self.assertEqual(0, len(d))
-
-    def test___init__(self):
+    def test_get_node(self):
         d = DictTree([
             (["foo", "bar"], 1),
             (["foo", "che"], 2),
         ])
-        self.assertEqual(1, d.foo.bar)
-        self.assertEqual(2, d.foo.che)
         self.assertEqual(1, len(d))
-        self.assertEqual(2, len(d["foo"]))
+        self.assertEqual(2, len(d.get_node(["foo"])))
+        self.assertEqual(0, len(d.get_node(["foo", "bar"])))
+        self.assertEqual(0, len(d.get_node(["foo", "che"])))
 
+        with self.assertRaises(KeyError):
+            d.get_node(["DOES-NOT-EXIST"])
+
+    def test___getitem__(self):
+        d = DictTree([
+            ("foo", 1),
+            (["foo", "bar"], 2),
+        ])
+
+        self.assertEqual(1, d["foo"])
+        self.assertEqual(1, d[["foo"]])
+        self.assertEqual(2, d[["foo", "bar"]])
+        self.assertEqual(2, d["foo", "bar"])
+
+    def test___init__(self):
         d = DictTree(
             [
                 (["foo", "bar"], 1),
             ],
             foo=2
         )
-        self.assertEqual(2, d.foo)
+        self.assertEqual(2, d["foo"])
+
+        d = DictTree([
+            (["foo", "bar"], 1),
+            (["foo", "che"], 2),
+        ])
+
+        self.assertEqual(1, d[["foo", "bar"]])
+        self.assertEqual(2, d["foo", "che"])
+        self.assertEqual(1, len(d))
+        self.assertEqual(2, len(d.get_node("foo")))
 
     def test_walk(self):
         d = DictTree()
@@ -908,7 +935,7 @@ class DictTreeTest(TestCase):
         self.assertEqual(["foo", "che", "boo"], ks)
         ks, sd = it.__next__()
         self.assertEqual(["foo", "che", "boo", "far"], ks)
-        self.assertEqual(3, sd)
+        self.assertEqual(3, sd.value)
 
 
 #         for ks, sd in d.walk(["foo", "che", "boo", "far"]):

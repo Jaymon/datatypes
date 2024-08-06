@@ -235,7 +235,7 @@ class Dict(dict):
                     self[k].merge(other[k])
 
                 elif isinstance(self[k], Mapping):
-                    self[k] = Dict(self[k])
+                    self[k] = type(cls)(self[k])
                     self[k].merge(other[k])
 
                 else:
@@ -667,6 +667,7 @@ class DictTree(Dict):
             names in the order needed to traverse from the absolute head tree
             back to this tree
         * .tree_root - the absolute head of the tree
+        * .value - the value at this node key, None if the node has no value
     """
     @property
     def tree_path(self):
@@ -680,25 +681,50 @@ class DictTree(Dict):
             path.append(parent.tree_name)
         return list(reversed(path[:-1]))
 
-    def __init__(self, mapping_or_iterable=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+    #def __init__(self, mapping_or_iterable=None, **kwargs):
         self.tree_root = self
         self.tree_parent = None
         self.tree_name = ""
+        self.value = None
 
         super().__init__()
+        self.update(*args, **kwargs)
 
+#         if mapping_or_iterable:
+#             if isinstance(mapping_or_iterable, Mapping):
+#                 self.update(mapping_or_iterable)
+# 
+#             else:
+#                 for k, v in mapping_or_iterable:
+#                     self.set(k, v)
+# 
+#         if kwargs:
+#             self.update(kwargs)
+
+    #def update(self, *args, **kwargs):
+    def update(self, mapping_or_iterable=None, **kwargs):
+        """
+        https://docs.python.org/3/library/stdtypes.html#dict.update
+        """
         if mapping_or_iterable:
             if isinstance(mapping_or_iterable, Mapping):
-                self.update(mapping_or_iterable)
+                mapping_or_iterable = mapping_or_iterable.items()
 
-            else:
-                for k, v in mapping_or_iterable:
-                    self.set(k, v)
+            for k, v in mapping_or_iterable:
+                self.set(k, v)
 
         if kwargs:
-            self.update(kwargs)
+            for k, v in kwargs.items():
+                self.set(k, v)
 
-    def __missing__(self, key):
+        # create temp dictionary so I don't have to mess with the arguments
+#         d = dict(*args, **kwargs)
+# 
+#         for k, v in d.items():
+#             self.set(k, v)
+
+    def create_node(self, key):
         """If the key doesn't exist then create a new DictTree instance at key
 
         :returns: DictTree, our new instance already nested
@@ -709,61 +735,76 @@ class DictTree(Dict):
         dt.tree_root = self.tree_root
         return dt
 
-    def __getattr__(self, key):
-        """This allows for fluid interface reading, fluid interface is only for
-        reading, not for writing
-
-        :Example:
-            d = DictTree()
-            d[["foo", "bar"]] = 1
-            print(d.foo.bar) # 1
-        """
-        try:
-            return super().__getattr__(key)
-
-        except AttributeError:
-            if key.startswith("__"):
-                raise
-
-            else:
-                return super().__getitem__(key)
+#     def __getattr__(self, key):
+#         """This allows for fluid interface reading
+# 
+#         NOTE -- fluid interface is only for reading, not for writing
+# 
+#         :Example:
+#             d = DictTree()
+#             d[["foo", "bar"]] = 1
+#             print(d.foo.bar) # 1
+#         """
+#         try:
+#             return super().__getattr__(key)
+# 
+#         except AttributeError:
+#             if key.startswith("__"):
+#                 raise
+# 
+#             else:
+#                 return self._get(key)
 
     def __getitem__(self, keys):
         """Allow list access in normal dict interactions"""
-        if isinstance(keys, list):
-            return self._get(keys)
+        return self._get(keys)
 
-        else:
-            return super().__getitem__(keys)
+#         if isinstance(keys, list):
+#             return self._get(keys)
+# 
+#         else:
+#             node = super().__getitem__(keys)
+#             return node.value
 
     def __setitem__(self, keys, value):
         """Allow list access in normal dict interactions"""
-        if isinstance(keys, list):
-            self.set(keys, value)
+        self.set(keys, value)
 
-        else:
-            super().__setitem__(keys, value)
+#         if isinstance(keys, list):
+#             self.set(keys, value)
+# 
+#         else:
+#             super().__setitem__(keys, value)
 
     def __delitem__(self, keys):
         """Allow list access in normal dict interactions"""
-        if isinstance(keys, list):
-            self.pop(keys)
+        self.pop(keys)
 
-        else:
-            super().__delitem__(keys)
+#         if isinstance(keys, list):
+#             self.pop(keys)
+# 
+#         else:
+#             super().__delitem__(keys)
 
     def __contains__(self, keys):
         """Allow list access when checking a key"""
-        if isinstance(keys, list):
-            try:
-                self._get(keys)
-                ret = True
+        try:
+            self.get_node(keys)
+            ret = True
 
-            except KeyError:
-                ret = False
+        except KeyError:
+            ret = False
 
-        else:
-            ret = super().__contains__(keys)
+#         if isinstance(keys, list):
+#             try:
+#                 self._get(keys)
+#                 ret = True
+# 
+#             except KeyError:
+#                 ret = False
+# 
+#         else:
+#             ret = super().__contains__(keys)
 
         return ret
 
@@ -775,18 +816,32 @@ class DictTree(Dict):
             to set value in
         :param value: Any
         """
-        if isinstance(keys, list):
-            if len(keys) > 1:
-                if keys[0] not in self:
-                    self[keys[0]] = self.__missing__(keys[0])
+        keys = self.normalize_keys(keys)
 
-                self[keys[0]].set(keys[1:], value)
+        if len(keys) > 1:
+            if keys[0] not in self:
+                super().__setitem__(keys[0], self.create_node(keys[0]))
 
-            else:
-                self[keys[0]] = value
+            super().__getitem__(keys[0]).set(keys[1:], value)
 
         else:
-            self[keys] = value
+            super().__setitem__(keys[0], self.create_node(keys[0]))
+            super().__getitem__(keys[0]).value = value
+
+    def normalize_keys(self, keys):
+        if not isinstance(keys, (list, tuple)):
+            keys = [keys]
+
+        return keys
+
+    def get_node(self, keys):
+        keys = self.normalize_keys(keys)
+        node = super().__getitem__(keys[0])
+
+        if len(keys) > 1:
+            node = node.get_node(keys[1:])
+
+        return node
 
     def _get(self, keys):
         """Internal get method that will raise a KeyError if one of the items
@@ -798,23 +853,29 @@ class DictTree(Dict):
         :param keys: list[hashable]|hashable
         :returns: Any, the value found at the end of keys
         """
-        if isinstance(keys, list):
-            if keys[0] in self:
-                if len(keys) > 1:
-                    return self[keys[0]]._get(keys[1:])
+        node = self.get_node(keys)
+        return node.value
 
-                else:
-                    return self[keys[0]]
+#         if keys[0] in self:
+#             if len(keys) > 1:
+#                 return super().__getitem__(keys[0])._get(keys[1:])
+#                 #return self[keys[0]]._get(keys[1:])
+# 
+#             else:
+#                 return super().__getitem__(keys[0]).value
+#                 #return self[keys[0]].value
+# 
+#         else:
+#             raise KeyError(keys[0])
 
-            else:
-                raise KeyError(keys[0])
-
-        else:
-            if keys in self:
-                return self[keys]
-
-            else:
-                raise KeyError(keys)
+#         else:
+#             return super().__getitem__(keys).value
+#             if keys in self:
+#                 return super().__getitem__(keys).value
+#                 #return self[keys].value
+# 
+#             else:
+#                 raise KeyError(keys)
 
     def get(self, keys, default=None):
         """Get the value of the last key in keys, otherwise return default
@@ -831,31 +892,66 @@ class DictTree(Dict):
             return default
 
     def pop(self, keys, *default):
-        """As with .set and .get this allows a list of keys or key"""
-        if isinstance(keys, list):
-            if keys[0] in self and len(keys) > 1:
-                return self[keys[0]].pop(keys[1:], *default)
+        """As with .set and .get this allows a list of keys or key
+
+        NOTE -- this trims the tree, so if you pop a tree node it will trim
+        all the leaves of that node from the root tree
+        """
+        keys = self.normalize_keys(keys)
+
+        try:
+            if len(keys) > 1:
+                return self.get_node(keys[:-1]).pop(keys[-1])
 
             else:
-                return super().pop(keys[0], *default)
+                return super().pop(keys[-1]).value
 
-        else:
-            return super().pop(keys, *default)
+        except KeyError:
+            if default:
+                return default[0]
+
+            else:
+                raise
+
+
+
+#         if keys[0] in self and len(keys) > 1:
+#             return self[keys[0]].pop(keys[1:], *default)
+# 
+#         else:
+#             try:
+#                 return super().pop(keys[0]).value
+# 
+#             except KeyError:
+#                 if default:
+#                     return default[0]
+# 
+#                 else:
+#                     raise
 
     def setdefault(self, keys, default=None):
         """As with .set and .get this allows a list of keys or key"""
-        if isinstance(keys, list):
-            if len(keys) > 1:
-                if keys[0] not in self:
-                    self[keys[0]] = self.__missing__(keys[0])
-
-                return self[keys[0]].setdefault(keys[1:], default)
-
-            else:
-                return super().setdefault(keys[0], default)
+        if keys in self:
+            return self._get(keys)
 
         else:
-            return super().setdefault(keys, default)
+            self.set(keys, default)
+            return default
+
+#         if isinstance(keys, list):
+#             if len(keys) > 1:
+#                 if keys[0] not in self:
+#                     self[keys[0]] = self.create_node(keys[0])
+# 
+#                 return self[keys[0]].setdefault(keys[1:], default)
+# 
+#             else:
+#                 return self.setdefault(keys[0], default)
+# 
+#         else:
+#             d = self.create_node(keys[0])
+#             d.value = default
+#             return super().setdefault(keys, d)
 
     def trees(self, depth=-1):
         """Iterate through the trees in this tree
@@ -869,15 +965,17 @@ class DictTree(Dict):
             the tree
         """
         if depth > 0 or depth < 0:
-            yield [], self
-            for k, v in self.items():
-                if isinstance(v, self.__class__):
-                    for sk, sv in v.trees(depth=depth-1):
-                        if sk:
-                            yield [k] + sk, sv
+            if len(self):
+                yield [], self
 
-                        else:
-                            yield [k], sv
+                for k, v in self.items():
+                    if len(v):
+                        for sk, sv in v.trees(depth=depth-1):
+                            if sk:
+                                yield [k] + sk, sv
+
+                            else:
+                                yield [k], sv
 
     def leaves(self, depth=-1):
         """Iterate through the leaves in this tree
@@ -890,10 +988,10 @@ class DictTree(Dict):
         """
         for ks, tree in self.trees(depth=depth):
             for k, v in tree.items():
-                if not isinstance(v, self.__class__):
+                if not len(v):
                     yield ks + [k], v
 
-    def walk(self, keys):
+    def walk(self, keys, set_missing=False):
         """Walk each node of the tree in keys.
 
         Basically, if you passed in ["foo", "bar", "che"] it would first
@@ -903,8 +1001,7 @@ class DictTree(Dict):
         :param keys: list[str]|str, the path key(s) to walk
         :returns: generator[DictTree]
         """
-        if not isinstance(keys, list):
-            keys = [keys]
+        keys = self.normalize_keys(keys)
 
         d = self
         i = -(len(keys) - 1)
@@ -918,8 +1015,8 @@ class DictTree(Dict):
             i += 1
 
             k = ks[-1]
-            if isinstance(d, self.__class__) and k in d:
-                d = d[k]
+            if k in d:
+                d = d.get_node(k)
                 yield ks, d
 
             else:
