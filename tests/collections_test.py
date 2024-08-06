@@ -868,15 +868,6 @@ class DictTreeTest(TestCase):
 
         self.assertEqual(d, d.get_node(["foo", "baz"]).tree_root)
 
-#     def test___missing__(self):
-#         d = DictTree()
-# 
-#         v = d["foo"]
-#         self.assertEqual(0, len(d))
-# 
-#         v = d.foo.bar.che
-#         self.assertEqual(0, len(d))
-
     def test_get_node(self):
         d = DictTree([
             (["foo", "bar"], 1),
@@ -920,7 +911,7 @@ class DictTreeTest(TestCase):
         self.assertEqual(1, len(d))
         self.assertEqual(2, len(d.get_node("foo")))
 
-    def test_walk(self):
+    def test_walk_1(self):
         d = DictTree()
         d[["foo", "bar"]] = 1
         d[["foo", "che", "baz"]] = 2
@@ -937,10 +928,19 @@ class DictTreeTest(TestCase):
         self.assertEqual(["foo", "che", "boo", "far"], ks)
         self.assertEqual(3, sd.value)
 
+    def test_walk_set_missing(self):
+        d = DictTree()
 
-#         for ks, sd in d.walk(["foo", "che", "boo", "far"]):
-#             pout.v(ks, sd)
-
+        it = d.walk(["foo", "che", "boo"], set_missing=True)
+        ks, sd = it.__next__()
+        self.assertEqual(["foo"], ks)
+        self.assertIsNone(sd.value)
+        ks, sd = it.__next__()
+        self.assertEqual(["foo", "che"], ks)
+        self.assertIsNone(sd.value)
+        ks, sd = it.__next__()
+        self.assertEqual(["foo", "che", "boo"], ks)
+        self.assertIsNone(sd.value)
 
 
 class OrderedSetTest(TestCase):
