@@ -771,7 +771,7 @@ class StackTest(TestCase):
 
 
 class DictTreeTest(TestCase):
-    def test_set_get(self):
+    def test_set_get_1(self):
         d = DictTree()
 
         keys = ["foo", "bar", "che"]
@@ -780,6 +780,20 @@ class DictTreeTest(TestCase):
         self.assertEqual(1, d.get(keys))
         self.assertEqual(1, d["foo", "bar", "che"])
         self.assertEqual(5, d.get(["foo", "che"], 5))
+
+    def test_set_root(self):
+        d = DictTree()
+
+        d.set([], 1)
+        self.assertEqual(1, d.value)
+        self.assertEqual(1, d[[]])
+
+        d.set(["foo", "bar"], 2)
+        self.assertEqual(2, d["foo", "bar"])
+        self.assertEqual(None, d["foo"])
+
+        d.set("", 3)
+        self.assertEqual(3, d[""])
 
     def test_pop(self):
         d = DictTree()
@@ -856,17 +870,17 @@ class DictTreeTest(TestCase):
 
     def test_tree_properties(self):
         d = DictTree()
-        self.assertEqual(None, d.tree_parent)
+        self.assertEqual(None, d.parent)
 
         d[["foo", "bar"]] = 1
-        self.assertEqual(d, d.get_node("foo").tree_parent)
-        self.assertEqual("foo", d.get_node("foo").tree_name)
+        self.assertEqual(d, d.get_node("foo").parent)
+        self.assertEqual("foo", d.get_node("foo").name)
 
         d[["foo", "baz", "che"]] = 2
-        self.assertEqual("baz", d.get_node(["foo", "baz"]).tree_name)
-        self.assertEqual(["foo", "baz"], d.get_node(["foo", "baz"]).tree_path)
+        self.assertEqual("baz", d.get_node(["foo", "baz"]).name)
+        self.assertEqual(["foo", "baz"], d.get_node(["foo", "baz"]).keys)
 
-        self.assertEqual(d, d.get_node(["foo", "baz"]).tree_root)
+        self.assertEqual(d, d.get_node(["foo", "baz"]).root)
 
     def test_get_node(self):
         d = DictTree([

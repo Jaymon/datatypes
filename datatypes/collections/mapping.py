@@ -649,43 +649,46 @@ class DictTree(Dict):
 
     :Example:
         d = DictTree()
+
         d.set(["foo", "bar", "che"], 1)
         d.get(["foo", "bar", "che"]) # 1
-        d.foo.bar.che # 1
-        d.foo.bar # {"che": 1}
+
+        d.set([], 2) # set a value on the root node
+        d.value # 2
+        d[[]] # 2
 
     This is the terminology (with tree_ prefix) I'm trying to adhere to:
         https://en.wikipedia.org/wiki/Tree_(data_structure)#Terminology
 
     Each tree node in the tree has these properties:
-        * .tree_parent - points to the tree node above this tree, this will be
+        * .parent - points to the tree node above this tree, this will be
             None if this is the absolute head tree
-        * .tree_name - the name of the key this tree is in (so 
-            self.tree_head[self.tree_name] is self), this will be "" if this
+        * .name - the name of the key this tree is in (so 
+            self.parent[self.name] is self), this will be "" if this
             tree is the absolute head tree
-        * .tree_path - similar to .tree_name but returns the entire set of
+        * .keys - similar to .name but returns the entire set of
             names in the order needed to traverse from the absolute head tree
             back to this tree
-        * .tree_root - the absolute head of the tree
+        * .root - the absolute head of the tree
         * .value - the value at this node key, None if the node has no value
     """
     @property
-    def tree_path(self):
+    def keys(self):
         """Get the path from the absolute head tree to this tree
 
         :returns: list[str]
         """
-        path = [self.tree_name]
+        keys = [self.name]
         parent = self
-        while parent := parent.tree_parent:
-            path.append(parent.tree_name)
-        return list(reversed(path[:-1]))
+        while parent := parent.parent:
+            keys.append(parent.name)
+        return list(reversed(keys[:-1]))
 
     def __init__(self, *args, **kwargs):
         """This should support all the standard dict init signatures"""
-        self.tree_root = self
-        self.tree_parent = None
-        self.tree_name = ""
+        self.root = self
+        self.parent = None
+        self.name = ""
         self.value = None
 
         super().__init__()
@@ -712,9 +715,9 @@ class DictTree(Dict):
         :returns: DictTree, our new instance already nested
         """
         dt = type(self)()
-        dt.tree_parent = self
-        dt.tree_name = key
-        dt.tree_root = self.tree_root
+        dt.parent = self
+        dt.name = key
+        dt.root = self.root
         return dt
 
     def __getitem__(self, keys):
@@ -749,8 +752,8 @@ class DictTree(Dict):
         """Set value into the last key in keys, creating intermediate dicts 
         along the way
 
-        :param keys: list[hashable]|hashable, a list of keys or the key you want
-            to set value in
+        :param keys: list[hashable]|hashable, a list of keys or the key you
+            want to set value in
         :param value: Any
         """
         keys = self.normalize_keys(keys)
@@ -762,8 +765,12 @@ class DictTree(Dict):
             super().__getitem__(keys[0]).set(keys[1:], value)
 
         else:
-            super().__setitem__(keys[0], self.create_node(keys[0]))
-            super().__getitem__(keys[0]).value = value
+            if keys:
+                super().__setitem__(keys[0], self.create_node(keys[0]))
+                super().__getitem__(keys[0]).value = value
+
+            else:
+                self.value = value
 
     def normalize_keys(self, keys):
         """Internal method. This makes sure keys is a sequence
@@ -787,10 +794,14 @@ class DictTree(Dict):
         :raises: KeyError, if the key doesn't exist
         """
         keys = self.normalize_keys(keys)
-        node = super().__getitem__(keys[0])
+        if keys:
+            node = super().__getitem__(keys[0])
 
-        if len(keys) > 1:
-            node = node.get_node(keys[1:])
+            if len(keys) > 1:
+                node = node.get_node(keys[1:])
+
+        else:
+            node = self
 
         return node
 
@@ -798,8 +809,8 @@ class DictTree(Dict):
         """Get the value of the last key in keys, otherwise return default
 
         :param keys: list[hashable]|hashable, the path to return
-        :param default: Any, if value isn't found at the end of keys then return
-            this value
+        :param default: Any, if value isn't found at the end of keys then
+            return this value
         :returns: Any
         """
         try:
