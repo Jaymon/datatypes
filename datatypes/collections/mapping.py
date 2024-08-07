@@ -913,3 +913,30 @@ class DictTree(Dict):
                 else:
                     raise KeyError(k)
 
+    def nodes(self, depth=-1):
+        """Iterate all the rows in depth order, so do the first row of keys,
+        then the second row of keys, etc. It's similar to how you would
+        recursively iterate a folder, first you do all the files in the
+        root folder, then you do all the files of all the folders in the
+        root folder, etc.
+
+        :param depth: int, see .trees
+        :returns: generator[DictTree], each row of nodes starting from the
+            root node and iteratin all keys of each level of nodes until the
+            leaf nodes
+        """
+        if depth > 0 or depth < 0:
+            yield [], self
+
+            nodes = []
+            for k, d in self.items():
+                yield [k], d
+
+                if len(d):
+                    nodes.append((k, d))
+
+            for k, n in nodes:
+                for sk, sd in n.nodes(depth=depth-1):
+                    if sk:
+                        yield [k] + sk, sd
+

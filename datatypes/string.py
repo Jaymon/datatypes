@@ -534,18 +534,27 @@ class NamingConvention(String):
         """
         return "-".join(self.split())
 
-    def variations(self):
+    def variations(self, lower=True, upper=False):
         """Returns python naming convention variations in self
 
         :Example:
             NamingConvention("foo-bar").variations() # ["foo-bar", "foo_bar"]
 
+        :param lower: bool, True if variations should include all lowercase
+            variations
+        :param upper: bool, True if variations should include all uppercase
+            variations
         :returns: list, all the python specific naming variations of self
         """
         s = set()
         for n in [self, self.underscore(), self.dash()]:
             s.add(n)
-            s.add(n.lower())
+            if not lower:
+                s.add(n.lower())
+
+            if not upper:
+                s.add(n.upper())
+
         return s
     def aliases(self): return self.variations()
 

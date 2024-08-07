@@ -942,6 +942,53 @@ class DictTreeTest(TestCase):
         self.assertEqual(["foo", "che", "boo"], ks)
         self.assertIsNone(sd.value)
 
+    def test_nodes(self):
+        d = DictTree()
+        d[["foo", "bar"]] = 1
+        d[["foo", "che", "baz"]] = 2
+        d[["foo", "che", "boo", "far"]] = 3
+
+        keys = set([
+            tuple(),
+            ("foo",),
+            ("foo", "bar"),
+            ("foo", "che"),
+            ("foo", "che", "baz"),
+            ("foo", "che", "boo"),
+            ("foo", "che", "boo", "far"),
+        ])
+
+        for nkeys, n in d.nodes():
+            keys.remove(tuple(nkeys))
+        self.assertEqual(0, len(keys))
+
+        it = d.nodes()
+        ks, n = it.__next__()
+        self.assertEqual(tuple(), tuple(ks))
+
+        ks, n = it.__next__()
+        self.assertEqual(("foo",), tuple(ks))
+
+        keys = set([
+            ("foo", "bar"),
+            ("foo", "che"),
+        ])
+        keys.remove(tuple(it.__next__()[0]))
+        keys.remove(tuple(it.__next__()[0]))
+        self.assertEqual(0, len(keys))
+
+        keys = set([
+            ("foo", "che", "baz"),
+            ("foo", "che", "boo"),
+        ])
+        keys.remove(tuple(it.__next__()[0]))
+        keys.remove(tuple(it.__next__()[0]))
+        self.assertEqual(0, len(keys))
+
+        ks, n = it.__next__()
+        self.assertEqual(("foo", "che", "boo", "far"), tuple(ks))
+
+
 
 class OrderedSetTest(TestCase):
     def test_order(self):

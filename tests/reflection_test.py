@@ -331,6 +331,26 @@ class ReflectNameTest(TestCase):
         p = ReflectName("mod1.mod2.mod3:Foo.bar.<locals>.Che.boo")
         self.assertEqual(["<locals>", "Che", "boo"], p.unresolvable)
 
+    def test_get_classes(self):
+        m = self.create_module([
+            "class Foo(object):",
+            "    class Bar(object):",
+            "        class Che(object):",
+            "            pass",
+        ])
+        p = ReflectName(f"{m}:Foo.Bar.Che")
+
+        it = p.get_classes()
+        c = it.__next__()
+        self.assertEqual("Foo", c.__name__)
+        c = it.__next__()
+        self.assertEqual("Bar", c.__name__)
+        c = it.__next__()
+        self.assertEqual("Che", c.__name__)
+
+        with self.assertRaises(StopIteration):
+            it.__next__()
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):

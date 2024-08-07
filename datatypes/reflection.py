@@ -773,9 +773,34 @@ class ReflectName(String):
             return rm.get_module()
 
     def get_class(self):
+        """Get the absolute child class for this name
+
+        :Example:
+            rn = ReflectName("<MODPATH>:Foo.Bar.Che.<METHOD>")
+            rn.get_class().__name__ # Che
+
+        :returns: type
+        """
         rc = self.reflect_class()
         if rc:
             return rc.get_class()
+
+    def get_classes(self):
+        """Get all the classes for this name
+
+        :Example:
+            rn = ReflectName("<MODPATH>:Foo.Bar.Che")
+            classes = list(rn.get_classes())
+            classes[0].__name__ # Foo
+            classes[1].__name__ # Bar
+            classes[2].__name__ # Che
+
+        :returns: generator[type]
+        """
+        o = self.get_module()
+        for class_name in self.class_names:
+            o = getattr(o, class_name)
+            yield o
 
     def get_method(self):
         rm = self.reflect_method()
