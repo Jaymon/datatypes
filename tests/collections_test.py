@@ -795,6 +795,20 @@ class DictTreeTest(TestCase):
         d.set("", 3)
         self.assertEqual(3, d[""])
 
+    def test_set_already_exists(self):
+        """Setting on a sub key (eg [foo, bar]) and then setting on the parent
+        (eg, [foo]) would cause bar to disappear, this makes sure that is
+        fixed (2024-8-8)
+        """
+        d = DictTree()
+
+        d.set(["foo", "bar"], 1)
+        self.assertEqual(1, d["foo", "bar"])
+
+        d.set(["foo"], 2)
+        self.assertEqual(1, d["foo", "bar"])
+        self.assertEqual(2, d["foo"])
+
     def test_pop(self):
         d = DictTree()
         d.set(["foo", "bar", "che"], 2)

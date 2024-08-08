@@ -709,12 +709,23 @@ class DictTree(Dict):
             for k, v in kwargs.items():
                 self.set(k, v)
 
+    def create_instance(self):
+        """Internal method. Called from .create_node and is only responsible
+        for creating an instance of this class.
+
+        The reason this exists is because the __init__ might be customized
+        in a child class and so this can also be customized so nothing fails
+
+        :returns: DictTree instance
+        """
+        return type(self)()
+
     def create_node(self, key):
         """If the key doesn't exist then create a new DictTree instance at key
 
         :returns: DictTree, our new instance already nested
         """
-        dt = type(self)()
+        dt = self.create_instance()
         dt.parent = self
         dt.name = key
         dt.root = self.root
@@ -766,7 +777,9 @@ class DictTree(Dict):
 
         else:
             if keys:
-                super().__setitem__(keys[0], self.create_node(keys[0]))
+                if keys[0] not in self:
+                    super().__setitem__(keys[0], self.create_node(keys[0]))
+
                 super().__getitem__(keys[0]).value = value
 
             else:
