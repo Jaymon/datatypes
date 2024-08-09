@@ -181,7 +181,7 @@ class ArgvParser(dict):
 
         return d
 
-    def positionals(self):
+    def optionals(self):
         return self.keywords()
 
     def unwrap_keywords(self, ignore_keys=None):
