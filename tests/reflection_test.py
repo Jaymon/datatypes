@@ -1008,8 +1008,8 @@ class ReflectModuleTest(TestCase):
         mods = r.module_names()
         self.assertEqual(s, mods)
 
-    def test_find_module_names(self):
-        modpath = "reflectmodules"
+    def test_find_module_names_directory(self):
+        modpath = "reflectmodulesdir"
         path = testdata.create_modules({
             "foo": [
                 "class Foo(object): pass"
@@ -1179,4 +1179,65 @@ class ReflectPathTest(TestCase):
         for m in p.find_modules("controllers"):
             modpaths2.add(m.__name__)
         self.assertEqual(modpaths, modpaths2)
+
+    def test_find_modules_file(self):
+        modpath = "reflectmodulesfile"
+        modpaths = set([modpath])
+
+        path = testdata.create_module(
+            [
+                "class Foo(object): pass"
+            ],
+            modpath
+        )
+        p = ReflectPath(path.path)
+        modpaths2 = set()
+        for m in p.find_modules(modpath):
+            modpaths2.add(m.__name__)
+        self.assertEqual(modpaths, modpaths2)
+
+        path = testdata.create_module(
+            [
+                "class Foo(object): pass"
+            ],
+            "not" + modpath
+        )
+        p = ReflectPath(path.path)
+        self.assertEqual(0, len(list(p.find_modules(modpath))))
+
+    def test_get_module_python_file(self):
+        mp = self.create_module([
+            "foo = 1",
+        ])
+
+        rp = ReflectPath(mp.path)
+
+        m = rp.get_module()
+        self.assertEqual(mp, m.__name__)
+        self.assertEqual(1, m.foo)
+
+    def test_get_module_package(self):
+        mp = self.create_package([
+            "foo = 1",
+        ])
+
+        rp = ReflectPath(mp.parent)
+
+        m = rp.get_module()
+        self.assertEqual(mp, m.__name__)
+        self.assertEqual(1, m.foo)
+
+    def test_get_module_subpackage(self):
+        mp = self.create_package(
+            [
+                "foo = 1",
+            ],
+            modpath=self.get_module_name(3)
+        )
+
+        rp = ReflectPath(mp.parent)
+
+        m = rp.get_module()
+        self.assertTrue(mp.endswith(m.__name__))
+        self.assertEqual(1, m.foo)
 

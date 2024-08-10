@@ -476,6 +476,32 @@ class ReflectPath(Path):
                 if not ignore_errors:
                     raise
 
+    def get_module(self):
+        if self.is_file():
+            if self.ext == "py":
+                rm = ReflectModule(
+                    self.fileroot,
+                    path=self.parent
+                )
+
+            else:
+                # https://docs.python.org/3/library/exceptions.html#ModuleNotFoundError
+                raise ModuleNotFoundError(self.path)
+
+        elif self.is_dir():
+            if self.as_dir().has_file("__init__.py"):
+                rm = ReflectModule(
+                    self.fileroot,
+                    path=self.parent
+                )
+
+            else:
+                raise ModuleNotFoundError(
+                    f"{self.path} is not a python package"
+                )
+
+        return rm.get_module()
+
     def remote_repository_url(self):
         """Return the remote repository url of this directory
 
@@ -533,38 +559,43 @@ class ReflectPath(Path):
         """
         path = self.path
 
-        for p in (Dirpath(p) for p in sys.path):
-            if p.is_relative_to(path):
-                dirparts = p.relative_parts(path)
+        if self.is_file() and self.fileroot == fileroot:
+            yield self.get_module()
 
-                piter = p.iterator
-                # we only want to look depth folders deep
-                piter.depth(depth)
-                # ignore any folders that begin with an underscore or period
-                piter.nin_basename(regex=r"^[_\.]")
-                # we only want dir/file fileroots with this name
-                piter.eq_fileroot(fileroot)
+        else:
+            for p in (Dirpath(p) for p in sys.path):
+                if p.is_relative_to(path):
+                    dirparts = p.relative_parts(path)
 
-                for sp in piter:
-                    modparts = sp.parent.relative_parts(path)
-                    # trim the directory parts of our module path so we have
-                    # a real module path we can import
-                    modparts = modparts[len(dirparts):]
-                    modparts.append(sp.fileroot)
-                    prefix = ".".join(modparts)
+                    piter = p.iterator
+                    # we only want to look depth folders deep
+                    piter.depth(depth)
+                    # ignore any folders that begin with an underscore or
+                    # period
+                    piter.nin_basename(regex=r"^[_\.]")
+                    # we only want dir/file fileroots with this name
+                    piter.eq_fileroot(fileroot)
 
-                    rm = ReflectModule(prefix)
-                    try:
-                        if submodules:
-                            for m in rm.get_modules():
-                                yield m
+                    for sp in piter:
+                        modparts = sp.parent.relative_parts(path)
+                        # trim the directory parts of our module path so we
+                        # have a real module path we can import
+                        modparts = modparts[len(dirparts):]
+                        modparts.append(sp.fileroot)
+                        prefix = ".".join(modparts)
 
-                        else:
-                            yield rm.get_module()
+                        rm = ReflectModule(prefix)
+                        try:
+                            if submodules:
+                                for m in rm.get_modules():
+                                    yield m
 
-                    except ModuleNotFoundError:
-                        # what we found wasn't actually a module
-                        pass
+                            else:
+                                yield rm.get_module()
+
+                        except ModuleNotFoundError:
+                            # what we found wasn't actually a module
+                            pass
 
 
 class ReflectName(String):
