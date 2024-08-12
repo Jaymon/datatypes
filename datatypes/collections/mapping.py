@@ -235,7 +235,7 @@ class Dict(dict):
                     self[k].merge(other[k])
 
                 elif isinstance(self[k], Mapping):
-                    self[k] = type(cls)(self[k])
+                    self[k] = type(self)(self[k])
                     self[k].merge(other[k])
 
                 else:
