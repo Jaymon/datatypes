@@ -534,7 +534,7 @@ class NamingConvention(String):
         """
         return "-".join(self.split())
 
-    def variations(self, lower=True, upper=False):
+    def variations(self, lower=True, upper=True):
         """Returns python naming convention variations in self
 
         :Example:
@@ -549,10 +549,10 @@ class NamingConvention(String):
         s = set()
         for n in [self, self.underscore(), self.dash()]:
             s.add(n)
-            if not lower:
+            if lower:
                 s.add(n.lower())
 
-            if not upper:
+            if upper:
                 s.add(n.upper())
 
         return s

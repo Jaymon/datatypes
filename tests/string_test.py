@@ -217,6 +217,14 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("FooBar Che-Baz")
         self.assertEqual(["Foo", "Bar", "Che", "Baz"], s.split())
 
+    def test_variations(self):
+        s = NamingConvention("FooBar")
+        vs = s.variations()
+        self.assertTrue("foobar" in vs)
+        self.assertTrue("FOOBAR" in vs)
+        self.assertTrue("foo-bar" in vs)
+        self.assertTrue("foo_bar" in vs)
+
 
 class EnglishWordTest(TestCase):
     def test_syllables(self):
