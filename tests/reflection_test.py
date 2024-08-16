@@ -369,6 +369,54 @@ class ReflectCallableTest(TestCase):
         for v in ["comment line 1", "comment line 2", "\n"]:
             self.assertTrue(v in doc)
 
+    def test_get_docblock_docstring(self):
+        m = self.create_module([
+            "def foo(*args, **kwargs):",
+            "    \"\"\"here is comment line 1",
+            "    here is comment line 2:",
+            "",
+            "        Indented line 1",
+            "    \"\"\"",
+            "    pass",
+        ])
+
+        rf = ReflectCallable(m.get_module().foo)
+        doc = rf.get_docblock()
+        for v in ["comment line 1", "comment line 2", "\n", " Indented"]:
+            self.assertTrue(v in rf.get_docblock())
+
+    def test_get_docblock_inherit(self):
+        m = self.create_module("""
+            class Foo(object):
+                def foo():
+                    '''Foo.foo'''
+                    pass
+
+            class Bar(Foo):
+                def foo():
+                    pass
+        """)
+
+        rf = ReflectCallable(m.get_module().Bar.foo)
+        doc = rf.get_docblock(inherit=False)
+        self.assertEqual("", doc)
+
+    def test_get_module(self):
+        m = self.create_module("""
+            class Foo(object):
+                def foo():
+                    pass
+
+            def foo():
+                pass
+        """).get_module()
+
+        rf = ReflectCallable(m.foo)
+        self.assertEqual(m, rf.get_module())
+
+        rf = ReflectCallable(m.Foo.foo)
+        self.assertEqual(m, rf.get_module())
+
     def test_get_class(self):
         RC = ReflectCallable
         m = self.create_module([
@@ -455,22 +503,6 @@ class ReflectCallableTest(TestCase):
             RC(Bar.foo).get_class()
         rf = RC(Bar.foo, Bar)
         self.assertEqual(Bar, rf.get_class())
-
-    def test_get_docblock_docstring(self):
-        m = self.create_module([
-            "def foo(*args, **kwargs):",
-            "    \"\"\"here is comment line 1",
-            "    here is comment line 2:",
-            "",
-            "        Indented line 1",
-            "    \"\"\"",
-            "    pass",
-        ])
-
-        rf = ReflectCallable(m.get_module().foo)
-        doc = rf.get_docblock()
-        for v in ["comment line 1", "comment line 2", "\n", " Indented"]:
-            self.assertTrue(v in rf.get_docblock())
 
     def test_is_type_methods(self):
         RC = ReflectCallable
@@ -713,7 +745,7 @@ class ReflectMethodTest(TestCase):
 
 
 class ReflectClassTest(TestCase):
-    def test_docblock(self):
+    def test_docblock_1(self):
         m = testdata.create_module([
             "class Foo(object):",
             "    '''this is a multiline docblock",
@@ -727,6 +759,22 @@ class ReflectClassTest(TestCase):
         ])
         rc = ReflectModule(m).reflect_class("Foo")
         self.assertTrue("\n" in rc.desc)
+
+    def test_get_docblock_inherit(self):
+        m = self.create_module("""
+            class Foo(object):
+                '''Foo'''
+                pass
+
+            class Bar(Foo):
+                pass
+        """)
+        rc = ReflectModule(m).reflect_class("Bar")
+        doc = rc.get_docblock(inherit=False)
+        self.assertEqual("", doc)
+
+        idoc = rc.get_docblock(inherit=True)
+        self.assertNotEqual(doc, idoc)
 
     def test_decorators_inherit_1(self):
         """make sure that a child class that hasn't defined a METHOD inherits
@@ -1119,6 +1167,26 @@ class ReflectModuleTest(TestCase):
         ])
         for p in rm.data_dirs():
             self.assertTrue(p.relative_to(dp) in nr)
+
+    def test_get_docblock(self):
+        m = self.create_module("""
+            # module docblock
+            # line 2
+
+            var = 1
+        """)
+        rm = ReflectModule(m)
+        doc = rm.get_docblock()
+        self.assertTrue("module docblock" in doc)
+
+        m = self.create_module("""
+            '''module docblock'''
+
+            var = 1
+        """)
+        rm = ReflectModule(m)
+        doc = rm.get_docblock()
+        self.assertEqual("module docblock", doc)
 
 
 class ReflectPathTest(TestCase):

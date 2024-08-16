@@ -908,6 +908,47 @@ class ReflectName(String):
         return ".".join(self.absolute_module_parts(other))
 
 
+class ReflectObject(object):
+    def get_docblock(self, inherit=True):
+        """Get the docblock comment for the callable
+
+        :param inherit: bool, if True then check parents for a docblock also,
+            if False then only check the immediate object
+        :returns: str
+        """
+        obj = self.obj
+
+        if inherit:
+            # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L844
+            doc = inspect.getdoc(obj)
+
+        else:
+            doc = obj.__doc__
+
+        if not doc:
+            # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L1119
+            doc = inspect.getcomments(obj)
+            if doc:
+                doc = re.sub(r"^\s*#", "", doc, flags=re.MULTILINE).strip()
+                doc = inspect.cleandoc(doc)
+
+        return doc or ""
+
+    def get_module(self):
+        return self.reflect_module().get_module()
+
+    def reflect_module(self):
+        """Returns the reflected module"""
+        return ReflectModule(self.obj.__module__)
+
+    def get_class(self):
+        raise NotImplementedError()
+
+    def reflect_class(self):
+        if klass := self.get_class():
+            return ReflectClass(klass)
+
+
 class ReflectDecorator(object):
     """Internal class used by ReflectClass
 
@@ -948,8 +989,12 @@ class ReflectDecorator(object):
         return self.contains(obj)
 
 
-class ReflectCallable(object):
+class ReflectCallable(ReflectObject):
     """Reflect a callable"""
+    @property
+    def obj(self):
+        return self.function
+
     @property
     def qualname(self):
         qname = getattr(self.function, "__qualname__", "")
@@ -1095,7 +1140,7 @@ class ReflectCallable(object):
 
     def get_descriptor(self):
         """Get the descriptor of the callable, this only returns something
-        if the callable is defined a class
+        if the callable is defined in a class (ie, it's a method/property)
 
         :returns: callable, the descriptor
         :raises: ValueError, if a class can't be found
@@ -1281,20 +1326,6 @@ class ReflectCallable(object):
         :returns: bool
         """
         return self.is_instance_method() and not self.is_bound_method()
-
-    def get_docblock(self):
-        """Get the docblock comment for the callable
-
-        :returns: str
-        """
-        doc = inspect.getdoc(self.function)
-        if not doc:
-            doc = inspect.getcomments(self.function)
-            if doc:
-                doc = re.sub(r"^\s*#", "", doc, flags=re.MULTILINE).strip()
-                doc = inspect.cleandoc(doc)
-
-        return doc
 
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable would bind *args and **kwargs
@@ -1582,13 +1613,17 @@ class ReflectMethod(object):
         return class_info[self.method_name].get("decorators", [])
 
 
-class ReflectClass(object):
+class ReflectClass(ReflectObject):
     """
     Moved from endpoints.reflection.ReflectClass on Jan 31, 2023
     """
     reflect_method_class = ReflectMethod
 
     reflect_decorator_class = ReflectDecorator
+
+    @property
+    def obj(self):
+        return self.cls
 
     @property
     def class_name(self):
@@ -1620,9 +1655,7 @@ class ReflectClass(object):
 
     @cachedproperty(cached="_desc")
     def desc(self):
-        """return the description of this class"""
-        doc = inspect.getdoc(self.cls) or ""
-        return doc
+        return self.get_docblock(inherit=False)
 
     @classmethod
     def resolve_class(cls, full_python_class_path):
@@ -2018,12 +2051,16 @@ class ReflectClass(object):
             yield type(self)(klass)
 
 
-class ReflectModule(object):
+class ReflectModule(ReflectObject):
     """Introspect on a given module_name/modulepath (eg foo.bar.che)
 
     Moved from endpoints.reflection.ReflectModule on Jan 31, 2023
     """
     reflect_class_class = ReflectClass
+
+    @property
+    def obj(self):
+        return self.get_module()
 
     @cachedproperty(cached="_path")
     def path(self):
@@ -2467,4 +2504,17 @@ class ReflectModule(object):
                     dpb = dp.basename
                     if not dpb.startswith("__") and not dpb.endswith("__"):
                         yield dp
+
+    def get_docblock(self):
+        docblock = super().get_docblock()
+        if docblock.startswith("-*-"):
+            # we need to remove syntax commands
+            docblock = re.sub(
+                r"^\-\*\-.*?\-\*\-$",
+                "",
+                docblock,
+                flags=re.MULTILINE
+            ).lstrip()
+
+        return docblock
 
