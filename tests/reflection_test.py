@@ -351,6 +351,22 @@ class ReflectNameTest(TestCase):
         with self.assertRaises(StopIteration):
             it.__next__()
 
+    def test_get_module_names(self):
+        m = self.create_module([
+            "class Foo(object):",
+            "    pass",
+        ], count=3)
+
+        p = ReflectName(f"{m}:Foo")
+        ms = list(p.get_module_names())
+        self.assertEqual(3, len(ms))
+        self.assertEqual(m, ms[-1])
+
+    def test_reflect_modules(self):
+        p = ReflectName("<run_path>:Foo.Bar")
+        ms = list(p.reflect_modules())
+        self.assertEqual(0, len(ms))
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
@@ -1170,6 +1186,7 @@ class ReflectModuleTest(TestCase):
 
     def test_get_docblock(self):
         m = self.create_module("""
+            # -*- coding: utf-8 -*-
             # module docblock
             # line 2
 

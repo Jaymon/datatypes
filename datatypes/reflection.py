@@ -803,6 +803,43 @@ class ReflectName(String):
         if rm:
             return rm.get_module()
 
+    def get_module_names(self):
+        """Get all the module names of the module name
+
+        :Example:
+            rn = ReflectName("foo.bar.che:FooBar")
+            list(rn.get_module_names()) # ["foo", "foo.bar", "foo.bar.che"]
+
+        :returns: generator[str], each module path starting from the first
+            parent module and moving through the paths to the most child 
+            module
+        """
+        modname = ""
+
+        for p in self.module_parts:
+            if modname:
+                modname += "." + p
+
+            else:
+                modname = p
+
+            yield modname
+
+    def get_modules(self):
+        """Similar to .get_module_names but returns ReflectModule instances"""
+        for rm in self.reflect_modules():
+            yield rm.get_module()
+
+    def reflect_modules(self):
+        """Similar to .reflect_modules but returns the actual module"""
+        for modname in self.get_module_names():
+            if modname.startswith("<"):
+                # <run_path> module paths can't be reflected
+                break
+
+            else:
+                yield self.reflect_module_class(modname)
+
     def get_class(self):
         """Get the absolute child class for this name
 
@@ -2508,7 +2545,10 @@ class ReflectModule(ReflectObject):
     def get_docblock(self):
         docblock = super().get_docblock()
         if docblock.startswith("-*-"):
-            # we need to remove syntax commands
+            # we need to remove the emacs notation variables
+            # http://www.python.org/dev/peps/pep-0263/
+            # https://stackoverflow.com/questions/14083111/
+            # https://stackoverflow.com/questions/4872007/
             docblock = re.sub(
                 r"^\-\*\-.*?\-\*\-$",
                 "",
