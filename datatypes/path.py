@@ -496,15 +496,6 @@ class Path(String):
         if p:
             parts.append(p)
 
-#         parts.append(
-#             cls.get_basename(
-#                 prefix=prefix,
-#                 name=name,
-#                 suffix=suffix,
-#                 ext=ext,
-#                 **kwargs
-#             )
-#         )
         return parts
 
     @classmethod
@@ -516,7 +507,6 @@ class Path(String):
         :return: list, a the parts ready to generate path and value
         """
         parts = cls.splitparts(*parts, **kwargs)
-#         count = kwargs.pop("count", 1)
         ext = kwargs.pop("ext", "")
         prefix = kwargs.pop("prefix", "")
         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
@@ -527,7 +517,6 @@ class Path(String):
             name = parts.pop(-1) if parts else ""
 
         ps = cls.get_parts(
-#             count=count,
             ext=ext,
             prefix=prefix,
             name=name,
@@ -537,17 +526,6 @@ class Path(String):
 
         if ps:
             parts.extend(ps)
-
-#         name = cls.get_basename(
-#             ext=ext,
-#             prefix=prefix,
-#             name=name,
-#             suffix=suffix,
-#             **kwargs
-#         )
-# 
-#         if name:
-#             parts.append(name)
 
         if basedir:
             parts = cls.splitparts(basedir, **kwargs) + list(parts)
@@ -3758,38 +3736,6 @@ class TempPath(object):
             suffix=suffix,
             **kwargs
         )
-
-#     @classmethod
-#     def get_parts(cls, count=1, prefix="", name="", suffix="", ext="", **kwargs):
-#         """Returns count parts
-# 
-#         :param count: int, how many parts you want in your module path (1 is
-#             [foo], 2 is [foo, bar], etc)
-#         :param prefix: string, if you want the last bit to be prefixed with
-#             something
-#         :param suffix: string, if you want the last bit to be posfixed with
-#             something
-#         :param name: string, the name you want to use for the last bit (prefix
-#             will be added to the front of the name and postfix will be added to
-#             the end of the name)
-#         :returns: list
-#         """
-#         parts = []
-#         count = max(count, 1)
-# 
-#         for x in range(count - 1):
-#             parts.append(cls.get_basename(**kwargs))
-# 
-#         parts.append(
-#             cls.get_basename(
-#                 prefix=prefix,
-#                 name=name,
-#                 suffix=suffix,
-#                 ext=ext,
-#                 **kwargs
-#             )
-#         )
-#         return parts
 
     @classmethod
     def tempdir_class(cls):
