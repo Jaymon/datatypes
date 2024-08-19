@@ -2152,28 +2152,31 @@ class Filepath(Path):
         return data, encoding, errors
 
     def write_bytes(self, data, **kwargs):
-        """Open the file pointed to in bytes mode, write data to it, and close the file
+        """Open the file pointed to in bytes mode, write data to it, and close
+        the file
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_bytes
 
-        NOTE -- having **kwargs means the interface is different than Pathlib.write_bytes
+        NOTE -- having **kwargs means the interface is different than
+        Pathlib.write_bytes
 
         :param data: bytes
-        :param **kwargs: supports errors and encoding keywords to convert data to
-            bytes
+        :param **kwargs: supports errors and encoding keywords to convert data
+            to bytes
         """
         data, encoding, errors = self.prepare_bytes(data, **kwargs)
         with self.open(mode="wb+") as fp:
             return fp.write(data)
 
     def write_text(self, data, **kwargs):
-        """Open the file pointed to in text mode, write data to it, and close the file
+        """Open the file pointed to in text mode, write data to it, and close
+        the file
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text
 
         :param data: str
-        :param **kwargs: supports errors and encoding keywords to convert data to
-            str/unicode
+        :param **kwargs: supports errors and encoding keywords to convert data
+            to str/unicode
         """
         data, encoding, errors = self.prepare_text(data, **kwargs)
         with self.open(mode="w+", encoding=encoding, errors=errors) as fp:

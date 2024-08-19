@@ -946,7 +946,7 @@ class ReflectName(String):
 
 
 class ReflectObject(object):
-    def get_docblock(self, inherit=True):
+    def get_docblock(self, inherit=False):
         """Get the docblock comment for the callable
 
         :param inherit: bool, if True then check parents for a docblock also,
@@ -1740,7 +1740,11 @@ class ReflectClass(ReflectObject):
         return ":".join(parts)
 
     def __init__(self, cls, reflect_module=None):
-        self.cls = cls
+        if inspect.isclass(cls):
+            self.cls = cls
+        else:
+            self.cls = cls.__class__
+
         self._reflect_module = reflect_module
 
     def is_private(self):
