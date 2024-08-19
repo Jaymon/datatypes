@@ -1503,7 +1503,7 @@ class TempFilepathTest(TestCase):
         f2 = TempFilepath(f)
         self.assertEqual(f, f2)
 
-    def test_normparts(self):
+    def test_normparts_1(self):
         p = TempDirpath()
         p2 = TempFilepath(p, "foo")
         self.assertEqual("foo", p2.relative_to(p))
@@ -1531,6 +1531,16 @@ class TempFilepathTest(TestCase):
         p = TempFilepath("/")
         relpath = p.relative_to(p.gettempdir())
         self.assertTrue(2, len(p.splitparts(relpath)))
+
+    def test_normparts_2(self):
+        parts = TempFilepath.normparts()
+        self.assertEqual(2, len(parts))
+
+        # A passed in parts with count should end with parts at the end
+        parts = TempFilepath.normparts("foo/bar", count=4)
+        self.assertEqual("foo", parts[-2])
+        self.assertEqual("bar", parts[-1])
+        self.assertTrue(len(parts) > 2)
 
 
 class CachepathTest(TestCase):
@@ -1827,7 +1837,7 @@ class PathIteratorTest(TestCase):
         r = set([
             "1.txt",
         ])
-        for p in PathIterator(dirpath).regex("[1]\.TXT", flags=re.I):
+        for p in PathIterator(dirpath).regex(r"[1]\.TXT", flags=re.I):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
@@ -1839,7 +1849,7 @@ class PathIteratorTest(TestCase):
             "boo/3.txt",
             "boo/baz/4.txt",
         ])
-        for p in PathIterator(dirpath).regex("[^/]+\.txt$"):
+        for p in PathIterator(dirpath).regex(r"[^/]+\.txt$"):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)
@@ -1848,7 +1858,7 @@ class PathIteratorTest(TestCase):
         r = set([
             "bar/2.txt",
         ])
-        for p in PathIterator(dirpath).regex("/bar/.+\.txt"):
+        for p in PathIterator(dirpath).regex(r"/bar/.+\.txt"):
             self.assertTrue(p.relative_to(dirpath) in r)
             r_count += 1
         self.assertEqual(len(r), r_count)

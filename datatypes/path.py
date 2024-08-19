@@ -353,7 +353,6 @@ class Path(String):
     def splitparts(cls, *parts, **kwargs):
         """Does the opposite of .joinparts()
 
-
         :param *parts: mixed, as many parts as you pass in as arguments
         :param **kwargs:
             regex - the regex used to split the parts up
@@ -507,30 +506,96 @@ class Path(String):
         :return: list, a the parts ready to generate path and value
         """
         parts = cls.splitparts(*parts, **kwargs)
-        ext = kwargs.pop("ext", "")
-        prefix = kwargs.pop("prefix", "")
-        suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+        kwargs.setdefault("suffix", kwargs.pop("postfix", ""))
         basedir = kwargs.pop("dir", "")
 
         name = kwargs.pop("name", kwargs.pop("basename", ""))
         if not name:
             name = parts.pop(-1) if parts else ""
 
+        count = max(1, kwargs.pop("count", 1) - len(parts))
+
+#         count = kwargs.pop("count", 1)
+#         if parts:
+#             count = max(1, count - len(parts))
+
         ps = cls.get_parts(
-            ext=ext,
-            prefix=prefix,
+            count=count,
             name=name,
-            suffix=suffix,
             **kwargs
         )
 
         if ps:
-            parts.extend(ps)
+            if name:
+                parts = ps[:-1] + parts + [ps[-1]]
+
+            else:
+                parts = ps + parts
 
         if basedir:
             parts = cls.splitparts(basedir, **kwargs) + list(parts)
 
         return parts
+
+        # we pop all these so we can pass remainging kwargs to the splitparts
+        # call if we have a basedir
+#         parts = cls.splitparts(*parts, **kwargs)
+#         ext = kwargs.pop("ext", "")
+#         prefix = kwargs.pop("prefix", "")
+#         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+#         basedir = kwargs.pop("dir", "")
+#         count = kwargs.pop("count", 1)
+
+#         name = kwargs.pop("name", kwargs.pop("basename", ""))
+#         if not name:
+#             name = parts.pop(-1) if parts else ""
+# 
+#         ps = cls.get_parts(
+#             count=count,
+#             ext=ext,
+#             prefix=prefix,
+#             name=name,
+#             suffix=suffix,
+#             **kwargs
+#         )
+# 
+#         if ps:
+#             if name:
+#                 parts = ps[:-1] + parts + [ps[-1]]
+# 
+#             else:
+#                 parts = ps + parts
+# 
+#         if basedir:
+#             parts = cls.splitparts(basedir, **kwargs) + list(parts)
+# 
+#         return parts
+
+#         parts = cls.splitparts(*parts, **kwargs)
+#         ext = kwargs.pop("ext", "")
+#         prefix = kwargs.pop("prefix", "")
+#         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
+#         basedir = kwargs.pop("dir", "")
+# 
+#         name = kwargs.pop("name", kwargs.pop("basename", ""))
+#         if not name:
+#             name = parts.pop(-1) if parts else ""
+# 
+#         ps = cls.get_parts(
+#             ext=ext,
+#             prefix=prefix,
+#             name=name,
+#             suffix=suffix,
+#             **kwargs
+#         )
+# 
+#         if ps:
+#             parts.extend(ps)
+# 
+#         if basedir:
+#             parts = cls.splitparts(basedir, **kwargs) + list(parts)
+# 
+#         return parts
 
     @classmethod
     def normpath(cls, *parts, **kwargs):
