@@ -52,8 +52,8 @@ class Path(String):
 
     This finally brings into a DRY location my path code from testdata,
     stockton, and bang, among others where I've needed this functionality. I've
-    also tried to standardize the interface to be very similar to Pathlib so you
-    can, hopefully, swap between them
+    also tried to standardize the interface to be very similar to Pathlib so
+    you can, hopefully, swap between them
 
     Directories: 
         * path: /parent/basename
@@ -126,7 +126,8 @@ class Path(String):
 
     @property
     def parents(self):
-        """An immutable sequence providing access to the logical ancestors of the path
+        """An immutable sequence providing access to the logical ancestors of
+        the path
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.parents
         """
@@ -147,8 +148,8 @@ class Path(String):
     def paths(self):
         """Return all the paths in this path
 
-        :returns: list, if we had a path /foo/bar/che.ext then this would return
-            /foo, /foo/bar, /foo/bar/che.ext
+        :returns: list, if we had a path /foo/bar/che.ext then this would
+            return /foo, /foo/bar, /foo/bar/che.ext
         """
         paths = self.parents
         paths.reverse()
@@ -185,7 +186,8 @@ class Path(String):
 
     @property
     def name(self):
-        """A string representing the final path component, excluding the drive and root
+        """A string representing the final path component, excluding the drive
+        and root
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.name
         """
@@ -247,9 +249,9 @@ class Path(String):
     def ext(self):
         """Returns the extension
 
-        this will usually be identical to .suffix but it isn't guarranteed because
-        this uses self.splitpart() to find the extension which tries to be a bit
-        smarter while finding the extension
+        this will usually be identical to .suffix but it isn't guarranteed
+        because this uses self.splitpart() to find the extension which tries to
+        be a bit smarter while finding the extension
         """
         _, ext = self.splitbase()
         return ext.lstrip(".")
@@ -286,20 +288,21 @@ class Path(String):
     def splitpart(cls, part):
         """Split the part to base and extension
 
-        This tries to be a bit smarter than os.path.split() but just like that will
-        fail by being too naive, this will fail by being to smart
+        This tries to be a bit smarter than os.path.split() but just like that
+        will fail by being too naive, this will fail by being to smart
 
         https://superuser.com/a/315395/
-            While you are free to use any length of extension you wish, I would not
-            recommend using a very lengthy one for one reason: convention. Most file
-            extensions are three to four alphanumeric characters. Anything longer,
-            or with funny characters, is going to "stand out"
+            While you are free to use any length of extension you wish, I would
+            not recommend using a very lengthy one for one reason: convention.
+            Most file extensions are three to four alphanumeric characters.
+            Anything longer, or with funny characters, is going to "stand out"
 
 
         https://filext.com/faq/file_extension_information.html
 
         :param part: str, the part to split
-        :returns: tuple, (base, ext), extension will be empty if nothing was found
+        :returns: tuple, (base, ext), extension will be empty if nothing was
+            found
         """
         logger.debug(f"Splitting to base and extension: {part}")
         base, ext = os.path.splitext(part)
@@ -319,7 +322,9 @@ class Path(String):
                     is_valid = False
 
                 if not cext.re(r"^[a-zA-Z0-9 \$#&+@!\(\)\{\}'`_~-]+$").match():
-                    logger.debug("Extension contains 1 or more invalid characters")
+                    logger.debug(
+                        "Extension contains 1 or more invalid characters"
+                    )
                     is_valid = False
 
                 elif cext.re(r"[|<>\^=?/\[\]\";\*]$").match():
@@ -331,14 +336,15 @@ class Path(String):
                     is_valid = False
 
                 elif cext.re(r"\s").search():
-                    # while an extension can contain spaces, I think for my purpose
-                    # let's say an extension that contains a space is invalid
+                    # while an extension can contain spaces, I think for my
+                    # purpose let's say an extension that contains a space is
+                    # invalid
                     logger.debug("Extension has spaces")
                     is_valid = False
 
                 elif len(cext) > 25:
-                    # there technically is no length limit, but for my purpose if it
-                    # is too long it probably isn't valid
+                    # there technically is no length limit, but for my purpose
+                    # if it is too long it probably isn't valid
                     logger.debug("Extension is too long")
                     is_valid = False
 
@@ -433,8 +439,8 @@ class Path(String):
         :param ext: str, the extension you want the file to have
         :param prefix: str, this will be the first part of the file's name
         :param name: str, the name you want to use (prefix will be added to the
-            front of the name and suffix and ext will be added to the end of the
-            name)
+            front of the name and suffix and ext will be added to the end of
+            the name)
         :param suffix: str, if you want the last bit to be posfixed with
             something
         :param **kwargs:
@@ -515,10 +521,6 @@ class Path(String):
 
         count = max(1, kwargs.pop("count", 1) - len(parts))
 
-#         count = kwargs.pop("count", 1)
-#         if parts:
-#             count = max(1, count - len(parts))
-
         ps = cls.get_parts(
             count=count,
             name=name,
@@ -537,66 +539,6 @@ class Path(String):
 
         return parts
 
-        # we pop all these so we can pass remainging kwargs to the splitparts
-        # call if we have a basedir
-#         parts = cls.splitparts(*parts, **kwargs)
-#         ext = kwargs.pop("ext", "")
-#         prefix = kwargs.pop("prefix", "")
-#         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
-#         basedir = kwargs.pop("dir", "")
-#         count = kwargs.pop("count", 1)
-
-#         name = kwargs.pop("name", kwargs.pop("basename", ""))
-#         if not name:
-#             name = parts.pop(-1) if parts else ""
-# 
-#         ps = cls.get_parts(
-#             count=count,
-#             ext=ext,
-#             prefix=prefix,
-#             name=name,
-#             suffix=suffix,
-#             **kwargs
-#         )
-# 
-#         if ps:
-#             if name:
-#                 parts = ps[:-1] + parts + [ps[-1]]
-# 
-#             else:
-#                 parts = ps + parts
-# 
-#         if basedir:
-#             parts = cls.splitparts(basedir, **kwargs) + list(parts)
-# 
-#         return parts
-
-#         parts = cls.splitparts(*parts, **kwargs)
-#         ext = kwargs.pop("ext", "")
-#         prefix = kwargs.pop("prefix", "")
-#         suffix = kwargs.pop("suffix", kwargs.pop("postfix", ""))
-#         basedir = kwargs.pop("dir", "")
-# 
-#         name = kwargs.pop("name", kwargs.pop("basename", ""))
-#         if not name:
-#             name = parts.pop(-1) if parts else ""
-# 
-#         ps = cls.get_parts(
-#             ext=ext,
-#             prefix=prefix,
-#             name=name,
-#             suffix=suffix,
-#             **kwargs
-#         )
-# 
-#         if ps:
-#             parts.extend(ps)
-# 
-#         if basedir:
-#             parts = cls.splitparts(basedir, **kwargs) + list(parts)
-# 
-#         return parts
-
     @classmethod
     def normpath(cls, *parts, **kwargs):
         """normalize a path, accounting for things like windows dir seps
@@ -610,8 +552,11 @@ class Path(String):
         path = ""
         if parts:
             path = cls.joinparts(*parts, **kwargs)
-            path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
-            #path = os.path.realpath(path)
+            path = os.path.abspath(
+                os.path.expandvars(
+                    os.path.expanduser(path)
+                )
+            )
 
         return path
 
@@ -629,9 +574,9 @@ class Path(String):
 
     @classmethod
     def path_class(cls):
-        """Return the Path class this class will use, this is a method because 
-        we couldn't make them all Path class properties because they are defined
-        after Path"""
+        """Return the Path class this class will use, this is a method because
+        we couldn't make them all Path class properties because they are
+        defined after Path"""
         return Path
 
     @classmethod
@@ -668,8 +613,8 @@ class Path(String):
 
     @classmethod
     def create(cls, *parts, **kwargs):
-        """Create a path instance using the full inferrencing (guessing code) of
-        cls.path_class().__new__()"""
+        """Create a path instance using the full inferrencing (guessing code)
+        of cls.path_class().__new__()"""
         if "path_class" not in kwargs:
             # if a path class isn't passed in and a single part was passed in
             # that is a Path instance, then go ahead and clone that
@@ -677,19 +622,20 @@ class Path(String):
                 if cls.is_path_instance(parts[0]):
                     kwargs["path_class"] = type(parts[0])
 
-        # we want inference to work so we don't want any path_class being passed
-        # to the __new__ method but we will use it to create the instance if
-        # passed in
+        # we want inference to work so we don't want any path_class being
+        # passed to the __new__ method but we will use it to create the
+        # instance if passed in
         path_class = kwargs.pop("path_class", cls.path_class())
         return path_class(*parts, **kwargs)
 
     @classmethod
     def create_as(cls, instance, path_class, **kwargs):
-        """Used by .__new__() to convert a Path to one of the children. This is 
-        a separate method so it could be augmented by children classes if desired
+        """Used by .__new__() to convert a Path to one of the children. This is
+        a separate method so it could be augmented by children classes if
+        desired
 
-        take note that this has a different signature than all the other create_*
-        methods
+        take note that this has a different signature than all the other
+        create_* methods
 
         :param instance: Path, a Path instance created by __new__()
         :param path_class: type, the path class that was passed in to __new__()
@@ -699,8 +645,8 @@ class Path(String):
         instance.path = kwargs["path"]
 
         if path_class or (cls is not cls.path_class()):
-            # makes sure if you've passed in any class explicitely, even the Path
-            # class, then don't try and infer anything
+            # makes sure if you've passed in any class explicitely, even the
+            # Path class, then don't try and infer anything
             pass
 
         else:
@@ -727,7 +673,8 @@ class Path(String):
 
             dir / *parts / prefix + name + suffix + ext
 
-        :param *parts: mixed, parts you want to have in the path, or a full path
+        :param *parts: mixed, parts you want to have in the path, or a full
+            path
         :param **kwargs:
             * ext: str, the extension (see .get_basename)
             * prefix: str, a prefix to name (see .get_basename)
@@ -797,8 +744,9 @@ class Path(String):
         return self.count(*args, **kwargs)
 
     def stat(self):
-        """Return a os.stat_result object containing information about this path,
-        like os.stat(). The result is looked up at each call to this method
+        """Return a os.stat_result object containing information about this
+        path, like os.stat(). The result is looked up at each call to this
+        method
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.stat
 
@@ -846,8 +794,8 @@ class Path(String):
         return self
 
     def owner(self):
-        """Return the name of the user owning the file. KeyError is raised if the file’s
-        uid isn’t found in the system database.
+        """Return the name of the user owning the file. KeyError is raised if
+        the file’s uid isn’t found in the system database.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.owner
         """
@@ -861,8 +809,8 @@ class Path(String):
         return ret
 
     def group(self):
-        """Return the name of the group owning the file. KeyError is raised if the file’s
-        gid isn’t found in the system database.
+        """Return the name of the group owning the file. KeyError is raised if
+        the file’s gid isn’t found in the system database.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.group
         """
@@ -883,11 +831,12 @@ class Path(String):
         return os.path.exists(self.path)
 
     def is_type(self):
-        """Syntactic sugar around calling is_dir() if this is a Dirpath instance
-        or .is_file() if this is a Filepath instance or .exists() if this is just
-        a Path instance
+        """Syntactic sugar around calling is_dir() if this is a Dirpath
+        instance or .is_file() if this is a Filepath instance or .exists() if
+        this is just a Path instance
 
-        :returns: bool, True if this is an actual instance of the path type it is
+        :returns: bool, True if this is an actual instance of the path type it
+            is
         """
         ret = False
         if isinstance(self, self.dir_class()):
@@ -904,11 +853,11 @@ class Path(String):
         return self.is_type()
 
     def is_dir(self):
-        """Return True if the path points to a directory (or a symbolic link pointing to a directory),
-        False if it points to another kind of file.
+        """Return True if the path points to a directory (or a symbolic link
+        pointing to a directory), False if it points to another kind of file.
 
-        False is also returned if the path doesn’t exist or is a broken symlink;
-        other errors (such as permission errors) are propagated.
+        False is also returned if the path doesn’t exist or is a broken
+        symlink; other errors (such as permission errors) are propagated.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_dir
         """
@@ -922,11 +871,12 @@ class Path(String):
         return isinstance(self, self.dir_class())
 
     def is_file(self):
-        """Return True if the path points to a regular file (or a symbolic link pointing to a regular file),
-        False if it points to another kind of file.
+        """Return True if the path points to a regular file (or a symbolic link
+        pointing to a regular file), False if it points to another kind of
+        file.
 
-        False is also returned if the path doesn’t exist or is a broken symlink;
-        other errors (such as permission errors) are propagated.
+        False is also returned if the path doesn’t exist or is a broken
+        symlink; other errors (such as permission errors) are propagated.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_file
         """
@@ -940,11 +890,12 @@ class Path(String):
         return isinstance(self, self.file_class())
 
     def is_mount(self):
-        """Return True if the path is a mount point: a point in a file system where
-        a different file system has been mounted. On POSIX, the function checks whether
-        path’s parent, path/.., is on a different device than path, or whether path/..
-        and path point to the same i-node on the same device — this should detect
-        mount points for all Unix and POSIX variants. Not implemented on Windows.
+        """Return True if the path is a mount point: a point in a file system
+        where a different file system has been mounted. On POSIX, the function
+        checks whether path’s parent, path/.., is on a different device than
+        path, or whether path/..  and path point to the same i-node on the same
+        device — this should detect mount points for all Unix and POSIX
+        variants. Not implemented on Windows.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_mount
         """
@@ -961,8 +912,8 @@ class Path(String):
         return os.path.islink(self.path)
 
     def is_absolute(self):
-        """Return whether the path is absolute or not. A path is considered absolute
-        if it has both a root and (if the flavour allows) a drive
+        """Return whether the path is absolute or not. A path is considered
+        absolute if it has both a root and (if the flavour allows) a drive
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.is_absolute
         https://docs.python.org/3/library/os.path.html#os.path.isabs
@@ -974,7 +925,8 @@ class Path(String):
 
     def is_reserved(self):
         """With PureWindowsPath, return True if the path is considered reserved
-        under Windows, False otherwise. With PurePosixPath, False is always returned.
+        under Windows, False otherwise. With PurePosixPath, False is always
+        returned.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.is_reserved
         """
@@ -985,8 +937,8 @@ class Path(String):
         return self.name == ""
 
     def joinpath(self, *other):
-        """Calling this method is equivalent to combining the path with each of the
-        other arguments in turn
+        """Calling this method is equivalent to combining the path with each of
+        the other arguments in turn
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.joinpath
         """
@@ -996,13 +948,14 @@ class Path(String):
         return self.joinpath(*other)
 
     def match(self, pattern):
-        """Match this path against the provided glob-style pattern. Return True if
-        matching is successful, False otherwise.
+        """Match this path against the provided glob-style pattern. Return True
+        if matching is successful, False otherwise.
 
-        If pattern is relative, the path can be either relative or absolute, and matching
-        is done from the right
+        If pattern is relative, the path can be either relative or absolute,
+        and matching is done from the right
 
-        If pattern is absolute, the path must be absolute, and the whole path must match
+        If pattern is absolute, the path must be absolute, and the whole path
+        must match
 
         As with other methods, case-sensitivity follows platform defaults
 
@@ -1032,8 +985,8 @@ class Path(String):
         return ret
 
     def with_name(self, name):
-        """Return a new path with the name changed. If the original path doesn’t
-        have a name, ValueError is raised
+        """Return a new path with the name changed. If the original path
+        doesn’t have a name, ValueError is raised
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.with_name
         """
@@ -1042,9 +995,9 @@ class Path(String):
         return self.create(self.parent, name)
 
     def with_suffix(self, suffix):
-        """Return a new path with the suffix changed. If the original path doesn't
-        have a suffix, the new suffix is appended instead. If the suffix is an empty string,
-        the original suffix is removed
+        """Return a new path with the suffix changed. If the original path
+        doesn't have a suffix, the new suffix is appended instead. If the
+        suffix is an empty string, the original suffix is removed
 
         https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.with_suffix
         """
@@ -1079,28 +1032,33 @@ class Path(String):
         return path.lower()
 
     def sanitize(self, callback=None, maxpart=255, maxpath=260, rename=False):
-        """Sanitize each part of self.path to make sure all the characters are safe
+        """Sanitize each part of self.path to make sure all the characters are
+        safe
 
-        macos has a 1023 character path limit, with each part limited to 255 chars:
-            https://discussions.apple.com/thread/250275651
+        macos has a 1023 character path limit, with each part limited to 255
+        chars: https://discussions.apple.com/thread/250275651
 
-        Dropbox has a max character path of 260 and they say don't use periods (which makes no sense),
-        you also can't have emoji or emoticons, there is no easy way to just strip emoji though
-        so I'm just going to strip all non-ascii characters
+        Dropbox has a max character path of 260 and they say don't use periods
+        (which makes no sense), you also can't have emoji or emoticons, there
+        is no easy way to just strip emoji though so I'm just going to strip
+        all non-ascii characters
             https://help.dropbox.com/files-folders/sort-preview/file-names
 
         Other references:
             * https://kb.acronis.com/content/39790
             * https://gitlab.com/jplusplus/sanitize-filename
 
-        :param callback: callable, takes a fileroot and extension, and returns a sanitized
-            tuple (fileroot, extension) which will be joined by a period
+        :param callback: callable, takes a fileroot and extension, and returns
+            a sanitized tuple (fileroot, extension) which will be joined by a
+            period
         :param chars: string, the characters you want to remove from each part
         :param maxpart: int, the maximum length of each part of the path
         :param maxpath: int, the maximum length of the total path
-        :param rename: bool, True if this should sanitize parts that already exist
+        :param rename: bool, True if this should sanitize parts that already
+            exist
             ??? should this be renamed "rename_existing"?
-        :returns: Path, the path with bad characters stripped and within maxpath length
+        :returns: Path, the path with bad characters stripped and within
+            maxpath length
         """
         sparts = []
 
@@ -1121,14 +1079,17 @@ class Path(String):
                 # https://stackoverflow.com/a/2759009/5006
                 s = re.compile(r'[^\x00-\x7F]+').sub('', s)
 
-                # remove and consolidate all whitespace to one space (this strips
-                # newlines and tabs) and make sure there are no spaces at the
-                # beginning or end of the part
+                # remove and consolidate all whitespace to one space (this
+                # strips newlines and tabs) and make sure there are no spaces
+                # at the beginning or end of the part
                 s = re.compile(r'\s+').sub(' ', s.strip())
 
                 return (s, callback(ext, "")[0] if ext else ext)
 
-        logger.debug(f"Sanitizing {remparts} part(s) with {maxpart} chars each and a total path of {maxpath} chars")
+        logger.debug(
+            f"Sanitizing {remparts} part(s) with {maxpart} chars each"
+            f" and a total path of {maxpath} chars"
+        )
 
         for p in paths:
             sp = p.basename
@@ -1138,15 +1099,15 @@ class Path(String):
                 sp = p.path
 
             elif p.exists() and not rename:
-                # if the folder already exists then it makes no sense to try and
-                # modify it
+                # if the folder already exists then it makes no sense to try
+                # and modify it
                 logger.debug(f"Path.sanitize part {p} already exists")
                 sp = p.basename
 
             else:
                 if remparts > 1:
-                    # since we have more parts still this must be a directory so
-                    # no point in splitting it
+                    # since we have more parts still this must be a directory
+                    # so no point in splitting it
                     fileroot = sp
                     ext = ""
 
@@ -1169,7 +1130,9 @@ class Path(String):
             if sp:
                 rempath -= (len(sp) + 1)
                 if rempath < 0:
-                    raise ValueError("maxpath is too short to effectively sanitize this path")
+                    raise ValueError(
+                        "maxpath is too short to effectively sanitize this path"
+                    )
 
                 sparts.append(sp)
 
@@ -1178,10 +1141,10 @@ class Path(String):
     def backup(self, suffix=".bak", ignore_existing=True):
         """backup the file to the same directory with given suffix
 
-        :param suffix: str, what will be appended to the file name (eg, foo.ext becomes
-            foo.ext.bak)
-        :param ignore_existing: boolean, if True overwrite an existing backup, if false
-            then don't backup if a backup file already exists
+        :param suffix: str, what will be appended to the file name (eg, foo.ext
+            becomes foo.ext.bak)
+        :param ignore_existing: boolean, if True overwrite an existing backup,
+            if false then don't backup if a backup file already exists
         :returns: instance, the backup Path
         """
         target = self.create("{}{}".format(self.path, suffix))
@@ -1194,10 +1157,10 @@ class Path(String):
         return target
 
     def rename(self, target):
-        """Rename this file or directory to the given target, and return a new Path
-        instance pointing to target. On Unix, if target exists and is a file,
-        it will be replaced silently if the user has permission. target can be
-        either a string or another path object
+        """Rename this file or directory to the given target, and return a new
+        Path instance pointing to target. On Unix, if target exists and is a
+        file, it will be replaced silently if the user has permission. target
+        can be either a string or another path object
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.rename
 
@@ -1208,9 +1171,9 @@ class Path(String):
         return self.create(target)
 
     def replace(self, target):
-        """Rename this file or directory to the given target, and return a new Path
-        instance pointing to target. If target points to an existing file or directory,
-        it will be unconditionally replaced.
+        """Rename this file or directory to the given target, and return a new
+        Path instance pointing to target. If target points to an existing file
+        or directory, it will be unconditionally replaced.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.replace
 
@@ -1266,8 +1229,8 @@ class Path(String):
     def relative_parts(self, *other):
         """Similar to relative_to() but returns a list of each part
 
-        this calls .relative_to(empty_same=True) so it will return an empty list
-        if self and other are the same
+        this calls .relative_to(empty_same=True) so it will return an empty
+        list if self and other are the same
 
         Moved from bang.path.Path on 1-2-2023
 
@@ -1311,7 +1274,9 @@ class Path(String):
         return target
 
     def archive_to(self, target):
-        raise NotImplementedError("Waiting for Archivepath api to be finalized")
+        raise NotImplementedError(
+            "Waiting for Archivepath api to be finalized"
+        )
 
     def resolve(self, strict=False):
         """Make the path absolute, resolving any symlinks. A new path object is
@@ -1321,8 +1286,9 @@ class Path(String):
         raised.
 
         If strict is False, the path is resolved as far as possible and any
-        remainder is appended without checking whether it exists. If an infinite
-        loop is encountered along the resolution path, RuntimeError is raised.
+        remainder is appended without checking whether it exists. If an
+        infinite loop is encountered along the resolution path, RuntimeError is
+        raised.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.resolve
         """
@@ -1334,9 +1300,9 @@ class Path(String):
         return ret
 
     def samefile(self, other_path):
-        """Return whether this path points to the same file as other_path, which
-        can be either a Path object, or a string. The semantics are similar to
-        os.path.samefile() and os.path.samestat().
+        """Return whether this path points to the same file as other_path,
+        which can be either a Path object, or a string. The semantics are
+        similar to os.path.samefile() and os.path.samestat().
 
         An OSError can be raised if either file cannot be accessed for some
         reason.
@@ -1362,13 +1328,13 @@ class Path(String):
         raise NotImplementedError()
 
     def delete(self):
-        """remove file/dir, alias of .rm(), does not raise error on file/dir not
-        existing"""
+        """remove file/dir, alias of .rm(), does not raise error on file/dir
+        not existing"""
         return self.rm()
 
     def remove(self):
-        """remove file/dir, alias of .rm(), does not raise error on file/dir not
-        existing"""
+        """remove file/dir, alias of .rm(), does not raise error on file/dir
+        not existing"""
         return self.rm()
 
     def clear(self):
@@ -1402,7 +1368,6 @@ class Path(String):
         """return a datetime.datetime of when the file was accessed"""
         t = os.path.getatime(self.path)
         return Datetime(t)
-        #return datetime.datetime.fromtimestamp(t)
 
     def __fspath__(self):
         """conform to PathLike abstract base class for py3.6+
@@ -1580,8 +1545,8 @@ class Dirpath(Path):
                         fp.write_text(data, **kwargs)
 
                     elif callable(data):
-                        # if it's a callback then we assume the callback will do
-                        # whatever it needs with the file
+                        # if it's a callback then we assume the callback will
+                        # do whatever it needs with the file
                         data(fp)
 
                     else:
@@ -1599,7 +1564,8 @@ class Dirpath(Path):
     def add(self, paths, **kwargs):
         """add paths to this directory
 
-        :param paths: dict|list, see @add_paths() for description of paths structure
+        :param paths: dict|list, see @add_paths() for description of paths
+            structure
         :returns: list, all the created Path instances
         """
         return self.add_paths(paths, **kwargs)
@@ -1648,21 +1614,23 @@ class Dirpath(Path):
             p.rm()
 
     def mkdir(self, mode=0o777, parents=False, exist_ok=False):
-        """Create a new directory at this given path. If mode is given, it is combined
-        with the process’ umask value to determine the file mode and access flags.
-        If the path already exists, FileExistsError is raised.
+        """Create a new directory at this given path. If mode is given, it is
+        combined with the process’ umask value to determine the file mode and
+        access flags.  If the path already exists, FileExistsError is raised.
 
-        If parents is true, any missing parents of this path are created as needed;
-        they are created with the default permissions without taking mode into account
-        (mimicking the POSIX mkdir -p command).
+        If parents is true, any missing parents of this path are created as
+        needed; they are created with the default permissions without taking
+        mode into account (mimicking the POSIX mkdir -p command).
 
-        If parents is false (the default), a missing parent raises FileNotFoundError.
+        If parents is false (the default), a missing parent raises
+        FileNotFoundError.
 
-        If exist_ok is false (the default), FileExistsError is raised if the target directory already exists.
+        If exist_ok is false (the default), FileExistsError is raised if the
+        target directory already exists.
 
         If exist_ok is true, FileExistsError exceptions will be ignored
-        (same behavior as the POSIX mkdir -p command), but only if the last path
-        component is not an existing non-directory file.
+        (same behavior as the POSIX mkdir -p command), but only if the last
+        path component is not an existing non-directory file.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.mkdir
         """
@@ -1677,7 +1645,8 @@ class Dirpath(Path):
             os.mkdir(self.path, mode)
 
     def mv(self, target):
-        """Move the entire contents of the directory at self into a directory at target
+        """Move the entire contents of the directory at self into a directory
+        at target
 
         :Example:
             $ mv src target
@@ -1725,8 +1694,9 @@ class Dirpath(Path):
         :param target: Dirpath|str, the destination directory
         :param recursive: bool, True if copy files in this dir and all subdirs,
             false to only copy files in self
-        :param into: bool, copy into target instead of to target/{self.basename}
-            if target exists, check the example for more details
+        :param into: bool, copy into target instead of to
+            target/{self.basename} if target exists, check the example for more
+            details
         :returns: Dirpath, the target directory
         """
         target = self.create_dir(target)
@@ -1748,9 +1718,10 @@ class Dirpath(Path):
         return target
 
     def touch(self, mode=0o666, exist_ok=True):
-        """Create the directory at this given path.  If the directory already exists,
-        the function succeeds if exist_ok is true (and its modification time is
-        updated to the current time), otherwise FileExistsError is raised."""
+        """Create the directory at this given path.  If the directory already
+        exists, the function succeeds if exist_ok is true (and its modification
+        time is updated to the current time), otherwise FileExistsError is
+        raised."""
         if self.exists():
             if not exist_ok:
                 raise OSError("FileExistsError")
@@ -1839,8 +1810,8 @@ class Dirpath(Path):
         in this directory. Basicaly, this is syntactic sugar around the
         PathIterator
 
-        For most iteration needs you should either use this method, .files(), or
-        .dirs(). Most of the other methods are here mainly for full
+        For most iteration needs you should either use this method, .files(),
+        or .dirs(). Most of the other methods are here mainly for full
         compatibility with pathlib.Path's interface
 
         .iterdirs() and .iterfiles() are similar to .files() and .dirs() but
@@ -1916,8 +1887,8 @@ class Dirpath(Path):
         """passthrough for os.walk
 
         https://docs.python.org/3/library/os.html#os.walk
-        :returns: yields (basedir, dirs, files) in the exact way os.walk does, these
-            are not Path instances
+        :returns: yields (basedir, dirs, files) in the exact way os.walk does,
+            these are not Path instances
         """
         for basedir, dirs, files in os.walk(self.path, *args, **kwargs):
             yield basedir, dirs, files
@@ -1945,7 +1916,8 @@ class Dirpath(Path):
         :param *parts: path parts, these will be passed to .child() so they can
             be relative to self.path
         :param **kwargs: these will be passed to .children()
-        :returns: boolean, True if a file/dir was found matching the passed in values
+        :returns: boolean, True if a file/dir was found matching the passed in
+            values
         """
         ret = False
         if parts:
@@ -2006,8 +1978,8 @@ class Filepath(Path):
 
     @contextmanager
     def flock(self, mode="", operation=None, **kwargs):
-        """similar to open but will also lock the file resource and will release
-        the resource when the context manager is done
+        """similar to open but will also lock the file resource and will
+        release the resource when the context manager is done
 
         :Example:
             filepath = Filepath("<PATH>")
@@ -2281,9 +2253,9 @@ class Filepath(Path):
         :param target: str|Path, if a directory then self.basename will be the 
             target's basename. If the target is ambiguous this will make a best
             effort to guess if it was a file or a folder
-        :param recursive: bool, if True then create any intermediate directories
-            if they are missing. If False then this will fail if all the folders
-            don't already exist
+        :param recursive: bool, if True then create any intermediate
+            directories if they are missing. If False then this will fail if
+            all the folders don't already exist
         :returns: Filpath, the target file path where self. was copied to
         """
         target = self.create(target)
@@ -2295,8 +2267,8 @@ class Filepath(Path):
                 if not target.is_file_instance():
                     # let's try our best to infer if this is a directory or not
                     if not target.ext and self.ext:
-                        # target doesn't have an extension but this file does, so let's
-                        # assume target is a directory
+                        # target doesn't have an extension but this file does,
+                        # so let's assume target is a directory
                         target = self.create_dir(target).child_file(self.basename)
 
                 if recursive:
@@ -2327,11 +2299,11 @@ class Filepath(Path):
         return target.as_file()
 
     def unlink(self, missing_ok=False):
-        """Remove this file or symbolic link. If the path points to a directory,
-        use Path.rmdir() instead.
+        """Remove this file or symbolic link. If the path points to a
+        directory, use Path.rmdir() instead.
 
-        If missing_ok is false (the default), FileNotFoundError is raised if the
-        path does not exist.
+        If missing_ok is false (the default), FileNotFoundError is raised if
+        the path does not exist.
 
         If missing_ok is true, FileNotFoundError exceptions will be ignored
         (same behavior as the POSIX rm -f command).
@@ -2353,11 +2325,11 @@ class Filepath(Path):
         self.write_bytes(b"")
 
     def touch(self, mode=0o666, exist_ok=True):
-        """Create a file at this given path. If mode is given, it is combined with
-        the process’ umask value to determine the file mode and access flags.
-        If the file already exists, the function succeeds if exist_ok is true
-        (and its modification time is updated to the current time), otherwise
-        FileExistsError is raised.
+        """Create a file at this given path. If mode is given, it is combined
+        with the process’ umask value to determine the file mode and access
+        flags.  If the file already exists, the function succeeds if exist_ok
+        is true (and its modification time is updated to the current time),
+        otherwise FileExistsError is raised.
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.touch
         """
@@ -2433,8 +2405,8 @@ class Filepath(Path):
 
             d.has("<TEXT>") # True
 
-        :param pattern: string|callable, the contents in the file. If callable then
-            it will do pattern(line) for each line in the file
+        :param pattern: string|callable, the contents in the file. If callable
+            then it will do pattern(line) for each line in the file
         :returns: boolean, True if the pattern is in the file
         """
         with self.open("r", encoding=self.encoding, errors=self.errors) as f:
@@ -2508,7 +2480,7 @@ class PathIterator(ListIterator):
     This does work however:
 
         # this works though
-        for p in Dirpath("<SOME-PATH>").iteratory.pattern(".txt"):
+        for p in Dirpath("<SOME-PATH>").iterator.pattern(".txt"):
             print(p)
 
     For the most part, there are 4 types of filtering criteria:
@@ -2609,7 +2581,7 @@ class PathIterator(ListIterator):
             finish=True
         )
 
-        # or you can finisht the directory manually:
+        # or you can finish the directory manually:
         it = PathIterator(dirpath).dirs()
         for p in it:
             if p.has_file("stop.txt"):
@@ -2627,8 +2599,8 @@ class PathIterator(ListIterator):
         # reverse the iteration?
         self._yield_reverse = False
 
-        # sort the iteration? When set this is a tuple (args, kwargs) to pass to
-        # sorted
+        # sort the iteration? When set this is a tuple (args, kwargs) to pass
+        # to sorted
         self._yield_sort = None
 
         # the following 2 counters are incremented/decremented in .files() and
@@ -2672,8 +2644,8 @@ class PathIterator(ListIterator):
         recursive is True, or depth to 1 if recursive is False
 
         :param recursive: bool, if True then iterate through directory and all
-            subdirectories, otherwise only iterate through current directory and
-            ignore subdirectories
+            subdirectories, otherwise only iterate through current directory
+            and ignore subdirectories
         """
         return self.depth(-1) if recursive else self.depth(1)
 
@@ -2842,9 +2814,9 @@ class PathIterator(ListIterator):
 
         https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatch
 
-        :param pattern: str, the pattern to match, fnmatch patterns are endswith
-            so if you want to match a path part you would need to prefix * to
-            the pattern
+        :param pattern: str, the pattern to match, fnmatch patterns are
+            endswith so if you want to match a path part you would need to
+            prefix * to the pattern
         :param **kwargs:
             * inverse: bool, Fail the match if pattern matches the path
         """
@@ -3158,8 +3130,8 @@ class PathIterator(ListIterator):
 
     def _failed_match(self, matched, **kwargs):
         """internal method, this handles the inversing logic of the match and
-        will always return False if the match failed according to the configured
-        logic
+        will always return False if the match failed according to the
+        configured logic
 
         :param matched: bool, the original match value
         :param **kwargs:
@@ -3188,8 +3160,8 @@ class PathIterator(ListIterator):
         return failed
 
     def _haystack_yield(self, criteria_type, criterias, path, traversal):
-        """Internal method that figures out what needle to use and what haystack
-        will be used to find the needle
+        """Internal method that figures out what needle to use and what
+        haystack will be used to find the needle
 
         :param criteria_type: str, one of `value`, `pattern`, `regex`, and
             `callback`
@@ -3201,8 +3173,8 @@ class PathIterator(ListIterator):
             directories instead of matching directories/files
         :returns: generator[tuple[Any, Path|str, dict]], the indexes are:
             - 0, needle, the criteria that will be used to check haystack, this
-              could be things like a pattern to pass to fnmatch, a regex to pass
-              to re.search, or a callable
+              could be things like a pattern to pass to fnmatch, a regex to
+              pass to re.search, or a callable
             - 1, haystack, either the Path instance or the value of
                 Path.<ATTRIBUTE>
             - 2, kwargs, these can be used to further refine the criteria check
@@ -3582,7 +3554,9 @@ class Imagepath(Filepath):
                     offset = struct.unpack('<I', fp.read(4))[0]
 
             else:
-                raise ValueError("Unsupported image type {}".format(self.extension))
+                raise ValueError(
+                    "Unsupported image type {}".format(self.extension)
+                )
 
             info["what"] = what
             self._info = info
@@ -3604,8 +3578,8 @@ class Imagepath(Filepath):
     def is_animated_gif(self):
         """Return true if image is an animated gif
 
-        primarily used this great deep dive into the structure of an animated gif
-        to figure out how to parse it:
+        primarily used this great deep dive into the structure of an animated
+        gif to figure out how to parse it:
 
             http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
 
@@ -3629,8 +3603,8 @@ class Imagepath(Filepath):
             http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#global_color_table_block
 
             :param fp: io, the open image file
-            :param packed_byte: the byte that tells if the color table exists and 
-                how big it is
+            :param packed_byte: the byte that tells if the color table exists
+                and how big it is
             """
             if is_py2:
                 packed_byte = int(packed_byte.encode("hex"), 16)
@@ -3640,11 +3614,11 @@ class Imagepath(Filepath):
 
             if has_gct:
                 global_color_table = fp.read(3 * pow(2, gct_size + 1))
-                #pout.v(" ".join("{:02x}".format(ord(c)) for c in global_color_table))
 
         def skip_image_data(fp):
-            """skips the image data, which is basically just a series of sub blocks
-            with the addition of the lzw minimum code to decompress the file data
+            """skips the image data, which is basically just a series of sub
+            blocks with the addition of the lzw minimum code to decompress the
+            file data
 
             http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#image_data_block
 
@@ -3656,10 +3630,10 @@ class Imagepath(Filepath):
         def skip_sub_blocks(fp):
             """skips over the sub blocks
 
-            the first byte of the sub block tells you how big that sub block is, then
-            you read those, then read the next byte, which will tell you how big
-            the next sub block is, you keep doing this until you get a sub block
-            size of zero
+            the first byte of the sub block tells you how big that sub block
+            is, then you read those, then read the next byte, which will tell
+            you how big the next sub block is, you keep doing this until you
+            get a sub block size of zero
 
             :param fp: io, the open image file
             """
@@ -3673,9 +3647,6 @@ class Imagepath(Filepath):
             #pout.v(header)
             if header == b"GIF89a": # GIF87a doesn't support animation
                 logical_screen_descriptor = fp.read(7)
-                #pout.v(" ".join("{:02x}".format(ord(c)) for c in logical_screen_descriptor))
-                #pout.v(bytearray(logical_screen_descriptor))
-                #pout.v(logical_screen_descriptor.encode("hex"))
                 skip_color_table(fp, logical_screen_descriptor[4])
 
                 b = ord(fp.read(1))
@@ -3710,13 +3681,13 @@ class Imagepath(Filepath):
                         # http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp#image_descriptor_block
                         image_count += 1
                         if image_count > 1:
-                            # if we've seen more than one image it's animated so
-                            # we're done
+                            # if we've seen more than one image it's animated
+                            # so we're done
                             ret = True
                             break
 
-                        # total size is 10 bytes, we already have the first byte so
-                        # let's grab the other 9 bytes
+                        # total size is 10 bytes, we already have the first
+                        # byte so let's grab the other 9 bytes
                         image_descriptor = fp.read(9)
                         skip_color_table(fp, image_descriptor[-1])
                         skip_image_data(fp)
@@ -4013,7 +3984,8 @@ class Cachepath(Filepath):
         :param seconds: integer, how many seconds
         :param **timedelta_kwargs: dict, can be thing like days, must be passed
             as a named keyword
-        :returns: boolean, True if file has been modified after the seconds back
+        :returns: boolean, True if file has been modified after the seconds
+            back
         """
         now = Datetime()
         then = self.modified()
@@ -4025,16 +3997,16 @@ CachePath = Cachepath
 
 
 class Sentinel(Cachepath):
-    """Creates a file after the first failed boolean check, handy when you only want
-    to check things at certain intervals
+    """Creates a file after the first failed boolean check, handy when you only
+    want to check things at certain intervals
 
     :Example:
         s = Sentinel("foo")
         if not s:
             # do something you don't want to do all the time
         if not s:
-            # this won't ever be ran because the last `if not s` check will have
-            # created the sentinel file
+            # this won't ever be ran because the last `if not s` check will
+            # have created the sentinel file
     """
     def __new__(cls, *keys, **kwargs):
         """Create the sentinel file
@@ -4103,8 +4075,8 @@ class UrlFilepath(Cachepath):
     this was moved here from Glyph's codebase on March 7, 2022
     """
     http_client = HTTPClient
-    """The http client this will use to retrieve the file. If you want to completely
-    ignore this property just override the .fetch method"""
+    """The http client this will use to retrieve the file. If you want to
+    completely ignore this property just override the .fetch method"""
 
     def __new__(cls, url, path="", **kwargs):
         url = Url(url)
@@ -4188,8 +4160,8 @@ UrlPath = UrlFilepath
 
 
 class SitePackagesDirpath(Dirpath):
-    """Finds the site-packages directory and sets the value of this string to that
-    path
+    """Finds the site-packages directory and sets the value of this string to
+    that path
 
     !!! Ripped from pyt.path which was ripped from pout.path
     """
@@ -4200,23 +4172,23 @@ class SitePackagesDirpath(Dirpath):
                 paths = site.getsitepackages()
                 basepath = paths[0] 
                 logger.debug(
-                    "Found site-packages directory {} using site.getsitepackages".format(
-                        basepath
-                    )
+                    f"Found site-packages directory {basepath}"
+                    " using site.getsitepackages"
                 )
 
             except AttributeError:
-                # we are probably running this in a virtualenv, so let's try a different
-                # approach
-                # try and brute-force discover it since it's not defined where it
-                # should be defined
-                sitepath = os.path.join(os.path.dirname(site.__file__), "site-packages")
+                # we are probably running this in a virtualenv, so let's try a
+                # different approach: try and brute-force discover it since
+                # it's not defined where it should be defined
+                sitepath = os.path.join(
+                    os.path.dirname(site.__file__),
+                    "site-packages"
+                )
                 if os.path.isdir(sitepath):
                     basepath = sitepath
                     logger.debug(
-                        "Found site-packages directory {} using site.__file__".format(
-                            basepath
-                        )
+                        f"Found site-packages directory {basepath}"
+                        " using site.__file__"
                     )
 
                 else:
@@ -4224,9 +4196,8 @@ class SitePackagesDirpath(Dirpath):
                         if path.endswith("site-packages"):
                             basepath = path
                             logger.debug(
-                                "Found site-packages directory {} using sys.path".format(
-                                    basepath
-                                )
+                                "Found site-packages directory {basepath}"
+                                " using sys.path"
                             )
                             break
 
@@ -4235,9 +4206,8 @@ class SitePackagesDirpath(Dirpath):
                             if path.endswith("dist-packages"):
                                 basepath = path
                                 logger.debug(
-                                    "Found dist-packages directory {} using sys.path".format(
-                                        basepath
-                                    )
+                                    f"Found dist-packages directory {basepath}"
+                                    " using sys.path"
                                 )
                                 break
 
