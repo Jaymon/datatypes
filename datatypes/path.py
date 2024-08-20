@@ -561,6 +561,48 @@ class Path(String):
         return path
 
     @classmethod
+    def normpaths(cls, paths, baseparts="", **kwargs):
+        """normalizes the paths from methods like .add_paths() and .add()
+
+        :param paths: dict|list|callable
+            * dict: if paths is a dict, then the keys will be the path part and
+                the value will be the data/contents of the file at the full
+                path. If value is None or empty dict then that path will be
+                considered a directory.
+            * list: if paths is a list then it will be a list of directories to
+                create
+            * callable: a callback that takes a Filepath instance
+        :param baseparts: list, will be merged with the paths keys to create
+            the full path
+        :returns list of tuples, each tuple will be in the form of (parts,
+            data)
+        """
+        ret = []
+        baseparts = cls.splitparts(baseparts or [], **kwargs)
+
+        if paths:
+            if isinstance(paths, Mapping):
+                for k, v in paths.items():
+                    p = cls.splitparts(baseparts, k, **kwargs)
+                    if isinstance(v, Mapping):
+                        ret.extend(cls.normpaths(v, p, **kwargs))
+
+                    else:
+                        ret.append((p, v))
+
+            elif isinstance(paths, Sequence):
+                for k in paths:
+                    ret.append((cls.splitparts(baseparts, k, **kwargs), None))
+
+            else:
+                raise ValueError("Unrecognized value for paths")
+
+        else:
+            ret.append((baseparts, None))
+
+        return ret
+
+    @classmethod
     def normvalue(cls, *parts, **kwargs):
         """normalize a value 
 
@@ -1431,41 +1473,6 @@ class Dirpath(Path):
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.home
         """
         return cls.create_dir(os.path.expanduser("~"))
-
-    @classmethod
-    def normpaths(cls, paths, baseparts="", **kwargs):
-        """normalizes the paths from methods like .add_paths() and .add()
-
-        :param paths: see .add_paths() for description
-        :param baseparts: list, will be merged with the paths keys to create
-            the full path
-        :returns list of tuples, each tuple will be in the form of (parts,
-            data)
-        """
-        ret = []
-        baseparts = cls.splitparts(baseparts or [], **kwargs)
-
-        if paths:
-            if isinstance(paths, Mapping):
-                for k, v in paths.items():
-                    p = cls.splitparts(baseparts, k, **kwargs)
-                    if isinstance(v, Mapping):
-                        ret.extend(cls.normpaths(v, p, **kwargs))
-
-                    else:
-                        ret.append((p, v))
-
-            elif isinstance(paths, Sequence):
-                for k in paths:
-                    ret.append((cls.splitparts(baseparts, k, **kwargs), None))
-
-            else:
-                raise ValueError("Unrecognized value for paths")
-
-        else:
-            ret.append((baseparts, None))
-
-        return ret
 
     @contextmanager
     def as_cwd(self, orig_cwd=None):
