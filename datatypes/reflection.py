@@ -2350,25 +2350,22 @@ class ReflectModule(ReflectObject):
                 module_name += "." + ".".join(parts)
 
             # self.path uses find_module_import_path which calls this method
-            # so we should only use path if we have a cache
+            # so we should only use path if we already have it cached
             path = getattr(self, "_path", None)
 
             if self.module_package:
-                if module_name.startswith("."):
-                    ret = self.import_module(
-                        module_name,
-                        self.module_package,
-                        path=path
-                    )
-
-                else:
+                mname = module_name
+                if not mname.startswith("."):
                     # We compensate for the package existing but the name not
                     # being relative, if we don't do this then the module will
                     # just fail to load
-                    ret = self.import_module(
-                        self.module_package + "." + module_name,
-                        path=path
-                    )
+                    mname = "." + mname
+
+                ret = self.import_module(
+                    mname,
+                    self.module_package,
+                    path=path
+                )
 
             else:
                 ret = self.import_module(
