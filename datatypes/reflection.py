@@ -803,18 +803,29 @@ class ReflectName(String):
         if rm:
             return rm.get_module()
 
-    def get_module_names(self):
+    def get_module_names(self, module_name=""):
         """Get all the module names of the module name
 
         :Example:
             rn = ReflectName("foo.bar.che:FooBar")
             list(rn.get_module_names()) # ["foo", "foo.bar", "foo.bar.che"]
 
+            list(rn.get_module_names("bar")) # ["foo.bar"]
+            list(rn.get_module_names("bar.che")) # ["foo.bar", "foo.bar.che"]
+
+            list(rn.get_module_names("moo")) # []
+
+        :param module_name: str, if this is passed in then only module names
+            that belong to this module_name in some way will be yielded
         :returns: generator[str], each module path starting from the first
             parent module and moving through the paths to the most child 
             module
         """
         modname = ""
+
+        mparts = []
+        if module_name:
+            mparts = module_name.strip(".").split(".")
 
         for p in self.module_parts:
             if modname:
@@ -823,16 +834,35 @@ class ReflectName(String):
             else:
                 modname = p
 
-            yield modname
+            if mparts:
+                if p == mparts[0]:
+                    for mp in mparts[1:]:
+                        yield modname
+                        modname += "." + mp
 
-    def get_modules(self):
-        """Similar to .get_module_names but returns ReflectModule instances"""
-        for rm in self.reflect_modules():
+                    yield modname
+                    break
+
+            else:
+                yield modname
+
+    def get_modules(self, module_name=""):
+        """Similar to .reflect_modules but returns the actual module"""
+        for rm in self.reflect_modules(module_name):
             yield rm.get_module()
 
-    def reflect_modules(self):
-        """Similar to .reflect_modules but returns the actual module"""
-        for modname in self.get_module_names():
+    def reflect_modules(self, module_name=""):
+        """Similar to .get_module_names but returns ReflectModule instances
+
+        :Example:
+            rn = ReflectName("foo.bar.che.bar")
+            mnames = [rm.module_name for rm in rn.reflect_modules("bar.che")]
+            print(mnames) # ["foo.bar", "foo.bar.che"]
+
+        :param module_name: see .get_module_names
+        :returns: generator[ReflectModule]
+        """
+        for modname in self.get_module_names(module_name):
             if modname.startswith("<"):
                 # <run_path> module paths can't be reflected
                 break
@@ -880,6 +910,15 @@ class ReflectName(String):
 
     def resolve(self):
         return pkgutil.resolve_name(self)
+
+    def is_module_relative_to(self, other):
+        """Return whether or not self.module_name is relative to other"""
+        try:
+            self.relative_module_name(other)
+            return True
+
+        except ValueError:
+            return False
 
     def relative_module_name(self, other):
         """Return the relative module path relative to other. This is similar
@@ -2098,6 +2137,13 @@ class ReflectModule(ReflectObject):
     Moved from endpoints.reflection.ReflectModule on Jan 31, 2023
     """
     reflect_class_class = ReflectClass
+
+    @property
+    def module_basename(self):
+        """Return the modules basename (eg, if module_name was "foo.bar.che"
+        then the module basename would be "che"
+        """
+        return self.module_name.split(".")[-1]
 
     @property
     def obj(self):

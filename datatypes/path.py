@@ -1258,8 +1258,11 @@ class Path(String):
             same path. Both os.path.relpath and Pathlib.relative_to return "."
             so I'm sticking with it by default but set this to True to return
             "" instead
+            TODO -- maybe rename this equal_value="." or equal_path="."
         :returns: str, the part of the path that is relative, because these are
             relative paths they can't return Path instances
+        :raises: ValueError, if self isn't in the subpath of other or if
+            other isn't an absolute path
         """
         ret = String(self.pathlib.relative_to(*other))
 

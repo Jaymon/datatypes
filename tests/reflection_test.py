@@ -351,7 +351,7 @@ class ReflectNameTest(TestCase):
         with self.assertRaises(StopIteration):
             it.__next__()
 
-    def test_get_module_names(self):
+    def test_get_module_names_1(self):
         m = self.create_module([
             "class Foo(object):",
             "    pass",
@@ -362,10 +362,41 @@ class ReflectNameTest(TestCase):
         self.assertEqual(3, len(ms))
         self.assertEqual(m, ms[-1])
 
-    def test_reflect_modules(self):
+    def test_get_module_names_module_name(self):
+        p = ReflectName("foo.bar.che.baz.boo")
+        ms = list(p.get_module_names("bar.che.baz"))
+        self.assertEqual(3, len(ms))
+        self.assertTrue("foo.bar" in ms)
+        self.assertTrue("foo.bar.che.baz" in ms)
+        self.assertFalse("foo" in ms)
+        self.assertFalse("foo.bar.che.baz.boo" in ms)
+
+        ms = list(p.get_module_names("moo"))
+        self.assertEqual([], ms)
+
+    def test_reflect_modules_1(self):
         p = ReflectName("<run_path>:Foo.Bar")
         ms = list(p.reflect_modules())
         self.assertEqual(0, len(ms))
+
+    def test_reflect_modules_module_name(self):
+        m = self.create_module({
+            "foo": {
+                "bar": {
+                    "che": "",
+                },
+            }
+        })
+        p = ReflectName(f"{m}.foo.bar.che")
+        for rm in p.reflect_modules("foo.bar"):
+            if rm.module_name.endswith(".foo"):
+                pass
+
+            elif rm.module_name.endswith(".foo.bar"):
+                pass
+
+            else:
+                raise AssertionError(rm.module_name)
 
 
 class ReflectCallableTest(TestCase):
