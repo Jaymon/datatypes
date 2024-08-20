@@ -1205,6 +1205,28 @@ class ReflectModuleTest(TestCase):
         doc = rm.get_docblock()
         self.assertEqual("module docblock", doc)
 
+    def test_get_module_module_package(self):
+        """Makes sure ReflectModule can get the module with a relative
+        module name (eg ".foo.bar") and an absolute module name (eg "foo.bar")
+        """
+        modpath = self.create_module({
+            "foo": {
+                "bar": ""
+            }
+        })
+
+        rm = ReflectModule("foo", modpath)
+        m = rm.get_module()
+        self.assertTrue(m.__name__.endswith(".foo"))
+
+        rm = ReflectModule("foo.bar", modpath)
+        m = rm.get_module()
+        self.assertTrue(m.__name__.endswith(".foo.bar"))
+
+        rm = ReflectModule(".foo.bar", modpath)
+        m = rm.get_module()
+        self.assertTrue(m.__name__.endswith(".foo.bar"))
+
 
 class ReflectPathTest(TestCase):
     def test_find_modules_1(self):
