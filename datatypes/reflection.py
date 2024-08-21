@@ -1000,6 +1000,8 @@ class ReflectObject(object):
 
         else:
             doc = obj.__doc__
+            if doc:
+                doc = inspect.cleandoc(doc)
 
         if not doc:
             # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L1119
