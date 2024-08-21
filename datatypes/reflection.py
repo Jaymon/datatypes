@@ -2608,6 +2608,17 @@ class ReflectModule(ReflectObject):
 
     def get_docblock(self):
         docblock = super().get_docblock()
+
+        if docblock.startswith("!"):
+            # we need to remove the shebang
+            # https://en.wikipedia.org/wiki/Shebang_(Unix)
+            docblock = re.sub(
+                r"^!\S+.*?$",
+                "",
+                docblock,
+                flags=re.MULTILINE
+            ).lstrip()
+
         if docblock.startswith("-*-"):
             # we need to remove the emacs notation variables
             # http://www.python.org/dev/peps/pep-0263/

@@ -1215,7 +1215,7 @@ class ReflectModuleTest(TestCase):
         for p in rm.data_dirs():
             self.assertTrue(p.relative_to(dp) in nr)
 
-    def test_get_docblock(self):
+    def test_get_docblock_1(self):
         m = self.create_module("""
             # -*- coding: utf-8 -*-
             # module docblock
@@ -1235,6 +1235,30 @@ class ReflectModuleTest(TestCase):
         rm = ReflectModule(m)
         doc = rm.get_docblock()
         self.assertEqual("module docblock", doc)
+
+    def test_get_docblock_2(self):
+        """Moved here from captain.reflection_test since captain Commands
+        aren't using module comments anymore"""
+        m = self.create_module("""
+            #!/usr/bin/env python
+            # -*- coding: utf-8 -*-
+            '''the description on module doc'''
+        """)
+        rm = ReflectModule(m)
+        doc = rm.get_docblock()
+        self.assertEqual("the description on module doc", rm.get_docblock())
+
+        m = self.create_module("""
+            #!/usr/bin/env python
+            # -*- coding: utf-8 -*-
+            # the description on module comment
+            # and the second line
+        """)
+        rm = ReflectModule(m)
+        self.assertEqual(
+            "the description on module comment\nand the second line",
+            rm.get_docblock()
+        )
 
     def test_get_module_module_package(self):
         """Makes sure ReflectModule can get the module with a relative
