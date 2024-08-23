@@ -661,16 +661,18 @@ class DictTree(Dict):
         https://en.wikipedia.org/wiki/Tree_(data_structure)#Terminology
 
     Each tree node in the tree has these properties:
-        * .parent - points to the tree node above this tree, this will be
-            None if this is the absolute head tree
-        * .name - the name of the key this tree is in (so 
-            self.parent[self.name] is self), this will be "" if this
-            tree is the absolute head tree
-        * .keys - similar to .name but returns the entire set of
-            names in the order needed to traverse from the absolute head tree
-            back to this tree
-        * .root - the absolute head of the tree
-        * .value - the value at this node key, None if the node has no value
+
+        * .parent: DictTree, points to the tree node above this tree, this
+            will be None if this is the absolute head tree
+        * .name: str, the name of the key this tree is in (so 
+            `self == self.parent[self.name]`), this will be "" if this
+            node is the absolute .root node of the tree
+        * .keys: list[str], similar to .name but returns the entire set of
+            names in the order needed to traverse from the .root node back
+            to this node
+        * .root: DictTree, the absolute head node of the tree
+        * .value: Any, the value at this node of the tree, None if the node
+            has no value
     """
     @property
     def keys(self):
@@ -715,6 +717,7 @@ class DictTree(Dict):
 
         The reason this exists is because the __init__ might be customized
         in a child class and so this can also be customized so nothing fails
+        and .create_node can be left alone since it sets the node properties
 
         :returns: DictTree instance
         """
@@ -723,7 +726,11 @@ class DictTree(Dict):
     def create_node(self, key):
         """If the key doesn't exist then create a new DictTree instance at key
 
-        :returns: DictTree, our new instance already nested
+        A dict tree is really just a DictTree[Dictree], it's DictTree
+        instances all the way down. This uses .create_instance to create the
+        new node and populate the node properties
+
+        :returns: DictTree instance with node properties set
         """
         dt = self.create_instance()
         dt.parent = self
