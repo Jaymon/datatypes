@@ -1542,6 +1542,15 @@ class TempFilepathTest(TestCase):
         self.assertEqual("bar", parts[-1])
         self.assertTrue(len(parts) > 2)
 
+    def test_normparts_name(self):
+        parts = TempFilepath.normparts("")
+        self.assertEqual(2, len(parts))
+
+        parts = TempFilepath.normparts("", name="foo")
+        self.assertEqual(2, len(parts))
+        self.assertNotEqual("/", parts[0])
+        self.assertEqual("foo", parts[-1])
+
 
 class CachepathTest(TestCase):
     def test_create_key(self):

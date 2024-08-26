@@ -5,6 +5,8 @@ import types
 import functools
 import os
 import importlib
+import importlib.util
+import importlib.machinery
 import ast
 import collections
 import pkgutil
@@ -501,6 +503,51 @@ class ReflectPath(Path):
                 )
 
         return rm.get_module()
+
+    def exec_module(self, module_name=""):
+        """Implementation of imp.load_source with the change that it doesn't
+        cache the module in sys.modules
+
+        The python 2.7 imp.load_source doc says:
+
+            Load and initialize a module implemented as a Python source file
+            and return its module object. If the module was already
+            initialized, it will be initialized again.
+
+        This is based on:
+            * https://github.com/python/cpython/pull/105978/files
+            * https://github.com/python/cpython/issues/104212#issuecomment-1560813974
+            * https://stackoverflow.com/a/77401571
+
+        Discussion:
+            * https://docs.python.org/2.7/library/imp.html#imp.load_source
+            * https://github.com/python/cpython/issues/58756
+            * https://github.com/python/cpython/issues/104212#issuecomment-1599697511
+
+        :param module_name: str, the name you want for the module, if nothing
+            is passed in it will use self.fileroot
+        :returns: types.ModuleType
+        """
+        if self.is_dir():
+            fp = self.as_dir().get_file("__init__.py")
+
+        else:
+            fp = self
+
+        if not module_name:
+            module_name = self.fileroot
+
+        loader = importlib.machinery.SourceFileLoader(module_name, fp)
+        spec = importlib.util.spec_from_file_location(
+            module_name,
+            fp,
+            loader=loader
+        )
+        module = importlib.util.module_from_spec(spec)
+
+        # sys.modules[module.__name__] = module
+        loader.exec_module(module)
+        return module
 
     def remote_repository_url(self):
         """Return the remote repository url of this directory

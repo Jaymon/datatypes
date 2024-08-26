@@ -1403,3 +1403,24 @@ class ReflectPathTest(TestCase):
         self.assertTrue(mp.endswith(m.__name__))
         self.assertEqual(1, m.foo)
 
+    def test_exec_module_file(self):
+        fp = self.create_file([
+            "class Foo(object): pass",
+            "foo = Foo()"
+        ])
+        rp = ReflectPath(fp)
+        m1 = rp.exec_module()
+        m2 = rp.exec_module()
+        self.assertNotEqual(m1.foo, m2.foo)
+
+    def test_exec_module_dir(self):
+        fp = self.create_file([
+            "class Foo(object): pass",
+            "foo = Foo()"
+        ], name="__init__.py")
+        dp = fp.dirname
+        rp = ReflectPath(dp)
+        m1 = rp.exec_module()
+        m2 = rp.exec_module()
+        self.assertNotEqual(m1.foo, m2.foo)
+

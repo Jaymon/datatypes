@@ -288,7 +288,7 @@ class Path(String):
     def splitpart(cls, part):
         """Split the part to base and extension
 
-        This tries to be a bit smarter than os.path.split() but just like that
+        This tries to be a bit smarter than os.path.split() but while that
         will fail by being too naive, this will fail by being to smart
 
         https://superuser.com/a/315395/
@@ -309,8 +309,8 @@ class Path(String):
         if ext:
             is_valid = True
             if not base:
-                # there technically is no length limit, but for my purpose if it
-                # is too long it probably isn't valid
+                # there technically is no length limit, but for my purpose if
+                # it is too long it probably isn't valid
                 logger.debug("Extension is too long")
                 is_valid = False
 
@@ -368,16 +368,14 @@ class Path(String):
         ps = []
         regex = kwargs.get("regex", r"[\\/]+")
         root = kwargs.get("root", "/")
-        path_class = cls.path_class()
+        path_classes = (basestring, cls.path_class())
 
         for p in parts:
-            if isinstance(p, (basestring, path_class)) or not isinstance(p, Iterable):
+            if isinstance(p, path_classes) or not isinstance(p, Iterable):
                 s = String(p)
 
-                #if s and p is not None: # if you want to filter None
                 if s:
                     for index, pb in enumerate(re.split(regex, s)):
-                    #for index, pb in enumerate(s.split("/")):
                         if pb:
                             ps.append(re.sub(regex, "", pb))
 
@@ -1951,6 +1949,9 @@ class Dirpath(Path):
     def child(self, *parts):
         """Return a new instance with parts added onto self.path"""
         return self.path_class()(self.path, *parts)
+
+    def get_child(self, *parts):
+        return self.child(*parts)
 
     def child_file(self, *parts, **kwargs):
         return self.file_class()(self.path, *parts, **kwargs)
@@ -3735,6 +3736,13 @@ class TempPath(object):
         # compensate for macOS setting it's temporary dictory to a symlink for
         # some reason by expanding symlinks
         return os.path.realpath(tempfile.gettempdir())
+
+    @classmethod
+    def normparts(cls, *parts, **kwargs):
+        # Path sets a "" part to "/" by default but temp paths have to be more
+        # explicit, empty parts are ignored
+        parts = list(filter(None, parts))
+        return super().normparts(*parts, **kwargs)
 
     @classmethod
     def mktempdir(cls, **kwargs):
