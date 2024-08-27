@@ -2660,6 +2660,7 @@ class ReflectModule(ReflectObject):
 
         if docblock.startswith("!"):
             # we need to remove the shebang
+            # example: #!/usr/bin/env ruby
             # https://en.wikipedia.org/wiki/Shebang_(Unix)
             docblock = re.sub(
                 r"^!\S+.*?$",
@@ -2670,6 +2671,7 @@ class ReflectModule(ReflectObject):
 
         if docblock.startswith("-*-"):
             # we need to remove the emacs notation variables
+            # example: # -*- mode: ruby -*-
             # http://www.python.org/dev/peps/pep-0263/
             # https://stackoverflow.com/questions/14083111/
             # https://stackoverflow.com/questions/4872007/
@@ -2679,6 +2681,15 @@ class ReflectModule(ReflectObject):
                 docblock,
                 flags=re.MULTILINE
             ).lstrip()
+
+        # remove generic editor configuration
+        # example: # vi: set ft=ruby :
+        docblock = re.sub(
+            r"^[^:]+:.*?:$",
+            "",
+            docblock,
+            flags=re.MULTILINE
+        ).lstrip()
 
         return docblock
 

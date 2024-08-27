@@ -1260,6 +1260,21 @@ class ReflectModuleTest(TestCase):
             rm.get_docblock()
         )
 
+    def test_get_docblock_3(self):
+        m = self.create_module("""
+            #!/usr/bin/env python
+            # -*- coding: utf-8 -*-
+            # editor: set name=value :
+            # editor2: set name=value :
+            # description
+        """)
+        rm = ReflectModule(m)
+        self.assertEqual(
+            "description",
+            rm.get_docblock()
+        )
+
+
     def test_get_module_module_package(self):
         """Makes sure ReflectModule can get the module with a relative
         module name (eg ".foo.bar") and an absolute module name (eg "foo.bar")
