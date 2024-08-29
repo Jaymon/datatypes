@@ -726,7 +726,9 @@ class Path(String):
         parts = cls.normparts(*parts, **kwargs)
         path = cls.normpath(*parts, **kwargs)
         value = cls.normvalue(*parts, path=path, **kwargs)
-        # has to be None so create_as works
+
+        # we don't set to cls here because has to be None so create_as works
+        # further down
         path_class = kwargs.pop("path_class", None)
 
         instance = super().__new__(
