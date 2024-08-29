@@ -803,6 +803,9 @@ class DictTree(Dict):
 
         return keys
 
+    def normalize_key(self, key):
+        return key
+
     def get_node(self, keys):
         """Gets the node found at keys, most of the magic happens in this
         method and is a key building block of all the other methods
@@ -815,7 +818,7 @@ class DictTree(Dict):
         """
         keys = self.normalize_keys(keys)
         if keys:
-            node = super().__getitem__(keys[0])
+            node = super().__getitem__(self.normalize_key(keys[0]))
 
             if len(keys) > 1:
                 node = node.get_node(keys[1:])
@@ -852,7 +855,7 @@ class DictTree(Dict):
                 return self.get_node(keys[:-1]).pop(keys[-1])
 
             else:
-                return super().pop(keys[-1]).value
+                return super().pop(self.normalize_key(keys[-1])).value
 
         except KeyError:
             if default:

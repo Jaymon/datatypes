@@ -17,10 +17,15 @@ from .decorators import (
     property as cachedproperty,
     classproperty,
 )
-from .string import String
+from .string import String, NamingConvention
 from .path import Dirpath, Path
 from .config import Config
 from .url import Url
+from .collections.mapping import DictTree
+from . import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class OrderedSubclasses(list):
@@ -345,6 +350,238 @@ class OrderedSubclasses(list):
 
     def copy(self, *args, **kwargs):
         raise NotImplementedError()
+
+
+class ClasspathFinder(DictTree):
+    """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
+    a class added with .add_class
+
+    Like OrderedSubclasses, you'd think this would be a niche thing and not
+    worth being in a common library but I do this exact thing in both Endpoints
+    and Captain and rather than duplicate the code I've moved it here.
+
+    Moved here from Captain and integrated into Endpoints on 2024-08-29. So
+    Endpoints got similar code first. Then I did a similar thing in Captain
+    and Captain's code was much better, so it provided the base for a generic
+    version here
+    """
+    @classmethod
+    def get_prefix_modules(cls, prefixes, **kwargs):
+        """Given a set of prefixes, find all the modules
+
+        This is a helper method that finds all the modules for further
+        processing or calls some class's .__init_subclass__ method when the
+        module is loaded
+
+        :param prefixes: iterator[str], module prefixes are basically module
+            paths (eg, "foo.bar")
+        :returns: dict[str, dict[str, types.ModuleType]], the top-level keys
+            are the prefixes, the value is a dict with module path keys and
+            the module found at the end of that module path
+        """
+        modules = collections.defaultdict(dict)
+        seen = set()
+
+        for prefix in prefixes:
+            logger.debug(f"Checking prefix: {prefix}")
+            rm = ReflectModule(prefix)
+            for m in rm.get_modules():
+                if m.__name__ not in seen:
+                    logger.debug(f"Found module: {m.__name__}")
+                    modules[prefix][m.__name__] = m
+                    seen.add(m.__name__)
+
+        return modules
+
+    @classmethod
+    def get_path_modules(cls, paths, fileroot="", **kwargs):
+        """Given a set of paths, find all the modules
+
+        This is a helper method that finds all the modules for further
+        processing or calls some class's .__init_subclass__ method when the
+        module is loaded
+
+        :param paths: iterator[str|Path], if a path is a directory then
+            `fileroot` is needed to search the directory for matching modules,
+            if the path is a file then it is loaded as a python module
+        :param fileroot: see `fileroot` in `ReflectPath.find_modules`
+        :returns: see .get_prefix_modules since it's the same value
+        """
+        modules = collections.defaultdict(dict)
+        seen = set()
+
+        for path in paths:
+            logger.debug(f"Checking path: {path}")
+            rp = ReflectPath(path)
+            if rp.is_dir():
+                if fileroot:
+                    for m in rp.find_modules(fileroot):
+                        if m.__name__ not in seen:
+                            rn = ReflectName(m.__name__)
+                            prefix = rn.absolute_module_name(fileroot)
+
+                            logger.debug(
+                                f"Found dir module: {m.__name__}"
+                                f" with prefix: {prefix}"
+                            )
+
+                            modules[prefix][m.__name__] = m
+                            seen.add(m.__name__)
+
+            else:
+                if m := rp.get_module():
+                    if m.__name__ not in seen:
+                        logger.debug(f"Found file module: {m.__name__}")
+                        modules[""][m.__name__] = m
+                        seen.add(m.__name__)
+
+        return modules
+
+    def __init__(self, prefixes, default_class_name=""):
+        """
+        :param prefixes: list[str]
+        :param default_class_name: str, if an added class has the same name
+            then don't consider the classname when creating the path
+        """
+        super().__init__()
+
+        self.prefixes = prefixes
+        self.default_class_name = default_class_name
+        self.find_keys = {}
+
+        self.set([], self._get_node_value([]))
+
+    def create_instance(self):
+        """Internal method that makes sure creating sub-instances of this
+        class when creating nodes doesn't error out"""
+        return type(self)(
+            prefixes=self.prefixes,
+            default_class_name=self.default_class_name
+        )
+
+    def create_node(self, key):
+        """override parent to set find keys"""
+        node = super().create_node(key)
+        self._set_find_keys(key, node)
+        return node
+
+    def normalize_key(self, key):
+        """override parent to normalize key using .find_keys"""
+        return self.find_keys[key]
+
+    def _set_find_keys(self, key, node):
+        """Whenever a new node is created this will be called, it populates
+        the .find_keys used in .normalize_key"""
+        if key not in self.find_keys:
+            self.find_keys[key] = key
+
+            nc = NamingConvention(key)
+            for vk in nc.variations():
+                self.find_keys[vk] = key
+
+    def _get_node_key(self, key):
+        """Internal method. Get the normalized key and possible aliases for
+        the key
+
+        :param key: str, this will be normalized
+        :returns: tuple(str, set[str]), the actual key value figured out from
+            the passed in key and then all the potential aliases for that
+            key
+        """
+        return key
+
+    def _get_module_key(self, key):
+        """Internal method. Get a key for the module part of the classpath"""
+        return self._get_node_key(key)
+
+    def _get_class_key(self, key):
+        """Internal method. Get a key for the class part of the classpath"""
+        if self.default_class_name and key == self.default_class_name:
+            return ""
+
+        else:
+            return self._get_node_key(key)
+
+    def _get_node_value(self, keys, **kwargs):
+        """Internal method. Gets the node value"""
+        return kwargs
+
+    def _get_module_value(self, keys, **kwargs):
+        """Internal method. Gets the node value for a module"""
+        return self._get_node_value(keys, **kwargs)
+
+    def _get_class_value(self, keys, **kwargs):
+        """Internal method. Gets the node value for a class"""
+        return self._get_node_value(keys, **kwargs)
+
+    def _get_node_values(self, klass):
+        """Internal method. This yields the keys and values that will be
+        used to create new nodes in this tree
+
+        :returns: generator[tuple(list[str], Any)], the keys and value for
+            a node in the tree
+        """
+        classpath = f"{klass.__module__}:{klass.__qualname__}"
+        rn = ReflectName(classpath)
+
+        keys = []
+        module_keys = []
+        class_keys = []
+
+        for prefix in self.prefixes:
+            if rn.is_module_relative_to(prefix):
+                if modname := rn.relative_module_name(prefix):
+                    for rm in rn.reflect_modules(modname):
+                        if key := self._get_module_key(rm.module_basename):
+                            keys.append(key)
+                            module_keys.append(key)
+
+                        value = self._get_module_value(
+                            keys,
+                            module=rm.get_module()
+                        )
+                        yield keys, value
+
+                break
+
+        # we can't use rn.get_classes() here because classpath could be
+        # something like: `<run_path>:ClassPrefix.Command` and so we can't
+        # actually get the module
+        class_i = len(rn.class_names) - 1
+        for i, class_name in enumerate(rn.class_names):
+            node_kwargs = {
+                "class_name": class_name,
+            }
+
+            if class_i == i:
+                node_kwargs["class"] = klass
+                node_kwargs["module_keys"] = module_keys
+                node_kwargs["class_keys"] = class_keys
+
+            if key := self._get_class_key(class_name):
+                keys.append(key)
+                class_keys.append(key)
+
+            value = self._get_class_value(keys, **node_kwargs)
+#             if class_name == self.default_class_name:
+#                 value = self._get_node_value(keys, **node_kwargs)
+# 
+#             else:
+#                 key = self._get_node_key(class_name)
+#                 keys.append(key)
+#                 class_keys.append(key)
+#                 value = self._get_node_value(keys, **node_kwargs)
+
+            yield keys, value
+
+    def add_class(self, klass):
+        """This is the method that should be used to add new classes to the
+        tree
+
+        :param klass: type, the class to add to the tree
+        """
+        for keys, value in self._get_node_values(klass):
+            self.set(keys, value)
 
 
 class Extend(object):

@@ -13,6 +13,7 @@ from datatypes.reflection import (
     OrderedSubclasses,
     ReflectPath,
     ReflectCallable,
+    ClasspathFinder,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
@@ -174,6 +175,91 @@ class OrderedSubclassesTest(TestCase):
         for c in ocs.getmro(Bar):
             orders.append(c)
         self.assertEqual([Bar, Foo], orders)
+
+
+class ClasspathFinderTest(TestCase):
+    def test_add_class(self):
+        prefix = self.get_module_name(2)
+        modpath = self.create_module(
+            [
+                "class Foo(object): pass",
+                "class CheBoo(Foo): pass",
+                "class Default(Foo): pass",
+            ],
+            modpath=prefix + ".foo_bar",
+        )
+
+        m = modpath.get_module()
+        pf = ClasspathFinder([prefix], "Default")
+        pf.add_class(m.Foo)
+        pf.add_class(m.CheBoo)
+        pf.add_class(m.Default)
+
+        value = pf.get(["foo-bar"])
+
+        self.assertEqual("Default", value["class"].__name__)
+
+        value = pf.get(["foo-bar", "che-boo"])
+        self.assertEqual("CheBoo", value["class"].__name__)
+
+        value = pf.get(["foo-bar", "foo"])
+        self.assertEqual("Foo", value["class"].__name__)
+
+    def test_add_default_class(self):
+        prefix = self.create_module("class Default(object): pass")
+        m = prefix.get_module()
+        pf = ClasspathFinder([prefix], "Default")
+        pf.add_class(m.Default)
+        self.assertEqual(m.Default, pf[[]]["class"])
+
+    def test_get_prefix_modules(self):
+        prefix = self.create_module({
+            "foo": "",
+            "bar": {
+                "che": "",
+            }
+        })
+
+        ms = ClasspathFinder.get_prefix_modules([prefix])
+        self.assertEqual(1, len(ms))
+        self.assertEqual(4, len(ms[prefix]))
+
+    def test_get_path_modules_file(self):
+        path = self.create_file(ext="py")
+        ms = ClasspathFinder.get_path_modules([path])
+        self.assertEqual(1, len(ms))
+        self.assertEqual(1, len(ms[""]))
+
+    def test_get_path_modules_dir(self):
+        path = self.create_modules({
+            "cheboo": {
+                "foobar": {
+                    "foo": "",
+                    "bar": {
+                        "che": "",
+                    }
+                },
+                "ignored": "",
+            }
+        })
+
+        ms = ClasspathFinder.get_path_modules([path], "foobar")
+        self.assertEqual(1, len(ms))
+        self.assertEqual(4, len(ms["cheboo.foobar"]))
+
+#     def test_paths_depth_1(self):
+#         """Moved from endpoints.call.Router on 2024-08-29"""
+#         for cb in [self.create_module, self.create_package]:
+#             modpath = cb(
+#                 "class Foo(object): pass",
+#                 count=2,
+#                 name="controllers"
+#             )
+# 
+#             cs = ClasspathFinder(paths=[modpath.basedir])
+#             self.assertTrue(
+#                 issubclass(cs["foo"]["module"].Foo, object)
+#             )
 
 
 class ExtendTest(TestCase):
