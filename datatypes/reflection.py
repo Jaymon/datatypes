@@ -437,16 +437,21 @@ class ClasspathFinder(DictTree):
 
         return modules
 
-    def __init__(self, prefixes, default_class_name=""):
+    def __init__(self, prefixes, ignore_class_keys=None, ignore_module_keys=None):
         """
         :param prefixes: list[str]
-        :param default_class_name: str, if an added class has the same name
-            then don't consider the classname when creating the path
+        :param ignore_class_keys: set[str], used in ._get_node_values to
+            ignore certain class names/keys if they are in this set
+        :param ignore_module_keys: set[str], used in ._get_node_values to
+            ignore certain module names/keys if they are in this set
         """
         super().__init__()
 
         self.prefixes = prefixes
-        self.default_class_name = default_class_name
+
+        self.ignore_class_keys = set(ignore_class_keys or [])
+        self.ignore_module_keys = set(ignore_module_keys or [])
+
         self.find_keys = {}
 
         self.set([], self._get_node_value([]))
@@ -456,7 +461,8 @@ class ClasspathFinder(DictTree):
         class when creating nodes doesn't error out"""
         return type(self)(
             prefixes=self.prefixes,
-            default_class_name=self.default_class_name
+            ignore_class_keys=self.ignore_class_keys,
+            ignore_module_keys=self.ignore_module_keys,
         )
 
     def create_node(self, key):
@@ -492,11 +498,15 @@ class ClasspathFinder(DictTree):
 
     def _get_module_key(self, key):
         """Internal method. Get a key for the module part of the classpath"""
-        return self._get_node_key(key)
+        if key in self.ignore_module_keys:
+            return ""
+
+        else:
+            return self._get_node_key(key)
 
     def _get_class_key(self, key):
         """Internal method. Get a key for the class part of the classpath"""
-        if self.default_class_name and key == self.default_class_name:
+        if key in self.ignore_class_keys:
             return ""
 
         else:
@@ -563,15 +573,6 @@ class ClasspathFinder(DictTree):
                 class_keys.append(key)
 
             value = self._get_class_value(keys, **node_kwargs)
-#             if class_name == self.default_class_name:
-#                 value = self._get_node_value(keys, **node_kwargs)
-# 
-#             else:
-#                 key = self._get_node_key(class_name)
-#                 keys.append(key)
-#                 class_keys.append(key)
-#                 value = self._get_node_value(keys, **node_kwargs)
-
             yield keys, value
 
     def add_class(self, klass):

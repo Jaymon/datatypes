@@ -190,7 +190,7 @@ class ClasspathFinderTest(TestCase):
         )
 
         m = modpath.get_module()
-        pf = ClasspathFinder([prefix], "Default")
+        pf = ClasspathFinder([prefix], ignore_class_keys=["Default"])
         pf.add_class(m.Foo)
         pf.add_class(m.CheBoo)
         pf.add_class(m.Default)
@@ -208,7 +208,7 @@ class ClasspathFinderTest(TestCase):
     def test_add_default_class(self):
         prefix = self.create_module("class Default(object): pass")
         m = prefix.get_module()
-        pf = ClasspathFinder([prefix], "Default")
+        pf = ClasspathFinder([prefix], ignore_class_keys=["Default"])
         pf.add_class(m.Default)
         self.assertEqual(m.Default, pf[[]]["class"])
 
