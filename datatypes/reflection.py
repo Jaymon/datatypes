@@ -366,6 +366,29 @@ class ClasspathFinder(DictTree):
     version here
     """
     @classmethod
+    def find_modules(cls, prefixes=None, paths=None, fileroot=""):
+        """Tries to find modules to pass into .__init__ by first checking
+        prefixes, then paths using fileroot if applicable
+
+        :param prefixes: see .get_prefix_modules
+        :param paths: see .get_path_modules
+        :param fileroot: see .get_path_modules
+        :returns: see .get_prefix_modules return value
+        """
+        modules = {}
+
+        if prefixes:
+            modules = cls.get_prefix_modules(prefixes)
+
+        elif paths:
+            modules = self.pathfinder_class.get_path_modules(
+                paths,
+                fileroot
+            )
+
+        return modules
+
+    @classmethod
     def get_prefix_modules(cls, prefixes, **kwargs):
         """Given a set of prefixes, find all the modules
 
@@ -381,6 +404,7 @@ class ClasspathFinder(DictTree):
         """
         modules = collections.defaultdict(dict)
         seen = set()
+        prefixes = prefixes or []
 
         for prefix in prefixes:
             logger.debug(f"Checking prefix: {prefix}")
@@ -409,6 +433,7 @@ class ClasspathFinder(DictTree):
         """
         modules = collections.defaultdict(dict)
         seen = set()
+        paths = paths or []
 
         for path in paths:
             logger.debug(f"Checking path: {path}")
@@ -437,12 +462,7 @@ class ClasspathFinder(DictTree):
 
         return modules
 
-    def __init__(
-        self,
-        prefixes=None,
-        ignore_class_keys=None,
-        ignore_module_keys=None
-    ):
+    def __init__(self, prefixes=None, **kwargs):
         """
         :param prefixes: list[str]
         :param ignore_class_keys: set[str], used in ._get_node_values to
@@ -453,10 +473,8 @@ class ClasspathFinder(DictTree):
         super().__init__()
 
         self.prefixes = prefixes or set()
-        self.ignore_class_keys = set(ignore_class_keys or [])
-        self.ignore_module_keys = set(ignore_module_keys or [])
-
         self.find_keys = {}
+        self.kwargs = kwargs # convenience for default .create_instance
 
         #self.set([], self._get_node_value([]))
 
@@ -465,8 +483,7 @@ class ClasspathFinder(DictTree):
         class when creating nodes doesn't error out"""
         return type(self)(
             prefixes=self.prefixes,
-            ignore_class_keys=self.ignore_class_keys,
-            ignore_module_keys=self.ignore_module_keys,
+            **self.kwargs,
         )
 
     def set_node(self, key, node, value):
@@ -488,30 +505,6 @@ class ClasspathFinder(DictTree):
         """override parent to normalize key using .find_keys"""
         return self.find_keys.get(key, key)
 
-#     def _get_module_key(self, key):
-#         """Internal method. Get a key for the module part of the classpath"""
-#         if key in self.ignore_module_keys:
-#             return ""
-# 
-#         else:
-#             return key
-# 
-#     def _get_class_key(self, key):
-#         """Internal method. Get a key for the class part of the classpath"""
-#         if key in self.ignore_class_keys:
-#             return ""
-# 
-#         else:
-#             return self._get_node_key(key)
-# 
-#     def _get_module_value(self, keys, **kwargs):
-#         """Internal method. Gets the node value for a module"""
-#         return kwargs
-# 
-#     def _get_class_value(self, keys, **kwargs):
-#         """Internal method. Gets the node value for a class"""
-#         return kwargs
-
     def _get_classpath(self, klass):
         """Internal method. Get the classpath (<MODULE_NAME>:<CLASS_QUALNAME>)
         for klass"""
@@ -521,14 +514,6 @@ class ClasspathFinder(DictTree):
             )
 
         return f"{klass.__module__}:{klass.__qualname__}"
-
-#         if "<" in classpath:
-#             raise ValueError(
-#                 f"{classpath} is inaccessible"
-#             )
-# 
-#         return classpath
-
 
     def _get_node_module_info(self, key, **kwargs):
         return key, {"module": kwargs["module"]}
@@ -579,29 +564,6 @@ class ClasspathFinder(DictTree):
 
                         yield nkwargs["keys"], v
 
-#                         key, nkwargs["keys"], value = self._get_node_module_info(
-#                             rm.module_basename,
-#                             **nkwargs
-#                         )
-# 
-#                         if nkwargs["keys"]:
-#                             nkwargs["module_keys"].append(nkwargs["keys"][-1])
-# 
-#                         yield nkwargs["keys"], value
-
-#                         if key := self._get_module_key(rm.module_basename):
-#                             keys.append(key)
-#                             module_keys.append(key)
-# 
-#                         keys, value = self._get_module_value(
-#                             key,
-#                             module=rm.get_module(),
-#                             module_keys=module_keys,
-#                             class_keys=class_keys,
-#                             keys=keys
-#                         )
-#                         yield keys, value
-
                 break
 
         # we can't use rn.get_classes() here because classpath could be
@@ -624,22 +586,6 @@ class ClasspathFinder(DictTree):
 
             yield nkwargs["keys"], v
 
-#             node_kwargs = {
-#                 "class_name": class_name,
-#             }
-# 
-#             if class_i == i:
-#                 node_kwargs["class"] = klass
-#                 node_kwargs["module_keys"] = module_keys
-#                 node_kwargs["class_keys"] = class_keys
-# 
-#             if key := self._get_class_key(class_name):
-#                 keys.append(key)
-#                 class_keys.append(key)
-# 
-#             value = self._get_class_value(keys, **node_kwargs)
-#             yield keys, value
-
     def add_class(self, klass):
         """This is the method that should be used to add new classes to the
         tree
@@ -650,6 +596,7 @@ class ClasspathFinder(DictTree):
             self.set(keys, value)
 
     def add_classes(self, classes):
+        """Adds all the classes using .add_class"""
         for klass in classes:
             self.add_class(klass)
 
