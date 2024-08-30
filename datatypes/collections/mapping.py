@@ -664,7 +664,7 @@ class DictTree(Dict):
 
         * .parent: DictTree, points to the tree node above this tree, this
             will be None if this is the absolute head tree
-        * .name: str, the name of the key this tree is in (so 
+        * .key: str, the name of the key this tree is in (so 
             `self == self.parent[self.name]`), this will be "" if this
             node is the absolute .root node of the tree
         * .keys: list[str], similar to .name but returns the entire set of
@@ -680,17 +680,17 @@ class DictTree(Dict):
 
         :returns: list[str]
         """
-        keys = [self.name]
+        keys = [self.key]
         parent = self
         while parent := parent.parent:
-            keys.append(parent.name)
+            keys.append(parent.key)
         return list(reversed(keys[:-1]))
 
     def __init__(self, *args, **kwargs):
         """This should support all the standard dict init signatures"""
         self.root = self
         self.parent = None
-        self.name = ""
+        self.key = ""
         self.value = None
 
         super().__init__()
@@ -712,31 +712,31 @@ class DictTree(Dict):
                 self.set(k, v)
 
     def create_instance(self):
-        """Internal method. Called from .create_node and is only responsible
+        """Internal method. Called from .set_node and is only responsible
         for creating an instance of this class.
 
         The reason this exists is because the __init__ might be customized
         in a child class and so this can also be customized so nothing fails
-        and .create_node can be left alone since it sets the node properties
+        and .set_node can be left alone since it sets the node properties
 
         :returns: DictTree instance
         """
         return type(self)()
 
-    def create_node(self, key):
-        """If the key doesn't exist then create a new DictTree instance at key
-
-        A dict tree is really just a DictTree[Dictree], it's DictTree
-        instances all the way down. This uses .create_instance to create the
-        new node and populate the node properties
-
-        :returns: DictTree instance with node properties set
-        """
-        dt = self.create_instance()
-        dt.parent = self
-        dt.name = key
-        dt.root = self.root
-        return dt
+#     def create_node(self, key):
+#         """If the key doesn't exist then create a new DictTree instance at key
+# 
+#         A dict tree is really just a DictTree[Dictree], it's DictTree
+#         instances all the way down. This uses .create_instance to create the
+#         new node and populate the node properties
+# 
+#         :returns: DictTree instance with node properties set
+#         """
+#         dt = self.create_instance()
+#         dt.parent = self
+#         dt.key = key
+#         dt.root = self.root
+#         return dt
 
     def __getitem__(self, keys):
         """Allow list access in normal dict interactions
@@ -777,23 +777,47 @@ class DictTree(Dict):
         keys = self.normalize_keys(keys)
 
         if len(keys) > 1:
-            if keys[0] not in self:
-                super().__setitem__(keys[0], self.create_node(keys[0]))
+            key = self.normalize_key(keys[0])
+            if key not in self:
+                self.set_node(key, self.create_instance(), None)
+                #super().__setitem__(key, self.create_node(key))
 
-            super().__getitem__(keys[0]).set(keys[1:], value)
+            super().__getitem__(key).set(keys[1:], value)
 
         else:
             if keys:
-                if keys[0] not in self:
-                    super().__setitem__(keys[0], self.create_node(keys[0]))
+                key = self.normalize_key(keys[0])
+                value = self.normalize_value(value)
+                if key not in self:
+                    self.set_node(key, self.create_instance(), value)
+                    #super().__setitem__(key, self.create_node(key))
 
-                super().__getitem__(keys[0]).value = value
+                else:
+                    super().__getitem__(key).value = value
+
+                    #                 n = super().__getitem__(key)
+#                 key, value = n.normalize_item(key, value)
+#                 n.value = value
+                #super().__getitem__(key).value = value
 
             else:
-                self.value = value
+                # root of the tree
+                self.value = self.normalize_value(value)
+
+    def set_node(self, key, node, value):
+        """
+        NOTE -- this is never called for the root node
+        """
+        node.parent = self
+        node.key = key
+        node.root = self.root
+        node.value = value
+        super().__setitem__(key, node)
 
     def normalize_keys(self, keys):
         """Internal method. This makes sure keys is a sequence
+
+        Called on both set and get
 
         :param keys: list[hashable]|tuple[hashable, ...]|hashable
         :returns: sequence[hashable]
@@ -804,7 +828,29 @@ class DictTree(Dict):
         return keys
 
     def normalize_key(self, key):
+        """Internal method. Hook that is called right before key is used
+        to access
+
+        Called on both set and get
+
+        :param key: Hashable
+        :returns: Hashable
+        """
         return key
+
+    def normalize_value(self, value):
+        """Internal method. Hook that is called right before value is set
+        into the node.
+
+        Called *only* on set
+
+        :param value: Any
+        :returns: Any
+        """
+        return value
+
+#     def normalize_item(self, key, value):
+#         return key, value
 
     def get_node(self, keys):
         """Gets the node found at keys, most of the magic happens in this

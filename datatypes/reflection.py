@@ -387,7 +387,7 @@ class ClasspathFinder(DictTree):
             rm = ReflectModule(prefix)
             for m in rm.get_modules():
                 if m.__name__ not in seen:
-                    logger.debug(f"Found module: {m.__name__}")
+                    logger.debug(f"Found prefix module: {m.__name__}")
                     modules[prefix][m.__name__] = m
                     seen.add(m.__name__)
 
@@ -437,7 +437,12 @@ class ClasspathFinder(DictTree):
 
         return modules
 
-    def __init__(self, prefixes, ignore_class_keys=None, ignore_module_keys=None):
+    def __init__(
+        self,
+        prefixes=None,
+        ignore_class_keys=None,
+        ignore_module_keys=None
+    ):
         """
         :param prefixes: list[str]
         :param ignore_class_keys: set[str], used in ._get_node_values to
@@ -447,8 +452,7 @@ class ClasspathFinder(DictTree):
         """
         super().__init__()
 
-        self.prefixes = prefixes
-
+        self.prefixes = prefixes or set()
         self.ignore_class_keys = set(ignore_class_keys or [])
         self.ignore_module_keys = set(ignore_module_keys or [])
 
@@ -465,15 +469,24 @@ class ClasspathFinder(DictTree):
             ignore_module_keys=self.ignore_module_keys,
         )
 
-    def create_node(self, key):
+    def set_node(self, key, node, value):
         """override parent to set find keys"""
-        node = super().create_node(key)
-        self._set_find_keys(key, node)
-        return node
+        super().set_node(key, node, value)
+
+        if key not in self.find_keys:
+            self.find_keys[key] = key
+
+            nc = NamingConvention(key)
+            for vk in nc.variations():
+                self.find_keys[vk] = key
+
+#         node = super().create_node(key)
+#         self._set_find_keys(key, node)
+#         return node
 
     def normalize_key(self, key):
         """override parent to normalize key using .find_keys"""
-        return self.find_keys[key]
+        return self.find_keys.get(key, key)
 
     def _set_find_keys(self, key, node):
         """Whenever a new node is created this will be called, it populates
@@ -524,6 +537,11 @@ class ClasspathFinder(DictTree):
         """Internal method. Gets the node value for a class"""
         return self._get_node_value(keys, **kwargs)
 
+    def _get_classpath(self, klass):
+        """Internal method. Get the classpath (<MODULE_NAME>:<CLASS_QUALNAME>)
+        for klass"""
+        return f"{klass.__module__}:{klass.__qualname__}"
+
     def _get_node_values(self, klass):
         """Internal method. This yields the keys and values that will be
         used to create new nodes in this tree
@@ -531,8 +549,7 @@ class ClasspathFinder(DictTree):
         :returns: generator[tuple(list[str], Any)], the keys and value for
             a node in the tree
         """
-        classpath = f"{klass.__module__}:{klass.__qualname__}"
-        rn = ReflectName(classpath)
+        rn = ReflectName(self._get_classpath(klass))
 
         keys = []
         module_keys = []

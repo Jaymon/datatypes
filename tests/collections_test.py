@@ -888,13 +888,16 @@ class DictTreeTest(TestCase):
 
         d[["foo", "bar"]] = 1
         self.assertEqual(d, d.get_node("foo").parent)
-        self.assertEqual("foo", d.get_node("foo").name)
+        self.assertEqual("foo", d.get_node("foo").key)
 
         d[["foo", "baz", "che"]] = 2
-        self.assertEqual("baz", d.get_node(["foo", "baz"]).name)
+        self.assertEqual("baz", d.get_node(["foo", "baz"]).key)
         self.assertEqual(["foo", "baz"], d.get_node(["foo", "baz"]).keys)
 
         self.assertEqual(d, d.get_node(["foo", "baz"]).root)
+
+        # root should have an empty list as keys
+        self.assertEqual([], d.keys)
 
     def test_get_node(self):
         d = DictTree([

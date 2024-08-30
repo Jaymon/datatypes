@@ -247,20 +247,6 @@ class ClasspathFinderTest(TestCase):
         self.assertEqual(1, len(ms))
         self.assertEqual(4, len(ms["cheboo.foobar"]))
 
-#     def test_paths_depth_1(self):
-#         """Moved from endpoints.call.Router on 2024-08-29"""
-#         for cb in [self.create_module, self.create_package]:
-#             modpath = cb(
-#                 "class Foo(object): pass",
-#                 count=2,
-#                 name="controllers"
-#             )
-# 
-#             cs = ClasspathFinder(paths=[modpath.basedir])
-#             self.assertTrue(
-#                 issubclass(cs["foo"]["module"].Foo, object)
-#             )
-
 
 class ExtendTest(TestCase):
     def test_property(self):
