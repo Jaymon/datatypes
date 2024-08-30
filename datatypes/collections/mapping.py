@@ -723,21 +723,6 @@ class DictTree(Dict):
         """
         return type(self)()
 
-#     def create_node(self, key):
-#         """If the key doesn't exist then create a new DictTree instance at key
-# 
-#         A dict tree is really just a DictTree[Dictree], it's DictTree
-#         instances all the way down. This uses .create_instance to create the
-#         new node and populate the node properties
-# 
-#         :returns: DictTree instance with node properties set
-#         """
-#         dt = self.create_instance()
-#         dt.parent = self
-#         dt.key = key
-#         dt.root = self.root
-#         return dt
-
     def __getitem__(self, keys):
         """Allow list access in normal dict interactions
 
@@ -780,7 +765,6 @@ class DictTree(Dict):
             key = self.normalize_key(keys[0])
             if key not in self:
                 self.set_node(key, self.create_instance(), None)
-                #super().__setitem__(key, self.create_node(key))
 
             super().__getitem__(key).set(keys[1:], value)
 
@@ -790,23 +774,23 @@ class DictTree(Dict):
                 value = self.normalize_value(value)
                 if key not in self:
                     self.set_node(key, self.create_instance(), value)
-                    #super().__setitem__(key, self.create_node(key))
 
                 else:
                     super().__getitem__(key).value = value
-
-                    #                 n = super().__getitem__(key)
-#                 key, value = n.normalize_item(key, value)
-#                 n.value = value
-                #super().__getitem__(key).value = value
 
             else:
                 # root of the tree
                 self.value = self.normalize_value(value)
 
     def set_node(self, key, node, value):
-        """
-        NOTE -- this is never called for the root node
+        """Set `node` into `self` at `key` with `value`
+
+        NOTE -- this is never called for the root node since it is never set
+        into another node
+
+        :param key: Hashable, already ran through .normalize_key
+        :param node: ClasspathFinder, freshly created with .create_instance
+        :param value: Any, already ran through .normalize_value
         """
         node.parent = self
         node.key = key
@@ -848,9 +832,6 @@ class DictTree(Dict):
         :returns: Any
         """
         return value
-
-#     def normalize_item(self, key, value):
-#         return key, value
 
     def get_node(self, keys):
         """Gets the node found at keys, most of the magic happens in this

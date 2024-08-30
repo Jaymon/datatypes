@@ -470,7 +470,11 @@ class ClasspathFinder(DictTree):
         )
 
     def set_node(self, key, node, value):
-        """override parent to set find keys"""
+        """override parent to set find keys
+
+        Whenever a new node is created this will be called, it populates
+        the .find_keys used in .normalize_key
+        """
         super().set_node(key, node, value)
 
         if key not in self.find_keys:
@@ -480,23 +484,9 @@ class ClasspathFinder(DictTree):
             for vk in nc.variations():
                 self.find_keys[vk] = key
 
-#         node = super().create_node(key)
-#         self._set_find_keys(key, node)
-#         return node
-
     def normalize_key(self, key):
         """override parent to normalize key using .find_keys"""
         return self.find_keys.get(key, key)
-
-    def _set_find_keys(self, key, node):
-        """Whenever a new node is created this will be called, it populates
-        the .find_keys used in .normalize_key"""
-        if key not in self.find_keys:
-            self.find_keys[key] = key
-
-            nc = NamingConvention(key)
-            for vk in nc.variations():
-                self.find_keys[vk] = key
 
     def _get_node_key(self, key):
         """Internal method. Get the normalized key and possible aliases for
