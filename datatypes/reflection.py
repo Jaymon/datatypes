@@ -458,7 +458,7 @@ class ClasspathFinder(DictTree):
 
         self.find_keys = {}
 
-        self.set([], self._get_node_value([]))
+        #self.set([], self._get_node_value([]))
 
     def create_instance(self):
         """Internal method that makes sure creating sub-instances of this
@@ -488,51 +488,63 @@ class ClasspathFinder(DictTree):
         """override parent to normalize key using .find_keys"""
         return self.find_keys.get(key, key)
 
-    def _get_node_key(self, key):
-        """Internal method. Get the normalized key and possible aliases for
-        the key
-
-        :param key: str, this will be normalized
-        :returns: tuple(str, set[str]), the actual key value figured out from
-            the passed in key and then all the potential aliases for that
-            key
-        """
-        return key
-
-    def _get_module_key(self, key):
-        """Internal method. Get a key for the module part of the classpath"""
-        if key in self.ignore_module_keys:
-            return ""
-
-        else:
-            return self._get_node_key(key)
-
-    def _get_class_key(self, key):
-        """Internal method. Get a key for the class part of the classpath"""
-        if key in self.ignore_class_keys:
-            return ""
-
-        else:
-            return self._get_node_key(key)
-
-    def _get_node_value(self, keys, **kwargs):
-        """Internal method. Gets the node value"""
-        return kwargs
-
-    def _get_module_value(self, keys, **kwargs):
-        """Internal method. Gets the node value for a module"""
-        return self._get_node_value(keys, **kwargs)
-
-    def _get_class_value(self, keys, **kwargs):
-        """Internal method. Gets the node value for a class"""
-        return self._get_node_value(keys, **kwargs)
+#     def _get_module_key(self, key):
+#         """Internal method. Get a key for the module part of the classpath"""
+#         if key in self.ignore_module_keys:
+#             return ""
+# 
+#         else:
+#             return key
+# 
+#     def _get_class_key(self, key):
+#         """Internal method. Get a key for the class part of the classpath"""
+#         if key in self.ignore_class_keys:
+#             return ""
+# 
+#         else:
+#             return self._get_node_key(key)
+# 
+#     def _get_module_value(self, keys, **kwargs):
+#         """Internal method. Gets the node value for a module"""
+#         return kwargs
+# 
+#     def _get_class_value(self, keys, **kwargs):
+#         """Internal method. Gets the node value for a class"""
+#         return kwargs
 
     def _get_classpath(self, klass):
         """Internal method. Get the classpath (<MODULE_NAME>:<CLASS_QUALNAME>)
         for klass"""
+        if "<" in klass.__qualname__:
+            raise ValueError(
+                f"{klass.__qualname__} is programmatically inaccessible"
+            )
+
         return f"{klass.__module__}:{klass.__qualname__}"
 
-    def _get_node_values(self, klass):
+#         if "<" in classpath:
+#             raise ValueError(
+#                 f"{classpath} is inaccessible"
+#             )
+# 
+#         return classpath
+
+
+    def _get_node_module_info(self, key, **kwargs):
+        return key, {"module": kwargs["module"]}
+
+    def _get_node_class_info(self, key, **kwargs):
+        value = {
+            "class_name": kwargs["class_name"]
+        }
+        if "class" in kwargs:
+            value["class"] = kwargs["class"]
+            value["module_keys"] = kwargs["module_keys"]
+            value["class_keys"] = kwargs["class_keys"] + [key]
+
+        return key, value
+
+    def _get_node_items(self, klass):
         """Internal method. This yields the keys and values that will be
         used to create new nodes in this tree
 
@@ -545,19 +557,50 @@ class ClasspathFinder(DictTree):
         module_keys = []
         class_keys = []
 
+        nkwargs = {
+            "keys": [],
+            "module_keys": [],
+            "class_keys": [],
+        }
+
         for prefix in self.prefixes:
             if rn.is_module_relative_to(prefix):
                 if modname := rn.relative_module_name(prefix):
                     for rm in rn.reflect_modules(modname):
-                        if key := self._get_module_key(rm.module_basename):
-                            keys.append(key)
-                            module_keys.append(key)
+                        nkwargs["module"] = rm.get_module()
 
-                        value = self._get_module_value(
-                            keys,
-                            module=rm.get_module()
+                        k, v = self._get_node_module_info(
+                            rm.module_basename,
+                            **nkwargs
                         )
-                        yield keys, value
+                        if k is not None:
+                            nkwargs["keys"].append(k)
+                            nkwargs["module_keys"].append(k)
+
+                        yield nkwargs["keys"], v
+
+#                         key, nkwargs["keys"], value = self._get_node_module_info(
+#                             rm.module_basename,
+#                             **nkwargs
+#                         )
+# 
+#                         if nkwargs["keys"]:
+#                             nkwargs["module_keys"].append(nkwargs["keys"][-1])
+# 
+#                         yield nkwargs["keys"], value
+
+#                         if key := self._get_module_key(rm.module_basename):
+#                             keys.append(key)
+#                             module_keys.append(key)
+# 
+#                         keys, value = self._get_module_value(
+#                             key,
+#                             module=rm.get_module(),
+#                             module_keys=module_keys,
+#                             class_keys=class_keys,
+#                             keys=keys
+#                         )
+#                         yield keys, value
 
                 break
 
@@ -566,21 +609,36 @@ class ClasspathFinder(DictTree):
         # actually get the module
         class_i = len(rn.class_names) - 1
         for i, class_name in enumerate(rn.class_names):
-            node_kwargs = {
-                "class_name": class_name,
-            }
+            nkwargs["class_name"] = class_name
 
             if class_i == i:
-                node_kwargs["class"] = klass
-                node_kwargs["module_keys"] = module_keys
-                node_kwargs["class_keys"] = class_keys
+                nkwargs["class"] = klass
 
-            if key := self._get_class_key(class_name):
-                keys.append(key)
-                class_keys.append(key)
+            k, v = self._get_node_class_info(
+                class_name,
+                **nkwargs
+            )
+            if k is not None:
+                nkwargs["keys"].append(k)
+                nkwargs["class_keys"].append(k)
 
-            value = self._get_class_value(keys, **node_kwargs)
-            yield keys, value
+            yield nkwargs["keys"], v
+
+#             node_kwargs = {
+#                 "class_name": class_name,
+#             }
+# 
+#             if class_i == i:
+#                 node_kwargs["class"] = klass
+#                 node_kwargs["module_keys"] = module_keys
+#                 node_kwargs["class_keys"] = class_keys
+# 
+#             if key := self._get_class_key(class_name):
+#                 keys.append(key)
+#                 class_keys.append(key)
+# 
+#             value = self._get_class_value(keys, **node_kwargs)
+#             yield keys, value
 
     def add_class(self, klass):
         """This is the method that should be used to add new classes to the
@@ -588,8 +646,12 @@ class ClasspathFinder(DictTree):
 
         :param klass: type, the class to add to the tree
         """
-        for keys, value in self._get_node_values(klass):
+        for keys, value in self._get_node_items(klass):
             self.set(keys, value)
+
+    def add_classes(self, classes):
+        for klass in classes:
+            self.add_class(klass)
 
 
 class Extend(object):

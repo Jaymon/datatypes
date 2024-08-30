@@ -184,7 +184,6 @@ class ClasspathFinderTest(TestCase):
             [
                 "class Foo(object): pass",
                 "class CheBoo(Foo): pass",
-                "class Default(Foo): pass",
             ],
             modpath=prefix + ".foo_bar",
         )
@@ -193,11 +192,6 @@ class ClasspathFinderTest(TestCase):
         pf = ClasspathFinder([prefix], ignore_class_keys=["Default"])
         pf.add_class(m.Foo)
         pf.add_class(m.CheBoo)
-        pf.add_class(m.Default)
-
-        value = pf.get(["foo-bar"])
-
-        self.assertEqual("Default", value["class"].__name__)
 
         value = pf.get(["foo-bar", "che-boo"])
         self.assertEqual("CheBoo", value["class"].__name__)
@@ -205,10 +199,17 @@ class ClasspathFinderTest(TestCase):
         value = pf.get(["foo-bar", "foo"])
         self.assertEqual("Foo", value["class"].__name__)
 
-    def test_add_default_class(self):
+    def test_add_empty_key(self):
+        class CPF(ClasspathFinder):
+            def _get_node_class_info(self, key, **kwargs):
+                key, value = super()._get_node_class_info(key, **kwargs)
+                if key == "Default":
+                    key = None
+                return key, value
+
         prefix = self.create_module("class Default(object): pass")
         m = prefix.get_module()
-        pf = ClasspathFinder([prefix], ignore_class_keys=["Default"])
+        pf = CPF([prefix])
         pf.add_class(m.Default)
         self.assertEqual(m.Default, pf[[]]["class"])
 
