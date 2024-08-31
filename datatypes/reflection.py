@@ -362,8 +362,14 @@ class ClasspathFinder(DictTree):
 
     Moved here from Captain and integrated into Endpoints on 2024-08-29. So
     Endpoints got similar code first. Then I did a similar thing in Captain
-    and Captain's code was much better, so it provided the base for a generic
-    version here
+    and Captain's code was much better, so it provided the base for this
+    generic version here which Endpoints is the first to get. The circle of
+    life.
+
+    NOTE -- If there are no prefixes then the module path is ignored when
+    adding classes. This means the path for foo.bar:Che without prefixes would
+    just be Che. If prefixes=["foo"] then the path is bar:Che
+
     """
     @classmethod
     def find_modules(cls, prefixes=None, paths=None, fileroot=""):
@@ -381,7 +387,7 @@ class ClasspathFinder(DictTree):
             modules = cls.get_prefix_modules(prefixes)
 
         elif paths:
-            modules = self.pathfinder_class.get_path_modules(
+            modules = cls.get_path_modules(
                 paths,
                 fileroot
             )
@@ -476,8 +482,6 @@ class ClasspathFinder(DictTree):
         self.find_keys = {}
         self.kwargs = kwargs # convenience for default .create_instance
 
-        #self.set([], self._get_node_value([]))
-
     def create_instance(self):
         """Internal method that makes sure creating sub-instances of this
         class when creating nodes doesn't error out"""
@@ -525,7 +529,10 @@ class ClasspathFinder(DictTree):
         if "class" in kwargs:
             value["class"] = kwargs["class"]
             value["module_keys"] = kwargs["module_keys"]
-            value["class_keys"] = kwargs["class_keys"] + [key]
+
+            value["class_keys"] = kwargs["class_keys"]
+            if key is not None:
+                value["class_keys"] = kwargs["class_keys"] + [key]
 
         return key, value
 
