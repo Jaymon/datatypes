@@ -248,6 +248,31 @@ class ClasspathFinderTest(TestCase):
         self.assertEqual(1, len(ms))
         self.assertEqual(4, len(ms["cheboo.foobar"]))
 
+    def test_overwrite(self):
+        prefix = self.create_module(
+            {
+                "": [
+                    "class Foo(object): pass",
+                ],
+                "foo": {
+                    "": [
+                        "class Bar(object): pass",
+                    ],
+                    "baz": [
+                        "class Che(object): pass",
+                    ],
+                },
+            },
+        )
+        m = prefix.get_module()
+
+        pf = ClasspathFinder(prefixes=[prefix])
+        pf.add_class(prefix.get_module().Foo)
+        pf.add_class(prefix.get_module("foo").Bar)
+        pf.add_class(prefix.get_module("foo.baz").Che)
+
+        self.assertEqual(pf["foo"]["class"].__name__, "Foo")
+
 
 class ExtendTest(TestCase):
     def test_property(self):

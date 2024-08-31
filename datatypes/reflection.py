@@ -490,13 +490,13 @@ class ClasspathFinder(DictTree):
             **self.kwargs,
         )
 
-    def set_node(self, key, node, value):
+    def add_node(self, key, node, value):
         """override parent to set find keys
 
         Whenever a new node is created this will be called, it populates
         the .find_keys used in .normalize_key
         """
-        super().set_node(key, node, value)
+        super().add_node(key, node, value)
 
         if key not in self.find_keys:
             self.find_keys[key] = key
@@ -504,6 +504,19 @@ class ClasspathFinder(DictTree):
             nc = NamingConvention(key)
             for vk in nc.variations():
                 self.find_keys[vk] = key
+
+    def update_node(self, key, node, value):
+        """Update the node only if value has a class (meaning it's a
+        destination value and not a waypoint value) or node doesn't already
+        have a value
+
+        Because of how ._get_node_items works, the parent nodes can be updated
+        multiple times as paths are added, but we don't want final paths
+        (paths that end with a class) to be overwritten later by route paths
+        (not final paths but just a waypoint towards our final destination).
+        """
+        if not node.value or "class" in value:
+            super().update_node(key, node, value)
 
     def normalize_key(self, key):
         """override parent to normalize key using .find_keys"""
@@ -520,9 +533,31 @@ class ClasspathFinder(DictTree):
         return f"{klass.__module__}:{klass.__qualname__}"
 
     def _get_node_module_info(self, key, **kwargs):
+        """Get the module key and value for a node representing a module
+
+        :param key: Hashable
+        :param **kwargs:
+            * module: types.ModuleType, the module
+        :returns: tuple[hashable, dict]
+        """
         return key, {"module": kwargs["module"]}
 
     def _get_node_class_info(self, key, **kwargs):
+        """Get the key and value for a node representing a class
+
+        :param key: Hashable
+        :param **kwargs:
+            * class_name: str, this class name, this will always be there
+            * class: type, this will only be here on the final class
+            * module_keys: list[str], a list of all the keys used for the
+                module portion of the path
+            * class_keys: list[str], a list of all the keys used for the
+                class portion of the path
+        :returns: tuple[hashable, dict]
+            * class: this will be set for the final absolute class of the
+                path
+            * class_name: this will always be set
+        """
         value = {
             "class_name": kwargs["class_name"]
         }
@@ -559,10 +594,9 @@ class ClasspathFinder(DictTree):
             if rn.is_module_relative_to(prefix):
                 if modname := rn.relative_module_name(prefix):
                     for rm in rn.reflect_modules(modname):
-                        nkwargs["module"] = rm.get_module()
-
                         k, v = self._get_node_module_info(
                             rm.module_basename,
+                            module=rm.get_module(),
                             **nkwargs
                         )
                         if k is not None:

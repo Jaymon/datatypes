@@ -690,7 +690,7 @@ class DictTree(Dict):
         """This should support all the standard dict init signatures"""
         self.root = self
         self.parent = None
-        self.key = ""
+        self.key = None
         self.value = None
 
         super().__init__()
@@ -712,12 +712,12 @@ class DictTree(Dict):
                 self.set(k, v)
 
     def create_instance(self):
-        """Internal method. Called from .set_node and is only responsible
+        """Internal method. Called from .add_node and is only responsible
         for creating an instance of this class.
 
         The reason this exists is because the __init__ might be customized
         in a child class and so this can also be customized so nothing fails
-        and .set_node can be left alone since it sets the node properties
+        and .add_node can be left alone since it sets the node properties
 
         :returns: DictTree instance
         """
@@ -764,7 +764,7 @@ class DictTree(Dict):
         if len(keys) > 1:
             key = self.normalize_key(keys[0])
             if key not in self:
-                self.set_node(key, self.create_instance(), None)
+                self.add_node(key, self.create_instance(), None)
 
             super().__getitem__(key).set(keys[1:], value)
 
@@ -773,20 +773,28 @@ class DictTree(Dict):
                 key = self.normalize_key(keys[0])
                 value = self.normalize_value(value)
                 if key not in self:
-                    self.set_node(key, self.create_instance(), value)
+                    self.add_node(key, self.create_instance(), value)
 
                 else:
-                    super().__getitem__(key).value = value
+                    self.update_node(
+                        key,
+                        super().__getitem__(key),
+                        value
+                    )
 
             else:
                 # root of the tree
-                self.value = self.normalize_value(value)
+                self.update_node(
+                    self.key,
+                    self,
+                    self.normalize_value(value)
+                )
 
-    def set_node(self, key, node, value):
-        """Set `node` into `self` at `key` with `value`
+    def add_node(self, key, node, value):
+        """Add `node` into `self` at `key` with `value`
 
-        NOTE -- this is never called for the root node since it is never set
-        into another node
+        NOTE -- this is never called for the root node since the root node
+        is never added into another node
 
         :param key: Hashable, already ran through .normalize_key
         :param node: ClasspathFinder, freshly created with .create_instance
@@ -797,6 +805,19 @@ class DictTree(Dict):
         node.root = self.root
         node.value = value
         super().__setitem__(key, node)
+
+    def update_node(self, key, node, value):
+        """Update `node` of `self` at `key` with `value`
+
+        NOTE -- this only updates the value of node, the key is only here to
+        keep the signature the same as .add_node and self and node can be the
+        same node when the root node is being updated
+
+        :param key: Hashable, already ran through .normalize_key
+        :param node: ClasspathFinder, the node to update
+        :param value: Any, already ran through .normalize_value
+        """
+        node.value = value
 
     def normalize_keys(self, keys):
         """Internal method. This makes sure keys is a sequence
