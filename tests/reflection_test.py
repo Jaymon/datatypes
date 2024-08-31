@@ -249,6 +249,7 @@ class ClasspathFinderTest(TestCase):
         self.assertEqual(4, len(ms["cheboo.foobar"]))
 
     def test_overwrite(self):
+        """Makes sure destination nodes take precedence over waypoint nodes"""
         prefix = self.create_module(
             {
                 "": [
@@ -264,13 +265,19 @@ class ClasspathFinderTest(TestCase):
                 },
             },
         )
-        m = prefix.get_module()
-
         pf = ClasspathFinder(prefixes=[prefix])
-        pf.add_class(prefix.get_module().Foo)
-        pf.add_class(prefix.get_module("foo").Bar)
-        pf.add_class(prefix.get_module("foo.baz").Che)
 
+        # first we add a waypoint node
+        pf.add_class(prefix.get_module("foo").Bar)
+        self.assertTrue("module" in pf["foo"])
+
+        # now lets add the destination node and make sure it overwrites the
+        # waypoint node
+        pf.add_class(prefix.get_module().Foo)
+        self.assertEqual(pf["foo"]["class"].__name__, "Foo")
+
+        # make sure adding another waypoint doesn't overwrite our destination
+        pf.add_class(prefix.get_module("foo.baz").Che)
         self.assertEqual(pf["foo"]["class"].__name__, "Foo")
 
 
