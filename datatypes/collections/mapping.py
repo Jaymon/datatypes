@@ -738,7 +738,7 @@ class DictTree(Dict):
 
     def __delitem__(self, keys):
         """Allow list access in normal dict interactions"""
-        self.pop(keys)
+        self.pop_node(keys)
 
     def __contains__(self, keys):
         """Allow list access when checking a key"""
@@ -891,19 +891,64 @@ class DictTree(Dict):
             return default
 
     def pop(self, keys, *default):
-        """As with .set and .get this allows a list of keys or key
+        """Pop a value from the tree
+
+        This does not trim the tree if it isn't a leaf, so if this is a
+        waypoint value it will just be set to None and the branches will remain
+        intact. 
+
+        :param keys: Hashable|list[Hashable], As with .set and .get this allows
+            a list of keys or key
+        :param *default: Any, if present returned instead of rasing a KeyError
+        :returns: Any, whatever was the value
+        :raises: KeyError, if keys isn't found in the tree or if the node's
+            value is None (meaning it didn't have a value)
+        """
+        try:
+            node = self.get_node(keys)
+
+            if len(node) == 0:
+                # we trim the node since it has no children
+                node.parent.pop_node(node.key)
+
+            if node.value is None:
+                raise KeyError(keys)
+
+            v = node.value
+            node.value = None
+            return v
+
+        except KeyError:
+            if default:
+                return default[0]
+
+            else:
+                raise
+
+    def pop_node(self, keys, *default):
+        """Pop the node and trim the tree
 
         NOTE -- this trims the tree, so if you pop a tree node it will trim
-        all the leaves of that node from the root tree
+        all the leaves of that node from the root tree. In fact, I first named
+        this .trim, then .trim_node, but I think it is more cohesive to be
+        named .pop_node, like .get/.get_node
+
+        :param keys: Hashable|list[Hashable], As with .set and .get this allows
+            a list of keys or key
+        :param *default: Any, if present returned instead of rasing a KeyError
+        :returns: DictTree, the returned node is completely intact with all
+            down stream keys and pointers but .root will no longer contain this
+            node
+        :raises: KeyError, if keys isn't found in the tree
         """
         keys = self.normalize_keys(keys)
 
         try:
             if len(keys) > 1:
-                return self.get_node(keys[:-1]).pop(keys[-1])
+                return self.get_node(keys[:-1]).pop_node(keys[-1])
 
             else:
-                return super().pop(self.normalize_key(keys[-1])).value
+                return super().pop(self.normalize_key(keys[-1]))
 
         except KeyError:
             if default:

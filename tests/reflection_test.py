@@ -280,6 +280,37 @@ class ClasspathFinderTest(TestCase):
         pf.add_class(prefix.get_module("foo.baz").Che)
         self.assertEqual(pf["foo"]["class"].__name__, "Foo")
 
+    def test_get_class_items(self):
+        """Make sure we can iterate through all destination nodes in the tree
+        """
+        prefix = self.create_module(
+            {
+                "": [
+                    "class Foo(object): pass",
+                ],
+                "foo": {
+                    "": [
+                        "class Bar(object): pass",
+                    ],
+                    "baz": [
+                        "class Che(object): pass",
+                    ],
+                },
+            },
+        )
+
+        pf_classes = set()
+        pf = ClasspathFinder(prefixes=[prefix])
+        for klass in prefix.get_classes():
+            pf.add_class(klass)
+            pf_classes.add(klass.__name__)
+
+        node_classes = set()
+        for keys, value in pf.get_class_items():
+            node_classes.add(value["class"].__name__)
+
+        self.assertEqual(pf_classes, node_classes)
+
 
 class ExtendTest(TestCase):
     def test_property(self):

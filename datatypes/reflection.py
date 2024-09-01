@@ -641,6 +641,12 @@ class ClasspathFinder(DictTree):
         for klass in classes:
             self.add_class(klass)
 
+    def get_class_items(self):
+        """go through and return destination nodes keys and values"""
+        for keys, node in self.nodes():
+            if node.value and "class" in node.value:
+                yield keys, node.value
+
 
 class Extend(object):
     """you can use this decorator to extend instances with custom functionality

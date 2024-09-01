@@ -809,11 +809,32 @@ class DictTreeTest(TestCase):
         self.assertEqual(1, d["foo", "bar"])
         self.assertEqual(2, d["foo"])
 
-    def test_pop(self):
+    def test_pop_1(self):
         d = DictTree()
         d.set(["foo", "bar", "che"], 2)
 
         self.assertEqual(2, d.pop(["foo", "bar", "che"]))
+        self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
+
+    def test_pop_2(self):
+        d = DictTree()
+        d.set(["foo", "bar", "che"], 1)
+        d.set(["foo", "bar"], 2)
+        d.set(["foo"], 3)
+
+        self.assertEqual(2, d.pop(["foo", "bar"]))
+
+        with self.assertRaises(KeyError):
+            d.pop(["foo", "bar"])
+
+        self.assertEqual(1, d.pop(["foo", "bar", "che"]))
+
+    def test_pop_node(self):
+        d = DictTree()
+        d.set(["foo", "bar", "che"], 1)
+        d.set(["foo", "bar"], 2)
+
+        self.assertEqual(2, d.pop_node(["foo", "bar"]).value)
         self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
 
     def test_setdefault(self):
