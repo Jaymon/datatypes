@@ -10,9 +10,11 @@ from .token import StopWordTokenizer
 
 
 class Url(String):
-    r"""a url object on steroids, this is here to make it easy to manipulate urls
-    we try to map the supported fields to their urlparse equivalents, with some
-    additions
+    r"""A url string on steroids, this is here to make it easy to manipulate
+    urls.
+
+    It tries to map the supported fields to their urlparse equivalents, with
+    some additions
 
     https://en.wikipedia.org/wiki/URL
     https://tools.ietf.org/html/rfc3986.html
@@ -48,7 +50,19 @@ class Url(String):
     .host(...) = http://foo.com/...
     .base(...) = http://user:pass@foo.com/bar/che/...
     """
-    scheme = "http"
+    scheme = ""
+    """The http scheme (eg, "http" or "https")
+
+    By default this class won't set a scheme except when it can be "correctly"
+    inferred. But a child class could set the scheme to a default value and
+    then it will fallback to the set default
+
+    :example:
+        u = Url("//example.com")
+        u.scheme # "" because the // says the scheme wasn't wanted
+        u = Url("example.com:80")
+        u.scheme # "http" because a host was passed in with the plain port
+    """
 
     username = None
 
@@ -202,10 +216,11 @@ class Url(String):
     def merge(cls, urlstring="", *args, **kwargs):
         # we handle port before any other because the port of host:port in
         # hostname takes precedence the port on the host would take precedence
-        # because proxies mean that the host can be something:10000 and the port
-        # could be 9000 because 10000 is being proxied to 9000 on the machine,
-        # but we want to automatically account for things like that and then if
-        # custom behavior is needed then this method can be overridden
+        # because proxies mean that the host can be something:10000 and the
+        # port could be 9000 because 10000 is being proxied to 9000 on the
+        # machine, but we want to automatically account for things like that
+        # and then if custom behavior is needed then this method can be
+        # overridden
         parts = cls.default_values()
 
         # we're going to remove our default scheme so we can make sure we set
@@ -226,19 +241,21 @@ class Url(String):
                 "port",
             ]
 
-            if cls.is_url(urlstring):
+            has_host = is_url = False
+
+            if is_url := cls.is_url(urlstring):
                 o = parse.urlsplit(String(urlstring))
 
             else:
                 s = String(urlstring)
                 part = s.split("/", maxsplit=1)[0]
-                is_host = "." in part or ":" in part \
+                has_host = "." in part or ":" in part \
                     or part.lower().startswith("localhost") \
                     or part.startswith("127.0.0.1")
 
-                if is_host:
-                    # if we don't have a url but it looks like we have a host so
-                    # let's make it a url by putting // in front of it so it
+                if has_host:
+                    # if we don't have a url but it looks like we have a host
+                    # so let's make it a url by putting // in front of it so it
                     # will still parse correctly
                     s = "//{}".format(String(urlstring))
 
@@ -248,6 +265,9 @@ class Url(String):
                 v = getattr(o, k)
                 if v:
                     parts[k] = v
+
+            if is_url:
+                parts["scheme"] = getattr(o, "scheme")
 
             query = parts.get("query", "")
             if query:
@@ -265,13 +285,15 @@ class Url(String):
         if parts["query_kwargs"]:
             parts["query"] = cls.unparse_query(parts["query_kwargs"])
 
+        ports = kwargs.pop("ports", {
+            "": 80,
+            "http": 80,
+            "https": 443,
+        })
+
         for k, v in kwargs.items():
             parts[k] = v
 
-        ports = {
-            "http": 80,
-            "https": 443,
-        }
         domain, port = cls.split_hostname_from_port(parts["hostname"])
         parts["hostname"] = domain
         if port:
@@ -280,6 +302,7 @@ class Url(String):
         if not parts.get("port", None):
             if "default_port" in kwargs:
                 parts["port"] = kwargs["default_port"]
+
             else:
                 parts["port"] = ports.get(
                     parts.get("scheme", default_scheme),
@@ -292,8 +315,8 @@ class Url(String):
 
         hostloc = parts["hostname"]
         port = parts["port"]
-        # we don't want common ports to be a part of a .geturl() call, but we do
-        # want .port to return them
+        # we don't want common ports to be a part of a .geturl() call, but we
+        # do want .port to return them
         if port and port not in set(ports.values()):
             hostloc = '{}:{}'.format(hostloc, port)
         parts["hostloc"] = hostloc
@@ -313,24 +336,43 @@ class Url(String):
         if parts["path"].startswith("//"):
             parts["path"] = parts["path"][1:]
 
-        if parts["path"] and parts["hostname"]:
-            # if path exists than we want to make sure it has a starting / if a
-            # hostname exists also, user could've passed in a relative path but
-            # we'll need to assume it is absolute since host exists
-            if not parts["path"].startswith("/"):
-                parts["path"] = "/" + parts["path"]
+        if parts["path"]:
+            if parts["hostname"]:
+                # if path exists than we want to make sure it has a starting /
+                # if a hostname exists also, user could've passed in a relative
+                # path but we'll need to assume it is absolute since host
+                # exists
+                if not parts["path"].startswith("/"):
+                    parts["path"] = "/" + parts["path"]
+
+            else:
+                if not parts.get("scheme", ""):
+                    parts["scheme"] = ""
+
+        # let's add our default scheme now that we've generated everything
+        # we needed with the passed in values
+        if "scheme" not in parts:
+            if default_scheme:
+                parts.setdefault("scheme", default_scheme)
+
+            else:
+                if parts.get("hostloc", ""):
+                    if parts.get("port", None) == 443:
+                        parts.setdefault("scheme", "https")
+
+                    else:
+                        parts.setdefault("scheme", "http")
+
+        if not parts.get("scheme", ""):
+            parts["scheme"] = ""
 
         parts["urlstring"] = parse.urlunsplit((
-            parts.get("scheme", "") or "",
+            parts["scheme"],
             parts["netloc"],
             parts["path"],
             parts["query"],
             parts["fragment"],
         ))
-
-        # let's add our default scheme now that we've generated everything
-        # we needed with the passed in values
-        parts.setdefault("scheme", default_scheme)
 
         for k in parts:
             if isinstance(parts[k], bytes):
