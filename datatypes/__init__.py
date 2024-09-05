@@ -114,7 +114,6 @@ from .reflection import (
     OrderedSubclasses,
     ReflectCallable,
     ReflectClass,
-    ReflectMethod,
     ReflectModule,
     ReflectName,
     ReflectPath,

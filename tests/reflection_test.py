@@ -8,7 +8,6 @@ from datatypes.reflection import (
     ReflectName,
     ReflectModule,
     ReflectClass,
-    ReflectMethod,
     ReflectDecorator,
     OrderedSubclasses,
     ReflectPath,
@@ -584,6 +583,43 @@ class ReflectCallableTest(TestCase):
         doc = rf.get_docblock(inherit=False)
         self.assertEqual("", doc)
 
+    def test_get_docblock_1(self):
+        foo_class = self.create_module_class([
+            "class Foo(object):",
+            "    '''class docblock'''",
+            "    def GET(*args, **kwargs):",
+            "        '''method docblock'''",
+            "        pass",
+        ])
+
+        rc = ReflectCallable(foo_class.GET)
+        desc = rc.get_docblock()
+        self.assertEqual("method docblock", desc)
+
+    def test_get_docblock_bad_decorator(self):
+        foo_class = self.create_module_class([
+            "def bad_dec(func):",
+            "    def wrapper(*args, **kwargs):",
+            "        return func(*args, **kwargs)",
+            "    return wrapper",
+            "",
+            "class Foo(object):",
+            "    '''class docblock'''",
+            "    @bad_dec",
+            "    def GET(*args, **kwargs):",
+            "        '''method docblock'''",
+            "        pass",
+            "",
+            "    def POST(*args, **kwargs):",
+            "        '''should not return this docblock'''",
+            "        pass",
+            "",
+        ])
+
+        rc = ReflectCallable(foo_class.GET, target_class=foo_class)
+        desc = rc.get_docblock()
+        self.assertEqual("method docblock", desc)
+
     def test_get_module(self):
         m = self.create_module("""
             class Foo(object):
@@ -886,106 +922,55 @@ class ReflectCallableTest(TestCase):
         self.assertEqual({"boo": 40}, info["kwargs"])
         self.assertEqual(args, info["unknown_args"])
 
+    def test_reflect_decorators_function(self):
+        mp = self.create_module("""
+            def template(func):
+                def wrapper(*args, **kwargs):
+                    return func(*args, **kwargs)
+                return wrapper
 
-class ReflectMethodTest(TestCase):
-    def test_method_docblock_1(self):
-        m = testdata.create_module([
-            "class Foo(object):",
-            "    '''controller docblock'''",
-            "    def GET(*args, **kwargs):",
-            "        '''method docblock'''",
-            "        pass",
-            "",
-        ])
+            baz = template
+            che = template
 
-        rm = ReflectModule(m).reflect_class("Foo").reflect_method("GET")
-        desc = rm.desc
-        self.assertEqual("method docblock", desc)
- 
-    def test_method_docblock_bad_decorator(self):
-        m = testdata.create_module([
-            "def bad_dec(func):",
-            "    def wrapper(*args, **kwargs):",
-            "        return func(*args, **kwargs)",
-            "    return wrapper",
-            "",
-            "class Foo(object):",
-            "    '''controller docblock'''",
-            "    @bad_dec",
-            "    def GET(*args, **kwargs):",
-            "        '''method docblock'''",
-            "        pass",
-            "",
-            "    def POST(*args, **kwargs):",
-            "        '''should not return this docblock'''",
-            "        pass",
-            "",
-        ])
-
-        rm = ReflectModule(m).reflect_class("Foo").reflect_method("GET")
-        desc = rm.desc
-        self.assertEqual("method docblock", desc)
-
-
-class ReflectClassTest(TestCase):
-    def test_docblock_1(self):
-        m = testdata.create_module([
-            "class Foo(object):",
-            "    '''this is a multiline docblock",
-            "",
-            "    this means it has...",
-            "    ",
-            "    multiple lines",
-            "    '''",
-            "    def GET(*args, **kwargs): pass",
-            "",
-        ])
-        rc = ReflectModule(m).reflect_class("Foo")
-        self.assertTrue("\n" in rc.desc)
-
-    def test_get_docblock_inherit(self):
-        m = self.create_module("""
-            class Foo(object):
-                '''Foo'''
-                pass
-
-            class Bar(Foo):
+            @baz
+            @che
+            def bar():
                 pass
         """)
-        rc = ReflectModule(m).reflect_class("Bar")
-        doc = rc.get_docblock(inherit=False)
-        self.assertEqual("", doc)
+        m = mp.get_module()
 
-        idoc = rc.get_docblock(inherit=True)
-        self.assertNotEqual(doc, idoc)
+        rc = ReflectCallable(m.bar)
+        self.assertEqual(2, len(list(rc.reflect_decorators())))
 
-    def test_decorators_inherit_1(self):
+    def test_reflect_decorators_inherit_1(self):
         """make sure that a child class that hasn't defined a METHOD inherits
         the METHOD method from its parent with decorators in tact"""
-        m = testdata.create_module([
+        foo_class = testdata.create_module_class([
             "def foodec(func):",
             "    def wrapper(*args, **kwargs):",
             "        return func(*args, **kwargs)",
             "    return wrapper",
             "",
-            "class _BaseController(object):",
+            "class _Base(object):",
             "    @foodec",
             "    def POST(self, **kwargs):",
             "        return 1",
             "",
-            "class Default(_BaseController):",
+            "class Foo(_Base):",
             "    pass",
             "",
         ])
-        rc = ReflectModule(m).reflect_class("Default")
-        for count, rm in enumerate(rc.reflect_methods(), 1):
-            self.assertEqual("foodec", rm.reflect_decorators()[0].name)
+
+        rc = ReflectCallable(foo_class.POST, target_class=foo_class)
+        decs = list(rc.reflect_decorators())
+        for count, dec in enumerate(rc.reflect_decorators(), 1):
+            self.assertEqual("foodec", dec.name)
         self.assertEqual(1, count)
 
-    def test_decorators_inherit_2(self):
+    def test_reflect_decorators_inherit_2(self):
         """you have a parent class with POST method, the child also has a POST
         method, what do you do? What. Do. You. Do?"""
-        m = testdata.create_module([
+        child_class = testdata.create_module_class([
             "def a(f):",
             "    def wrapped(*args, **kwargs):",
             "        return f(*args, **kwargs)",
@@ -1002,12 +987,7 @@ class ReflectClassTest(TestCase):
             "        return func(*args, **kwargs)",
             "    return wrapper",
             "",
-            "def POST(): pass",
-            "",
-            "class D(object):",
-            "    def HEAD(): pass"
-            "",
-            "class Parent(object):",
+            "class _Parent(object):",
             "    @a",
             "    @b",
             "    def POST(self, **kwargs): pass",
@@ -1020,7 +1000,7 @@ class ReflectClassTest(TestCase):
             "    @b",
             "    def GET(self): pass",
             "",
-            "class Child(Parent):",
+            "class Child(_Parent):",
             "    @c",
             "    def POST(self, **kwargs): POST()",
             "",
@@ -1031,44 +1011,128 @@ class ReflectClassTest(TestCase):
             "",
             "    @c",
             "    def GET(self):",
-            "        super(Default, self).GET()",
+            "        super().GET()",
             "",
         ])
 
-        rmod = ReflectModule(m)
-        rc = rmod.reflect_class("Child")
-        self.assertEqual(1, len(rc.reflect_method("POST").reflect_decorators()))
-        self.assertEqual(1, len(rc.reflect_method("HEAD").reflect_decorators()))
-        self.assertEqual(3, len(rc.reflect_method("GET").reflect_decorators()))
+        rc = ReflectCallable(child_class.POST, target_class=child_class)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(1, len(decs))
 
-    def test_get_info(self):
-        class Foo(object):
-            def one(self, *args, **kwargs): pass
-            def two(self, param1, param2): pass
-            def three(self, param1, **kwargs): pass
-            def four(self, param1, *args, **kwargs): pass
-            @classmethod
-            def five(cls, *args, **kwargs): pass
+        rc = ReflectCallable(child_class.HEAD, target_class=child_class)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(1, len(decs))
 
-        rc = ReflectClass(Foo)
-        self.assertEqual(5, len(rc.get_info()))
+        rc = ReflectCallable(child_class.GET, target_class=child_class)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(3, len(decs))
 
-    def test_get_info_2(self):
-        class FooParent(object):
-            def one(self, *args, **kwargs): pass
-            def two(self, param1, param2): pass
 
-        class FooChild(FooParent):
-            def one(self): pass
-            def three(self, param1, **kwargs): pass
 
-        rc = ReflectClass(FooChild)
-        info = rc.get_info()
-        self.assertEqual(3, len(info))
-        self.assertTrue("two" in info)
-        self.assertFalse(info["one"]["positionals"])
-        self.assertFalse(info["one"]["keywords"])
-        self.assertEqual(sys.modules[__name__], rc.get_module())
+
+# class ReflectMethodTest(TestCase):
+#     def test_method_docblock_1(self):
+#         m = testdata.create_module([
+#             "class Foo(object):",
+#             "    '''controller docblock'''",
+#             "    def GET(*args, **kwargs):",
+#             "        '''method docblock'''",
+#             "        pass",
+#             "",
+#         ])
+# 
+#         rm = ReflectModule(m).reflect_class("Foo").reflect_method("GET")
+#         desc = rm.desc
+#         self.assertEqual("method docblock", desc)
+#  
+#     def test_method_docblock_bad_decorator(self):
+#         m = testdata.create_module([
+#             "def bad_dec(func):",
+#             "    def wrapper(*args, **kwargs):",
+#             "        return func(*args, **kwargs)",
+#             "    return wrapper",
+#             "",
+#             "class Foo(object):",
+#             "    '''controller docblock'''",
+#             "    @bad_dec",
+#             "    def GET(*args, **kwargs):",
+#             "        '''method docblock'''",
+#             "        pass",
+#             "",
+#             "    def POST(*args, **kwargs):",
+#             "        '''should not return this docblock'''",
+#             "        pass",
+#             "",
+#         ])
+# 
+#         rm = ReflectModule(m).reflect_class("Foo").reflect_method("GET")
+#         desc = rm.desc
+#         self.assertEqual("method docblock", desc)
+
+
+# class ReflectSourceTest(TestCase):
+#     def test_get_info(self):
+#         class Foo(object):
+#             def one(self, *args, **kwargs): pass
+#             def two(self, param1, param2): pass
+#             def three(self, param1, **kwargs): pass
+#             def four(self, param1, *args, **kwargs): pass
+#             @classmethod
+#             def five(cls, *args, **kwargs): pass
+# 
+#         rc = ReflectSource(Foo)
+#         self.assertEqual(5, len(rc.get_info()))
+# 
+#     def test_get_info_2(self):
+#         class FooParent(object):
+#             def one(self, *args, **kwargs): pass
+#             def two(self, param1, param2): pass
+# 
+#         class FooChild(FooParent):
+#             def one(self): pass
+#             def three(self, param1, **kwargs): pass
+# 
+#         rc = ReflectClass(FooChild)
+#         info = rc.get_info()
+#         self.assertEqual(3, len(info))
+#         self.assertTrue("two" in info)
+#         self.assertFalse(info["one"]["positionals"])
+#         self.assertFalse(info["one"]["keywords"])
+#         self.assertEqual(sys.modules[__name__], rc.get_module())
+
+
+
+class ReflectClassTest(TestCase):
+    def test_docblock_1(self):
+        foo_class = testdata.create_module_class([
+            "class Foo(object):",
+            "    '''this is a multiline docblock",
+            "",
+            "    this means it has...",
+            "    ",
+            "    multiple lines",
+            "    '''",
+            "    def GET(*args, **kwargs): pass",
+            "",
+        ])
+        rc = ReflectClass(foo_class)
+        self.assertTrue("\n" in rc.get_docblock())
+
+    def test_get_docblock_inherit(self):
+        m = self.create_module("""
+            class Foo(object):
+                '''Foo'''
+                pass
+
+            class Bar(Foo):
+                pass
+        """)
+        rc = ReflectModule(m).reflect_class("Bar")
+        doc = rc.get_docblock(inherit=False)
+        self.assertEqual("", doc)
+
+        idoc = rc.get_docblock(inherit=True)
+        self.assertNotEqual(doc, idoc)
 
     def test_get_class(self):
         r = testdata.create_module([

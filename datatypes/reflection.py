@@ -1374,8 +1374,38 @@ class ReflectObject(object):
         if klass := self.get_class():
             return ReflectClass(klass)
 
+    def create_reflect_class(self, *args, **kwargs):
+        return kwargs.get("reflect_class_class", ReflectClass)(
+            *args,
+            **kwargs
+        )
 
-class ReflectDecorator(object):
+    def create_reflect_module(self, *args, **kwargs):
+        return kwargs.get("reflect_module_class", ReflectModule)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_callable(self, *args, **kwargs):
+        return kwargs.get("reflect_callable_class", ReflectCallable)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_decorator(self, *args, **kwargs):
+        return kwargs.get("reflect_decorator_class", ReflectDecorator)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_source(self, *args, **kwargs):
+        return kwargs.get("reflect_source_class", ReflectSource)(
+            *args,
+            **kwargs
+        )
+
+
+class ReflectDecorator(ReflectObject):
     """Internal class used by ReflectClass
 
     The information of each individual decorator on a given method will
@@ -1383,63 +1413,80 @@ class ReflectDecorator(object):
 
     Moved from endpoints.reflection.ReflectDecorator on Jan 31, 2023
     """
-    @cachedproperty(cached="_parents")
-    def parents(self):
-        """If this decorator is a class then this will return all the parents
-        """
-        ret = []
-        decor = self.decorator
-        if inspect.isclass(decor):
-            parents = inspect.getmro(decor)
-            ret = parents[1:]
-        return ret
+#     @cachedproperty(cached="_parents")
+#     def parents(self):
+#         """If this decorator is a class then this will return all the parents
+#         """
+#         ret = []
+#         decor = self.decorator
+#         if inspect.isclass(decor):
+#             parents = inspect.getmro(decor)
+#             ret = parents[1:]
+#         return ret
 
-    def __init__(self, name, args, kwargs, decorator):
-        self.name = name
+    def __init__(self, target, *, name="", args=None, kwargs=None):
+        self.target = target
+        self.name = name or target.__name__
         self.args = args
         self.kwargs = kwargs
-        self.decorator = decorator
 
-    def contains(self, obj):
-        """Return True if this decorator (that's a class) extends obj"""
-        ret = obj == self.decorator
-        if not ret:
-            for parent in self.parents:
-                if parent == obj:
-                    ret = True
-                    break
-
-        return ret
-
-    def __contains__(self, obj):
-        return self.contains(obj)
+#     def get_parents(self):
+#         """If this decorator is a class then this will return all the parents
+#         """
+#         ret = []
+#         decor = self.decorator
+#         if inspect.isclass(decor):
+#             parents = inspect.getmro(decor)
+#             ret = parents[1:]
+#         return ret
 
 
 class ReflectCallable(ReflectObject):
-    """Reflect a callable"""
+    """Reflect a callable
+
+    Types of callables this supports:
+        * class instance with __call__ method
+        * A method defined in a class
+        * A function that isn't defined in a class
+
+    This is a refactoring of ReflectMethod that was moved here from
+    endpoints.reflection.ReflectMethod on Jan 31, 2023
+    """
     @property
     def obj(self):
-        return self.function
+        return self.target
 
     @property
     def qualname(self):
-        qname = getattr(self.function, "__qualname__", "")
+        qname = getattr(self.target, "__qualname__", "")
         if not qname:
-            qname = self.function.__class__.__qualname__
+            qname = self.target.__class__.__qualname__
 
         return qname
 
-    @property
+    @cachedproperty(_cached="_name")
     def name(self):
-        name = getattr(self.function, "__name__", "")
+        name = getattr(self.target, "__name__", "")
         if not name:
-            name = self.function.__class__.__name__
+            name = self.target.__class__.__name__
+
+        # let's verify the name
+        parent = self.get_parent()
+        o = getattr(parent, name, None)
+        if o is not self.target:
+            # this is for a badly behaved decorator (eg, not using
+            # functools.wraps) so let's check all the mambers and see
+            # if we can find a matching object
+            for n, v in inspect.getmembers(parent):
+                if v is self.target:
+                    name = n
+                    break
 
         return name
 
     @property
     def modpath(self):
-        return self.function.__module__
+        return self.target.__module__
 
     @property
     def classpath(self):
@@ -1468,22 +1515,94 @@ class ReflectCallable(ReflectObject):
             self.qualname
         ])
 
-    def __init__(self, function, callable_class=None):
+    def __init__(self, target, target_class=None, *, name=""):
         """
         :param function: callable, the callable
-        :param callable_class: type, if you've got access to the class then it
-            would be best to pass it in here so .find_class doesn't have to
-            find the class
+        :param target_class: type, if target is a method and you've got access
+            to the class target was defined in then it would be best to pass it
+            in here so .find_class doesn't have to actually try and find the
+            class. If target is a class instance and you have the class you
+            can also pass it here
+        :param name: str, if you have access to target's name then it would
+            be best to pass it in here so it won't have to try and find it,
+            finding the name can fail if target is wrapped with a misbehaving
+            decorator that doesn't set __wrapped__ or things like that
         :raises: ValueError, if function isn't callable
         """
-        if not callable(function):
-            raise ValueError(f"Passed in callable {function} is not callable")
+        if not callable(target):
+            raise ValueError(f"Passed in callable {target} is not callable")
 
-        self.function = function
-        self.callable_class = callable_class
+        self.target = target
+        self.target_class = target_class
+        if name:
+            self.name = name
 
     def __call__(self, *args, **kwargs):
-        return self.function(*args, **kwargs)
+        return self.target(*args, **kwargs)
+
+    def get_docblock(self, inherit=False):
+        doc = super().get_docblock()
+        if not doc:
+            # functions/methods can be wrapped by bad decorators that don't
+            # correctly wrap, so let's try and parse the docblock before
+            # giving up
+            parent = self.get_parent()
+            name = self.name
+
+            def visit_FunctionDef(node):
+                """
+                https://docs.python.org/3/library/ast.html#ast.NodeVisitor.visit
+                """
+                if node.name == name:
+                    raise StopIteration(ast.get_docstring(node) or "")
+
+            try:
+                node_iter = ast.NodeVisitor()
+                node_iter.visit_FunctionDef = visit_FunctionDef
+                node_iter.visit(ast.parse(inspect.getsource(parent)))
+
+            except StopIteration as e:
+                doc = String(e)
+
+        return doc or ""
+
+    def get_parent(self):
+        """Get where this callable is defined, if it's a method that will
+        hopefully be a class, otherwise a module
+
+        :returns: type|types.ModuleType
+        """
+        if self.is_class() or self.is_instance():
+            return self.get_module()
+
+        else:
+            try:
+                return self.get_class()
+
+            except ValueError:
+                return self.get_module()
+
+    def get_class(self):
+        """Get the class for the callable
+
+        :returns: type|None
+            - Returns the class a method is defined in if it's
+                possible to find it.
+            - Returns the class if callable is an instance or class
+            - Returns None if callable is a function
+        :raises: ValueError if the class can't be found and it wasn't passed in
+        """
+        if not self.target_class:
+            if self.is_class():
+                self.target_class = self.target
+
+            elif self.is_instance():
+                self.target_class = self.target.__class__
+
+            else:
+                self.target_class = self.find_class(self.target)
+
+        return self.target_class
 
     def find_class(self, cb):
         """Try everything it can to find the class where `cb` is defined.
@@ -1542,27 +1661,6 @@ class ReflectCallable(ReflectObject):
         # handle special descriptor objects
         return getattr(cb, '__objclass__', None)
 
-    def get_class(self):
-        """Get the class for the callable
-
-        :returns: type|None
-            - Returns the class a method is defined in if it's
-                possible to find it.
-            - Returns the class if callable is an instance or class
-            - Returns None if callable is a function
-        :raises: ValueError if the class can't be found and it wasn't passed in
-        """
-        if not self.callable_class:
-            if self.is_class():
-                self.callable_class = self.function
-
-            elif self.is_instance():
-                self.callable_class = self.function.__class__
-
-            else:
-                self.callable_class = self.find_class(self.function)
-
-        return self.callable_class
 
     def get_descriptor(self):
         """Get the descriptor of the callable, this only returns something
@@ -1580,16 +1678,30 @@ class ReflectCallable(ReflectObject):
             )
 
         else:
-            cb_descriptor = self.function
+            cb_descriptor = self.target
 
         return cb_descriptor
+
+    def get_unwrapped(self, *kwargs):
+        """Find the original wrapped function. This takes advantage of
+        functools.update_wrapper's automatic setting of the __wrapped__
+        variable and assumes the original func is the one that doesn't have
+        the variable
+
+        :returns: callable, the original wrapped callable if it exists
+        """
+        return inspect.unwrap(self.target, **kwargs)
+        #func = self.target
+        #while wrapped := getattr(func, "__wrapped__", None):
+        #    func = wrapped
+        #return func
 
     def is_class(self):
         """Returns True if this is a class, in which case the callable is
         the __init__ method if the class is mutable and the __new__ method
         if it is immutable
         """
-        return isinstance(self.function, type)
+        return isinstance(self.target, type)
 
     def is_instance(self):
         """Returns True if the callable is an instance of a class with a
@@ -1599,7 +1711,7 @@ class ReflectCallable(ReflectObject):
         """
         # special handling for functools partial instances since they
         # shouldn't be considered the actual callable
-        cb = self.function
+        cb = self.target
         if isinstance(cb, functools.partial):
             cb = cb.func
 
@@ -1618,7 +1730,7 @@ class ReflectCallable(ReflectObject):
         :returns: bool
         """
         return (
-            isinstance(self.function, types.FunctionType)
+            isinstance(self.target, types.FunctionType)
             and not self.is_method()
         )
 
@@ -1645,9 +1757,9 @@ class ReflectCallable(ReflectObject):
 
         :returns: bool
         """
-        ret = isinstance(self.function, types.MethodType)
+        ret = isinstance(self.target, types.MethodType)
         if not ret:
-            name = getattr(self.function, "__qualname__", "")
+            name = getattr(self.target, "__qualname__", "")
             # if the fully qualified name has a period it's a method
             # unless it's something like <locals>.<NAME> then it is a
             # function
@@ -1675,7 +1787,7 @@ class ReflectCallable(ReflectObject):
 
         :returns: bool, True if this callable is a static method
         """
-        ret = isinstance(self.function, staticmethod)
+        ret = isinstance(self.target, staticmethod)
         if not ret:
             cb_descriptor = self.get_descriptor()
             ret = isinstance(cb_descriptor, staticmethod)
@@ -1692,7 +1804,7 @@ class ReflectCallable(ReflectObject):
 
         :returns: bool
         """
-        v = getattr(self.function, "__self__", None)
+        v = getattr(self.target, "__self__", None)
         return isinstance(v, type)
 
     def is_bound_method(self):
@@ -1717,7 +1829,7 @@ class ReflectCallable(ReflectObject):
         :returns: bool
         """
         ret = False
-        if getattr(self.function, "__self__", None):
+        if getattr(self.target, "__self__", None):
             ret = True
 
         return ret
@@ -1867,7 +1979,7 @@ class ReflectCallable(ReflectObject):
         # or cls as the first argument. This only applies if we passed in the
         # non-bound version of the method though, so we also check 
         skip = self.is_unbound_method()
-        signature = inspect.signature(self.function)
+        signature = inspect.signature(self.target)
         for name, param in signature.parameters.items():
             if skip:
                 skip = False
@@ -1907,146 +2019,495 @@ class ReflectCallable(ReflectObject):
             "**_name": keywords_name, # DEPRECATED?
         }
 
-
-class ReflectMethod(object):
-    """Internal class used by ReflectClass
-
-    Reflects a method on a class. This is kind of a strange situation where
-    this class is entirely dependant on ReflectClass for its information. This
-    is because this figures out all the decorators that were defined on this
-    method and that information is only available in the full actual python
-    code of the class, as retrieved using the ast module, so this really wraps
-    ReflectClass.get_info()
-
-    Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
-    """
-    @cachedproperty(cached="_required_args")
-    def required_args(self):
-        """return the *args that are needed to call the method"""
-        ret = []
-        info = self.get_info()
-        for param_d in info.get("params", []):
-            if param_d.get("required", False):
-                ret.append(param_d["name"])
-
-        if ret:
-            # we need to go through the param decorators and check path args,
-            # because it's entirely possible we can make something required in
-            # the method definition but make it optional in the decorator
-            for name, param_d in self.params.items():
-                if not isinstance(name, int):
-                    names = []
-                    dest = param_d.get("dest", "")
-                    if dest:
-                        names.append(dest)
-                    names.append(name)
-                    names.extend(param_d.get("other_names", []))
-
-                    # first name that is found wins
-                    for n in names:
-                        try:
-                            ret.remove(n)
-                            break
-                        except ValueError:
-                            pass
-
-        ret.extend([None] * (max(0, len(self.params) - len(ret))))
-
-        # now we will remove any non required path args that are left
-        for name, param_d in self.params.items():
-            if isinstance(name, int):
-                #pout.v(name, param_d, ret)
-                # since name is an integer it's a path variable
-                if param_d.get("required", False):
-                    if ret[name] is None:
-                        ret[name] = name
-                else:
-                    if name < len(ret):
-                        ret[name] = None
-
-        return list(filter(lambda x: x is not None, ret))
-
-    @cachedproperty(cached="_name")
-    def name(self):
-        """return the method name"""
-        return self.method_name
-
-    @cachedproperty(cached="_desc")
-    def desc(self):
-        """return the description of this method
-
-        ??? why does this exist over using inspect.getdoc?
-        """
-        doc = None
-        def visit_FunctionDef(node):
-            """
-            https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
-            """
-            if node.name != self.method_name:
-                return
-
-            doc = ast.get_docstring(node)
-            raise StopIteration(doc if doc else "")
-
-        target = self.reflect_class.cls
-        try:
-            node_iter = ast.NodeVisitor()
-            node_iter.visit_FunctionDef = visit_FunctionDef
-            node_iter.visit(ast.parse(inspect.getsource(target)))
-
-        except StopIteration as e:
-            doc = String(e)
-
-        return doc or ""
-
-    def __init__(self, method_name, method, reflect_class):
-        self.method_name = method_name
-        self.method = method
-        self.reflect_class = reflect_class
-
-    def get_method(self):
-        return self.method
-
-    def get_class(self):
-        return self.reflect_class.get_class()
-
-    def get_module(self):
-        return self.reflect_class.get_module()
-
-    def get_info(self):
-        """Gets info about this method using ReflectClass.get_info()
-
-        :returns: dict, the information the class was able to gather about this
-        method
-        """
-        info = self.reflect_class.get_info()
-        return info[self.name][self.method_name]
-
-    def has_positionals(self):
-        """return True if this method accepts *args"""
-        return self.get_info().get("positionals", False)
-
-    def has_keywords(self):
-        """return True if this method accepts **kwargs"""
-        return self.get_info().get("keywords", False)
-
     def reflect_decorators(self):
-        """Return all the decorators that decorate this method
+        rs = self.create_reflect_source(self.get_parent())
+        name = self.name
+        if name in rs.decorators:
+            for dargs in rs.decorators[name]:
+                yield self.create_reflect_decorator(**dargs)
 
-        :returns: list, a list of ReflectDecorator instances
+
+class ReflectSource(object):
+    def __init__(self, target):
+        self.target = target
+        self.parse()
+
+    def parse(self):
+        self.decorators = collections.defaultdict(list)
+        self.mmap = {}
+
+        node_iter = ast.NodeVisitor()
+        node_iter.visit_FunctionDef = self.visit_FunctionDef
+
+        if self.is_module():
+            node_iter.visit(
+                ast.parse(inspect.getsource(self.target).strip())
+            )
+
+        elif self.is_class():
+            for target_cls in inspect.getmro(self.target):
+                if target_cls == object: break
+                node_iter.visit(
+                    ast.parse(inspect.getsource(target_cls).strip())
+                )
+
+        else:
+            raise ValueError(f"Unsupported type {type(self.target)}")
+
+    def is_class(self):
+        return isinstance(self.target, type)
+
+    def is_module(self):
+        return isinstance(self.target, types.ModuleType)
+
+    def reflect_module(self):
+        if self.is_class():
+            return ReflectClass(self.target).reflect_module()
+
+        elif self.is_module():
+            return ReflectModule(self.target)
+
+    def has_super(self, childnode, parentnode):
+        """returns true if child node has a super() call to parent node"""
+        ret = False
+        for n in childnode.body:
+            if not isinstance(n, ast.Expr): continue
+
+            try:
+                func = n.value.func
+                func_name = func.attr
+                if func_name == parentnode.name:
+                    ret = isinstance(func.value, ast.Call)
+                    break
+
+            except AttributeError as e:
+                ret = False
+
+        return ret
+
+    def get_expr_value(self, na, default=None):
+        """given an inspect type argument figure out the actual real python
+        value and return that
+        :param na: ast.expr instance
+        :param default: sets the default value for na if it can't be
+            resolved
+        :returns: type, the found value as a valid python type
         """
-        class_info = self.reflect_class.get_info()
-        return class_info[self.method_name].get("decorators", [])
+        ret = None
+        if isinstance(na, ast.Num):
+            repr_n = repr(na.n)
+            val = na.n
+            vtype = float if '.' in repr_n else int
+            ret = vtype(val)
+
+        elif isinstance(na, ast.Str):
+            ret = str(na.s)
+
+        elif isinstance(na, ast.Name):
+            # http://stackoverflow.com/questions/12700893/
+            ret = getattr(builtins, na.id, None)
+            if not ret:
+                ret = na.id
+                if ret == 'True':
+                    ret = True
+
+                elif ret == 'False':
+                    ret = False
+
+        elif isinstance(na, ast.Dict):
+            if na.keys:
+                na_items = zip(
+                    na.keys,
+                    na.values
+                )
+#                 ret = {self.get_expr_val(k): self.get_v for k, v in na_items}
+                for k, v in na_items:
+                    ret[self.get_expr_value(k)] = self.get_expr_value(v)
+
+#                 ret = {
+#                     self.get_expr_val(na_[0]): self.get_expr_val(na_[1]) for na_ in zip(
+#                         na.keys,
+#                         na.values
+#                     )
+#                 }
+
+            else:
+                ret = {}
+
+        elif isinstance(na, (ast.List, ast.Tuple)):
+            if na.elts:
+                ret = [self.get_expr_value(na_) for na_ in na.elts]
+
+            else:
+                ret = []
+
+            if isinstance(na, ast.Tuple):
+                ret = tuple(ret)
+
+        else:
+            ret = default
+
+        return ret
+
+    def visit_FunctionDef(self, node):
+        """as the code is parsed any found methods will call this function
+
+        https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
+        """
+        # if there is a super call in the method body we want to add the
+        # decorators from that super call also
+        add_decs = True
+        if node.name in self.decorators:
+            add_decs = self.has_super(self.mmap[node.name], node)
+
+        if node.name not in self.mmap:
+            self.mmap[node.name] = node
+
+        if add_decs:
+            for n in node.decorator_list:
+                d = {}
+                name = ''
+                args = []
+                kwargs = {}
+
+                # is this a call like @decorator or like @decorator(...)
+                if isinstance(n, ast.Call):
+                    if isinstance(n.func, ast.Attribute):
+                        name = n.func.attr
+
+                    else:
+                        name = n.func.id
+
+                    for an in n.args:
+                        args.append(self.get_expr_value(an))
+
+                    for an in n.keywords:
+                        kwargs[an.arg] = self.get_expr_value(an.value)
+
+                else:
+                    name = n.attr if isinstance(n, ast.Attribute) else n.id
+
+                d = {
+                    "name": name,
+                    "args": args,
+                    "kwargs": kwargs
+                }
+
+                # get the actual decorator from either the module
+                # (imported) or from the global builtins
+                decor = None
+                if self.reflect_module():
+                    m = self.reflect_module().get_module()
+                    decor = getattr(m, name, None)
+
+                if not decor:
+                    decor = getattr(builtins, name, None)
+
+                if not decor:
+                    raise RuntimeError(
+                        "Could not find {} decorator class".format(name)
+                    )
+
+                d["target"] = decor
+
+#                 #res[node.name].append((name, args, kwargs))
+#                 res[node.name].append(self.reflect_decorator_class(**d))
+                self.decorators[node.name].append(d)
+
+
+#     @functools.cache
+#     def get_info(self):
+#         """Get information about all the methods in this class
+# 
+#         What helped me to get all the decorators in the class
+#         http://stackoverflow.com/questions/5910703/ specifically, I used this
+#         answer http://stackoverflow.com/a/9580006
+#         """
+#         ret = collections.defaultdict(dict)
+#         res = collections.defaultdict(list)
+#         mmap = {}
+# 
+#         def is_super(childnode, parentnode):
+#             """returns true if child node has a super() call to parent node"""
+#             ret = False
+#             for n in childnode.body:
+#                 if not isinstance(n, ast.Expr): continue
+# 
+#                 try:
+#                     func = n.value.func
+#                     func_name = func.attr
+#                     if func_name == parentnode.name:
+#                         ret = isinstance(func.value, ast.Call)
+#                         break
+# 
+#                 except AttributeError as e:
+#                     ret = False
+# 
+#             return ret
+# 
+#         def visit_FunctionDef(node):
+#             """as the code is parsed any found methods will call this function
+# 
+#             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
+#             """
+#             # if there is a super call in the method body we want to add the
+#             # decorators from that super call also
+#             add_decs = True
+#             if node.name in res:
+#                 add_decs = is_super(mmap[node.name], node)
+# 
+#             if node.name not in mmap:
+#                 mmap[node.name] = node
+# 
+#             if add_decs:
+#                 for n in node.decorator_list:
+#                     d = {}
+#                     name = ''
+#                     args = []
+#                     kwargs = {}
+# 
+#                     # is this a call like @decorator or like @decorator(...)
+#                     if isinstance(n, ast.Call):
+#                         if isinstance(n.func, ast.Attribute):
+#                             name = n.func.attr
+# 
+#                         else:
+#                             name = n.func.id
+# 
+#                         for an in n.args:
+#                             args.append(get_val(an))
+# 
+#                         for an in n.keywords:
+#                             kwargs[an.arg] = get_val(an.value)
+# 
+#                     else:
+#                         name = n.attr if isinstance(n, ast.Attribute) else n.id
+# 
+#                     d = {
+#                         "name": name,
+#                         "args": args,
+#                         "kwargs": kwargs
+#                     }
+# 
+#                     # get the actual decorator from either the module
+#                     # (imported) or from the global builtins
+#                     decor = None
+#                     if self.reflect_module():
+#                         m = self.reflect_module().get_module()
+#                         decor = getattr(m, name, None)
+# 
+#                     if not decor:
+#                         decor = getattr(builtins, name, None)
+# 
+#                     if not decor:
+#                         raise RuntimeError(
+#                             "Could not find {} decorator class".format(name)
+#                         )
+# 
+#                     d["decorator"] = decor
+# 
+#                     #res[node.name].append((name, args, kwargs))
+#                     res[node.name].append(self.reflect_decorator_class(**d))
+# 
+#         node_iter = ast.NodeVisitor()
+#         node_iter.visit_FunctionDef = visit_FunctionDef
+#         for target_cls in inspect.getmro(self.cls):
+#             if target_cls == object: break
+#             node_iter.visit(ast.parse(inspect.getsource(target_cls).strip()))
+# 
+#         for method_name, method in inspect.getmembers(self.cls):
+#             if method_name not in mmap: continue
+# 
+#             m = mmap[method_name]
+#             d = {
+#                 "decorators": res.get(method_name, []),
+#                 "method": getattr(self.cls, method_name),
+#             }
+# 
+#             # does the method have *args?
+#             d["positionals"] = True if m.args.vararg else False
+#             # does the method have **kwargs?
+#             d["keywords"] = True if m.args.kwarg else False
+# 
+#             args = []
+#             kwargs = {}
+# 
+#             # we build a mapping of the defaults to where they would sit in
+#             # the actual argument string (the defaults list starts at 0 but
+#             # would correspond to the arguments after the required
+#             # arguments, so we need to compensate for that
+#             defaults = [None] * (len(m.args.args) - len(m.args.defaults))
+#             defaults.extend(m.args.defaults)
+# 
+#             # if we ever just switch to py3 we can use inpsect.Parameter
+#             # here https://docs.python.org/3/library/inspect.html#inspect.Parameter
+#             d["params"] = []
+#             for i in range(1, len(m.args.args)):
+#                 an = m.args.args[i]
+#                 dp = {
+#                     "name": an.id if is_py2 else an.arg,
+#                     "required": True,
+#                 }
+# 
+#                 dan = defaults[i]
+#                 if dan:
+#                     dp["required"] = False
+#                     dp["default"] = get_val(dan)
+# 
+#                 d["params"].append(dp)
+# 
+#             ret[method_name] = d
+# 
+#         return ret
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class ReflectMethod(object):
+#     """Internal class used by ReflectClass
+# 
+#     Reflects a method on a class. This is kind of a strange situation where
+#     this class is entirely dependant on ReflectClass for its information. This
+#     is because this figures out all the decorators that were defined on this
+#     method and that information is only available in the full actual python
+#     code of the class, as retrieved using the ast module, so this really wraps
+#     ReflectClass.get_info()
+# 
+#     Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
+#     """
+#     @cachedproperty(cached="_required_args")
+#     def required_args(self):
+#         """return the *args that are needed to call the method"""
+#         ret = []
+#         info = self.get_info()
+#         for param_d in info.get("params", []):
+#             if param_d.get("required", False):
+#                 ret.append(param_d["name"])
+# 
+#         if ret:
+#             # we need to go through the param decorators and check path args,
+#             # because it's entirely possible we can make something required in
+#             # the method definition but make it optional in the decorator
+#             for name, param_d in self.params.items():
+#                 if not isinstance(name, int):
+#                     names = []
+#                     dest = param_d.get("dest", "")
+#                     if dest:
+#                         names.append(dest)
+#                     names.append(name)
+#                     names.extend(param_d.get("other_names", []))
+# 
+#                     # first name that is found wins
+#                     for n in names:
+#                         try:
+#                             ret.remove(n)
+#                             break
+#                         except ValueError:
+#                             pass
+# 
+#         ret.extend([None] * (max(0, len(self.params) - len(ret))))
+# 
+#         # now we will remove any non required path args that are left
+#         for name, param_d in self.params.items():
+#             if isinstance(name, int):
+#                 #pout.v(name, param_d, ret)
+#                 # since name is an integer it's a path variable
+#                 if param_d.get("required", False):
+#                     if ret[name] is None:
+#                         ret[name] = name
+#                 else:
+#                     if name < len(ret):
+#                         ret[name] = None
+# 
+#         return list(filter(lambda x: x is not None, ret))
+# 
+#     @cachedproperty(cached="_name")
+#     def name(self):
+#         """return the method name"""
+#         return self.method_name
+# 
+#     @cachedproperty(cached="_desc")
+#     def desc(self):
+#         """return the description of this method
+# 
+#         ??? why does this exist over using inspect.getdoc?
+#         """
+#         doc = None
+#         def visit_FunctionDef(node):
+#             """
+#             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
+#             """
+#             if node.name != self.method_name:
+#                 return
+# 
+#             doc = ast.get_docstring(node)
+#             raise StopIteration(doc if doc else "")
+# 
+#         target = self.reflect_class.cls
+#         try:
+#             node_iter = ast.NodeVisitor()
+#             node_iter.visit_FunctionDef = visit_FunctionDef
+#             node_iter.visit(ast.parse(inspect.getsource(target)))
+# 
+#         except StopIteration as e:
+#             doc = String(e)
+# 
+#         return doc or ""
+# 
+#     def __init__(self, method_name, method, reflect_class):
+#         self.method_name = method_name
+#         self.method = method
+#         self.reflect_class = reflect_class
+# 
+#     def get_method(self):
+#         return self.method
+# 
+#     def get_class(self):
+#         return self.reflect_class.get_class()
+# 
+#     def get_module(self):
+#         return self.reflect_class.get_module()
+# 
+#     def get_info(self):
+#         """Gets info about this method using ReflectClass.get_info()
+# 
+#         :returns: dict, the information the class was able to gather about this
+#         method
+#         """
+#         info = self.reflect_class.get_info()
+#         return info[self.name][self.method_name]
+# 
+#     def has_positionals(self):
+#         """return True if this method accepts *args"""
+#         return self.get_info().get("positionals", False)
+# 
+#     def has_keywords(self):
+#         """return True if this method accepts **kwargs"""
+#         return self.get_info().get("keywords", False)
+# 
+#     def reflect_decorators(self):
+#         """Return all the decorators that decorate this method
+# 
+#         :returns: list, a list of ReflectDecorator instances
+#         """
+#         class_info = self.reflect_class.get_info()
+#         return class_info[self.method_name].get("decorators", [])
 
 
 class ReflectClass(ReflectObject):
     """
     Moved from endpoints.reflection.ReflectClass on Jan 31, 2023
     """
-    reflect_method_class = ReflectMethod
-
-    reflect_decorator_class = ReflectDecorator
-
     @property
     def obj(self):
         return self.cls
@@ -2083,34 +2544,34 @@ class ReflectClass(ReflectObject):
     def desc(self):
         return self.get_docblock(inherit=False)
 
-    @classmethod
-    def resolve_class(cls, full_python_class_path):
-        """
-        take something like some.full.module.Path and return the actual Path
-        class object
-
-        https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
-
-        Note -- this will fail when the object isn't accessible from the
-        module, that means you can't define your class object in a function and
-        expect this function to work, the reason why this doesn't work is
-        because the class is on the local stack of the function, so it only
-        exists when that function is running, so there's no way to get the
-        class object outside of the function, and you can't really separate it
-        from the class (like using the code object to create the class object)
-        because it might use local variables and things like that
-
-        :Example:
-            # -- THIS IS BAD --
-            def foo():
-                class FooCannotBeFound(object): pass
-                # this will fail
-                get_class("path.to.module.FooCannotBeFound")
-
-        moved here from morp.reflection.get_class on 2-5-2023
-        """
-        rn = ReflectName(full_python_class_path)
-        return rn.get_class()
+#     @classmethod
+#     def resolve_class(cls, full_python_class_path):
+#         """
+#         take something like some.full.module.Path and return the actual Path
+#         class object
+# 
+#         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
+# 
+#         NOTE -- this will fail when the object isn't accessible from the
+#         module, that means you can't define your class object in a function and
+#         expect this function to work, the reason why this doesn't work is
+#         because the class is on the local stack of the function, so it only
+#         exists when that function is running, so there's no way to get the
+#         class object outside of the function, and you can't really separate it
+#         from the class (like using the code object to create the class object)
+#         because it might use local variables and things like that
+# 
+#         :Example:
+#             # -- THIS IS BAD --
+#             def foo():
+#                 class FooCannotBeFound(object): pass
+#                 # this will fail
+#                 get_class("path.to.module.FooCannotBeFound")
+# 
+#         moved here from morp.reflection.get_class on 2-5-2023
+#         """
+#         rn = ReflectName(full_python_class_path)
+#         return rn.get_class()
 
     @classmethod
     def get_classpath(cls, obj):
@@ -2150,36 +2611,53 @@ class ReflectClass(ReflectObject):
         """Returns the reflected module"""
         return self._reflect_module or ReflectModule(self.cls.__module__)
 
-    def method_names(self):
-        # Rename to get_method_names
-        # https://github.com/Jaymon/datatypes/issues/54
-        for method_name in self.get_info().keys():
+    def get_method_names(self):
+        methods = inspect.getmembers(self.cls, inspect.ismethod)
+        for method_name, method in methods:
             yield method_name
 
-    def methods(self):
-        # TODO -- this should be renamed to get_methods and it should use
-        # inpsect instead of the ast parser in get_info. reflect_methods can
-        # still use the get_info ast parser
-        # https://github.com/Jaymon/datatypes/issues/54
-        for method_name, method_info in self.get_info().items():
-            yield method_name, method_info["method"]
+# 
+#         # Rename to get_method_names
+#         # https://github.com/Jaymon/datatypes/issues/54
+#         for method_name in self.get_info().keys():
+#             yield method_name
 
-    def instance_methods(self, *args, **kwargs):
-        instance = self.cls(*args, **kwargs)
-        for method_name, method in inspect.getmembers(instance, inspect.ismethod):
-            yield method_name, method
+    def get_methods(self):
+        for rc in self.reflect_methods():
+            yield rc.target
+
+# 
+#         # TODO -- this should be renamed to get_methods and it should use
+#         # inpsect instead of the ast parser in get_info. reflect_methods can
+#         # still use the get_info ast parser
+#         # https://github.com/Jaymon/datatypes/issues/54
+#         for method_name, method_info in self.get_info().items():
+#             yield method_name, method_info["method"]
+
+#     def instance_methods(self, *args, **kwargs):
+#         instance = self.cls(*args, **kwargs)
+#         for method_name, method in inspect.getmembers(instance, inspect.ismethod):
+#             yield method_name, method
 
     def reflect_methods(self):
         """Yield all the methods defined in this class
 
         :returns: generator, yields ReflectMethod instances
         """
-        for method_name, method_info in self.get_info().items():
-            yield self.reflect_method_class(
-                method_name,
-                method_info["method"],
-                reflect_class=self,
+        methods = inspect.getmembers(self.cls, inspect.ismethod)
+        for method_name, method in methods:
+            yield self.create_reflect_callable(
+                method,
+                target_class=self.cls,
+                name=method_name
             )
+
+#         for method_name, method_info in self.get_info().items():
+#             yield self.reflect_method_class(
+#                 method_name,
+#                 method_info["method"],
+#                 reflect_class=self,
+#             )
 
     def reflect_method(self, method_name, *default_val):
         """Returns information about the method_name on this class
@@ -2190,14 +2668,13 @@ class ReflectClass(ReflectObject):
         :returns: ReflectMethod, the reflection information about the method
         """
         try:
-            info = self.get_info()
-            return self.reflect_method_class(
-                method_name,
-                info[method_name]["method"],
-                reflect_class=self
+            return self.create_reflect_callable(
+                getattr(self.cls, method_name),
+                target_class=self.cls,
+                name=method_name
             )
 
-        except KeyError as e:
+        except AttributeError:
             if default_val:
                 return default_val[0]
 
@@ -2205,6 +2682,23 @@ class ReflectClass(ReflectObject):
                 raise AttributeError(
                     f"No {self.classpath}.{method_name} method"
                 ) from e
+
+#         try:
+#             info = self.get_info()
+#             return self.reflect_method_class(
+#                 method_name,
+#                 info[method_name]["method"],
+#                 reflect_class=self
+#             )
+# 
+#         except KeyError as e:
+#             if default_val:
+#                 return default_val[0]
+# 
+#             else:
+#                 raise AttributeError(
+#                     f"No {self.classpath}.{method_name} method"
+#                 ) from e
 
     def get(self, name, *default_val):
         """Get a value on the class
@@ -2215,206 +2709,206 @@ class ReflectClass(ReflectObject):
         """
         return getattr(self.cls, name, *default_val)
 
-    @functools.cache
-    def get_info(self):
-        """Get information about all the methods in this class
-
-        What helped me to get all the decorators in the class
-        http://stackoverflow.com/questions/5910703/ specifically, I used this
-        answer http://stackoverflow.com/a/9580006
-        """
-        ret = collections.defaultdict(dict)
-        res = collections.defaultdict(list)
-        mmap = {}
-
-        def get_val(na, default=None):
-            """given an inspect type argument figure out the actual real python
-            value and return that
-            :param na: ast.expr instanct
-            :param default: sets the default value for na if it can't be
-                resolved
-            :returns: type, the found value as a valid python type
-            """
-            ret = None
-            if isinstance(na, ast.Num):
-                repr_n = repr(na.n)
-                val = na.n
-                vtype = float if '.' in repr_n else int
-                ret = vtype(val)
-
-            elif isinstance(na, ast.Str):
-                ret = str(na.s)
-
-            elif isinstance(na, ast.Name):
-                # http://stackoverflow.com/questions/12700893/
-                ret = getattr(builtins, na.id, None)
-                if not ret:
-                    ret = na.id
-                    if ret == 'True':
-                        ret = True
-
-                    elif ret == 'False':
-                        ret = False
-
-            elif isinstance(na, ast.Dict):
-                if na.keys:
-                    ret = {
-                        get_val(na_[0]): get_val(na_[1]) for na_ in zip(
-                            na.keys,
-                            na.values
-                        )
-                    }
-
-                else:
-                    ret = {}
-
-            elif isinstance(na, (ast.List, ast.Tuple)):
-                if na.elts:
-                    ret = [get_val(na_) for na_ in na.elts]
-
-                else:
-                    ret = []
-
-                if isinstance(na, ast.Tuple):
-                    ret = tuple(ret)
-
-            else:
-                ret = default
-
-            return ret
-
-        def is_super(childnode, parentnode):
-            """returns true if child node has a super() call to parent node"""
-            ret = False
-            for n in childnode.body:
-                if not isinstance(n, ast.Expr): continue
-
-                try:
-                    func = n.value.func
-                    func_name = func.attr
-                    if func_name == parentnode.name:
-                        ret = isinstance(func.value, ast.Call)
-                        break
-
-                except AttributeError as e:
-                    ret = False
-
-            return ret
-
-        def visit_FunctionDef(node):
-            """as the code is parsed any found methods will call this function
-
-            https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
-            """
-            # if there is a super call in the method body we want to add the
-            # decorators from that super call also
-            add_decs = True
-            if node.name in res:
-                add_decs = is_super(mmap[node.name], node)
-
-            if node.name not in mmap:
-                mmap[node.name] = node
-
-            if add_decs:
-                for n in node.decorator_list:
-                    d = {}
-                    name = ''
-                    args = []
-                    kwargs = {}
-
-                    # is this a call like @decorator or like @decorator(...)
-                    if isinstance(n, ast.Call):
-                        if isinstance(n.func, ast.Attribute):
-                            name = n.func.attr
-
-                        else:
-                            name = n.func.id
-
-                        for an in n.args:
-                            args.append(get_val(an))
-
-                        for an in n.keywords:
-                            kwargs[an.arg] = get_val(an.value)
-
-                    else:
-                        name = n.attr if isinstance(n, ast.Attribute) else n.id
-
-                    d = {
-                        "name": name,
-                        "args": args,
-                        "kwargs": kwargs
-                    }
-
-                    # get the actual decorator from either the module
-                    # (imported) or from the global builtins
-                    decor = None
-                    if self.reflect_module():
-                        m = self.reflect_module().get_module()
-                        decor = getattr(m, name, None)
-
-                    if not decor:
-                        decor = getattr(builtins, name, None)
-
-                    if not decor:
-                        raise RuntimeError(
-                            "Could not find {} decorator class".format(name)
-                        )
-
-                    d["decorator"] = decor
-
-                    #res[node.name].append((name, args, kwargs))
-                    res[node.name].append(self.reflect_decorator_class(**d))
-
-        node_iter = ast.NodeVisitor()
-        node_iter.visit_FunctionDef = visit_FunctionDef
-        for target_cls in inspect.getmro(self.cls):
-            if target_cls == object: break
-            node_iter.visit(ast.parse(inspect.getsource(target_cls).strip()))
-
-        for method_name, method in inspect.getmembers(self.cls):
-            if method_name not in mmap: continue
-
-            m = mmap[method_name]
-            d = {
-                "decorators": res.get(method_name, []),
-                "method": getattr(self.cls, method_name),
-            }
-
-            # does the method have *args?
-            d["positionals"] = True if m.args.vararg else False
-            # does the method have **kwargs?
-            d["keywords"] = True if m.args.kwarg else False
-
-            args = []
-            kwargs = {}
-
-            # we build a mapping of the defaults to where they would sit in
-            # the actual argument string (the defaults list starts at 0 but
-            # would correspond to the arguments after the required
-            # arguments, so we need to compensate for that
-            defaults = [None] * (len(m.args.args) - len(m.args.defaults))
-            defaults.extend(m.args.defaults)
-
-            # if we ever just switch to py3 we can use inpsect.Parameter
-            # here https://docs.python.org/3/library/inspect.html#inspect.Parameter
-            d["params"] = []
-            for i in range(1, len(m.args.args)):
-                an = m.args.args[i]
-                dp = {
-                    "name": an.id if is_py2 else an.arg,
-                    "required": True,
-                }
-
-                dan = defaults[i]
-                if dan:
-                    dp["required"] = False
-                    dp["default"] = get_val(dan)
-
-                d["params"].append(dp)
-
-            ret[method_name] = d
-
-        return ret
+#     @functools.cache
+#     def get_info(self):
+#         """Get information about all the methods in this class
+# 
+#         What helped me to get all the decorators in the class
+#         http://stackoverflow.com/questions/5910703/ specifically, I used this
+#         answer http://stackoverflow.com/a/9580006
+#         """
+#         ret = collections.defaultdict(dict)
+#         res = collections.defaultdict(list)
+#         mmap = {}
+# 
+#         def get_val(na, default=None):
+#             """given an inspect type argument figure out the actual real python
+#             value and return that
+#             :param na: ast.expr instanct
+#             :param default: sets the default value for na if it can't be
+#                 resolved
+#             :returns: type, the found value as a valid python type
+#             """
+#             ret = None
+#             if isinstance(na, ast.Num):
+#                 repr_n = repr(na.n)
+#                 val = na.n
+#                 vtype = float if '.' in repr_n else int
+#                 ret = vtype(val)
+# 
+#             elif isinstance(na, ast.Str):
+#                 ret = str(na.s)
+# 
+#             elif isinstance(na, ast.Name):
+#                 # http://stackoverflow.com/questions/12700893/
+#                 ret = getattr(builtins, na.id, None)
+#                 if not ret:
+#                     ret = na.id
+#                     if ret == 'True':
+#                         ret = True
+# 
+#                     elif ret == 'False':
+#                         ret = False
+# 
+#             elif isinstance(na, ast.Dict):
+#                 if na.keys:
+#                     ret = {
+#                         get_val(na_[0]): get_val(na_[1]) for na_ in zip(
+#                             na.keys,
+#                             na.values
+#                         )
+#                     }
+# 
+#                 else:
+#                     ret = {}
+# 
+#             elif isinstance(na, (ast.List, ast.Tuple)):
+#                 if na.elts:
+#                     ret = [get_val(na_) for na_ in na.elts]
+# 
+#                 else:
+#                     ret = []
+# 
+#                 if isinstance(na, ast.Tuple):
+#                     ret = tuple(ret)
+# 
+#             else:
+#                 ret = default
+# 
+#             return ret
+# 
+#         def is_super(childnode, parentnode):
+#             """returns true if child node has a super() call to parent node"""
+#             ret = False
+#             for n in childnode.body:
+#                 if not isinstance(n, ast.Expr): continue
+# 
+#                 try:
+#                     func = n.value.func
+#                     func_name = func.attr
+#                     if func_name == parentnode.name:
+#                         ret = isinstance(func.value, ast.Call)
+#                         break
+# 
+#                 except AttributeError as e:
+#                     ret = False
+# 
+#             return ret
+# 
+#         def visit_FunctionDef(node):
+#             """as the code is parsed any found methods will call this function
+# 
+#             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
+#             """
+#             # if there is a super call in the method body we want to add the
+#             # decorators from that super call also
+#             add_decs = True
+#             if node.name in res:
+#                 add_decs = is_super(mmap[node.name], node)
+# 
+#             if node.name not in mmap:
+#                 mmap[node.name] = node
+# 
+#             if add_decs:
+#                 for n in node.decorator_list:
+#                     d = {}
+#                     name = ''
+#                     args = []
+#                     kwargs = {}
+# 
+#                     # is this a call like @decorator or like @decorator(...)
+#                     if isinstance(n, ast.Call):
+#                         if isinstance(n.func, ast.Attribute):
+#                             name = n.func.attr
+# 
+#                         else:
+#                             name = n.func.id
+# 
+#                         for an in n.args:
+#                             args.append(get_val(an))
+# 
+#                         for an in n.keywords:
+#                             kwargs[an.arg] = get_val(an.value)
+# 
+#                     else:
+#                         name = n.attr if isinstance(n, ast.Attribute) else n.id
+# 
+#                     d = {
+#                         "name": name,
+#                         "args": args,
+#                         "kwargs": kwargs
+#                     }
+# 
+#                     # get the actual decorator from either the module
+#                     # (imported) or from the global builtins
+#                     decor = None
+#                     if self.reflect_module():
+#                         m = self.reflect_module().get_module()
+#                         decor = getattr(m, name, None)
+# 
+#                     if not decor:
+#                         decor = getattr(builtins, name, None)
+# 
+#                     if not decor:
+#                         raise RuntimeError(
+#                             "Could not find {} decorator class".format(name)
+#                         )
+# 
+#                     d["decorator"] = decor
+# 
+#                     #res[node.name].append((name, args, kwargs))
+#                     res[node.name].append(self.reflect_decorator_class(**d))
+# 
+#         node_iter = ast.NodeVisitor()
+#         node_iter.visit_FunctionDef = visit_FunctionDef
+#         for target_cls in inspect.getmro(self.cls):
+#             if target_cls == object: break
+#             node_iter.visit(ast.parse(inspect.getsource(target_cls).strip()))
+# 
+#         for method_name, method in inspect.getmembers(self.cls):
+#             if method_name not in mmap: continue
+# 
+#             m = mmap[method_name]
+#             d = {
+#                 "decorators": res.get(method_name, []),
+#                 "method": getattr(self.cls, method_name),
+#             }
+# 
+#             # does the method have *args?
+#             d["positionals"] = True if m.args.vararg else False
+#             # does the method have **kwargs?
+#             d["keywords"] = True if m.args.kwarg else False
+# 
+#             args = []
+#             kwargs = {}
+# 
+#             # we build a mapping of the defaults to where they would sit in
+#             # the actual argument string (the defaults list starts at 0 but
+#             # would correspond to the arguments after the required
+#             # arguments, so we need to compensate for that
+#             defaults = [None] * (len(m.args.args) - len(m.args.defaults))
+#             defaults.extend(m.args.defaults)
+# 
+#             # if we ever just switch to py3 we can use inpsect.Parameter
+#             # here https://docs.python.org/3/library/inspect.html#inspect.Parameter
+#             d["params"] = []
+#             for i in range(1, len(m.args.args)):
+#                 an = m.args.args[i]
+#                 dp = {
+#                     "name": an.id if is_py2 else an.arg,
+#                     "required": True,
+#                 }
+# 
+#                 dan = defaults[i]
+#                 if dan:
+#                     dp["required"] = False
+#                     dp["default"] = get_val(dan)
+# 
+#                 d["params"].append(dp)
+# 
+#             ret[method_name] = d
+# 
+#         return ret
 
     def getmembers(self, predicate=None, **kwargs):
         """Get all the actual members of this class, passthrough for
@@ -2475,10 +2969,10 @@ class ReflectClass(ReflectObject):
             else:
                 yield klass
 
-    def reflectmro(self, cutoff_class=object):
+    def reflect_mro(self, cutoff_class=object):
         """Same as .getmro but returns ReflectClass instances"""
         for klass in self.getmro(cutoff_class=cutoff_class):
-            yield type(self)(klass)
+            yield self.create_reflect_class(klass)
 
 
 class ReflectModule(ReflectObject):
