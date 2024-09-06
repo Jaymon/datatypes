@@ -1137,7 +1137,7 @@ class ReflectName(String):
                 for classname in self.class_names:
                     o = getattr(o, classname)
 
-                return rm.reflect_class_class(o)
+                return rm.creat_reflect_class(o)
 
     def reflect_method(self):
         if not self.method_name:
@@ -1333,6 +1333,13 @@ class ReflectName(String):
 
 
 class ReflectObject(object):
+    @property
+    def obj(self):
+        return self.target
+
+    def __init__(self, target):
+        self.target = target
+
     def get_docblock(self, inherit=False):
         """Get the docblock comment for the callable
 
@@ -1413,32 +1420,12 @@ class ReflectDecorator(ReflectObject):
 
     Moved from endpoints.reflection.ReflectDecorator on Jan 31, 2023
     """
-#     @cachedproperty(cached="_parents")
-#     def parents(self):
-#         """If this decorator is a class then this will return all the parents
-#         """
-#         ret = []
-#         decor = self.decorator
-#         if inspect.isclass(decor):
-#             parents = inspect.getmro(decor)
-#             ret = parents[1:]
-#         return ret
-
     def __init__(self, target, *, name="", args=None, kwargs=None):
-        self.target = target
         self.name = name or target.__name__
         self.args = args
         self.kwargs = kwargs
 
-#     def get_parents(self):
-#         """If this decorator is a class then this will return all the parents
-#         """
-#         ret = []
-#         decor = self.decorator
-#         if inspect.isclass(decor):
-#             parents = inspect.getmro(decor)
-#             ret = parents[1:]
-#         return ret
+        super().__init__(target)
 
 
 class ReflectCallable(ReflectObject):
@@ -1452,10 +1439,6 @@ class ReflectCallable(ReflectObject):
     This is a refactoring of ReflectMethod that was moved here from
     endpoints.reflection.ReflectMethod on Jan 31, 2023
     """
-    @property
-    def obj(self):
-        return self.target
-
     @property
     def qualname(self):
         qname = getattr(self.target, "__qualname__", "")
@@ -1532,7 +1515,8 @@ class ReflectCallable(ReflectObject):
         if not callable(target):
             raise ValueError(f"Passed in callable {target} is not callable")
 
-        self.target = target
+        super().__init__(target)
+
         self.target_class = target_class
         if name:
             self.name = name
@@ -2023,13 +2007,18 @@ class ReflectCallable(ReflectObject):
         rs = self.create_reflect_source(self.get_parent())
         name = self.name
         if name in rs.decorators:
-            for dargs in rs.decorators[name]:
-                yield self.create_reflect_decorator(**dargs)
+            for rd in rs.decorators[name]:
+                yield rd
 
 
-class ReflectSource(object):
+class ReflectSource(ReflectObject):
+    """Internal class. Reflect the source of target by parsing it with the
+    ast module
+
+    This was broken out from ReflectClass.get_info on 9-5-2024.
+    """
     def __init__(self, target):
-        self.target = target
+        super().__init__(target)
         self.parse()
 
     def parse(self):
@@ -2120,16 +2109,8 @@ class ReflectSource(object):
                     na.keys,
                     na.values
                 )
-#                 ret = {self.get_expr_val(k): self.get_v for k, v in na_items}
                 for k, v in na_items:
                     ret[self.get_expr_value(k)] = self.get_expr_value(v)
-
-#                 ret = {
-#                     self.get_expr_val(na_[0]): self.get_expr_val(na_[1]) for na_ in zip(
-#                         na.keys,
-#                         na.values
-#                     )
-#                 }
 
             else:
                 ret = {}
@@ -2210,298 +2191,9 @@ class ReflectSource(object):
 
                 d["target"] = decor
 
-#                 #res[node.name].append((name, args, kwargs))
-#                 res[node.name].append(self.reflect_decorator_class(**d))
-                self.decorators[node.name].append(d)
-
-
-#     @functools.cache
-#     def get_info(self):
-#         """Get information about all the methods in this class
-# 
-#         What helped me to get all the decorators in the class
-#         http://stackoverflow.com/questions/5910703/ specifically, I used this
-#         answer http://stackoverflow.com/a/9580006
-#         """
-#         ret = collections.defaultdict(dict)
-#         res = collections.defaultdict(list)
-#         mmap = {}
-# 
-#         def is_super(childnode, parentnode):
-#             """returns true if child node has a super() call to parent node"""
-#             ret = False
-#             for n in childnode.body:
-#                 if not isinstance(n, ast.Expr): continue
-# 
-#                 try:
-#                     func = n.value.func
-#                     func_name = func.attr
-#                     if func_name == parentnode.name:
-#                         ret = isinstance(func.value, ast.Call)
-#                         break
-# 
-#                 except AttributeError as e:
-#                     ret = False
-# 
-#             return ret
-# 
-#         def visit_FunctionDef(node):
-#             """as the code is parsed any found methods will call this function
-# 
-#             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
-#             """
-#             # if there is a super call in the method body we want to add the
-#             # decorators from that super call also
-#             add_decs = True
-#             if node.name in res:
-#                 add_decs = is_super(mmap[node.name], node)
-# 
-#             if node.name not in mmap:
-#                 mmap[node.name] = node
-# 
-#             if add_decs:
-#                 for n in node.decorator_list:
-#                     d = {}
-#                     name = ''
-#                     args = []
-#                     kwargs = {}
-# 
-#                     # is this a call like @decorator or like @decorator(...)
-#                     if isinstance(n, ast.Call):
-#                         if isinstance(n.func, ast.Attribute):
-#                             name = n.func.attr
-# 
-#                         else:
-#                             name = n.func.id
-# 
-#                         for an in n.args:
-#                             args.append(get_val(an))
-# 
-#                         for an in n.keywords:
-#                             kwargs[an.arg] = get_val(an.value)
-# 
-#                     else:
-#                         name = n.attr if isinstance(n, ast.Attribute) else n.id
-# 
-#                     d = {
-#                         "name": name,
-#                         "args": args,
-#                         "kwargs": kwargs
-#                     }
-# 
-#                     # get the actual decorator from either the module
-#                     # (imported) or from the global builtins
-#                     decor = None
-#                     if self.reflect_module():
-#                         m = self.reflect_module().get_module()
-#                         decor = getattr(m, name, None)
-# 
-#                     if not decor:
-#                         decor = getattr(builtins, name, None)
-# 
-#                     if not decor:
-#                         raise RuntimeError(
-#                             "Could not find {} decorator class".format(name)
-#                         )
-# 
-#                     d["decorator"] = decor
-# 
-#                     #res[node.name].append((name, args, kwargs))
-#                     res[node.name].append(self.reflect_decorator_class(**d))
-# 
-#         node_iter = ast.NodeVisitor()
-#         node_iter.visit_FunctionDef = visit_FunctionDef
-#         for target_cls in inspect.getmro(self.cls):
-#             if target_cls == object: break
-#             node_iter.visit(ast.parse(inspect.getsource(target_cls).strip()))
-# 
-#         for method_name, method in inspect.getmembers(self.cls):
-#             if method_name not in mmap: continue
-# 
-#             m = mmap[method_name]
-#             d = {
-#                 "decorators": res.get(method_name, []),
-#                 "method": getattr(self.cls, method_name),
-#             }
-# 
-#             # does the method have *args?
-#             d["positionals"] = True if m.args.vararg else False
-#             # does the method have **kwargs?
-#             d["keywords"] = True if m.args.kwarg else False
-# 
-#             args = []
-#             kwargs = {}
-# 
-#             # we build a mapping of the defaults to where they would sit in
-#             # the actual argument string (the defaults list starts at 0 but
-#             # would correspond to the arguments after the required
-#             # arguments, so we need to compensate for that
-#             defaults = [None] * (len(m.args.args) - len(m.args.defaults))
-#             defaults.extend(m.args.defaults)
-# 
-#             # if we ever just switch to py3 we can use inpsect.Parameter
-#             # here https://docs.python.org/3/library/inspect.html#inspect.Parameter
-#             d["params"] = []
-#             for i in range(1, len(m.args.args)):
-#                 an = m.args.args[i]
-#                 dp = {
-#                     "name": an.id if is_py2 else an.arg,
-#                     "required": True,
-#                 }
-# 
-#                 dan = defaults[i]
-#                 if dan:
-#                     dp["required"] = False
-#                     dp["default"] = get_val(dan)
-# 
-#                 d["params"].append(dp)
-# 
-#             ret[method_name] = d
-# 
-#         return ret
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class ReflectMethod(object):
-#     """Internal class used by ReflectClass
-# 
-#     Reflects a method on a class. This is kind of a strange situation where
-#     this class is entirely dependant on ReflectClass for its information. This
-#     is because this figures out all the decorators that were defined on this
-#     method and that information is only available in the full actual python
-#     code of the class, as retrieved using the ast module, so this really wraps
-#     ReflectClass.get_info()
-# 
-#     Moved from endpoints.reflection.ReflectMethod on Jan 31, 2023
-#     """
-#     @cachedproperty(cached="_required_args")
-#     def required_args(self):
-#         """return the *args that are needed to call the method"""
-#         ret = []
-#         info = self.get_info()
-#         for param_d in info.get("params", []):
-#             if param_d.get("required", False):
-#                 ret.append(param_d["name"])
-# 
-#         if ret:
-#             # we need to go through the param decorators and check path args,
-#             # because it's entirely possible we can make something required in
-#             # the method definition but make it optional in the decorator
-#             for name, param_d in self.params.items():
-#                 if not isinstance(name, int):
-#                     names = []
-#                     dest = param_d.get("dest", "")
-#                     if dest:
-#                         names.append(dest)
-#                     names.append(name)
-#                     names.extend(param_d.get("other_names", []))
-# 
-#                     # first name that is found wins
-#                     for n in names:
-#                         try:
-#                             ret.remove(n)
-#                             break
-#                         except ValueError:
-#                             pass
-# 
-#         ret.extend([None] * (max(0, len(self.params) - len(ret))))
-# 
-#         # now we will remove any non required path args that are left
-#         for name, param_d in self.params.items():
-#             if isinstance(name, int):
-#                 #pout.v(name, param_d, ret)
-#                 # since name is an integer it's a path variable
-#                 if param_d.get("required", False):
-#                     if ret[name] is None:
-#                         ret[name] = name
-#                 else:
-#                     if name < len(ret):
-#                         ret[name] = None
-# 
-#         return list(filter(lambda x: x is not None, ret))
-# 
-#     @cachedproperty(cached="_name")
-#     def name(self):
-#         """return the method name"""
-#         return self.method_name
-# 
-#     @cachedproperty(cached="_desc")
-#     def desc(self):
-#         """return the description of this method
-# 
-#         ??? why does this exist over using inspect.getdoc?
-#         """
-#         doc = None
-#         def visit_FunctionDef(node):
-#             """
-#             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
-#             """
-#             if node.name != self.method_name:
-#                 return
-# 
-#             doc = ast.get_docstring(node)
-#             raise StopIteration(doc if doc else "")
-# 
-#         target = self.reflect_class.cls
-#         try:
-#             node_iter = ast.NodeVisitor()
-#             node_iter.visit_FunctionDef = visit_FunctionDef
-#             node_iter.visit(ast.parse(inspect.getsource(target)))
-# 
-#         except StopIteration as e:
-#             doc = String(e)
-# 
-#         return doc or ""
-# 
-#     def __init__(self, method_name, method, reflect_class):
-#         self.method_name = method_name
-#         self.method = method
-#         self.reflect_class = reflect_class
-# 
-#     def get_method(self):
-#         return self.method
-# 
-#     def get_class(self):
-#         return self.reflect_class.get_class()
-# 
-#     def get_module(self):
-#         return self.reflect_class.get_module()
-# 
-#     def get_info(self):
-#         """Gets info about this method using ReflectClass.get_info()
-# 
-#         :returns: dict, the information the class was able to gather about this
-#         method
-#         """
-#         info = self.reflect_class.get_info()
-#         return info[self.name][self.method_name]
-# 
-#     def has_positionals(self):
-#         """return True if this method accepts *args"""
-#         return self.get_info().get("positionals", False)
-# 
-#     def has_keywords(self):
-#         """return True if this method accepts **kwargs"""
-#         return self.get_info().get("keywords", False)
-# 
-#     def reflect_decorators(self):
-#         """Return all the decorators that decorate this method
-# 
-#         :returns: list, a list of ReflectDecorator instances
-#         """
-#         class_info = self.reflect_class.get_info()
-#         return class_info[self.method_name].get("decorators", [])
+                self.decorators[node.name].append(
+                    self.create_reflect_decorator(**d)
+                )
 
 
 class ReflectClass(ReflectObject):
@@ -2509,18 +2201,14 @@ class ReflectClass(ReflectObject):
     Moved from endpoints.reflection.ReflectClass on Jan 31, 2023
     """
     @property
-    def obj(self):
-        return self.cls
-
-    @property
     def class_name(self):
         """The class name"""
-        return self.cls.__name__
+        return self.target.__name__
 
     @property
     def modpath(self):
         """the module name that this class is defined in"""
-        return self.cls.__module__
+        return self.target.__module__
 
     @property
     def classpath(self):
@@ -2533,7 +2221,7 @@ class ReflectClass(ReflectObject):
 
         :returns: str, "modpath:QualifiedClassname"
         """
-        return self.get_classpath(self.cls)
+        return self.get_classpath(self.target)
 
     @property
     def module(self):
@@ -2543,35 +2231,6 @@ class ReflectClass(ReflectObject):
     @cachedproperty(cached="_desc")
     def desc(self):
         return self.get_docblock(inherit=False)
-
-#     @classmethod
-#     def resolve_class(cls, full_python_class_path):
-#         """
-#         take something like some.full.module.Path and return the actual Path
-#         class object
-# 
-#         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
-# 
-#         NOTE -- this will fail when the object isn't accessible from the
-#         module, that means you can't define your class object in a function and
-#         expect this function to work, the reason why this doesn't work is
-#         because the class is on the local stack of the function, so it only
-#         exists when that function is running, so there's no way to get the
-#         class object outside of the function, and you can't really separate it
-#         from the class (like using the code object to create the class object)
-#         because it might use local variables and things like that
-# 
-#         :Example:
-#             # -- THIS IS BAD --
-#             def foo():
-#                 class FooCannotBeFound(object): pass
-#                 # this will fail
-#                 get_class("path.to.module.FooCannotBeFound")
-# 
-#         moved here from morp.reflection.get_class on 2-5-2023
-#         """
-#         rn = ReflectName(full_python_class_path)
-#         return rn.get_class()
 
     @classmethod
     def get_classpath(cls, obj):
@@ -2589,12 +2248,13 @@ class ReflectClass(ReflectObject):
 
         return ":".join(parts)
 
-    def __init__(self, cls, reflect_module=None):
-        if inspect.isclass(cls):
-            self.cls = cls
+    def __init__(self, target, reflect_module=None):
+        if inspect.isclass(target):
+            target = target
         else:
-            self.cls = cls.__class__
+            target = target.__class__
 
+        super().__init__(target)
         self._reflect_module = reflect_module
 
     def is_private(self):
@@ -2605,59 +2265,33 @@ class ReflectClass(ReflectObject):
         return self.module
 
     def get_class(self):
-        return self.cls
+        return self.target
 
     def reflect_module(self):
         """Returns the reflected module"""
-        return self._reflect_module or ReflectModule(self.cls.__module__)
+        return self._reflect_module or ReflectModule(self.target.__module__)
 
     def get_method_names(self):
-        methods = inspect.getmembers(self.cls, inspect.ismethod)
+        methods = inspect.getmembers(self.target, inspect.ismethod)
         for method_name, method in methods:
             yield method_name
-
-# 
-#         # Rename to get_method_names
-#         # https://github.com/Jaymon/datatypes/issues/54
-#         for method_name in self.get_info().keys():
-#             yield method_name
 
     def get_methods(self):
         for rc in self.reflect_methods():
             yield rc.target
-
-# 
-#         # TODO -- this should be renamed to get_methods and it should use
-#         # inpsect instead of the ast parser in get_info. reflect_methods can
-#         # still use the get_info ast parser
-#         # https://github.com/Jaymon/datatypes/issues/54
-#         for method_name, method_info in self.get_info().items():
-#             yield method_name, method_info["method"]
-
-#     def instance_methods(self, *args, **kwargs):
-#         instance = self.cls(*args, **kwargs)
-#         for method_name, method in inspect.getmembers(instance, inspect.ismethod):
-#             yield method_name, method
 
     def reflect_methods(self):
         """Yield all the methods defined in this class
 
         :returns: generator, yields ReflectMethod instances
         """
-        methods = inspect.getmembers(self.cls, inspect.ismethod)
+        methods = inspect.getmembers(self.target, inspect.ismethod)
         for method_name, method in methods:
             yield self.create_reflect_callable(
                 method,
-                target_class=self.cls,
+                target_class=self.target,
                 name=method_name
             )
-
-#         for method_name, method_info in self.get_info().items():
-#             yield self.reflect_method_class(
-#                 method_name,
-#                 method_info["method"],
-#                 reflect_class=self,
-#             )
 
     def reflect_method(self, method_name, *default_val):
         """Returns information about the method_name on this class
@@ -2667,38 +2301,11 @@ class ReflectClass(ReflectObject):
             error
         :returns: ReflectMethod, the reflection information about the method
         """
-        try:
-            return self.create_reflect_callable(
-                getattr(self.cls, method_name),
-                target_class=self.cls,
-                name=method_name
-            )
-
-        except AttributeError:
-            if default_val:
-                return default_val[0]
-
-            else:
-                raise AttributeError(
-                    f"No {self.classpath}.{method_name} method"
-                ) from e
-
-#         try:
-#             info = self.get_info()
-#             return self.reflect_method_class(
-#                 method_name,
-#                 info[method_name]["method"],
-#                 reflect_class=self
-#             )
-# 
-#         except KeyError as e:
-#             if default_val:
-#                 return default_val[0]
-# 
-#             else:
-#                 raise AttributeError(
-#                     f"No {self.classpath}.{method_name} method"
-#                 ) from e
+        return self.create_reflect_callable(
+            getattr(self.target, method_name),
+            target_class=self.target,
+            name=method_name
+        )
 
     def get(self, name, *default_val):
         """Get a value on the class
@@ -2707,208 +2314,7 @@ class ReflectClass(ReflectObject):
         :param *default_val: mixed, return this if name doesn't exist
         :returns: mixed, the raw python attribute value
         """
-        return getattr(self.cls, name, *default_val)
-
-#     @functools.cache
-#     def get_info(self):
-#         """Get information about all the methods in this class
-# 
-#         What helped me to get all the decorators in the class
-#         http://stackoverflow.com/questions/5910703/ specifically, I used this
-#         answer http://stackoverflow.com/a/9580006
-#         """
-#         ret = collections.defaultdict(dict)
-#         res = collections.defaultdict(list)
-#         mmap = {}
-# 
-#         def get_val(na, default=None):
-#             """given an inspect type argument figure out the actual real python
-#             value and return that
-#             :param na: ast.expr instanct
-#             :param default: sets the default value for na if it can't be
-#                 resolved
-#             :returns: type, the found value as a valid python type
-#             """
-#             ret = None
-#             if isinstance(na, ast.Num):
-#                 repr_n = repr(na.n)
-#                 val = na.n
-#                 vtype = float if '.' in repr_n else int
-#                 ret = vtype(val)
-# 
-#             elif isinstance(na, ast.Str):
-#                 ret = str(na.s)
-# 
-#             elif isinstance(na, ast.Name):
-#                 # http://stackoverflow.com/questions/12700893/
-#                 ret = getattr(builtins, na.id, None)
-#                 if not ret:
-#                     ret = na.id
-#                     if ret == 'True':
-#                         ret = True
-# 
-#                     elif ret == 'False':
-#                         ret = False
-# 
-#             elif isinstance(na, ast.Dict):
-#                 if na.keys:
-#                     ret = {
-#                         get_val(na_[0]): get_val(na_[1]) for na_ in zip(
-#                             na.keys,
-#                             na.values
-#                         )
-#                     }
-# 
-#                 else:
-#                     ret = {}
-# 
-#             elif isinstance(na, (ast.List, ast.Tuple)):
-#                 if na.elts:
-#                     ret = [get_val(na_) for na_ in na.elts]
-# 
-#                 else:
-#                     ret = []
-# 
-#                 if isinstance(na, ast.Tuple):
-#                     ret = tuple(ret)
-# 
-#             else:
-#                 ret = default
-# 
-#             return ret
-# 
-#         def is_super(childnode, parentnode):
-#             """returns true if child node has a super() call to parent node"""
-#             ret = False
-#             for n in childnode.body:
-#                 if not isinstance(n, ast.Expr): continue
-# 
-#                 try:
-#                     func = n.value.func
-#                     func_name = func.attr
-#                     if func_name == parentnode.name:
-#                         ret = isinstance(func.value, ast.Call)
-#                         break
-# 
-#                 except AttributeError as e:
-#                     ret = False
-# 
-#             return ret
-# 
-#         def visit_FunctionDef(node):
-#             """as the code is parsed any found methods will call this function
-# 
-#             https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
-#             """
-#             # if there is a super call in the method body we want to add the
-#             # decorators from that super call also
-#             add_decs = True
-#             if node.name in res:
-#                 add_decs = is_super(mmap[node.name], node)
-# 
-#             if node.name not in mmap:
-#                 mmap[node.name] = node
-# 
-#             if add_decs:
-#                 for n in node.decorator_list:
-#                     d = {}
-#                     name = ''
-#                     args = []
-#                     kwargs = {}
-# 
-#                     # is this a call like @decorator or like @decorator(...)
-#                     if isinstance(n, ast.Call):
-#                         if isinstance(n.func, ast.Attribute):
-#                             name = n.func.attr
-# 
-#                         else:
-#                             name = n.func.id
-# 
-#                         for an in n.args:
-#                             args.append(get_val(an))
-# 
-#                         for an in n.keywords:
-#                             kwargs[an.arg] = get_val(an.value)
-# 
-#                     else:
-#                         name = n.attr if isinstance(n, ast.Attribute) else n.id
-# 
-#                     d = {
-#                         "name": name,
-#                         "args": args,
-#                         "kwargs": kwargs
-#                     }
-# 
-#                     # get the actual decorator from either the module
-#                     # (imported) or from the global builtins
-#                     decor = None
-#                     if self.reflect_module():
-#                         m = self.reflect_module().get_module()
-#                         decor = getattr(m, name, None)
-# 
-#                     if not decor:
-#                         decor = getattr(builtins, name, None)
-# 
-#                     if not decor:
-#                         raise RuntimeError(
-#                             "Could not find {} decorator class".format(name)
-#                         )
-# 
-#                     d["decorator"] = decor
-# 
-#                     #res[node.name].append((name, args, kwargs))
-#                     res[node.name].append(self.reflect_decorator_class(**d))
-# 
-#         node_iter = ast.NodeVisitor()
-#         node_iter.visit_FunctionDef = visit_FunctionDef
-#         for target_cls in inspect.getmro(self.cls):
-#             if target_cls == object: break
-#             node_iter.visit(ast.parse(inspect.getsource(target_cls).strip()))
-# 
-#         for method_name, method in inspect.getmembers(self.cls):
-#             if method_name not in mmap: continue
-# 
-#             m = mmap[method_name]
-#             d = {
-#                 "decorators": res.get(method_name, []),
-#                 "method": getattr(self.cls, method_name),
-#             }
-# 
-#             # does the method have *args?
-#             d["positionals"] = True if m.args.vararg else False
-#             # does the method have **kwargs?
-#             d["keywords"] = True if m.args.kwarg else False
-# 
-#             args = []
-#             kwargs = {}
-# 
-#             # we build a mapping of the defaults to where they would sit in
-#             # the actual argument string (the defaults list starts at 0 but
-#             # would correspond to the arguments after the required
-#             # arguments, so we need to compensate for that
-#             defaults = [None] * (len(m.args.args) - len(m.args.defaults))
-#             defaults.extend(m.args.defaults)
-# 
-#             # if we ever just switch to py3 we can use inpsect.Parameter
-#             # here https://docs.python.org/3/library/inspect.html#inspect.Parameter
-#             d["params"] = []
-#             for i in range(1, len(m.args.args)):
-#                 an = m.args.args[i]
-#                 dp = {
-#                     "name": an.id if is_py2 else an.arg,
-#                     "required": True,
-#                 }
-# 
-#                 dan = defaults[i]
-#                 if dan:
-#                     dp["required"] = False
-#                     dp["default"] = get_val(dan)
-# 
-#                 d["params"].append(dp)
-# 
-#             ret[method_name] = d
-# 
-#         return ret
+        return getattr(self.target, name, *default_val)
 
     def getmembers(self, predicate=None, **kwargs):
         """Get all the actual members of this class, passthrough for
@@ -2926,7 +2332,7 @@ class ReflectClass(ReflectObject):
         regex = kwargs.pop("regex", "")
         name_predicate = kwargs.pop("name_predicate", None)
 
-        for name, member in inspect.getmembers(self.cls, predicate):
+        for name, member in inspect.getmembers(self.target, predicate):
             if regex and re.search(regex, name, re.I):
                 yield name, member
 
@@ -2945,7 +2351,7 @@ class ReflectClass(ReflectObject):
         :returns: generator[type]
         """
         for parent_class in self.getmro(cutoff_class=cutoff_class):
-            if parent_class is not self.cls:
+            if parent_class is not self.target:
                 yield parent_class
 
     def reflect_parents(self, cutoff_class=object):
@@ -2962,7 +2368,7 @@ class ReflectClass(ReflectObject):
         :param cutoff_class: type, iterate the classes ending at this class
         :returns: generator[type]
         """
-        for klass in inspect.getmro(self.cls):
+        for klass in inspect.getmro(self.target):
             if cutoff_class and klass is cutoff_class:
                 break
 
@@ -2980,7 +2386,13 @@ class ReflectModule(ReflectObject):
 
     Moved from endpoints.reflection.ReflectModule on Jan 31, 2023
     """
-    reflect_class_class = ReflectClass
+    @property
+    def name(self):
+        return self.module_name
+
+    @property
+    def target(self):
+        return self.get_module()
 
     @property
     def module_basename(self):
@@ -2988,10 +2400,6 @@ class ReflectModule(ReflectObject):
         then the module basename would be "che"
         """
         return self.module_name.split(".")[-1]
-
-    @property
-    def obj(self):
-        return self.get_module()
 
     @cachedproperty(cached="_path")
     def path(self):
@@ -3300,7 +2708,7 @@ class ReflectModule(ReflectObject):
         module = self.get_module()
         classes = inspect.getmembers(module, inspect.isclass)
         for class_name, class_type in classes:
-            ret[class_name] = self.reflect_class_class(class_type, self)
+            ret[class_name] = self.create_reflect_class(class_type)
         return ret
 
     def reflect_classes(self, ignore_private=True):
@@ -3312,7 +2720,7 @@ class ReflectModule(ReflectObject):
         :returns: a generator of ReflectClass instances
         """
         for class_name, rc in self.get_info().items(): 
-            if isinstance(rc, self.reflect_class_class):
+            if isinstance(rc, ReflectClass):
                 if ignore_private and rc.is_private():
                     continue
                 yield rc
@@ -3331,11 +2739,11 @@ class ReflectModule(ReflectObject):
         module = self.get_module()
         for rc in self.reflect_classes(ignore_private=ignore_private):
             if ignore_imported:
-                if module.__name__ == rc.cls.__module__:
-                    yield rc.cls
+                if module.__name__ == rc.target.__module__:
+                    yield rc.target
 
             else:
-                yield rc.cls
+                yield rc.target
 
     def reflect_class(self, name, *default_val):
         """Get a ReflectClass instance of name"""
