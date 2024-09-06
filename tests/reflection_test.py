@@ -524,14 +524,14 @@ class ReflectNameTest(TestCase):
         })
         p = ReflectName(f"{m}.foo.bar.che")
         for rm in p.reflect_modules("foo.bar"):
-            if rm.module_name.endswith(".foo"):
+            if rm.name.endswith(".foo"):
                 pass
 
-            elif rm.module_name.endswith(".foo.bar"):
+            elif rm.name.endswith(".foo.bar"):
                 pass
 
             else:
-                raise AssertionError(rm.module_name)
+                raise AssertionError(rm.name)
 
 
 class ReflectCallableTest(TestCase):
@@ -1145,7 +1145,7 @@ class ReflectModuleTest(TestCase):
                 'mmp.foo.bar',
                 'mmp.che'
             ]),
-            r.module_names()
+            r.get_module_names()
         )
 
         # make sure just a file will resolve correctly
@@ -1154,7 +1154,7 @@ class ReflectModuleTest(TestCase):
             "class Bar(object): pass",
         ])
         r = ReflectModule(modpath)
-        self.assertEqual(set(['mmp2']), r.module_names())
+        self.assertEqual(set(['mmp2']), r.get_module_names())
 
     def test_routing_module(self):
         modpath = "routing_module"
@@ -1165,8 +1165,8 @@ class ReflectModuleTest(TestCase):
         testdata.create_module(modpath=f"{modpath}.foo", data=data)
 
         r = ReflectModule(modpath)
-        self.assertTrue(modpath in r.module_names())
-        self.assertEqual(2, len(r.module_names()))
+        self.assertTrue(modpath in r.get_module_names())
+        self.assertEqual(2, len(r.get_module_names()))
 
     def test_routing_package(self):
         modpath = "routepack"
@@ -1178,10 +1178,10 @@ class ReflectModuleTest(TestCase):
         f = testdata.create_package(modpath=modpath, data=data)
 
         r = ReflectModule(modpath)
-        self.assertTrue(modpath in r.module_names())
-        self.assertEqual(1, len(r.module_names()))
+        self.assertTrue(modpath in r.get_module_names())
+        self.assertEqual(1, len(r.get_module_names()))
 
-    def test_module_names(self):
+    def test_get_module_names(self):
         modpath = "get_controllers"
         d = {
             modpath: [
@@ -1222,11 +1222,11 @@ class ReflectModuleTest(TestCase):
 
 
         r = ReflectModule(modpath)
-        mods = r.module_names()
+        mods = r.get_module_names()
         self.assertEqual(s, mods)
 
         # just making sure it always returns the same list
-        mods = r.module_names()
+        mods = r.get_module_names()
         self.assertEqual(s, mods)
 
     def test_find_module_names_directory(self):

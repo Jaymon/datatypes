@@ -1333,10 +1333,6 @@ class ReflectName(String):
 
 
 class ReflectObject(object):
-    @property
-    def obj(self):
-        return self.target
-
     def __init__(self, target):
         self.target = target
 
@@ -1347,20 +1343,20 @@ class ReflectObject(object):
             if False then only check the immediate object
         :returns: str
         """
-        obj = self.obj
+        target = self.target
 
         if inherit:
             # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L844
-            doc = inspect.getdoc(obj)
+            doc = inspect.getdoc(target)
 
         else:
-            doc = obj.__doc__
+            doc = target.__doc__
             if doc:
                 doc = inspect.cleandoc(doc)
 
         if not doc:
             # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L1119
-            doc = inspect.getcomments(obj)
+            doc = inspect.getcomments(target)
             if doc:
                 doc = re.sub(r"^\s*#", "", doc, flags=re.MULTILINE).strip()
                 doc = inspect.cleandoc(doc)
@@ -1372,7 +1368,7 @@ class ReflectObject(object):
 
     def reflect_module(self):
         """Returns the reflected module"""
-        return ReflectModule(self.obj.__module__)
+        return ReflectModule(self.target.__module__)
 
     def get_class(self):
         raise NotImplementedError()
@@ -1412,22 +1408,6 @@ class ReflectObject(object):
         )
 
 
-class ReflectDecorator(ReflectObject):
-    """Internal class used by ReflectClass
-
-    The information of each individual decorator on a given method will
-    be wrapped in this class
-
-    Moved from endpoints.reflection.ReflectDecorator on Jan 31, 2023
-    """
-    def __init__(self, target, *, name="", args=None, kwargs=None):
-        self.name = name or target.__name__
-        self.args = args
-        self.kwargs = kwargs
-
-        super().__init__(target)
-
-
 class ReflectCallable(ReflectObject):
     """Reflect a callable
 
@@ -1447,7 +1427,7 @@ class ReflectCallable(ReflectObject):
 
         return qname
 
-    @cachedproperty(_cached="_name")
+    @cachedproperty(cached="_name")
     def name(self):
         name = getattr(self.target, "__name__", "")
         if not name:
@@ -2011,6 +1991,22 @@ class ReflectCallable(ReflectObject):
                 yield rd
 
 
+class ReflectDecorator(ReflectCallable):
+    """Internal class used by ReflectClass
+
+    The information of each individual decorator on a given method will
+    be wrapped in this class
+
+    Moved from endpoints.reflection.ReflectDecorator on Jan 31, 2023
+    """
+    def __init__(self, target, *, name="", args=None, kwargs=None):
+        self.name = name or target.__name__
+        self.args = args
+        self.kwargs = kwargs
+
+        super().__init__(target)
+
+
 class ReflectSource(ReflectObject):
     """Internal class. Reflect the source of target by parsing it with the
     ast module
@@ -2060,7 +2056,8 @@ class ReflectSource(ReflectObject):
         """returns true if child node has a super() call to parent node"""
         ret = False
         for n in childnode.body:
-            if not isinstance(n, ast.Expr): continue
+            if not isinstance(n, ast.Expr):
+                continue
 
             try:
                 func = n.value.func
@@ -2201,75 +2198,62 @@ class ReflectClass(ReflectObject):
     Moved from endpoints.reflection.ReflectClass on Jan 31, 2023
     """
     @property
-    def class_name(self):
-        """The class name"""
-        return self.target.__name__
-
-    @property
     def modpath(self):
         """the module name that this class is defined in"""
         return self.target.__module__
 
     @property
     def classpath(self):
-        """The full classpath
+        """The full classpath of self.target
 
         should this use the currently suggested syntax of modpath:Classname?
         instead of the backwards compatible modpath.Classname?
 
         https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
 
-        :returns: str, "modpath:QualifiedClassname"
+        :returns: str, "modpath:QualifiedClassname", the full classpath (eg,
+            foo.bar.che:Classname)
         """
-        return self.get_classpath(self.target)
+        return ":".join([
+            self.target.__module__,
+            self.target.__qualname__
+        ])
 
-    @property
-    def module(self):
-        """returns the actual module this class is defined in"""
-        return self.reflect_module().get_module()
-
-    @cachedproperty(cached="_desc")
-    def desc(self):
-        return self.get_docblock(inherit=False)
-
-    @classmethod
-    def get_classpath(cls, obj):
-        """return the full classpath of obj
-
-        :param obj: type|instance
-        :returns: str, the full classpath (eg, foo.bar.che:Classname)
+    def __init__(self, target, target_module=None, *, name=""):
         """
-        parts = [obj.__module__]
-        if isinstance(obj, type):
-            parts.append(obj.__qualname__)
-
-        else:
-            parts.append(obj.__class__.__qualname__)
-
-        return ":".join(parts)
-
-    def __init__(self, target, reflect_module=None):
+        :param target: type|object, the class to reflect
+        :param target_module: types.ModuleType, the module the class was
+            defined in
+        :param name: str, usually not needed but more information is always
+            better just in case the class has been badly decorated or
+            something
+        """
         if inspect.isclass(target):
             target = target
         else:
             target = target.__class__
 
         super().__init__(target)
-        self._reflect_module = reflect_module
+
+        self.target_module = target_module
+        self.name = name or self.target.__name__
 
     def is_private(self):
         """return True if this class is considered private"""
-        return self.class_name.startswith('_')
+        return self.name.startswith('_')
 
     def get_module(self):
-        return self.module
-
-    def get_class(self):
-        return self.target
+        """returns the actual module this class is defined in"""
+        return self.target_module or self.reflect_module().get_module()
 
     def reflect_module(self):
         """Returns the reflected module"""
-        return self._reflect_module or ReflectModule(self.target.__module__)
+        return self.create_reflect_module(
+            self.target_module or self.target.__module__
+        )
+
+    def get_class(self):
+        return self.target
 
     def get_method_names(self):
         methods = inspect.getmembers(self.target, inspect.ismethod)
@@ -2357,7 +2341,7 @@ class ReflectClass(ReflectObject):
     def reflect_parents(self, cutoff_class=object):
         """Same as .get_parents but returns ReflectClass instances"""
         for parent_class in self.parents(cutoff_class=cutoff_class):
-            yield type(self)(parent_class)
+            yield self.create_reflect_class(parent_class)
 
     def getmro(self, cutoff_class=object):
         """Get the classes for method resolution order, this is basically
@@ -2382,24 +2366,16 @@ class ReflectClass(ReflectObject):
 
 
 class ReflectModule(ReflectObject):
-    """Introspect on a given module_name/modulepath (eg foo.bar.che)
+    """Introspect on a given module name/path (eg foo.bar.che)
 
     Moved from endpoints.reflection.ReflectModule on Jan 31, 2023
     """
     @property
-    def name(self):
-        return self.module_name
-
-    @property
-    def target(self):
-        return self.get_module()
-
-    @property
     def module_basename(self):
-        """Return the modules basename (eg, if module_name was "foo.bar.che"
-        then the module basename would be "che"
+        """Return the modules basename (eg, if the module's name was
+        "foo.bar.che" then the module basename would be "che"
         """
-        return self.module_name.split(".")[-1]
+        return self.name.split(".")[-1]
 
     @cachedproperty(cached="_path")
     def path(self):
@@ -2522,24 +2498,24 @@ class ReflectModule(ReflectObject):
 
         return m
 
-    def __init__(self, module_name, module_package=None, path=None):
+    def __init__(self, target, module_package=None, *, path=None):
         """
-        :param module_name: str|ModuleType, the module path of the module to
+        :param target: str|ModuleType, the module path of the module to
             introspect or the actual module
-        :param module_package: the prefix that will be used to load module_name
-            if module_name is relative
-        :param path: str, the importable path for module_name
+        :param module_package: the prefix that will be used to load .target
+            if the target's name is relative (eg `target="..foo.bar"`)
+        :param path: str, the importable path for target
         """
-        if isinstance(module_name, types.ModuleType):
-            self.module = module_name
-            self.module_name = module_name.__name__
+        if isinstance(target, types.ModuleType):
+            self.target = target
+            self.name = target.__name__
             self.module_package = module_package
 
         else:
-            self.module = None
-            self.module_name = module_name
+            self.target = None
+            self.name = target
             self.module_package = module_package or self.find_module_package(
-                module_name
+                target
             )
 
         if path:
@@ -2549,50 +2525,52 @@ class ReflectModule(ReflectObject):
         """This will iterate through this module and all its submodules
         :returns: a generator that yields ReflectModule instances
         """
-        for module_name in self.module_names():
-            yield type(self)(module_name)
+        for module_name in self.get_module_names():
+            yield self.create_reflect_module(module_name)
 
     def is_private(self):
         """return True if this module is considered private"""
         parts = []
         if self.module_package:
             parts.extend(self.module_package.split("."))
-        parts.extend(self.module_name.split("."))
+        parts.extend(self.name.split("."))
         for part in parts:
             if part.startswith("_"):
                 if not part.startswith("__") and not part.endswith("__"):
                     return True
 
     def is_package(self):
-        if self.module:
+        if self.target:
             # if path attr exists then this is a package
-            return hasattr(self.module, "__path__")
+            return hasattr(self.target, "__path__")
 
         else:
-            p = pkgutil.get_loader(self.module_name)
+            p = pkgutil.get_loader(self.name)
             return p.path.endswith("__init__.py")
 
     def reflect_module(self, *parts):
         """Returns a reflect module instance for a submodule"""
-        return type(self)(self.get_submodule(*parts))
+        return self.create_reflect_module(self.get_submodule(*parts))
 
-    def basemodule(self):
+    def get_basemodule(self):
         """Returns the root-most module of this module's path (eg, if this
         module was foo.bar.che then this would return foo module)"""
         return self.import_module(self.modroot)
 
-    def rootmodule(self):
-        return self.basemodule()
+    def get_rootmodule(self):
+        return self.get_basemodule()
 
     def reflect_rootmodule(self):
         return self.reflect_basemodule()
 
     def reflect_basemodule(self):
-        return type(self)(self.modroot)
+        return self.create_reflect_module(self.modroot)
 
     def reflect_parent(self, back=1):
         """Return the reflection instance for the parent module"""
-        parent_modpath = type(self)(self.get_parentpath(back=back))
+        return self.create_reflect_module(
+            self.get_parentpath(back=back)
+        )
 
     def get_parentpath(self, back=1):
         """get a parent module path, depending on the value of back this will
@@ -2616,9 +2594,6 @@ class ReflectModule(ReflectObject):
 
         return self.get_module(*parts)
 
-    def submodule(self, *parts):
-        return self.get_submodule(*parts)
-
     def reflect_submodules(self, depth=-1):
         module = self.get_module()
         if not depth:
@@ -2627,23 +2602,23 @@ class ReflectModule(ReflectObject):
         if self.is_package():
             submodule_names = self.find_module_names(
                 module.__path__[0],
-                self.module_name
+                self.name
             )
 
             for subname in submodule_names:
                 if depth <= 0 or count(subname) < depth:
-                    yield type(self)(subname)
+                    yield self.create_reflect_module(subname)
 
     def get_submodules(self, depth=-1):
         for rm in self.reflect_submodules(depth=depth):
             yield rm.get_module()
 
     def get_module(self, *parts):
-        if self.module and not parts:
-            ret = self.module
+        if self.target and not parts:
+            ret = self.target
 
         else:
-            module_name = self.module_name
+            module_name = self.name
             if parts:
                 module_name += "." + ".".join(parts)
 
@@ -2671,6 +2646,9 @@ class ReflectModule(ReflectObject):
                     path=path
                 )
 
+        if not parts and not self.target:
+            self.target = ret
+
         return ret
 
     def get_modules(self, depth=-1):
@@ -2685,7 +2663,7 @@ class ReflectModule(ReflectObject):
         for sm in self.get_submodules():
             yield sm
 
-    def module_names(self):
+    def get_module_names(self):
         """return all the module names that this module encompasses
         :returns: set, a set of string module names
         """
@@ -2859,6 +2837,10 @@ class ReflectModule(ReflectObject):
                         yield dp
 
     def get_docblock(self):
+        if not self.target:
+            # make sure self.target is set
+            self.get_module()
+
         docblock = super().get_docblock()
 
         if docblock.startswith("!"):
