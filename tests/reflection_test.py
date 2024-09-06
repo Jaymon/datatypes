@@ -1070,9 +1070,9 @@ class ReflectClassTest(TestCase):
             ReflectClass.get_class(f"{r}:FooCannotBeFound")
             # this would be the object once you have the module:
             #     m.foo.__code__.co_consts
-            # but I can't find anyway to take a code object and turn it into the
-            # actual type instance. I tried eval() and exec() but they executed
-            # but I couldn't get the class after running them
+            # but I can't find anyway to take a code object and turn it into
+            # the actual type instance. I tried eval() and exec() but they
+            # executed but I couldn't get the class after running them
 
     def test_classpath_1(self):
         r = testdata.create_module([
@@ -1255,11 +1255,14 @@ class ReflectModuleTest(TestCase):
     def test_path_is_package(self):
         m = testdata.create_package(data="class Foo(object): pass")
 
-        self.assertEqual(set([m]), ReflectModule.find_module_names(m.directory))
+        self.assertEqual(
+            set([m]),
+            ReflectModule.find_module_names(m.directory)
+        )
 
         # we don't return the path because it isn't importable by name from the
-        # path we passed in (itself), as of 7-4-2019 I think this is the correct
-        # behavior
+        # path we passed in (itself), as of 7-4-2019 I think this is the
+        # correct behavior
         dirpath = Dirpath(m.directory, m)
         self.assertEqual(set(), ReflectModule.find_module_names(dirpath))
 

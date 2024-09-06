@@ -1413,7 +1413,8 @@ class ReflectCallable(ReflectObject):
 
     Types of callables this supports:
         * class instance with __call__ method
-        * A method defined in a class
+        * A method defined in a class, including @classmethod and
+            @staticmethod wrapped methods
         * A function that isn't defined in a class
 
     This is a refactoring of ReflectMethod that was moved here from
@@ -1624,7 +1625,6 @@ class ReflectCallable(ReflectObject):
 
         # handle special descriptor objects
         return getattr(cb, '__objclass__', None)
-
 
     def get_descriptor(self):
         """Get the descriptor of the callable, this only returns something
