@@ -1646,7 +1646,7 @@ class ReflectCallable(ReflectObject):
 
         return cb_descriptor
 
-    def get_unwrapped(self, *kwargs):
+    def get_unwrapped(self, **kwargs):
         """Find the original wrapped function. This takes advantage of
         functools.update_wrapper's automatic setting of the __wrapped__
         variable and assumes the original func is the one that doesn't have
@@ -2052,6 +2052,10 @@ class ReflectSource(ReflectObject):
         elif self.is_module():
             return ReflectModule(self.target)
 
+    def reflect_class(self):
+        if self.is_class():
+            return ReflectClass(self.target)
+
     def has_super(self, childnode, parentnode):
         """returns true if child node has a super() call to parent node"""
         ret = False
@@ -2144,7 +2148,7 @@ class ReflectSource(ReflectObject):
         if add_decs:
             for n in node.decorator_list:
                 d = {}
-                name = ''
+                name = ""
                 args = []
                 kwargs = {}
 
@@ -2174,9 +2178,16 @@ class ReflectSource(ReflectObject):
                 # get the actual decorator from either the module
                 # (imported) or from the global builtins
                 decor = None
-                if self.reflect_module():
+                if rm := self.reflect_module():
                     m = self.reflect_module().get_module()
                     decor = getattr(m, name, None)
+
+                if not decor:
+                    if rc := self.reflect_class():
+                        for rp in rc.reflect_parents():
+                            if m := rp.get_module():
+                                if decor := getattr(m, name, None):
+                                    break
 
                 if not decor:
                     decor = getattr(builtins, name, None)
@@ -2338,9 +2349,9 @@ class ReflectClass(ReflectObject):
             if parent_class is not self.target:
                 yield parent_class
 
-    def reflect_parents(self, cutoff_class=object):
+    def reflect_parents(self, *args, **kwargs):
         """Same as .get_parents but returns ReflectClass instances"""
-        for parent_class in self.parents(cutoff_class=cutoff_class):
+        for parent_class in self.get_parents(*args, **kwargs):
             yield self.create_reflect_class(parent_class)
 
     def getmro(self, cutoff_class=object):

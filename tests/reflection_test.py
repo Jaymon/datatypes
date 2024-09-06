@@ -1027,6 +1027,34 @@ class ReflectCallableTest(TestCase):
         decs = list(rc.reflect_decorators())
         self.assertEqual(3, len(decs))
 
+    def test_reflect_decorators_inherit_3(self):
+        """Classes that extend other classes in different modules would fail
+        to find the decorators because they weren't imported/defined in the
+        same module"""
+        modpath = self.create_module({
+            "foo": """
+                def a(f):
+                    def wrapped(*args, **kwargs):
+                        return f(*args, **kwargs)
+                    return wrapped
+
+                class Foo(object):
+                    @a
+                    def bar(self):
+                        pass
+            """,
+            "che": """
+                from .foo import Foo
+                class Che(Foo):
+                    pass
+            """
+        })
+        che_class = modpath.get_module("che").Che
+        rc = ReflectCallable(che_class.bar, che_class)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(1, len(decs))
+        self.assertEqual("a", decs[0].name)
+
 
 class ReflectClassTest(TestCase):
     def test_docblock_1(self):
@@ -1090,6 +1118,28 @@ class ReflectClassTest(TestCase):
         qualname = ":ReflectClassTest.test_classpath_2.<locals>.Foo.Bar"
         rc = ReflectClass(Foo.Bar)
         self.assertTrue(rc.classpath.endswith(qualname))
+
+    def test_get_parents(self):
+        foo_class = self.create_module_class("""
+            class _One(object):
+                pass
+
+            class _Two(_One):
+                pass
+
+            class _Three(_Two):
+                pass
+
+            class Foo(_Three):
+                pass
+        """)
+
+        rc = ReflectClass(foo_class)
+        parents = list(rc.get_parents())
+        expected = set(["_Three", "_Two", "_One"])
+        self.assertEqual(3, len(parents))
+        for p in parents:
+            self.assertTrue(p.__name__ in expected)
 
 
 class ReflectModuleTest(TestCase):
