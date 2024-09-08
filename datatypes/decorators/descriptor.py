@@ -397,6 +397,32 @@ class property(FuncDecorator):
         return self
 
 
+class cachedproperty(property):
+    """Cache a property
+
+    This is a drop in replacement for `@property` with added functionality
+
+    as of 3.8, functools as a cached_property decorator:
+        https://docs.python.org/3/library/functools.html#functools.cached_property
+
+    I had a tendency to do this:
+
+        from datatypes import property as cachedproperty
+
+        @cachedproperty(cached="_<NAME>")
+        def <NAME>(self):
+            return <VALUE>
+
+    So I'm formalizing it since I almost never import this as property. I
+    think it's fine to keep `property` since it can do other things and be
+    imported and renamed accordingly.
+    """
+    def __set_name__(self, owner, name):
+        if not self.name:
+            self.name = name
+        self.cached = True
+
+
 class aliasmethods(FuncDecorator):
     """Allows setting alias method names on an instance method
 
@@ -404,7 +430,8 @@ class aliasmethods(FuncDecorator):
         @property or @classmethod decorators or any other decorators
 
     NOTE -- This has to be the outermost decorator otherwise __set_name__
-        won't be called and the decorator won't work
+        won't be called and the decorator won't work. TODO -- go through
+        any __wrapped__ methods and call __set_name__ if it exists
 
     :Example:
         class Foo(object):

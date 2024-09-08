@@ -10,6 +10,7 @@ from datatypes.decorators.descriptor import (
     instancemethod,
     staticmethod,
     aliasmethods,
+    cachedproperty,
 )
 
 from . import TestCase, testdata
@@ -686,6 +687,26 @@ class PropertyTest(TestCase):
         r1 = f.baz
         r2 = f.baz
         self.assertEqual(r1, r2)
+
+
+class CachedpropertyTest(TestCase):
+    def test_crud(self):
+        class Foo(object):
+            bar_count = 0
+
+            @cachedproperty
+            def bar(self):
+                self.bar_count += 1
+                return self.bar_count
+
+        f = Foo()
+        self.assertTrue(1 == f.bar == f.bar)
+
+        del f.bar
+        self.assertTrue(2 == f.bar == f.bar)
+
+        f.bar = f.bar + 5
+        self.assertTrue(7 == f.bar == f.bar)
 
 
 class AliasMethodsTest(TestCase):

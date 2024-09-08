@@ -17,6 +17,7 @@ from .base import (
 )
 from .descriptor import (
     property,
+    cachedproperty,
     classproperty,
     method,
     instancemethod,
