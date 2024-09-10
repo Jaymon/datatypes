@@ -13,6 +13,7 @@ from datatypes.reflection import (
     ReflectPath,
     ReflectCallable,
     ClasspathFinder,
+    ClassFinder,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
@@ -309,6 +310,76 @@ class ClasspathFinderTest(TestCase):
             node_classes.add(value["class"].__name__)
 
         self.assertEqual(pf_classes, node_classes)
+
+
+class ClassFinderTest(TestCase):
+    def test_add_class(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class GC11(C1): pass
+            class GC12(C1): pass
+            class GC21(C2): pass
+            class GGC221(GC21): pass
+        """)
+
+        cf = ClassFinder()
+        for c in classes.values():
+            cf.add_class(c)
+        self.assertTrue(len(classes) + 1, len(list(cf.nodes())))
+
+    def test_get_abs_class(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class GC11(C1): pass
+            class GC12(C1): pass
+            class GC21(C2): pass
+            class GGC221(GC21): pass
+        """)
+
+        cf = ClassFinder()
+        cf.add_classes(classes.values())
+
+        ac = cf.get_abs_class(classes["C2"])
+        self.assertEqual(classes["GGC221"], ac)
+
+        with self.assertRaises(ValueError):
+            cf.get_abs_class(classes["P"])
+
+        ac = cf.get_abs_class(classes["GGC221"])
+        self.assertEqual(classes["GGC221"], ac)
+
+    def test_get_abs_classes(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class GC11(C1): pass
+            class GC12(C1): pass
+            class GC21(C2): pass
+            class GGC221(GC21): pass
+        """)
+
+        cf = ClassFinder()
+        cf.add_classes(classes.values())
+
+        acs = list(cf.get_abs_classes(classes["P"]))
+        self.assertEqual(3, len(acs))
+        for k in ["GC11", "GC12", "GGC221"]:
+            self.assertTrue(classes[k] in acs)
+
+        acs = list(cf.get_abs_classes(classes["GGC221"]))
+        self.assertEqual(1, len(acs))
+        self.assertTrue(classes["GGC221"] in acs)
 
 
 class ExtendTest(TestCase):

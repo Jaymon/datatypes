@@ -110,6 +110,7 @@ from .profile import (
     AggregateProfiler, AggregateProfiler as AProfiler
 )
 from .reflection import (
+    ClassFinder,
     ClasspathFinder,
     Extend,
     OrderedSubclasses,

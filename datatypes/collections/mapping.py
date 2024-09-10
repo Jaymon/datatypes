@@ -667,16 +667,17 @@ class DictTree(Dict):
         * .key: str, the name of the key this tree is in (so 
             `self == self.parent[self.name]`), this will be "" if this
             node is the absolute .root node of the tree
-        * .keys: list[str], similar to .name but returns the entire set of
+        * .pathkeys: list[str], similar to .name but returns the entire set of
             names in the order needed to traverse from the .root node back
-            to this node
+            to this node. This isn't named .keys to avoid a naming collision
+            with the dict.keys method
         * .root: DictTree, the absolute head node of the tree
         * .value: Any, the value at this node of the tree, None if the node
             has no value
     """
     @property
-    def keys(self):
-        """Get the path from the absolute head tree to this tree
+    def pathkeys(self):
+        """Get the path of keys from the absolute head tree to this tree
 
         :returns: list[str]
         """

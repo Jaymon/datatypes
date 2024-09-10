@@ -356,20 +356,20 @@ class ClasspathFinder(DictTree):
     """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
     a class added with .add_class
 
+    NOTE -- <MODULE_NAME> is only used if prefixes are present, if there are no
+    prefixes then the module path is ignored when adding classes. This means
+    the path for foo.bar:Che without prefixes would just be Che. If
+    prefixes=["foo"] then the path is bar:Che 
+
     Like OrderedSubclasses, you'd think this would be a niche thing and not
     worth being in a common library but I do this exact thing in both Endpoints
     and Captain and rather than duplicate the code I've moved it here.
 
-    Moved here from Captain and integrated into Endpoints on 2024-08-29. So
-    Endpoints got similar code first. Then I did a similar thing in Captain
-    and Captain's code was much better, so it provided the base for this
-    generic version here which Endpoints is the first to get. The circle of
-    life.
-
-    NOTE -- If there are no prefixes then the module path is ignored when
-    adding classes. This means the path for foo.bar:Che without prefixes would
-    just be Che. If prefixes=["foo"] then the path is bar:Che
-
+    This code is based on similar code in Captain. I moved it here on 
+    August 29, 2024. The Captain code was based on similar code from Endpoints
+    and was my second stab at solving this problem, so this codebase is my
+    third stab at the problem. I've now integrated this version back into
+    Endpoints. So the circle of life continues
     """
     @classmethod
     def find_modules(cls, prefixes=None, paths=None, fileroot=""):
@@ -470,11 +470,11 @@ class ClasspathFinder(DictTree):
 
     def __init__(self, prefixes=None, **kwargs):
         """
-        :param prefixes: list[str]
-        :param ignore_class_keys: set[str], used in ._get_node_values to
-            ignore certain class names/keys if they are in this set
-        :param ignore_module_keys: set[str], used in ._get_node_values to
-            ignore certain module names/keys if they are in this set
+        :param prefixes: list[str], passing in prefixes means the <MODULE-NAME>
+            will be used when adding the classpaths, if there are no prefixes
+            then the <MODULE-NAME> portion of a full class path (eg,
+            <MODULE-NAME>:<CLASS-QUALNAME>) will be ignored and only the
+            <CLASS-QUALNAME> will be used
         """
         super().__init__()
 
@@ -646,6 +646,106 @@ class ClasspathFinder(DictTree):
         for keys, node in self.nodes():
             if node.value and "class" in node.value:
                 yield keys, node.value
+
+
+class ClassFinder(DictTree):
+    """Keep a a class hierarchy tree so subclasses can be easily looked up
+    from a common parent
+
+    This is very similar to OrderedSubclasses but is a conceptually better
+    data structure for this type of class organization
+    """
+    def _get_node_items(self, klass):
+        keys = []
+        for c in reversed(inspect.getmro(klass)):
+            if self._is_valid_subclass(c):
+                keys.append(c)
+                yield keys, c
+
+    def _is_valid_subclass(self, klass):
+        """Internal method. check if klass should be considered a valid
+        subclass for addition into the tree
+
+        This is a hook to allow child classes to customize functionality
+
+        :param klass: type, the class wanting to be added to the tree
+        :returns: bool, True if klass is valid
+        """
+        return not klass is object
+
+    def add_class(self, klass):
+        """This is the method that should be used to add new classes to the
+        tree
+
+        :param klass: type, the class to add to the tree
+        """
+        for keys, value in self._get_node_items(klass):
+            self.set(keys, value)
+
+    def add_classes(self, classes):
+        """Adds all the classes using .add_class"""
+        for klass in classes:
+            self.add_class(klass)
+
+    def get_abs_class(self, klass):
+        """Get the absolute edge subclass of klass
+
+        :Example:
+            # these were added to ClassFinder instance cf
+            class GP(object): pass
+            class P(GP): pass
+            class C(P): pass
+
+            cf.get_abs_class(P) # <type 'C'>
+
+        :param klass: type, the class to find the absolute child that extends
+            klass
+        :returns: type, the found subclass
+        :raises: ValueError, if an absolute child can't be inferred
+        """
+        for keys, n in self.nodes():
+            if klass in n:
+                n = n.get_node(klass)
+                child_count = len(n)
+                if child_count == 0:
+                    return n.value
+
+                elif child_count == 1:
+                    for k in n.keys():
+                        return n.get_abs_class(k)
+
+                else:
+                    raise ValueError(
+                        f"Cannot find absolute class because {klass} has"
+                        " multiple children"
+                    )
+
+    def get_abs_classes(self, klass):
+        """Get the absolute edge subclasses of klass
+
+        :Example:
+            # these were added to ClassFinder instance cf
+            class GP(object): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class C3(C1): pass
+
+            list(cf.get_abs_classes(GP)) # [<type 'C2'>, <type 'C3'>]
+
+        :param klass: type, the parent class whose absolute children that
+            extend it we want
+        :returns: generator[type], the found absolute subclasses of klass
+        """
+        for _, n in self.nodes():
+            if klass in n:
+                n = n.get_node(klass)
+                if len(n) == 0:
+                    yield klass
+
+                else:
+                    for k in n.keys():
+                        yield from n.get_abs_classes(k)
 
 
 class Extend(object):
