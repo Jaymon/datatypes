@@ -687,7 +687,23 @@ class ClassFinder(DictTree):
         for klass in classes:
             self.add_class(klass)
 
-    def get_abs_class(self, klass):
+    def get_class_node(self, klass):
+        """return klass's node in the tree
+
+        :param klass: type
+        :returns: ClassFinder
+        """
+        if self.key is klass:
+            return self
+
+        else:
+            for _, n in self.nodes():
+                if klass in n:
+                    return n.get_node(klass)
+
+        raise KeyError(f"{klass} not found in tree")
+
+    def get_abs_class(self, klass, *default):
         """Get the absolute edge subclass of klass
 
         :Example:
@@ -700,25 +716,33 @@ class ClassFinder(DictTree):
 
         :param klass: type, the class to find the absolute child that extends
             klass
+        :param *default: Any, return this instead of raising an exception
+            if the absolute class can't be inferred
         :returns: type, the found subclass
         :raises: ValueError, if an absolute child can't be inferred
         """
-        for keys, n in self.nodes():
-            if klass in n:
-                n = n.get_node(klass)
-                child_count = len(n)
-                if child_count == 0:
-                    return n.value
+        try:
+            n = self.get_class_node(klass)
+            child_count = len(n)
+            if child_count == 0:
+                return n.key
 
-                elif child_count == 1:
-                    for k in n.keys():
-                        return n.get_abs_class(k)
+            elif child_count == 1:
+                for k in n.keys():
+                    return n.get_abs_class(k)
 
-                else:
-                    raise ValueError(
-                        f"Cannot find absolute class because {klass} has"
-                        " multiple children"
-                    )
+            else:
+                raise ValueError(
+                    f"Cannot find absolute class because {klass} has"
+                    " multiple children"
+                )
+
+        except (ValueError, KeyError):
+            if default:
+                return default[0]
+
+            else:
+                raise
 
     def get_abs_classes(self, klass):
         """Get the absolute edge subclasses of klass
@@ -737,15 +761,17 @@ class ClassFinder(DictTree):
             extend it we want
         :returns: generator[type], the found absolute subclasses of klass
         """
-        for _, n in self.nodes():
-            if klass in n:
-                n = n.get_node(klass)
-                if len(n) == 0:
-                    yield klass
+        try:
+            n = self.get_class_node(klass)
+            if len(n) == 0:
+                yield klass
 
-                else:
-                    for k in n.keys():
-                        yield from n.get_abs_classes(k)
+            else:
+                for k in n.keys():
+                    yield from n.get_abs_classes(k)
+
+        except KeyError:
+            pass
 
 
 class Extend(object):

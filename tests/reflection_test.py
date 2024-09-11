@@ -331,7 +331,7 @@ class ClassFinderTest(TestCase):
             cf.add_class(c)
         self.assertTrue(len(classes) + 1, len(list(cf.nodes())))
 
-    def test_get_abs_class(self):
+    def test_get_abs_class_1(self):
         classes = self.create_module_classes("""
             class GGP(object): pass
             class GP(GGP): pass
