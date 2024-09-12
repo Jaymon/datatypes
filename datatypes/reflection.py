@@ -11,6 +11,16 @@ import ast
 import collections
 import pkgutil
 import re
+from typing import (
+    Any, # https://docs.python.org/3/library/typing.html#the-any-type
+    get_args, # https://stackoverflow.com/a/64643971
+    get_origin,
+)
+from collections.abc import(
+    Mapping,
+    Sequence,
+    Set
+)
 
 from .compat import *
 from .decorators import (
@@ -1075,7 +1085,7 @@ class ReflectPath(Path):
 class ReflectName(String):
     r"""A reflection object similar to python's built-in resolve_name
 
-    take something like some.full.module.Path and return the actual Path
+    take something like some.full.module:Classpath and return the actual Path
     class object
 
     https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
@@ -1532,6 +1542,193 @@ class ReflectObject(object):
             *args,
             **kwargs
         )
+
+
+class ReflectType(ReflectObject):
+    """Reflect a python type
+
+    This is used to get more information from typing annotations
+
+    https://docs.python.org/3/library/typing.html
+    https://docs.python.org/3/library/collections.abc.html
+    """
+    def _get_types(self, t):
+        """Internal method. This normalizes type t to get the actual types
+
+        :param t: Any, the type, this could be a union (eg, int|str) or an
+            alias (eg, dict[str, int], tuple[int, ...]) or other any other
+            type
+        :returns: generator[type], yields the actual raw types
+        """
+        if isinstance(t, types.UnionType):
+            for at in get_args(t):
+                yield from self._get_types(at)
+
+        elif isinstance(t, types.GenericAlias):
+            yield get_origin(t)
+
+        elif isinstance(t, types.EllipsisType):
+            # we ignore the ellipses type because it is just saying more of
+            # the previous type
+            pass
+
+        elif t is Any:
+            # we ignore Any since it is equivalent to no check and we're only
+            # really interested in "actionable" types
+            pass
+
+        else:
+            yield t
+
+    def get_origin_type(self):
+        """Get the raw type of .target
+
+        :returns: type
+        """
+        return get_origin(self.target) or self.target
+
+    def get_arg_types(self):
+        """Get the raw types of .target's args (eg, the types wrapped in the
+        [] of the type (eg, dict[str, int] would yield str and int))
+
+        :Example:
+            rt = ReflectType(dict[str, int|bool])
+            list(rt.get_arg_types) # [str, int, bool]
+
+        :returns: generator[type]
+        """
+        for at in get_args(self.target):
+            yield from self._get_types(at)
+
+    def get_key_types(self):
+        """Get the raw types for the keys in a mapping
+
+        :Example:
+            rt = ReflectType(dict[str, int|bool])
+            list(rt.get_key_types) # [str]
+
+        :returns: generator[type]
+        :raises: ValueError, if .target isn't a mapping
+        """
+        if not self.is_dictish():
+            raise ValueError(
+                f"Type {self.get_origin_type} is not a Mapping type"
+            )
+
+        arg_types = get_args(self.target)
+        if arg_types:
+            yield from self._get_types(arg_types[0])
+
+    def get_value_types(self):
+        """Get  the value types of a container object
+
+        :Example:
+            rt = ReflectType(dict[str, int|bool])
+            list(rt.get_key_types) # [int, bool]
+
+            rt = ReflectType(list[int|bool])
+            list(rt.get_key_types) # [int, bool]
+
+        :returns: generator[type]
+        """
+        if self.is_dictish():
+            arg_types = get_args(self.target)
+            if arg_types:
+                yield from self._get_types(arg_types[1])
+
+        else:
+            yield from self.get_arg_types()
+
+    def is_type(self, haystack):
+        """Returns True if .target's origin type is in haystack
+
+        https://docs.python.org/3/library/functions.html#issubclass
+
+        :param haystack: type|UnionType|tuple[type, ...]
+        :returns: bool
+        """
+        needle = self.get_origin_type()
+        return issubclass(needle, haystack)
+
+    def is_any(self):
+        """Returns True if .target is the special type Any"""
+        return self.get_origin_type() is Any
+
+    def is_none(self):
+        """Returns True if .target is the special type None"""
+        return self.get_origin_type() is None
+
+    def is_dictish(self):
+        """Returns True if .target is a mapping
+
+        This uses dictish instead of mapping because of sequence and list and
+        str. Both list and str are sequences but many times when I am looking
+        for a sequence I'm not looking for a string. So listish was more
+        explicit for differentating lists and strings and so this follows
+        that naming convention
+
+        :returns: bool
+        """
+        return self.is_type(Mapping)
+
+    def is_stringish(self):
+        """Returns True if .target is string-like
+
+        :returns: bool
+        """
+        return self.is_type((str, bytes))
+
+    def is_listish(self):
+        """Returns True if .target looks like a list and isn't a string
+
+        :returns: bool
+        """
+        t = self.get_origin_type()
+        return (
+            not issubclass(t, (str, bytes))
+            and issubclass(t, Sequence)
+        )
+
+    def is_setish(self):
+        """Returns True if .target looks like a set
+
+        :returns: bool
+        """
+        return self.is_type(Set) 
+
+    def __instancecheck__(self, instance):
+        """Returns True if instance is an instance of .target
+
+        https://docs.python.org/3/reference/datamodel.html#class.__instancecheck__
+
+        :param instance: object
+        :returns: bool
+        """
+        if self.is_any():
+            return True
+
+        elif self.is_none():
+            return instance is None
+
+        else:
+            return isinstance(instance, self.get_origin_type())
+
+    def __subclasscheck__(self, subclass):
+        """Returns True if subclass is a subclass of .target
+
+        https://docs.python.org/3/reference/datamodel.html#class.__subclasscheck__
+
+        :param subclass: type
+        :returns: bool
+        """
+        if self.is_any():
+            return True
+
+        elif self.is_none():
+            return subclass is None
+
+        else:
+            return issubclass(subclass, self.get_origin_type())
 
 
 class ReflectCallable(ReflectObject):

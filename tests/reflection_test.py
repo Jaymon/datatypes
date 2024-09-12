@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import functools
+from typing import Any
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -11,6 +12,7 @@ from datatypes.reflection import (
     ReflectDecorator,
     OrderedSubclasses,
     ReflectPath,
+    ReflectType,
     ReflectCallable,
     ClasspathFinder,
     ClassFinder,
@@ -603,6 +605,106 @@ class ReflectNameTest(TestCase):
 
             else:
                 raise AssertionError(rm.name)
+
+
+class ReflectTypeTest(TestCase):
+    def test_get_arg_types(self):
+        rt = ReflectType(tuple[int, ...])
+        types = tuple(rt.get_arg_types())
+        self.assertEqual(1, len(types))
+        self.assertEqual(int, types[0])
+
+        rt = ReflectType(list[int|float])
+        types = tuple(rt.get_arg_types())
+        self.assertEqual(2, len(types))
+        self.assertEqual(int, types[0])
+        self.assertEqual(float, types[1])
+
+        rt = ReflectType(list[int])
+        types = tuple(rt.get_arg_types())
+        self.assertEqual(1, len(types))
+        self.assertEqual(int, types[0])
+
+    def test_get_origin_type(self):
+        rt = ReflectType(str)
+        self.assertEqual(str, rt.get_origin_type())
+
+        rt = ReflectType(list[int])
+        self.assertEqual(list, rt.get_origin_type())
+
+    def test_is_methods(self):
+        rt = ReflectType(set)
+        self.assertTrue(rt.is_setish())
+        self.assertFalse(rt.is_dictish())
+        self.assertFalse(rt.is_listish())
+        self.assertFalse(rt.is_stringish())
+
+        rt = ReflectType(dict[str, int])
+        self.assertTrue(rt.is_dictish())
+        self.assertFalse(rt.is_listish())
+        self.assertFalse(rt.is_stringish())
+        self.assertFalse(rt.is_setish())
+
+        rt = ReflectType(str)
+        self.assertFalse(rt.is_dictish())
+        self.assertTrue(rt.is_stringish())
+        self.assertFalse(rt.is_listish())
+        self.assertFalse(rt.is_setish())
+
+        rt = ReflectType(list[int])
+        self.assertFalse(rt.is_dictish())
+        self.assertTrue(rt.is_listish())
+        self.assertFalse(rt.is_stringish())
+        self.assertFalse(rt.is_setish())
+
+    def test_any_type(self):
+        rt = ReflectType(list[Any])
+        self.assertEqual([], list(rt.get_arg_types()))
+
+        rt = ReflectType(Any)
+        self.assertEqual(Any, rt.get_origin_type())
+        self.assertTrue(rt.is_any())
+        self.assertTrue(isinstance(dict, rt))
+        self.assertTrue(issubclass(int, rt))
+
+    def test_none_type(self):
+        rt = ReflectType(None)
+        self.assertTrue(rt.is_none())
+        self.assertTrue(isinstance(None, rt))
+        self.assertTrue(issubclass(None, rt))
+
+    def test_get_key_types(self):
+        rt = ReflectType(dict[str, int])
+        types = tuple(rt.get_key_types())
+        self.assertEqual(1, len(types))
+        self.assertEqual(str, types[0])
+
+        rt = ReflectType(dict[str|int, list])
+        types = tuple(rt.get_key_types())
+        self.assertEqual(2, len(types))
+        self.assertEqual(str, types[0])
+        self.assertEqual(int, types[1])
+
+        rt = ReflectType(list)
+        with self.assertRaises(ValueError):
+            list(rt.get_key_types())
+
+    def test_get_value_types(self):
+        rt = ReflectType(dict[str, int])
+        types = tuple(rt.get_value_types())
+        self.assertEqual(1, len(types))
+        self.assertEqual(int, types[0])
+
+        rt = ReflectType(dict[str, str|int])
+        types = tuple(rt.get_value_types())
+        self.assertEqual(2, len(types))
+        self.assertEqual(str, types[0])
+        self.assertEqual(int, types[1])
+
+        rt = ReflectType(list[int])
+        types = tuple(rt.get_value_types())
+        self.assertEqual(1, len(types))
+        self.assertEqual(int, types[0])
 
 
 class ReflectCallableTest(TestCase):
