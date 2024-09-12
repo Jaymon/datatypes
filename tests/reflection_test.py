@@ -657,6 +657,25 @@ class ReflectTypeTest(TestCase):
         self.assertFalse(rt.is_stringish())
         self.assertFalse(rt.is_setish())
 
+    def test_is_numeric_methods(self):
+        rt = ReflectType(int)
+        self.assertFalse(rt.is_bool())
+        self.assertFalse(rt.is_floatish())
+        self.assertTrue(rt.is_int())
+        self.assertTrue(rt.is_numberish())
+
+        rt = ReflectType(float)
+        self.assertFalse(rt.is_bool())
+        self.assertTrue(rt.is_floatish())
+        self.assertFalse(rt.is_int())
+        self.assertTrue(rt.is_numberish())
+
+        rt = ReflectType(bool)
+        self.assertTrue(rt.is_bool())
+        self.assertFalse(rt.is_floatish())
+        self.assertFalse(rt.is_int())
+        self.assertFalse(rt.is_numberish())
+
     def test_any_type(self):
         rt = ReflectType(list[Any])
         self.assertEqual([], list(rt.get_arg_types()))
@@ -667,11 +686,23 @@ class ReflectTypeTest(TestCase):
         self.assertTrue(isinstance(dict, rt))
         self.assertTrue(issubclass(int, rt))
 
+        self.assertFalse(rt.is_numberish())
+        self.assertFalse(rt.is_listish())
+        self.assertFalse(rt.is_dictish())
+        self.assertFalse(rt.is_stringish())
+        self.assertFalse(rt.is_none())
+
     def test_none_type(self):
         rt = ReflectType(None)
         self.assertTrue(rt.is_none())
         self.assertTrue(isinstance(None, rt))
         self.assertTrue(issubclass(None, rt))
+
+        self.assertFalse(rt.is_numberish())
+        self.assertFalse(rt.is_listish())
+        self.assertFalse(rt.is_dictish())
+        self.assertFalse(rt.is_stringish())
+        self.assertFalse(rt.is_any())
 
     def test_get_key_types(self):
         rt = ReflectType(dict[str, int])

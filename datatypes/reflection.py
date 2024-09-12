@@ -11,6 +11,7 @@ import ast
 import collections
 import pkgutil
 import re
+import decimal
 from typing import (
     Any, # https://docs.python.org/3/library/typing.html#the-any-type
     get_args, # https://stackoverflow.com/a/64643971
@@ -1648,7 +1649,41 @@ class ReflectType(ReflectObject):
         :returns: bool
         """
         needle = self.get_origin_type()
-        return issubclass(needle, haystack)
+        if needle is None:
+            return haystack is None
+
+        elif needle is Any:
+            return haystack is Any
+
+        else:
+            return issubclass(needle, haystack)
+
+#         if haystack is None:
+#             return self.is_none()
+# 
+#         elif haystack is Any:
+#             return self.is_any()
+# 
+#         else:
+#             try:
+#                 needle = self.get_origin_type()
+#                 return issubclass(needle, haystack)
+# 
+#             except TypeError as e:
+#                 if "arg 1" in str(e):
+#                     # needle is None or Any and haystack isn't
+#                     return False
+# 
+#                 else:
+#                     raise
+
+    def is_bool(self):
+        """Returns True if .target is a boolean"""
+        return self.is_type(bool)
+
+    def is_int(self):
+        """Returns True if .target is an integer"""
+        return not self.is_bool() and self.is_type(int)
 
     def is_any(self):
         """Returns True if .target is the special type Any"""
@@ -1657,6 +1692,17 @@ class ReflectType(ReflectObject):
     def is_none(self):
         """Returns True if .target is the special type None"""
         return self.get_origin_type() is None
+
+    def is_numberish(self):
+        """Returns True if .target is numeric and not a boolean"""
+        return (
+            not self.is_bool()
+            and (self.is_int() or self.is_floatish())
+        )
+
+    def is_floatish(self):
+        """Return True if .target is a number with a decimal"""
+        return self.is_type((float, decimal.Decimal))
 
     def is_dictish(self):
         """Returns True if .target is a mapping
@@ -1685,8 +1731,10 @@ class ReflectType(ReflectObject):
         """
         t = self.get_origin_type()
         return (
-            not issubclass(t, (str, bytes))
-            and issubclass(t, Sequence)
+            not self.is_type((str, bytes))
+            and self.is_type(Sequence)
+#             not issubclass(t, (str, bytes))
+#             and issubclass(t, Sequence)
         )
 
     def is_setish(self):
@@ -1729,6 +1777,9 @@ class ReflectType(ReflectObject):
 
         else:
             return issubclass(subclass, self.get_origin_type())
+
+    def __str__(self):
+        return str(self.target)
 
 
 class ReflectCallable(ReflectObject):
