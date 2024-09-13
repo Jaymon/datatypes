@@ -170,37 +170,48 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("foo BAR").camelcase()
         self.assertEqual("FooBar", s)
 
-    def test_snakecase(self):
+    def test_snakecase_1(self):
         s = NamingConvention("FooBar").snakecase()
         self.assertEqual("foo_bar", s)
 
         s = NamingConvention("foo_bar_FooBar").snakecase()
         self.assertEqual("foo_bar_foo_bar", s)
 
+    def test_snakecase_acronym(self):
+        s = NamingConvention("FooBAR")
+        self.assertEqual("foo_bar", s.snakecase())
+
     def test_name(self):
         s = NamingConvention("FooBar")
         self.assertEqual("Foo_Bar", s.underscore())
         self.assertEqual("Foo-Bar", s.dash())
-        a = set(["FooBar", "foobar", "Foo_Bar", "foo_bar", "Foo-Bar", "foo-bar"])
-        self.assertEqual(a, s.variations())
+        a = set([
+            "FooBar",
+            "foobar",
+            "Foo_Bar",
+            "foo_bar",
+            "Foo-Bar",
+            "foo-bar"
+        ])
+        self.assertEqual(a, s.variations(upper=False))
 
         s = NamingConvention("Foo-Bar")
         self.assertEqual("Foo_Bar", s.underscore())
         self.assertEqual("Foo-Bar", s.dash())
         a = set(["Foo_Bar", "foo_bar", "Foo-Bar", "foo-bar"])
-        self.assertEqual(a, s.variations())
+        self.assertEqual(a, s.variations(upper=False))
 
         s = NamingConvention("Foo_Bar")
         self.assertEqual("Foo_Bar", s.underscore())
         self.assertEqual("Foo-Bar", s.dash())
         a = set(["Foo_Bar", "foo_bar", "Foo-Bar", "foo-bar"])
-        self.assertEqual(a, s.variations())
+        self.assertEqual(a, s.variations(upper=False))
 
         s = NamingConvention("Foo_bar")
         self.assertEqual("Foo_bar", s.underscore())
         self.assertEqual("Foo-bar", s.dash())
         a = set(["Foo_bar", "foo_bar", "Foo-bar", "foo-bar"])
-        self.assertEqual(a, s.variations())
+        self.assertEqual(a, s.variations(upper=False))
 
     def test_varname(self):
         s = NamingConvention("Foo Bar")

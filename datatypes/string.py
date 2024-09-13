@@ -655,10 +655,11 @@ class NamingConvention(String):
                 if i and prev_ch_was_lower:
                     s.append("_")
                 s.append(ch)
+                prev_ch_was_lower = False
 
             elif ch.islower():
-                prev_ch_was_lower = True
                 s.append(ch)
+                prev_ch_was_lower = True
 
             elif ch.isspace():
                 s.append("_")
