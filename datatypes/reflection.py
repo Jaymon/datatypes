@@ -1570,6 +1570,143 @@ class ReflectObject(object):
         )
 
 
+class ReflectAST(ReflectObject):
+    """Internal class. Provides introspection and helper methods for ast.AST
+    nodes"""
+    @property
+    def name(self):
+        n = self.get_target()
+        if isinstance(n, ast.Call):
+            if isinstance(n.func, ast.Attribute):
+                name = n.func.attr
+
+            else:
+                name = n.func.id
+
+        else:
+            name = n.attr if isinstance(n, ast.Attribute) else n.id
+
+        return name
+
+    def __init__(self, target, reflect_callable=None, **kwargs):
+        super().__init__(target)
+
+        self.reflect_callable = reflect_callable
+
+    def get_class(self):
+        return self.reflect_callable.get_class()
+
+    def reflect_module(self):
+        return self.reflect_callable.reflect_module()
+
+    def get_imported_value(self, name):
+        """Get the actual imported value from either the module
+        (imported) or from the global builtins
+        """
+        ret = None
+        if m := self.get_module():
+            ret = getattr(m, name, None)
+
+        if not ret:
+            if rc := self.reflect_class():
+                for rp in rc.reflect_parents():
+                    if m := rp.get_module():
+                        if ret := getattr(m, name, None):
+                            break
+
+        if not ret:
+            ret = getattr(builtins, name, None)
+
+        if not ret:
+            raise RuntimeError(
+                "Could not find imported {} value".format(name)
+            )
+
+    def get_parameters(self):
+        n = self.get_target()
+        if not isinstance(n, ast.Call):
+            raise ValueError(f"Getting parameters with {type(n)}")
+
+        args = []
+        kwargs = {}
+
+        for an in n.args:
+            ran = self.create_reflect_ast(an)
+            args.append(ran.get_expr_value())
+
+        for an in n.keywords:
+            ran = self.create_reflect_ast(an.value)
+            kwargs[an.arg] = ran.get_expr_value()
+
+        return args, kwargs
+
+    def get_expr_value(self, default=None):
+        """given an inspect type argument figure out the actual real python
+        value and return that
+
+        :param na: ast.expr instance
+        :param default: sets the default value for na if it can't be
+            resolved
+        :returns: type, the found value as a valid python type
+        """
+        na = self.get_target()
+        if not isinstance(na, ast.expr):
+            raise TypeError(f"get_expr_value with {type(na)}")
+
+        ret = None
+        if isinstance(na, ast.Num):
+            repr_n = repr(na.n)
+            val = na.n
+            vtype = float if '.' in repr_n else int
+            ret = vtype(val)
+
+        elif isinstance(na, ast.Str):
+            ret = str(na.s)
+
+        elif isinstance(na, ast.Name):
+            # http://stackoverflow.com/questions/12700893/
+            ret = getattr(builtins, na.id, None)
+            if not ret:
+                ret = na.id
+                if ret == 'True':
+                    ret = True
+
+                elif ret == 'False':
+                    ret = False
+
+        elif isinstance(na, ast.Dict):
+            if na.keys:
+                na_items = zip(
+                    na.keys,
+                    na.values
+                )
+                for k, v in na_items:
+                    rk = self.create_reflect_ast(k)
+                    rv = self.create_reflect_ast(v)
+                    ret[rk.get_expr_value()] = rv.get_expr_value()
+
+            else:
+                ret = {}
+
+        elif isinstance(na, (ast.List, ast.Tuple)):
+            if na.elts:
+                ret = [
+                    self.create_reflect_ast(elt).get_expr_value()
+                    for elt in na.elts
+                ]
+
+            else:
+                ret = []
+
+            if isinstance(na, ast.Tuple):
+                ret = tuple(ret)
+
+        else:
+            ret = default
+
+        return ret
+
+
 class ReflectType(ReflectObject):
     """Reflect a python type
 
@@ -1752,8 +1889,6 @@ class ReflectType(ReflectObject):
         return (
             not self.is_type((str, bytes))
             and self.is_type(Sequence)
-#             not issubclass(t, (str, bytes))
-#             and issubclass(t, Sequence)
         )
 
     def is_setish(self):
@@ -1916,14 +2051,14 @@ class ReflectCallable(ReflectObject):
 
         return doc or ""
 
-    def find_qualname(self):
+    def infer_qualname(self):
         """Reflection doesn't assume .target.__qualname__ is correct, this
         can sometimes be good (bad decorators that don't wrap correctly and
         set __wrapped__) and sometimes it can be bad (function is defined
         in <locals>)
 
         Basically, there is no guarrantee .target.__qualname__ is equal to
-        .find_qualname
+        .infer_qualname
 
         :returns: str, the computed qualname, it is not always the
             valid actual qualname for .target because it can't see <locals>
@@ -1946,12 +2081,6 @@ class ReflectCallable(ReflectObject):
         qualname.append(self.name)
         return ".".join(qualname)
 
-#         qname = getattr(self.target, "__qualname__", "")
-#         if not qname:
-#             qname = self.target.__class__.__qualname__
-# 
-#         return qname
-
     def get_parent(self):
         """Get where this callable is defined, if it's a method that will
         hopefully be a class, otherwise a module
@@ -1959,15 +2088,6 @@ class ReflectCallable(ReflectObject):
         :returns: type|types.ModuleType
         """
         return self.reflect_parent().get_target()
-#         if self.is_class() or self.is_instance():
-#             return self.get_module()
-# 
-#         else:
-#             try:
-#                 return self.get_class()
-# 
-#             except ValueError:
-#                 return self.get_module()
 
     def reflect_parent(self):
         """Get where this callable is defined, if it's a method that will
@@ -2428,66 +2548,6 @@ class ReflectCallable(ReflectObject):
                 reflect_callable=self
             )
 
-#             d = {}
-#             name = ""
-#             args = []
-#             kwargs = {}
-# 
-#             # is this a call like @decorator or like @decorator(...)
-#             if isinstance(n, ast.Call):
-#                 if isinstance(n.func, ast.Attribute):
-#                     name = n.func.attr
-# 
-#                 else:
-#                     name = n.func.id
-# 
-#                 for an in n.args:
-#                     ran = self.create_reflect_ast(an)
-#                     args.append(ran.get_expr_value())
-# 
-#                 for an in n.keywords:
-#                     ran = self.create_reflect_ast(an.value)
-#                     kwargs[an.arg] = ran.get_expr_value()
-# 
-#             else:
-#                 name = n.attr if isinstance(n, ast.Attribute) else n.id
-# 
-#             d = {
-#                 "name": name,
-#                 "args": args,
-#                 "kwargs": kwargs
-#             }
-# 
-#             # get the actual decorator from either the module
-#             # (imported) or from the global builtins
-#             decor = None
-#             if m := self.get_module():
-#                 decor = getattr(m, name, None)
-# 
-#             if not decor:
-#                 if rc := self.reflect_class():
-#                     for rp in rc.reflect_parents():
-#                         if m := rp.get_module():
-#                             if decor := getattr(m, name, None):
-#                                 break
-# 
-#             if not decor:
-#                 decor = getattr(builtins, name, None)
-# 
-#             if not decor:
-#                 raise RuntimeError(
-#                     "Could not find {} decorator class".format(name)
-#                 )
-# 
-#             d["target"] = decor
-#             yield self.create_reflect_decorator(**d)
-
-#         rs = self.create_reflect_source(self.get_parent())
-#         name = self.name
-#         if name in rs.decorators:
-#             for rd in rs.decorators[name]:
-#                 yield rd
-
     def getsource(self):
         return inspect.getsource(self.get_target())
 
@@ -2511,7 +2571,7 @@ class ReflectCallable(ReflectObject):
 
         target = self.get_target()
 
-        callable_finder = _CallableFinder(self.find_qualname())
+        callable_finder = _CallableFinder(self.infer_qualname())
         tree = self.reflect_parent().get_ast()
         try:
             callable_finder.visit(tree)
@@ -2558,413 +2618,6 @@ class ReflectCallable(ReflectObject):
                 node.exc,
                 reflect_callable=self
             )
-
-
-# class ReflectDecorator(ReflectCallable):
-#     """Internal class used by ReflectClass
-# 
-#     The information of each individual decorator on a given method will
-#     be wrapped in this class
-# 
-#     Moved from endpoints.reflection.ReflectDecorator on Jan 31, 2023
-#     """
-#     def __init__(self, target, *, name="", args=None, kwargs=None):
-#         self.name = name or target.__name__
-#         self.args = args
-#         self.kwargs = kwargs
-# 
-#         super().__init__(target)
-# 
-
-
-
-class ReflectAST(ReflectObject):
-    """Internal class. Provides introspection and helper methods for ast.AST
-    nodes"""
-    @property
-    def name(self):
-        n = self.get_target()
-        if isinstance(n, ast.Call):
-            if isinstance(n.func, ast.Attribute):
-                name = n.func.attr
-
-            else:
-                name = n.func.id
-
-        else:
-            name = n.attr if isinstance(n, ast.Attribute) else n.id
-
-        return name
-
-    def __init__(self, target, reflect_callable=None, **kwargs):
-        super().__init__(target)
-
-        self.reflect_callable = reflect_callable
-
-    def get_class(self):
-        return self.reflect_callable.get_class()
-
-    def reflect_module(self):
-        return self.reflect_callable.reflect_module()
-
-    def get_imported_value(self, name):
-        """Get the actual imported value from either the module
-        (imported) or from the global builtins
-        """
-        ret = None
-        if m := self.get_module():
-            ret = getattr(m, name, None)
-
-        if not ret:
-            if rc := self.reflect_class():
-                for rp in rc.reflect_parents():
-                    if m := rp.get_module():
-                        if ret := getattr(m, name, None):
-                            break
-
-        if not ret:
-            ret = getattr(builtins, name, None)
-
-        if not ret:
-            raise RuntimeError(
-                "Could not find imported {} value".format(name)
-            )
-
-    def get_parameters(self):
-        n = self.get_target()
-        if not isinstance(n, ast.Call):
-            raise ValueError(f"Getting parameters with {type(n)}")
-
-        args = []
-        kwargs = {}
-
-        for an in n.args:
-            ran = self.create_reflect_ast(an)
-            args.append(ran.get_expr_value())
-
-        for an in n.keywords:
-            ran = self.create_reflect_ast(an.value)
-            kwargs[an.arg] = ran.get_expr_value()
-
-        return args, kwargs
-
-    def get_expr_value(self, default=None):
-        """given an inspect type argument figure out the actual real python
-        value and return that
-
-        :param na: ast.expr instance
-        :param default: sets the default value for na if it can't be
-            resolved
-        :returns: type, the found value as a valid python type
-        """
-        na = self.get_target()
-        if not isinstance(na, ast.expr):
-            raise TypeError(f"get_expr_value with {type(na)}")
-
-        ret = None
-        if isinstance(na, ast.Num):
-            repr_n = repr(na.n)
-            val = na.n
-            vtype = float if '.' in repr_n else int
-            ret = vtype(val)
-
-        elif isinstance(na, ast.Str):
-            ret = str(na.s)
-
-        elif isinstance(na, ast.Name):
-            # http://stackoverflow.com/questions/12700893/
-            ret = getattr(builtins, na.id, None)
-            if not ret:
-                ret = na.id
-                if ret == 'True':
-                    ret = True
-
-                elif ret == 'False':
-                    ret = False
-
-        elif isinstance(na, ast.Dict):
-            if na.keys:
-                na_items = zip(
-                    na.keys,
-                    na.values
-                )
-                for k, v in na_items:
-                    rk = self.create_reflect_ast(k)
-                    rv = self.create_reflect_ast(v)
-                    ret[rk.get_expr_value()] = rv.get_expr_value()
-
-            else:
-                ret = {}
-
-        elif isinstance(na, (ast.List, ast.Tuple)):
-            if na.elts:
-                ret = [
-                    self.create_reflect_ast(elt).get_expr_value()
-                    for elt in na.elts
-                ]
-
-            else:
-                ret = []
-
-            if isinstance(na, ast.Tuple):
-                ret = tuple(ret)
-
-        else:
-            ret = default
-
-        return ret
-
-
-    def _node_has_super(self, childnode, parentnode):
-        """returns true if child node has a super() call to parent node"""
-        ret = False
-        for n in childnode.body:
-            if not isinstance(n, ast.Expr):
-                continue
-
-            try:
-                func = n.value.func
-                func_name = func.attr
-                if func_name == parentnode.name:
-                    ret = isinstance(func.value, ast.Call)
-                    break
-
-            except AttributeError as e:
-                ret = False
-
-        return ret
-
-
-
-
-
-
-
-
-# class ReflectSource(ReflectObject):
-#     """Internal class. Reflect the source of target by parsing it with the
-#     ast module
-# 
-#     This was broken out from ReflectClass.get_info on 9-5-2024.
-#     """
-#     def __init__(self, target):
-#         super().__init__(target)
-#         self.parse()
-# 
-#     def parse(self):
-#         self.method_decorators = collections.defaultdict(list)
-#         self.function_decorators = collections.defaultdict(list)
-# 
-#         self.mmap = {} # map methods
-#         self.cmap = {} # map classes
-#         self.fmap = {} # map functions
-# 
-#         self.node_iter = ast.NodeVisitor()
-#         self.node_iter.visit_ClassDef = self.visit_ClassDef
-#         self.node_iter.visit_FunctionDef = self.visit_FunctionDef
-#         self.node_iter.visit_AsyncFunctionDef = self.visit_FunctionDef
-# 
-#         if self.is_module():
-#             self.node_iter.visit(
-#                 ast.parse(inspect.getsource(self.target).strip())
-#             )
-# 
-#         elif self.is_class():
-#             for target_cls in inspect.getmro(self.target):
-#                 if target_cls == object: break
-#                 self.node_iter.visit(
-#                     ast.parse(inspect.getsource(target_cls).strip())
-#                 )
-# 
-#         else:
-#             raise ValueError(f"Unsupported type {type(self.target)}")
-# 
-#     def is_class(self):
-#         return isinstance(self.target, type)
-# 
-#     def is_module(self):
-#         return isinstance(self.target, types.ModuleType)
-# 
-#     def reflect_module(self):
-#         if self.is_class():
-#             return ReflectClass(self.target).reflect_module()
-# 
-#         elif self.is_module():
-#             return ReflectModule(self.target)
-# 
-#     def reflect_class(self):
-#         if self.is_class():
-#             return ReflectClass(self.target)
-# 
-#     def _node_is_method(self, node):
-#         for class_node in self.cmap.values():
-#             if node.lineno >= class_node.lineno:
-#                 if node.end_lineno <= class_node.end_lineno:
-#                     return True
-# 
-#         return False
-# 
-#     def _node_has_super(self, childnode, parentnode):
-#         """returns true if child node has a super() call to parent node"""
-#         ret = False
-#         for n in childnode.body:
-#             if not isinstance(n, ast.Expr):
-#                 continue
-# 
-#             try:
-#                 func = n.value.func
-#                 func_name = func.attr
-#                 if func_name == parentnode.name:
-#                     ret = isinstance(func.value, ast.Call)
-#                     break
-# 
-#             except AttributeError as e:
-#                 ret = False
-# 
-#         return ret
-# 
-#     def get_expr_value(self, na, default=None):
-#         """given an inspect type argument figure out the actual real python
-#         value and return that
-# 
-#         :param na: ast.expr instance
-#         :param default: sets the default value for na if it can't be
-#             resolved
-#         :returns: type, the found value as a valid python type
-#         """
-#         ret = None
-#         if isinstance(na, ast.Num):
-#             repr_n = repr(na.n)
-#             val = na.n
-#             vtype = float if '.' in repr_n else int
-#             ret = vtype(val)
-# 
-#         elif isinstance(na, ast.Str):
-#             ret = str(na.s)
-# 
-#         elif isinstance(na, ast.Name):
-#             # http://stackoverflow.com/questions/12700893/
-#             ret = getattr(builtins, na.id, None)
-#             if not ret:
-#                 ret = na.id
-#                 if ret == 'True':
-#                     ret = True
-# 
-#                 elif ret == 'False':
-#                     ret = False
-# 
-#         elif isinstance(na, ast.Dict):
-#             if na.keys:
-#                 na_items = zip(
-#                     na.keys,
-#                     na.values
-#                 )
-#                 for k, v in na_items:
-#                     ret[self.get_expr_value(k)] = self.get_expr_value(v)
-# 
-#             else:
-#                 ret = {}
-# 
-#         elif isinstance(na, (ast.List, ast.Tuple)):
-#             if na.elts:
-#                 ret = [self.get_expr_value(na_) for na_ in na.elts]
-# 
-#             else:
-#                 ret = []
-# 
-#             if isinstance(na, ast.Tuple):
-#                 ret = tuple(ret)
-# 
-#         else:
-#             ret = default
-# 
-#         return ret
-# 
-#     def visit_ClassDef(self, node):
-#         pout.v(node.name)
-#         self.cmap[node.name] = node
-# 
-#         # https://docs.python.org/3/library/ast.html#ast.NodeVisitor.generic_visit
-#         # Note that child nodes of nodes that have a custom visitor method
-#         # won’t be visited unless the visitor calls generic_visit() or visits
-#         # them itself.
-#         self.node_iter.generic_visit(node)
-# 
-#     def visit_FunctionDef(self, node):
-#         """as the code is parsed any found methods will call this function
-# 
-#         https://docs.python.org/2/library/ast.html#ast.NodeVisitor.visit
-#         """
-#         if self._node_is_method(node):
-#             if node.name not in self.mmap:
-#                 self.mmap[node.name] = node
-# 
-#         else:
-#             self.fmap[node.name] = node
-# 
-#         # if there is a super call in the method body we want to add the
-#         # decorators from that super call also
-#         add_decs = True
-#         if node.name in self.decorators:
-#             add_decs = self._node_has_super(self.mmap[node.name], node)
-# 
-#         if add_decs:
-#             for n in node.decorator_list:
-#                 d = {}
-#                 name = ""
-#                 args = []
-#                 kwargs = {}
-# 
-#                 # is this a call like @decorator or like @decorator(...)
-#                 if isinstance(n, ast.Call):
-#                     if isinstance(n.func, ast.Attribute):
-#                         name = n.func.attr
-# 
-#                     else:
-#                         name = n.func.id
-# 
-#                     for an in n.args:
-#                         args.append(self.get_expr_value(an))
-# 
-#                     for an in n.keywords:
-#                         kwargs[an.arg] = self.get_expr_value(an.value)
-# 
-#                 else:
-#                     name = n.attr if isinstance(n, ast.Attribute) else n.id
-# 
-#                 d = {
-#                     "name": name,
-#                     "args": args,
-#                     "kwargs": kwargs
-#                 }
-# 
-#                 # get the actual decorator from either the module
-#                 # (imported) or from the global builtins
-#                 decor = None
-#                 if rm := self.reflect_module():
-#                     m = self.reflect_module().get_module()
-#                     decor = getattr(m, name, None)
-# 
-#                 if not decor:
-#                     if rc := self.reflect_class():
-#                         for rp in rc.reflect_parents():
-#                             if m := rp.get_module():
-#                                 if decor := getattr(m, name, None):
-#                                     break
-# 
-#                 if not decor:
-#                     decor = getattr(builtins, name, None)
-# 
-#                 if not decor:
-#                     raise RuntimeError(
-#                         "Could not find {} decorator class".format(name)
-#                     )
-# 
-#                 d["target"] = decor
-# 
-#                 self.decorators[node.name].append(
-#                     self.create_reflect_decorator(**d)
-#                 )
 
 
 class ReflectClass(ReflectObject):
@@ -3150,18 +2803,6 @@ class ReflectClass(ReflectObject):
     def getsource(self):
         return inspect.getsource(self.target)
 
-#         if self.is_module():
-#             self.node_iter.visit(
-#                 ast.parse(inspect.getsource(self.target).strip())
-#             )
-# 
-#         elif self.is_class():
-#             for target_cls in inspect.getmro(self.target):
-#                 if target_cls == object: break
-#                 self.node_iter.visit(
-#                     ast.parse(inspect.getsource(target_cls).strip())
-#                 )
-
     def get_ast(self):
         target = self.get_class()
         tree = self.reflect_module().get_ast()
@@ -3178,19 +2819,6 @@ class ReflectClass(ReflectObject):
 
         except inspect.ClassFoundException:
             return class_finder.node
-
-        #pout.v(self.get_class().__code__)
-#         pout.i(self.get_class())
-#         root = ast.parse(self.reflect_module().getsource())
-#         for node in ast.walk(root):
-#             if isinstance(node, ast.ClassDef):
-#                 pout.v(node.name)
-#                 pout.v(node.lineno, node.end_lineno)
-
-#         node_iter = ast.NodeVisitor()
-#         node_iter.visit_ClassDef = self.visit_ClassDef
-#         self.node_iter.visit_FunctionDef = self.visit_FunctionDef
-#         self.node_iter.visit_AsyncFunctionDef = self.visit_FunctionDef
 
 
 class ReflectModule(ReflectObject):
