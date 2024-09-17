@@ -2750,7 +2750,7 @@ class ReflectClass(ReflectObject):
                 name=method_name
             )
 
-    def reflect_method(self, method_name, *default_val):
+    def reflect_method(self, method_name):
         """Returns information about the method_name on this class
 
         :param method_name: str, the name of the method
@@ -2902,12 +2902,12 @@ class ReflectModule(ReflectObject):
     def modroot(self):
         """Return the aboslute root module"""
         if self.module_package:
-            module_name = self.module_package.split(".", maxsplit=1)[0]
+            modroot = self.module_package.split(".", maxsplit=1)[0]
 
         else:
-            module_name = self.module_name.split(".", maxsplit=1)[0]
+            modroot = self.name.split(".", maxsplit=1)[0]
 
-        return module_name
+        return modroot
 
     @classmethod
     def find_module_names(cls, path, prefix="", ignore_private=True):
