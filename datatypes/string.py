@@ -649,29 +649,48 @@ class NamingConvention(String):
         """
         s = []
         prev_ch_was_lower = False
+        prev_ch_was_upper = False
 
         for i, ch in enumerate(self):
             if ch.isupper():
-                if i and prev_ch_was_lower:
-                    s.append("_")
+                if i:
+                    if prev_ch_was_lower:
+                        s.append("_")
+
+                    elif prev_ch_was_upper:
+                        # this handles splitting acronyms in the middle of the
+                        # name (eg, FooBARTest should be foo_bar_test not
+                        # foo_bartest)
+                        try:
+                            if self[i + 1].islower():
+                                s.append("_")
+
+                        except IndexError:
+                            pass
+
                 s.append(ch)
                 prev_ch_was_lower = False
+                prev_ch_was_upper = True
 
             elif ch.islower():
                 s.append(ch)
                 prev_ch_was_lower = True
+                prev_ch_was_upper = False
 
             elif ch.isspace():
                 s.append("_")
                 prev_ch_was_lower = False
+                prev_ch_was_upper = False
 
             elif ch == "-":
                 s.append("_")
                 prev_ch_was_lower = False
+                prev_ch_was_upper = False
 
             else:
-                prev_ch_was_lower = False
                 s.append(ch)
+                prev_ch_was_lower = False
+                prev_ch_was_upper = False
 
         return "".join(s).lower()
         #return re.sub(r"[\s-]+", "_", "".join(s)).lower()

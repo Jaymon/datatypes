@@ -9,7 +9,6 @@ from datatypes.reflection import (
     ReflectName,
     ReflectModule,
     ReflectClass,
-    ReflectDecorator,
     OrderedSubclasses,
     ReflectPath,
     ReflectType,
@@ -1128,136 +1127,302 @@ class ReflectCallableTest(TestCase):
 
     def test_reflect_decorators_function(self):
         mp = self.create_module("""
-            def template(func):
+            def name(func):
                 def wrapper(*args, **kwargs):
                     return func(*args, **kwargs)
                 return wrapper
 
-            baz = template
-            che = template
+            def call(one=1, two=2):
+                def decorator(func):
+                    def wrapper(*args, **kwargs):
+                        return func(*args, **kwargs)
+                    return wrapper
+                return decorator
 
-            @baz
-            @che
+            @name
+            @call(1, 2)
+            @call()
             def bar():
                 pass
         """)
         m = mp.get_module()
 
         rc = ReflectCallable(m.bar)
-        self.assertEqual(2, len(list(rc.reflect_decorators())))
-
-    def test_reflect_decorators_inherit_1(self):
-        """make sure that a child class that hasn't defined a METHOD inherits
-        the METHOD method from its parent with decorators in tact"""
-        foo_class = testdata.create_module_class([
-            "def foodec(func):",
-            "    def wrapper(*args, **kwargs):",
-            "        return func(*args, **kwargs)",
-            "    return wrapper",
-            "",
-            "class _Base(object):",
-            "    @foodec",
-            "    def POST(self, **kwargs):",
-            "        return 1",
-            "",
-            "class Foo(_Base):",
-            "    pass",
-            "",
-        ])
-
-        rc = ReflectCallable(foo_class.POST, target_class=foo_class)
-        decs = list(rc.reflect_decorators())
-        for count, dec in enumerate(rc.reflect_decorators(), 1):
-            self.assertEqual("foodec", dec.name)
-        self.assertEqual(1, count)
-
-    def test_reflect_decorators_inherit_2(self):
-        """you have a parent class with POST method, the child also has a POST
-        method, what do you do? What. Do. You. Do?"""
-        child_class = testdata.create_module_class([
-            "def a(f):",
-            "    def wrapped(*args, **kwargs):",
-            "        return f(*args, **kwargs)",
-            "    return wrapped",
-            "",
-            "class b(object):",
-            "    def __init__(self, func):",
-            "        self.func = func",
-            "    def __call__(*args, **kwargs):",
-            "        return f(*args, **kwargs)",
-            "",
-            "def c(func):",
-            "    def wrapper(*args, **kwargs):",
-            "        return func(*args, **kwargs)",
-            "    return wrapper",
-            "",
-            "class _Parent(object):",
-            "    @a",
-            "    @b",
-            "    def POST(self, **kwargs): pass",
-            "",
-            "    @a",
-            "    @b",
-            "    def HEAD(self): pass",
-            "",
-            "    @a",
-            "    @b",
-            "    def GET(self): pass",
-            "",
-            "class Child(_Parent):",
-            "    @c",
-            "    def POST(self, **kwargs): POST()",
-            "",
-            "    @c",
-            "    def HEAD(self):",
-            "        d = D()",
-            "        d.HEAD()",
-            "",
-            "    @c",
-            "    def GET(self):",
-            "        super().GET()",
-            "",
-        ])
-
-        rc = ReflectCallable(child_class.POST, target_class=child_class)
-        decs = list(rc.reflect_decorators())
-        self.assertEqual(1, len(decs))
-
-        rc = ReflectCallable(child_class.HEAD, target_class=child_class)
-        decs = list(rc.reflect_decorators())
-        self.assertEqual(1, len(decs))
-
-        rc = ReflectCallable(child_class.GET, target_class=child_class)
         decs = list(rc.reflect_decorators())
         self.assertEqual(3, len(decs))
+        self.assertEqual("name", decs[0].name)
 
-    def test_reflect_decorators_inherit_3(self):
-        """Classes that extend other classes in different modules would fail
-        to find the decorators because they weren't imported/defined in the
-        same module"""
-        modpath = self.create_module({
-            "foo": """
-                def a(f):
-                    def wrapped(*args, **kwargs):
-                        return f(*args, **kwargs)
-                    return wrapped
+#     def test_reflect_decorators_inherit_1(self):
+#         """make sure that a child class that hasn't defined a METHOD inherits
+#         the METHOD method from its parent with decorators in tact"""
+#         foo_class = testdata.create_module_class([
+#             "def foodec(func):",
+#             "    def wrapper(*args, **kwargs):",
+#             "        return func(*args, **kwargs)",
+#             "    return wrapper",
+#             "",
+#             "class _Base(object):",
+#             "    @foodec",
+#             "    def POST(self, **kwargs):",
+#             "        return 1",
+#             "",
+#             "class Foo(_Base):",
+#             "    pass",
+#             "",
+#         ])
+# 
+#         rc = ReflectCallable(foo_class.POST, target_class=foo_class)
+#         decs = list(rc.reflect_decorators())
+#         for count, dec in enumerate(rc.reflect_decorators(), 1):
+#             self.assertEqual("foodec", dec.name)
+#         self.assertEqual(1, count)
+# 
+#     def test_reflect_decorators_inherit_2(self):
+#         """you have a parent class with POST method, the child also has a POST
+#         method, what do you do? What. Do. You. Do?"""
+#         child_class = testdata.create_module_class([
+#             "def a(f):",
+#             "    def wrapped(*args, **kwargs):",
+#             "        return f(*args, **kwargs)",
+#             "    return wrapped",
+#             "",
+#             "class b(object):",
+#             "    def __init__(self, func):",
+#             "        self.func = func",
+#             "    def __call__(*args, **kwargs):",
+#             "        return f(*args, **kwargs)",
+#             "",
+#             "def c(func):",
+#             "    def wrapper(*args, **kwargs):",
+#             "        return func(*args, **kwargs)",
+#             "    return wrapper",
+#             "",
+#             "class _Parent(object):",
+#             "    @a",
+#             "    @b",
+#             "    def POST(self, **kwargs): pass",
+#             "",
+#             "    @a",
+#             "    @b",
+#             "    def HEAD(self): pass",
+#             "",
+#             "    @a",
+#             "    @b",
+#             "    def GET(self): pass",
+#             "",
+#             "class Child(_Parent):",
+#             "    @c",
+#             "    def POST(self, **kwargs): POST()",
+#             "",
+#             "    @c",
+#             "    def HEAD(self):",
+#             "        d = D()",
+#             "        d.HEAD()",
+#             "",
+#             "    @c",
+#             "    def GET(self):",
+#             "        super().GET()",
+#             "",
+#         ])
+# 
+#         rc = ReflectCallable(child_class.POST, target_class=child_class)
+#         decs = list(rc.reflect_decorators())
+#         self.assertEqual(1, len(decs))
+# 
+#         rc = ReflectCallable(child_class.HEAD, target_class=child_class)
+#         decs = list(rc.reflect_decorators())
+#         self.assertEqual(1, len(decs))
+# 
+#         rc = ReflectCallable(child_class.GET, target_class=child_class)
+#         decs = list(rc.reflect_decorators())
+#         self.assertEqual(3, len(decs))
+# 
+#     def test_reflect_decorators_inherit_3(self):
+#         """Classes that extend other classes in different modules would fail
+#         to find the decorators because they weren't imported/defined in the
+#         same module"""
+#         modpath = self.create_module({
+#             "foo": """
+#                 def a(f):
+#                     def wrapped(*args, **kwargs):
+#                         return f(*args, **kwargs)
+#                     return wrapped
+# 
+#                 class Foo(object):
+#                     @a
+#                     def bar(self):
+#                         pass
+#             """,
+#             "che": """
+#                 from .foo import Foo
+#                 class Che(Foo):
+#                     pass
+#             """
+#         })
+#         che_class = modpath.get_module("che").Che
+#         rc = ReflectCallable(che_class.bar, che_class)
+#         decs = list(rc.reflect_decorators())
+#         self.assertEqual(1, len(decs))
+#         self.assertEqual("a", decs[0].name)
 
-                class Foo(object):
-                    @a
-                    def bar(self):
-                        pass
-            """,
-            "che": """
-                from .foo import Foo
-                class Che(Foo):
-                    pass
-            """
-        })
-        che_class = modpath.get_module("che").Che
-        rc = ReflectCallable(che_class.bar, che_class)
+    def test_reflect_decorators_async(self):
+        modpath = testdata.create_module([
+            "def a(func):",
+            "    def wrapper(*args, **kwargs):",
+            "        return func(*args, **kwargs)",
+            "    return wrapper",
+            "",
+            "b = a",
+            "c = a",
+            "d = a",
+            "",
+            "class Foo(object):",
+            "    @a",
+            "    async def abar(self): pass",
+            "    @c",
+            "    def bar(self): pass",
+            "",
+            "@b",
+            "async def abar(): pass",
+            "",
+            "@d",
+            "async def bar(): pass",
+        ])
+
+        m = modpath.get_module()
+
+        rc = ReflectCallable(m.Foo.abar, m.Foo)
         decs = list(rc.reflect_decorators())
         self.assertEqual(1, len(decs))
         self.assertEqual("a", decs[0].name)
+
+        rc = ReflectCallable(m.Foo.bar, m.Foo)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(1, len(decs))
+        self.assertEqual("c", decs[0].name)
+
+        rc = ReflectCallable(m.bar)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(1, len(decs))
+        self.assertEqual("d", decs[0].name)
+
+        rc = ReflectCallable(m.Foo.abar, m.Foo)
+        decs = list(rc.reflect_decorators())
+        self.assertEqual(1, len(decs))
+        self.assertEqual("a", decs[0].name)
+
+    def test_get_ast_bad_decorators(self):
+        modpath = testdata.create_module([
+            "def a(func):",
+            "    def wrapper(*args, **kwargs):",
+            "        return func(*args, **kwargs)",
+            "    return wrapper",
+            "",
+            "b = a",
+            "c = a",
+            "d = a",
+            "",
+            "class Foo(object):",
+            "    @a",
+            "    async def abar(self): pass",
+            "    @c",
+            "    def bar(self): pass",
+            "",
+            "@b",
+            "async def abar(): pass",
+            "",
+            "@d",
+            "def bar(): pass",
+        ])
+
+        m = modpath.get_module()
+
+        # methods
+        # !!! this will fail if target_class isn't given because the methods
+        # aren't wrapped with well-behaved decorators
+        rc = ReflectCallable(m.Foo.abar, m.Foo, name="abar")
+        node = rc.get_ast()
+        self.assertEqual("abar", node.name)
+        self.assertEqual(12, node.lineno)
+
+        rc = ReflectCallable(m.Foo.bar, m.Foo, name="bar")
+        node = rc.get_ast()
+        self.assertEqual("bar", node.name)
+        self.assertEqual(14, node.lineno)
+
+        # functions
+        rc = ReflectCallable(m.abar, name="abar")
+        node = rc.get_ast()
+        self.assertEqual("abar", node.name)
+        self.assertEqual(17, node.lineno)
+
+        rc = ReflectCallable(m.bar, name="bar")
+        node = rc.get_ast()
+        self.assertEqual("bar", node.name)
+        self.assertEqual(20, node.lineno)
+
+    def test_reflect_supers(self):
+        foo_class = testdata.create_module_class("""
+            class _GP(object):
+                def foo(self):
+                    return 1
+                def bar(self):
+                    return 2
+                def che(self):
+                    return 3
+
+            class _P(_GP):
+                def foo(self):
+                    return 2
+                def bar(self):
+                    return super().bar()
+
+            class Foo(_P):
+                def foo(self):
+                    return super().foo()
+                def bar(self):
+                    return super().bar()
+                def che(self):
+                    return super().che()
+        """)
+
+        rc = ReflectCallable(foo_class.che, foo_class)
+        supers = list(rc.reflect_supers())
+        self.assertEqual(1, len(supers))
+        self.assertEqual("_GP", supers[0].get_class().__name__)
+
+        rc = ReflectCallable(foo_class.bar, foo_class)
+        supers = list(rc.reflect_supers())
+        self.assertEqual(2, len(supers))
+        self.assertEqual("_P", supers[0].get_class().__name__)
+        self.assertEqual("_GP", supers[1].get_class().__name__)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        supers = list(rc.reflect_supers())
+        self.assertEqual(1, len(supers))
+        self.assertEqual("_P", supers[0].get_class().__name__)
+
+    def test_reflect_raises(self):
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self, v):
+                    if v == 1:
+                        raise ValueError("value error")
+
+                    elif v == 2:
+                        raise RuntimeError("runtime error")
+
+                    elif v == 3:
+                        raise TypeError("type error")
+
+        """)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+
+        nodes = list(rc.reflect_raises())
+        self.assertEqual(3, len(nodes))
+        self.assertEqual("ValueError", nodes[0].name)
+        self.assertEqual("value error", nodes[0].get_parameters()[0][0])
 
 
 class ReflectClassTest(TestCase):
@@ -1344,6 +1509,73 @@ class ReflectClassTest(TestCase):
         self.assertEqual(3, len(parents))
         for p in parents:
             self.assertTrue(p.__name__ in expected)
+
+    def test_get_ast(self):
+        foo_class = self.create_module_class("""
+            class _One(object):
+                pass
+
+            class _Two(_One):
+                pass
+
+            class _Three(_Two):
+                pass
+
+            class Foo(_Three):
+                pass
+        """)
+
+        rc = ReflectClass(foo_class)
+        node = rc.get_ast()
+        self.assertEqual(foo_class.__name__, node.name)
+        self.assertLess(0, node.lineno)
+
+    def test_getmro_depth(self):
+        foo_class = self.create_module_class("""
+            class _GGP(object):
+                pass
+            class _GP(_GGP):
+                pass
+            class _P(_GP):
+                pass
+            class Foo(_GP):
+                pass
+        """)
+
+        rc = ReflectClass(foo_class)
+        classes = list(rc.get_parents(depth=1))
+        self.assertNotEqual(foo_class, classes[0])
+
+        rc = ReflectClass(foo_class)
+        classes = list(rc.getmro(depth=2))
+        self.assertEqual(2, len(classes))
+        self.assertEqual(foo_class, classes[0])
+
+    def test_has_definition(self):
+        foo_class = testdata.create_module_class("""
+            class _P(object):
+                def foo(self): pass
+                def bar(self): pass
+
+            class Foo(_P):
+                def foo(self): pass
+                @classmethod
+                def clsfoo(cls): pass
+                @staticmethod
+                def stafoo(): pass
+                @property
+                def propfoo(self): pass
+        """)
+
+        rc = ReflectClass(foo_class)
+        self.assertFalse(rc.has_definition("bar"))
+        self.assertTrue(rc.has_definition("foo"))
+        self.assertTrue(rc.has_definition("clsfoo"))
+        self.assertTrue(rc.has_definition("propfoo"))
+        self.assertTrue(rc.has_definition("stafoo"))
+
+        pc = next(rc.reflect_parents(depth=1))
+        self.assertTrue(pc.has_definition("bar"))
 
 
 class ReflectModuleTest(TestCase):

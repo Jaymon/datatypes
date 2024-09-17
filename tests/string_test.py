@@ -177,9 +177,22 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("foo_bar_FooBar").snakecase()
         self.assertEqual("foo_bar_foo_bar", s)
 
-    def test_snakecase_acronym(self):
+    def test_snakecase_acronym_1(self):
         s = NamingConvention("FooBAR")
         self.assertEqual("foo_bar", s.snakecase())
+
+    def test_snakecase_acronym_2(self):
+        s = NamingConvention("FooBAR-Test")
+        self.assertEqual("foo_bar_test", s.snakecase())
+
+        s = NamingConvention("FooBAR Test")
+        self.assertEqual("foo_bar_test", s.snakecase())
+
+        s = NamingConvention("FooBAR_Test")
+        self.assertEqual("foo_bar_test", s.snakecase())
+
+        s = NamingConvention("FooBARTest")
+        self.assertEqual("foo_bar_test", s.snakecase())
 
     def test_name(self):
         s = NamingConvention("FooBar")
