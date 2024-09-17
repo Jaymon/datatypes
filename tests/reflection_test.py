@@ -1864,9 +1864,7 @@ class ReflectPathTest(TestCase):
         modpaths = set([modpath])
 
         path = testdata.create_module(
-            [
-                "class Foo(object): pass"
-            ],
+            "class Foo(object): pass",
             modpath
         )
         p = ReflectPath(path.path)
@@ -1876,46 +1874,39 @@ class ReflectPathTest(TestCase):
         self.assertEqual(modpaths, modpaths2)
 
         path = testdata.create_module(
-            [
-                "class Foo(object): pass"
-            ],
+            "class Foo(object): pass",
             "not" + modpath
         )
         p = ReflectPath(path.path)
         self.assertEqual(0, len(list(p.find_modules(modpath))))
 
-    def test_get_module_python_file(self):
-        mp = self.create_module([
-            "foo = 1",
-        ])
-
+    def test_get_module_python_file_1(self):
+        mp = self.create_module("foo = 1")
         rp = ReflectPath(mp.path)
+        m = rp.get_module()
+        self.assertEqual(mp, m.__name__)
+        self.assertEqual(1, m.foo)
 
+    def test_get_module_python_file_2(self):
+        mp = self.create_module("foo = 1", count=3)
+        rp = ReflectPath(mp.path)
         m = rp.get_module()
         self.assertEqual(mp, m.__name__)
         self.assertEqual(1, m.foo)
 
     def test_get_module_package(self):
-        mp = self.create_package([
-            "foo = 1",
-        ])
-
+        mp = self.create_package("foo = 1")
         rp = ReflectPath(mp.parent)
-
         m = rp.get_module()
         self.assertEqual(mp, m.__name__)
         self.assertEqual(1, m.foo)
 
     def test_get_module_subpackage(self):
         mp = self.create_package(
-            [
-                "foo = 1",
-            ],
+            "foo = 1",
             modpath=self.get_module_name(3)
         )
-
         rp = ReflectPath(mp.parent)
-
         m = rp.get_module()
         self.assertTrue(mp.endswith(m.__name__))
         self.assertEqual(1, m.foo)

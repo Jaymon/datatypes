@@ -922,9 +922,15 @@ class ReflectPath(Path):
     def get_module(self):
         if self.is_file():
             if self.ext == "py":
+                parts = [self.fileroot]
+                p = self.parent
+                while p.has_file("__init__.py"):
+                    parts.append(p.fileroot)
+                    p = p.parent
+
                 rm = ReflectModule(
-                    self.fileroot,
-                    path=self.parent
+                    ".".join(reversed(parts)),
+                    path=p
                 )
 
             else:
@@ -932,10 +938,16 @@ class ReflectPath(Path):
                 raise ModuleNotFoundError(self.path)
 
         elif self.is_dir():
-            if self.as_dir().has_file("__init__.py"):
+            p = self.as_dir()
+            if p.has_file("__init__.py"):
+                parts = []
+                while p.has_file("__init__.py"):
+                    parts.append(p.fileroot)
+                    p = p.parent
+
                 rm = ReflectModule(
-                    self.fileroot,
-                    path=self.parent
+                    ".".join(reversed(parts)),
+                    path=p
                 )
 
             else:
@@ -1557,12 +1569,6 @@ class ReflectObject(object):
             **kwargs
         )
 
-    def create_reflect_source(self, *args, **kwargs):
-        return kwargs.get("reflect_source_class", ReflectSource)(
-            *args,
-            **kwargs
-        )
-
     def create_reflect_ast(self, *args, **kwargs):
         return kwargs.get("reflect_ast_class", ReflectAST)(
             *args,
@@ -2031,23 +2037,7 @@ class ReflectCallable(ReflectObject):
             # functions/methods can be wrapped by bad decorators that don't
             # correctly wrap, so let's try and parse the docblock before
             # giving up
-            parent = self.get_parent()
-            name = self.name
-
-            def visit_FunctionDef(node):
-                """
-                https://docs.python.org/3/library/ast.html#ast.NodeVisitor.visit
-                """
-                if node.name == name:
-                    raise StopIteration(ast.get_docstring(node) or "")
-
-            try:
-                node_iter = ast.NodeVisitor()
-                node_iter.visit_FunctionDef = visit_FunctionDef
-                node_iter.visit(ast.parse(inspect.getsource(parent)))
-
-            except StopIteration as e:
-                doc = String(e)
+            doc = ast.get_docstring(self.get_ast()) or ""
 
         return doc or ""
 
@@ -3083,7 +3073,8 @@ class ReflectModule(ReflectObject):
 
             # self.path uses find_module_import_path which calls this method
             # so we should only use path if we already have it cached
-            path = getattr(self, "_path", None)
+            path = vars(self).get("path", None)
+            #path = getattr(self, "_path", None)
 
             if self.module_package:
                 mname = module_name
