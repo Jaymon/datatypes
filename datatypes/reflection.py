@@ -1563,8 +1563,8 @@ class ReflectObject(object):
             **kwargs
         )
 
-    def create_reflect_decorator(self, *args, **kwargs):
-        return kwargs.get("reflect_decorator_class", ReflectDecorator)(
+    def create_reflect_type(self, *args, **kwargs):
+        return kwargs.get("reflect_type_class", ReflectType)(
             *args,
             **kwargs
         )
@@ -2531,17 +2531,18 @@ class ReflectCallable(ReflectObject):
             "**_name": keywords_name, # DEPRECATED?
         }
 
-    def reflect_decorators(self):
-        for node in self.get_ast().decorator_list:
-            yield self.create_reflect_ast(
-                node,
-                reflect_callable=self
-            )
-
     def getsource(self):
+        """get the source of the callable if available
+
+        :returns: str|None
+        """
         return inspect.getsource(self.get_target())
 
     def get_ast(self):
+        """Get the abstract syntax tree for this callable
+
+        :returns: ast.AST
+        """
         class CallableFoundException(Exception):
             pass
 
@@ -2595,19 +2596,74 @@ class ReflectCallable(ReflectObject):
                 except AttributeError:
                     pass
 
-    def reflect_raises(self):
-        class _RaiseFinder(ast.NodeVisitor):
+    def reflect_ast_decorators(self):
+        """Reflect all the decorators wrapping this callable
+
+        :returns: generator[ReflectAST]
+        """
+        for node in self.get_ast().decorator_list:
+            yield self.create_reflect_ast(
+                node,
+                reflect_callable=self
+            )
+
+    def reflect_ast_raises(self):
+        """Reflect all the raised exception nodes in the callable body
+
+        :returns: generator[ReflectAST]
+        """
+        class _Finder(ast.NodeVisitor):
             nodes = []
             def visit_Raise(self, node):
                 self.nodes.append(node)
 
-        finder = _RaiseFinder()
+        finder = _Finder()
         finder.visit(self.get_ast())
         for node in finder.nodes:
             yield self.create_reflect_ast(
                 node.exc,
                 reflect_callable=self
             )
+
+    def reflect_ast_returns(self):
+        """Reflect all the return nodes in the abstract syntax tree
+
+        :returns: generator[ReflectAST]
+        """
+        class _Finder(ast.NodeVisitor):
+            nodes = []
+            def visit_Return(self, node):
+                self.nodes.append(node)
+
+        finder = _Finder()
+        finder.visit(self.get_ast())
+        for node in finder.nodes:
+            yield self.create_reflect_ast(
+                node.value,
+                reflect_callable=self
+            )
+
+    def reflect_return_type(self):
+        """Reflect the defined return annotation, this only returns something
+        if a return type annotation has been added to the callable definition
+
+        :Example:
+            def foo() -> int:
+                # this has a type annotation and so will return something
+                return 1
+
+            def bar():
+                # this has no annotation so is None
+
+        :returns: ReflectType|None, None will be returned if there is no
+            annotation, otherwise a reflection instance is returned
+        """
+        ret = None
+        annotations = self.get_target().__annotations__
+        if "return" in annotations:
+            ret = self.create_reflect_type(annotations["return"])
+
+        return ret
 
 
 class ReflectClass(ReflectObject):

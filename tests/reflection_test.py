@@ -1125,7 +1125,7 @@ class ReflectCallableTest(TestCase):
         self.assertEqual({"boo": 40}, info["kwargs"])
         self.assertEqual(args, info["unknown_args"])
 
-    def test_reflect_decorators_function(self):
+    def test_reflect_ast_decorators_function(self):
         mp = self.create_module("""
             def name(func):
                 def wrapper(*args, **kwargs):
@@ -1148,11 +1148,11 @@ class ReflectCallableTest(TestCase):
         m = mp.get_module()
 
         rc = ReflectCallable(m.bar)
-        decs = list(rc.reflect_decorators())
+        decs = list(rc.reflect_ast_decorators())
         self.assertEqual(3, len(decs))
         self.assertEqual("name", decs[0].name)
 
-    def test_reflect_decorators_async(self):
+    def test_reflect_ast_decorators_async(self):
         modpath = testdata.create_module([
             "def a(func):",
             "    def wrapper(*args, **kwargs):",
@@ -1179,22 +1179,22 @@ class ReflectCallableTest(TestCase):
         m = modpath.get_module()
 
         rc = ReflectCallable(m.Foo.abar, m.Foo)
-        decs = list(rc.reflect_decorators())
+        decs = list(rc.reflect_ast_decorators())
         self.assertEqual(1, len(decs))
         self.assertEqual("a", decs[0].name)
 
         rc = ReflectCallable(m.Foo.bar, m.Foo)
-        decs = list(rc.reflect_decorators())
+        decs = list(rc.reflect_ast_decorators())
         self.assertEqual(1, len(decs))
         self.assertEqual("c", decs[0].name)
 
         rc = ReflectCallable(m.bar)
-        decs = list(rc.reflect_decorators())
+        decs = list(rc.reflect_ast_decorators())
         self.assertEqual(1, len(decs))
         self.assertEqual("d", decs[0].name)
 
         rc = ReflectCallable(m.Foo.abar, m.Foo)
-        decs = list(rc.reflect_decorators())
+        decs = list(rc.reflect_ast_decorators())
         self.assertEqual(1, len(decs))
         self.assertEqual("a", decs[0].name)
 
@@ -1289,7 +1289,7 @@ class ReflectCallableTest(TestCase):
         self.assertEqual(1, len(supers))
         self.assertEqual("_P", supers[0].get_class().__name__)
 
-    def test_reflect_raises(self):
+    def test_reflect_ast_raises(self):
         foo_class = testdata.create_module_class("""
             class Foo(object):
                 def foo(self, v):
@@ -1306,10 +1306,45 @@ class ReflectCallableTest(TestCase):
 
         rc = ReflectCallable(foo_class.foo, foo_class)
 
-        nodes = list(rc.reflect_raises())
+        nodes = list(rc.reflect_ast_raises())
         self.assertEqual(3, len(nodes))
         self.assertEqual("ValueError", nodes[0].name)
         self.assertEqual("value error", nodes[0].get_parameters()[0][0])
+
+    def test_reflect_ast_returns(self):
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self):
+                    return dict(foo=1, bar=2)
+        """)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_returns())
+        self.assertEqual(1, len(nodes))
+        self.assertEqual("dict", nodes[0].name)
+
+    def test_reflect_return_type(self):
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self) -> dict[str, int]:
+                    return dict(foo=1, bar=2)
+                def bar(self):
+                    return 2
+                def che(self) -> None:
+                    return None
+        """)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        rt = rc.reflect_return_type()
+        self.assertEqual(dict, rt.get_origin_type())
+
+        rc = ReflectCallable(foo_class.bar, foo_class)
+        rt = rc.reflect_return_type()
+        self.assertEqual(None, rt)
+
+        rc = ReflectCallable(foo_class.che, foo_class)
+        rt = rc.reflect_return_type()
+        self.assertEqual(None, rt.get_origin_type())
 
 
 class ReflectClassTest(TestCase):
