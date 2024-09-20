@@ -2538,37 +2538,93 @@ class ReflectCallable(ReflectObject):
         """
         return inspect.getsource(self.get_target())
 
+
+#     def get_ast(self):
+#         """Get the abstract syntax tree for this callable
+# 
+#         :returns: ast.AST
+#         """
+#         class _Finder(ast.NodeVisitor):
+#             def __init__(self, qualnames):
+#                 self.qualnames = qualnames
+#                 self.stack = []
+#                 self.node = None
+# 
+#             def visit_ClassDef(self, node):
+#                 pout.v(node)
+#                 self.stack.append(node.name)
+#                 self.generic_visit(node)
+#                 self.stack.pop()
+# 
+#             def visit_FunctionDef(self, node):
+#                 self.stack.append(node.name)
+#                 pout.v(".".join(self.stack))
+#                 if ".".join(self.stack) in self.qualnames:
+#                     self.node = node
+#                     raise StopIteration()
+# 
+#                 else:
+#                     self.stack.append('<locals>')
+#                     self.generic_visit(node)
+#                     self.stack.pop()
+#                     self.stack.pop()
+# 
+#             visit_AsyncFunctionDef = visit_FunctionDef
+# 
+#         qualnames = set([
+#             self.infer_qualname(),
+#             self.get_target().__qualname__
+#         ])
+#         finder = _Finder(qualnames)
+#         tree = self.reflect_parent().get_ast()
+#         try:
+#             finder.visit(tree)
+# 
+#         except StopIteration:
+#             return finder.node
+
+
     def get_ast(self):
         """Get the abstract syntax tree for this callable
 
         :returns: ast.AST
         """
-        class CallableFoundException(Exception):
-            pass
-
-        class _CallableFinder(inspect._ClassFinder):
+        class _Finder(inspect._ClassFinder):
             node = None
             def visit_FunctionDef(self, node):
                 self.stack.append(node.name)
-
-                if self.qualname == ".".join(self.stack):
+                qualname = ".".join(self.stack)
+                if qualname == self.qualname[0]:
                     self.node = node
-                    raise CallableFoundException()
+                    raise StopIteration()
 
                 else:
+                    # These checks aren't 100% sure so we set it but don't stop
+                    # checking looking for a more definitive check
+                    if qualname in self.qualname:
+                        self.node = node
+
+                    else:
+                        for qn in self.qualname:
+                            if qn.endswith("." + qualname):
+                                self.node = node
                     self.stack.pop()
                     super().visit_FunctionDef(node)
             visit_AsyncFunctionDef = visit_FunctionDef
 
-        target = self.get_target()
-
-        callable_finder = _CallableFinder(self.infer_qualname())
+        qualnames = [
+            self.infer_qualname(),
+            self.get_target().__qualname__
+        ]
+        finder = _Finder(qualnames)
         tree = self.reflect_parent().get_ast()
         try:
-            callable_finder.visit(tree)
+            finder.visit(tree)
 
-        except CallableFoundException:
-            return callable_finder.node
+        except StopIteration:
+            pass
+
+        return finder.node
 
     def reflect_supers(self):
         """Reflect all the parent methods that are called via super in

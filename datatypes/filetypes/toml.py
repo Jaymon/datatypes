@@ -3,7 +3,7 @@ from collections import OrderedDict
 import functools
 
 from ..compat import *
-from ..path import Filepath, UrlFilepath
+from ..path import Filepath, UrlFilepath, Cachepath
 from ..token.abnf import ABNFParser
 from ..collections.mapping import Namespace
 from ..decorators import classproperty

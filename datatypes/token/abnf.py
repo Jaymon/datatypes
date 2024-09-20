@@ -1696,6 +1696,9 @@ class ABNFParser(object):
         return self.create_parser(rule)
 
     def __getattr__(self, rulename):
+        if rulename.startswith("__"):
+            return super().__getattr__()
+
         try:
             return self[rulename]
 

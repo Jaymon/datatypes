@@ -978,6 +978,22 @@ class Path(String):
         """Return True if path is root (eg, / on Linux), False otherwise"""
         return self.name == ""
 
+    def is_hidden(self):
+        """Return True if file/directory is considered hidden
+
+        A hidden file/directory has a basename that starts with a period
+        """
+        return self.basename.startswith(".")
+
+    def is_private(self):
+        """Return True if the file is considered private
+
+        This might be a norm that only I use, but I use it in multiple places,
+        a file/directory is considered private if it begins with a period
+        or underscore
+        """
+        return self.is_hidden() or self.basename.startswith("_")
+
     def joinpath(self, *other):
         """Calling this method is equivalent to combining the path with each of
         the other arguments in turn
@@ -2557,7 +2573,11 @@ class PathIterator(ListIterator):
         * callback: callable[Path], the callback
 
     The interface tries to be fluid to make it easy to dial in exactly what
-    you want
+    you want.
+
+    All the filtering criteria use AND, that means they all have to match for
+    the path to be yielded. If you need an OR match you should probably use
+    a callback.
 
     :Example:
         # iterate through only the files in the current directory
@@ -2599,6 +2619,12 @@ class PathIterator(ListIterator):
         for p in it:
             if p.has_file("stop.txt"):
                 it.finish(p)
+
+        # ignore hidden files and directories
+        it = PathIterator(dirpath).ignore_hidden()
+
+        # ignore hidden directories
+        it = PathIterator(dirpath).nin_hidden()
     """
     def __init__(self, path: Dirpath):
         """
@@ -2691,32 +2717,35 @@ class PathIterator(ListIterator):
         self._finished.add(path)
         return self
 
-    def files(self, v=True, **kwargs):
-        """Iterate only files (this excludes directories)
+    def _path_hidden_callback(self, p):
+        """Internal callback for filtering hidden paths"""
+        return p.is_hidden()
 
-        :param v: bool, default to True to iterate files, you can pass in False
-            to reverse it and make it so you don't iterate files
-        :param **kwargs:
-            - criteria: dict, this is a dict of values that will be passed as
-                **kwargs to any matching value in the rest of kwargs, so if 
-                kwargs contains pattern="..." then .pattern("...", **criteria)
-                will be called
-        :returns: self
-        """
-        if v:
-            self._yield_files += 1
-            self._yield_dirs -= 1
+    def _path_private_callback(self, p):
+        """Internal callback for filtering private paths"""
+        return p.is_private()
 
-        else:
-            self._yield_files -= 1
-            self._yield_dirs += 1
+    def nin_hidden(self):
+        """Filter out hidden directories (directories that begin with a
+        period)"""
+        self.nin_dir(callback=self._path_hidden_callback)
+        return self.ne_dir(callback=self._path_hidden_callback)
 
-        criteria = kwargs.pop("criteria", {})
-        criteria.update({
-            "files": True,
-            "inverse": not v,
-        })
-        return self._add_kwargs(criteria, **kwargs)
+    def ignore_hidden(self):
+        """ignores hidden files and directories"""
+        self.nin_dir(callback=self._path_hidden_callback)
+        return self.ne_callback(self._path_hidden_callback)
+
+    def nin_private(self):
+        """Filter out private directories (directories that begin with a
+        period or an underscore)"""
+        self.nin_dir(callback=self._path_private_callback)
+        return self.ne_dir(callback=self._path_private_callback)
+
+    def ignore_private(self):
+        """ignores private files and directories"""
+        self.nin_dir(callback=self._path_private_callback)
+        return self.ne_callback(self._path_private_callback)
 
     def dirs(self, v=True, **kwargs):
         """Iterate only directories (this excludes files)
@@ -2746,9 +2775,9 @@ class PathIterator(ListIterator):
         allows you to do that, you can set separate criteria for traversing
         directories than the criteria used for matching
 
-        NOTE: self.path is currently always considered valid and will be
-        traversed no matter what for matches, the criteria set through this
-        method only applies to sub-directories of self.path
+        NOTE: .path (starting directory) is currently always considered valid
+        and will be traversed no matter what, the criteria set through this
+        method only applies to sub-directories of .path
 
         :param value: str, the basename to match, if not passed in then the
             `callback`, `regex`, or `pattern` keys in kwargs will be used
@@ -2800,6 +2829,33 @@ class PathIterator(ListIterator):
     def ne_dir(self, value=None, **kwargs):
         """Inverse of eq_dir"""
         return self.eq_dir(value, inverse=True, **kwargs)
+
+    def files(self, v=True, **kwargs):
+        """Iterate only files (this excludes directories)
+
+        :param v: bool, default to True to iterate files, you can pass in False
+            to reverse it and make it so you don't iterate files
+        :param **kwargs:
+            - criteria: dict, this is a dict of values that will be passed as
+                **kwargs to any matching value in the rest of kwargs, so if 
+                kwargs contains pattern="..." then .pattern("...", **criteria)
+                will be called
+        :returns: self
+        """
+        if v:
+            self._yield_files += 1
+            self._yield_dirs -= 1
+
+        else:
+            self._yield_files -= 1
+            self._yield_dirs += 1
+
+        criteria = kwargs.pop("criteria", {})
+        criteria.update({
+            "files": True,
+            "inverse": not v,
+        })
+        return self._add_kwargs(criteria, **kwargs)
 
     def eq_file(self, value=None, **kwargs):
         """wrapper method to make it a bit more fluid to filter files for
@@ -3017,6 +3073,15 @@ class PathIterator(ListIterator):
 
         else:
             raise AttributeError(key)
+
+    def _remove_callback(self, cb):
+        """Internal method. Go through and search for cb and remove it from the
+        callbacks if it exists"""
+        for key in self._yield_callbacks.keys():
+            for i, cb_info in enumerate(self._yield_callbacks[key]):
+                if cb_info[0] is cb:
+                    self._yield_callbacks[key].pop(i)
+                    break
 
     def _eq_path_attribute(self, name, value=None, **kwargs):
         """Internal method for handling eq_<PATH-ATTRIBUTE> wrapper methods"""

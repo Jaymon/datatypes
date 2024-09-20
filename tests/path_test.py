@@ -2306,3 +2306,31 @@ class PathIteratorTest(TestCase):
             self.assertTrue(p.endswith("4.txt"))
         self.assertEqual(1, count)
 
+    def test_hidden_and_private(self):
+        dp = testdata.create_files({
+            "1.txt": "",
+            "_2.txt": "",
+            "bar/3.txt": "",
+            ".boo/4.txt": "",
+            ".boo/baz/5.md": "",
+            "che/.6.md": "",
+            "che/_7.txt": "",
+            "_bam/8.md": "",
+        })
+
+        paths = list(dp.iterator.nin_private())
+        for p in paths:
+            self.assertFalse(p.isdir() and p.is_private(), p)
+
+        paths = list(dp.iterator.ignore_private())
+        for p in paths:
+            self.assertFalse(p.is_private(), p)
+
+        paths = list(dp.iterator.ignore_hidden())
+        for p in paths:
+            self.assertFalse(p.is_hidden(), p)
+
+        paths = list(dp.iterator.nin_hidden())
+        for p in paths:
+            self.assertFalse(p.isdir() and p.is_hidden(), p)
+

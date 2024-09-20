@@ -1248,6 +1248,19 @@ class ReflectCallableTest(TestCase):
         self.assertEqual("bar", node.name)
         self.assertEqual(20, node.lineno)
 
+    def test_get_ast_embedded_classes(self):
+        modpath = self.create_module("""
+            class Foo(object):
+                class Bar(object):
+                    class Che(object):
+                        async def bam(self):
+                            pass
+        """)
+        m = modpath.get_module()
+
+        rc = ReflectCallable(m.Foo.Bar.Che.bam, m.Foo.Bar.Che)
+        self.assertIsNotNone(rc.get_ast())
+
     def test_reflect_supers(self):
         foo_class = testdata.create_module_class("""
             class _GP(object):
