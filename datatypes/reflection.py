@@ -1289,7 +1289,7 @@ class ReflectName(String):
                 for classname in self.class_names:
                     o = getattr(o, classname)
 
-                return rm.creat_reflect_class(o)
+                return rm.create_reflect_class(o)
 
     def reflect_method(self):
         if not self.method_name:
