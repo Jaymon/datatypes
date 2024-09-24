@@ -492,6 +492,7 @@ class ClasspathFinder(DictTree):
         self.prefixes = prefixes or set()
         self.find_keys = {}
         self.kwargs = kwargs # convenience for default .create_instance
+        self.value = self._get_node_default_value(**kwargs)
 
     def create_instance(self):
         """Internal method that makes sure creating sub-instances of this
@@ -543,6 +544,13 @@ class ClasspathFinder(DictTree):
 
         return f"{klass.__module__}:{klass.__qualname__}"
 
+    def _get_node_default_value(self, **kwargs):
+        """Get the default value for the node on creation
+
+        :returns: Any
+        """
+        return None
+
     def _get_node_module_info(self, key, **kwargs):
         """Get the module key and value for a node representing a module
 
@@ -551,7 +559,9 @@ class ClasspathFinder(DictTree):
             * module: types.ModuleType, the module
         :returns: tuple[hashable, dict]
         """
-        return key, {"module": kwargs["module"]}
+        value = self._get_node_default_value(**kwargs) or {}
+        value["module"] = kwargs["module"]
+        return key, value
 
     def _get_node_class_info(self, key, **kwargs):
         """Get the key and value for a node representing a class
@@ -569,9 +579,8 @@ class ClasspathFinder(DictTree):
                 path
             * class_name: this will always be set
         """
-        value = {
-            "class_name": kwargs["class_name"]
-        }
+        value = self._get_node_default_value(**kwargs) or {}
+        value["class_name"] = kwargs["class_name"]
         if "class" in kwargs:
             value["class"] = kwargs["class"]
             value["module_keys"] = kwargs["module_keys"]
@@ -591,7 +600,6 @@ class ClasspathFinder(DictTree):
         """
         rn = ReflectName(self._get_classpath(klass))
 
-        keys = []
         module_keys = []
         class_keys = []
 
