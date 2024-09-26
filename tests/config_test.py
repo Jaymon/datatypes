@@ -46,6 +46,20 @@ class EnvironTest(TestCase):
         self.assertEqual(2000, n)
         self.assertTrue(isinstance(n, int))
 
+    def test_setdefault(self):
+        environ = Environ()
+        self.assertFalse("BAR" in environ)
+
+        environ.setdefault("BAR", 1)
+        self.assertTrue("BAR" in environ)
+        self.assertEqual(1, environ["BAR"])
+
+        environ.setdefault("BAR", 2)
+        self.assertEqual(1, environ["BAR"])
+
+        environ.setdefault("BAR", 2, override=True)
+        self.assertEqual(2, environ["BAR"])
+
 
 class SettingsTest(TestCase):
     def test_preference(self):
@@ -105,4 +119,38 @@ class SettingsTest(TestCase):
 
         s = MultiSettings(config=config_file)
         self.assertIsNotNone(s[fileroot])
+
+    def test_add_environ(self):
+        s = MultiSettings(prefix="FOO_")
+
+        with self.environ(FOO_BAR=1, CHE_BOO=2):
+            self.assertEqual("1", s.BAR)
+            self.assertIsNone(s.get("BOO", None))
+
+            environ = Environ("CHE_")
+            s.add_environ(environ)
+            self.assertEqual("2", s.BOO)
+
+    def test_add_settings(self):
+        sub_s = MultiSettings(prefix="BAR_")
+        s = MultiSettings(prefix="FOO_", settings=[sub_s])
+
+        with self.environ(FOO_BAR=1, BAR_BOO=2):
+            self.assertEqual("1", s.BAR)
+            self.assertEqual("2", s.BOO)
+
+    def test_conflicting_values(self):
+        environs = [Environ("FOO_"), Environ("BAR_")]
+        s = MultiSettings(environs=environs)
+        with self.environ(FOO_BOO=1, BAR_BOO=2):
+            # less information goes to the first and since FOO_ is the first
+            # environ in the list it will beat BAR_
+            self.assertEqual(s.BOO, s.FOO_BOO)
+            # giving more information is how the later value can be pulled
+            self.assertEqual("2", s.BAR_BOO)
+
+    def test_keyerror(self):
+        with self.assertRaises(KeyError):
+            s = MultiSettings()
+            s["FOO"]
 

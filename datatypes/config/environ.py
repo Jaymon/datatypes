@@ -52,11 +52,28 @@ class Environ(Mapping):
         self.__dict__["defaults"] = {}
         self.__dict__["environ"] = environ or os.environ
 
-    def setdefault(self, key, value, type=None):
-        self.defaults[self.ekey(key)] = {
-            "value": value,
-            "type": type,
-        }
+    def setdefault(self, key, value, type=None, override=False):
+        """Set a default value to be returned if there isn't a value set in
+        the environment
+
+        NOTE -- this works differently than dict.setdefault because it doesn't
+        actually set the value into the environment
+
+        :param key: str
+        :param value: Any
+        :param type: type, this will be used to normalize the actual
+            environment value if it exists also
+        :param override: bool, sometimes when setting default configuration
+            you might want to change the default value, this allows you to
+            do that. If True then any previously set default value will be
+            overridden
+        """
+        ek = self.ekey(key)
+        if ek not in self.defaults or override:
+            self.defaults[ek] = {
+                "value": value,
+                "type": type,
+            }
 
     def set(self, key, value):
         self.__setattr__(key, value)
@@ -159,12 +176,14 @@ class Environ(Mapping):
             yield self.environ[nkey]
 
     def keys(self):
-        """yields all the keys of the given namespace currently in the environment"""
+        """yields all the keys of the given namespace currently in the
+        environment"""
         for k, _ in self.items():
             yield k
 
     def values(self):
-        """yields all the keys of the given namespace currently in the environment"""
+        """yields all the keys of the given namespace currently in the
+        environment"""
         for _, v in self.items():
             yield v
 
@@ -197,7 +216,8 @@ class Environ(Mapping):
         return key
 
     def ekey(self, key):
-        """Given a full namespaced key return the key name without the namespace
+        """Given a full namespaced key return the key name without the
+        namespace
 
         :Example:
             environ = Environ("FOO_")
@@ -275,8 +295,10 @@ class Environ(Mapping):
         :param k: str
         :returns: bool
         """
-        #return self.key(key) in os.environ
-        return self.key(key) in self.environ
+        return (
+            self.key(key) in self.environ
+            or self.ekey(key) in self.defaults
+        )
 
     def __contains__(self, key):
         return self.has(key)

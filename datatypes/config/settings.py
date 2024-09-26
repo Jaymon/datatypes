@@ -32,7 +32,7 @@ class Settings(Namespace):
     This extends Namespace so both attribute (.foo) and item (["foo"]) access
     are supported.
 
-    Retrieve an Environ instance by requesting its prefix:
+    Retrieve an Environ instance by requesting its prefix namespace:
 
         s = Settings(prefix="FOOBAR_")
         s.foobar # Environ instance
@@ -47,6 +47,14 @@ class Settings(Namespace):
     config_class = Config
 
     def __init__(self, data=None, environ=None, config=None, **kwargs):
+        """
+        :param data: Mapping, the local data
+        :param environ: Environ, environment data
+        :param config: Config, configuration file data
+        :param **kwargs:
+            * prefix: str, this will create an Environ instance with this
+                prefix (eg, prefix="FOO_" would create an Environ("FOO_"))
+        """
         super().__init__(self.get_init_data(data, **kwargs))
 
         self.__dict__["config"] = self.get_init_config(config, **kwargs)
@@ -58,7 +66,7 @@ class Settings(Namespace):
         :param environ: Environ
         :returns: Environ
         """
-        if not environ:
+        if environ is None:
             if self.__module__ != __name__:
                 environ = self.environ_class(
                     kwargs.get("prefix", self.__module__)
@@ -98,18 +106,7 @@ class Settings(Namespace):
         :param k: str, the key we're looking for
         :returns: Any
         """
-        k = self.normalize_environ_key(k)
-        return self.normalize_environ_value(self.environ[k])
-
-    def normalize_environ_key(self, k):
-        """If you want to customize the value of environment keys, you can use
-        this method"""
-        return self.normalize_key(k)
-
-    def normalize_environ_value(self, v):
-        """If you want to customize environment values, you can use this
-        method"""
-        return self.normalize_value(v)
+        return self.environ[k]
 
     def get_config_value(self, k):
         """Given a key k, attempt to get the value from the config
@@ -117,17 +114,7 @@ class Settings(Namespace):
         :param k: str, the key we're looking for
         :returns: Any
         """
-        k = self.normalize_config_key(k)
-        return self.normalize_config_value(self.config[k])
-
-    def normalize_config_key(self, k):
-        """If you want to customize the value of config keys, you can use this
-        method"""
-        return self.normalize_key(k)
-
-    def normalize_config_value(self, v):
-        """If you want to customize config values, you can use this method"""
-        return self.normalize_value(v)
+        return self.config[k]
 
     def get_environ(self, k):
         """Internal method called from .__getitem__ that checks to see if the
@@ -178,21 +165,55 @@ class Settings(Namespace):
                         if config is not None:
                             return config
 
-                    raise
+            raise
 
 
 class MultiSettings(Settings):
     """Similar to Settings but makes it easier to query multiple configuration
     files or environ prefixes
+
+    Sometimes there might be multiple of the same value with different
+    prefixes (eg FOO_BOO=1, BAR_BOO=2), and self.BOO is first match wins, so
+    it depends on order. If you need the sub value you have to give more
+    information (eg, s.BAR_BOO will return 2)
+
+    I have a tendency for different packages to have their own environment
+    or settings singleton, then dependent projects will also have a settings
+    singleton, so this allows these dependent projects to give their settings
+    singleton access to everything
+
+    :Example:
+        from datatypes import MultiSettings
+        from <SOME-PACKAGE> import settings as external_settings
+        from <SOME-OTHER-PACKAGE> import environ as external_environ
+
+        class Settings(MultiSettings):
+            def __init__(self):
+                super().__init__(
+                    prefixes=["FOO_", "BAR_"],
+                    settings=[external_settings],
+                    environs=[external_environ],
+                )
+
+        # create the singleton for this project that will have access to
+        # all the external configuration also
+        settings = Settings()
     """
     def __init__(self, data=None, **kwargs):
         """
         :param data: dict, the local data
         :param **kwargs:
+            * prefix: str, the environment prefix, this is merged with
+                prefixes but this value takes precedence
             * prefixes: list[str], the environment prefixes
             * configs: list[str], the configuration files
+            * settings: list[Settings], any settings to add to this instance
+            * environs: list[Environ], any environs to add to this instance
+            * configs: list[Config], any configuration to add to this instance
         """
         super().__init__(data, **kwargs)
+
+        self.__dict__["settings"] = self.get_init_settings(**kwargs)
 
     def get_init_environ(self, environ, **kwargs):
         prefixes = []
@@ -234,6 +255,23 @@ class MultiSettings(Settings):
 
         return ChainMap(*maps)
 
+    def get_init_settings(self, **kwargs):
+        maps = kwargs.get("settings", [])
+        return ChainMap(*maps)
+
+    def add_environ(self, environ):
+        """Add an Environ instance to the pool
+
+        :param environ: Environ, the instance to add to the end of the pool
+        """
+        self.__dict__["environ"] = ChainMap(*self.environ.maps, environ)
+
+    def add_config(self, config):
+        self.__dict__["config"] = ChainMap(*self.config.maps, config)
+
+    def add_settings(self, settings):
+        self.__dict__["settings"] = ChainMap(*self.settings.maps, settings)
+
     def get_environ(self, k):
         k = k.lower()
         for environ in self.environ.maps:
@@ -246,4 +284,26 @@ class MultiSettings(Settings):
             path = getattr(config, "path", "")
             if path and path.fileroot == k:
                 return config
+
+    def get_settings_value(self, k):
+        """Given a key k, attempt to get the value from any sub settings
+        instances
+
+        :param k: str, the key we're looking for
+        :returns: Any
+        """
+        return self.settings[k]
+
+    def __getitem__(self, k):
+        try:
+            return super().__getitem__(k)
+
+        except KeyError:
+            try:
+                return self.get_settings_value(k)
+
+            except KeyError:
+                pass
+
+            raise
 
