@@ -92,6 +92,8 @@ class SettingsTest(TestCase):
         with self.assertRaises(KeyError):
             s.Common["library_dir"]
 
+
+class MultiSettingsTest(TestCase):
     def test_multi(self):
         s = MultiSettings({"foo": 1})
 
@@ -153,4 +155,12 @@ class SettingsTest(TestCase):
         with self.assertRaises(KeyError):
             s = MultiSettings()
             s["FOO"]
+
+    def test_methods(self):
+        class FooSettings(MultiSettings):
+            def is_working(self):
+                return True
+
+        s = MultiSettings(settings=[FooSettings()])
+        self.assertTrue(s.is_working())
 

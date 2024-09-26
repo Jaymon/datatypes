@@ -108,6 +108,7 @@ class Settings(Namespace):
         """
         return self.environ[k]
 
+
     def get_config_value(self, k):
         """Given a key k, attempt to get the value from the config
 
@@ -285,6 +286,26 @@ class MultiSettings(Settings):
             if path and path.fileroot == k:
                 return config
 
+    def _get_value(self, chainmap, k):
+        try:
+            return chainmap[k]
+
+        except KeyError:
+            for m in chainmap.maps:
+                try:
+                    return getattr(m, k)
+
+                except AttributeError:
+                    pass
+
+            raise
+
+    def get_environ_value(self, k):
+        return self._get_value(self.environ, k)
+
+    def get_config_value(self, k):
+        return self._get_value(self.config, k)
+
     def get_settings_value(self, k):
         """Given a key k, attempt to get the value from any sub settings
         instances
@@ -292,7 +313,7 @@ class MultiSettings(Settings):
         :param k: str, the key we're looking for
         :returns: Any
         """
-        return self.settings[k]
+        return self._get_value(self.settings, k)
 
     def __getitem__(self, k):
         try:
