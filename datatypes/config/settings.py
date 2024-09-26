@@ -100,13 +100,24 @@ class Settings(Namespace):
         """
         return data or {}
 
+    def _get_value(self, backend, k):
+        """Internal method. Used to check the chainmap for an item value
+        and also an attribute
+
+        :param backend: Environ|Config
+        :param k: str
+        :returns: Any
+        :raises: KeyError
+        """
+        return backend[k]
+
     def get_environ_value(self, k):
         """Given a key k, attempt to get the value from the environment
 
         :param k: str, the key we're looking for
         :returns: Any
         """
-        return self.environ[k]
+        return self._get_value(self.environ, k)
 
 
     def get_config_value(self, k):
@@ -115,7 +126,7 @@ class Settings(Namespace):
         :param k: str, the key we're looking for
         :returns: Any
         """
-        return self.config[k]
+        return self._get_value(self.config, k)
 
     def get_environ(self, k):
         """Internal method called from .__getitem__ that checks to see if the
@@ -261,16 +272,24 @@ class MultiSettings(Settings):
         return ChainMap(*maps)
 
     def add_environ(self, environ):
-        """Add an Environ instance to the pool
+        """Add an Environ instance to the environs pool
 
         :param environ: Environ, the instance to add to the end of the pool
         """
         self.__dict__["environ"] = ChainMap(*self.environ.maps, environ)
 
     def add_config(self, config):
+        """Add a Config instance to the end of the configs pool
+
+        :param config: Config
+        """
         self.__dict__["config"] = ChainMap(*self.config.maps, config)
 
     def add_settings(self, settings):
+        """Add a Settings instance to the end of the settings pool
+
+        :param settings: Settings
+        """
         self.__dict__["settings"] = ChainMap(*self.settings.maps, settings)
 
     def get_environ(self, k):
@@ -287,8 +306,10 @@ class MultiSettings(Settings):
                 return config
 
     def _get_value(self, chainmap, k):
+        """Internal method. Used to check the chainmap for an item value
+        and also an attribute"""
         try:
-            return chainmap[k]
+            return super()._get_value(chainmap, k)
 
         except KeyError:
             for m in chainmap.maps:
@@ -299,12 +320,6 @@ class MultiSettings(Settings):
                     pass
 
             raise
-
-    def get_environ_value(self, k):
-        return self._get_value(self.environ, k)
-
-    def get_config_value(self, k):
-        return self._get_value(self.config, k)
 
     def get_settings_value(self, k):
         """Given a key k, attempt to get the value from any sub settings
