@@ -274,6 +274,13 @@ class property(FuncDecorator):
 
         self.onget = kwargs.pop("onget", True)
 
+    def __set_name__(self, owner, name):
+        if not self.name:
+            self.name = name
+            # if name was set through this method than we aren't looking to
+            # cache
+            self.cached = False
+
     def log(self, format_str, *format_args, **log_options):
         fget = getattr(self, "fget", None)
         if fget:
@@ -306,13 +313,33 @@ class property(FuncDecorator):
                 # fixes https://github.com/Jaymon/decorators/issues/4
                 if hasattr(instance, "__getattr__"):
                     self.log(e)
+
                 raise
 
+#                     raise ValueError(
+#                         f"Converting {self.name} AttributeError to ValueError"
+#                         " because the instance has a __getattr__ and that"
+#                         " can lead to unintended behavior"
+#                     ) from e
+# 
+#                 else:
+#                     raise
+# 
+#             except Exception as e:
+#                 if hasattr(instance, "__getattr__"):
+#                     raise
+# 
+#                 else:
+#                     raise AttributeError(self.name) from e
+
         else:
-            raise AttributeError("Unreadable attribute")
+            raise AttributeError(
+                f"Property {self.name} fget method does not exist"
+            )
 
     def __get__(self, instance, instance_class=None):
-        # if there is no instance then they are requesting the property from the class
+        # if there is no instance then they are requesting the property from
+        # the class
         if instance is None:
             return self
 
