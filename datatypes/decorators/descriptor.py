@@ -312,25 +312,15 @@ class property(FuncDecorator):
                 # swallowed and so let's log it before raising it
                 # fixes https://github.com/Jaymon/decorators/issues/4
                 if hasattr(instance, "__getattr__"):
-                    self.log(e)
+                    self.log(
+                        f"Property {self.name} AttributeError: \"{e}\" will"
+                        " be suppressed because the class has a __getattr__"
+                        " that will now be called and can lead to unintended"
+                        " behavior",
+                        level="WARN"
+                    )
 
                 raise
-
-#                     raise ValueError(
-#                         f"Converting {self.name} AttributeError to ValueError"
-#                         " because the instance has a __getattr__ and that"
-#                         " can lead to unintended behavior"
-#                     ) from e
-# 
-#                 else:
-#                     raise
-# 
-#             except Exception as e:
-#                 if hasattr(instance, "__getattr__"):
-#                     raise
-# 
-#                 else:
-#                     raise AttributeError(self.name) from e
 
         else:
             raise AttributeError(
@@ -344,8 +334,8 @@ class property(FuncDecorator):
             return self
 
         # we temporarily set readonly to False to make it possible to set the
-        # value when fetched from the getter, then we set the value back to the
-        # original value
+        # value when fetched from the getter, then we set the value back to
+        # the original value
         readonly = self.readonly
         self.readonly = False
 

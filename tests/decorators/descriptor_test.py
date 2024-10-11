@@ -561,8 +561,9 @@ class PropertyTest(TestCase):
                 return 1
 
         b = Bar()
-        with self.assertLogs(level="ERROR") as c:
+        with self.assertLogs(level="WARN") as c:
             b.che
+        pout.v(c.output)
         self.assertTrue("This error was lost" in "\n".join(c.output))
 
         with self.assertRaises(KeyError):
@@ -687,16 +688,6 @@ class PropertyTest(TestCase):
         r1 = f.baz
         r2 = f.baz
         self.assertEqual(r1, r2)
-
-#     def test_attribute_error_wrapping(self):
-#         class Foo(object):
-#             @property
-#             def bar(self):
-#                 raise KeyError("bar")
-# 
-#         f = Foo()
-#         with self.assertRaises(AttributeError):
-#             f.bar
 
 
 class CachedpropertyTest(TestCase):
