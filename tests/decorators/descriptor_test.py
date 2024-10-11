@@ -563,7 +563,6 @@ class PropertyTest(TestCase):
         b = Bar()
         with self.assertLogs(level="WARN") as c:
             b.che
-        pout.v(c.output)
         self.assertTrue("This error was lost" in "\n".join(c.output))
 
         with self.assertRaises(KeyError):
