@@ -1261,6 +1261,21 @@ class ReflectCallableTest(TestCase):
         rc = ReflectCallable(m.Foo.Bar.Che.bam, m.Foo.Bar.Che)
         self.assertIsNotNone(rc.get_ast())
 
+    def test_get_ast_parent_def(self):
+        foo_class = self.create_module_class("""
+            class _Parent(object):
+                async def bar(self):
+                    che = 1
+
+            class Foo(_Parent):
+                pass
+
+        """)
+
+        rc = ReflectCallable(foo_class.bar, foo_class)
+        n = rc.get_ast()
+        self.assertTrue(n.name == "bar")
+
     def test_reflect_supers(self):
         foo_class = testdata.create_module_class("""
             class _GP(object):
@@ -1302,7 +1317,7 @@ class ReflectCallableTest(TestCase):
         self.assertEqual(1, len(supers))
         self.assertEqual("_P", supers[0].get_class().__name__)
 
-    def test_reflect_ast_raises(self):
+    def test_reflect_ast_raises_1(self):
         foo_class = testdata.create_module_class("""
             class Foo(object):
                 def foo(self, v):
@@ -1324,7 +1339,32 @@ class ReflectCallableTest(TestCase):
         self.assertEqual("ValueError", nodes[0].name)
         self.assertEqual("value error", nodes[0].get_parameters()[0][0])
 
-    def test_reflect_ast_returns(self):
+    def test_reflect_ast_raises_no_exc(self):
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self, v):
+                    try:
+                        raise ValueError("value error")
+
+                    except ValueError:
+                        raise
+
+                    except KeyError as e:
+                        if True:
+                            raise
+
+                    except (RuntimeError, TypeError) as e:
+                        raise e
+
+                    else:
+                        raise IOError()
+        """)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_raises())
+        self.assertEqual(6, len(nodes))
+
+    def test_reflect_ast_returns_1(self):
         foo_class = testdata.create_module_class("""
             class Foo(object):
                 def foo(self):
@@ -1335,6 +1375,18 @@ class ReflectCallableTest(TestCase):
         nodes = list(rc.reflect_ast_returns())
         self.assertEqual(1, len(nodes))
         self.assertEqual("dict", nodes[0].name)
+
+    def test_reflect_ast_returns_no_return(self):
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self):
+                    foo = 1
+                    bar = "2"
+        """)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_returns())
+        self.assertEqual(0, len(nodes))
 
     def test_reflect_return_type(self):
         foo_class = testdata.create_module_class("""

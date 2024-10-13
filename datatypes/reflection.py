@@ -1583,6 +1583,15 @@ class ReflectObject(object):
             **kwargs
         )
 
+    def is_class(self):
+        return isinstance(self, ReflectClass)
+
+    def is_module(self):
+        return isinstance(self, ReflectModule)
+
+    def is_callable(self):
+        return isinstance(self, ReflectCallable)
+
 
 class ReflectAST(ReflectObject):
     """Internal class. Provides introspection and helper methods for ast.AST
@@ -2010,7 +2019,7 @@ class ReflectCallable(ReflectObject):
         """
         return ":".join([
             self.modpath,
-            self.qualname
+            self.get_target().__qualname__
         ])
 
     def __init__(self, target, target_class=None, *, name=""):
@@ -2578,10 +2587,20 @@ class ReflectCallable(ReflectObject):
             self.infer_qualname(),
             self.get_target().__qualname__
         ]
+
         finder = _Finder(qualnames)
-        tree = self.reflect_parent().get_ast()
+
+        rp = self.reflect_parent()
         try:
-            finder.visit(tree)
+            if rp.is_module():
+                finder.visit(rp.get_ast())
+
+            else:
+                # this method might belong to parent but that doesn't mean it's
+                # defined in parent, so we need to check all the parents of
+                # parent also until we find the actual definition
+                for rc in self.reflect_parent().reflect_mro():
+                    finder.visit(rc.get_ast())
 
         except StopIteration:
             pass
@@ -2632,14 +2651,51 @@ class ReflectCallable(ReflectObject):
         """
         class _Finder(ast.NodeVisitor):
             nodes = []
+            parent = None
+            def find_exc_handlers(self, node):
+                n = node.parent
+                while n and not isinstance(n, ast.ExceptHandler):
+                    n = n.parent
+
+                if n:
+                    if isinstance(n.type, ast.Tuple):
+                        # except (Exc1, Exc2, ...)
+                        for tn in n.type.elts:
+                            yield tn
+
+                    else:
+                        yield n.type
+
             def visit_Raise(self, node):
-                self.nodes.append(node)
+                if node.exc:
+                    if isinstance(node.exc, ast.Call):
+                        # A standard raise <EXC-NAME>(...)
+                        self.nodes.append(node.exc)
+
+                    else:
+                        # something like `raise e` so find the handler(s)
+                        for n in self.find_exc_handlers(node):
+                            self.nodes.append(n)
+
+                else:
+                    # raise with no arguments so find the handler(s)
+                    for n in self.find_exc_handlers(node):
+                        self.nodes.append(n)
+
+            def visit(self, node):
+                """Overridden to set parent so we can traverse the tree"""
+                node.parent = self.parent
+                prev_parent = self.parent
+                self.parent = node
+                ret = super().visit(node)
+                self.parent = prev_parent
+                return ret
 
         finder = _Finder()
         finder.visit(self.get_ast())
         for node in finder.nodes:
             yield self.create_reflect_ast(
-                node.exc,
+                node,
                 reflect_callable=self
             )
 
@@ -2654,7 +2710,8 @@ class ReflectCallable(ReflectObject):
                 self.nodes.append(node)
 
         finder = _Finder()
-        finder.visit(self.get_ast())
+        node = self.get_ast()
+        finder.visit(node)
         for node in finder.nodes:
             yield self.create_reflect_ast(
                 node.value,
@@ -2862,7 +2919,6 @@ class ReflectClass(ReflectObject):
         """Same as .getmro but returns ReflectClass instances"""
         for klass in self.getmro(*args, **kwargs):
             yield self.create_reflect_class(klass)
-
 
     def getsource(self):
         return inspect.getsource(self.target)
