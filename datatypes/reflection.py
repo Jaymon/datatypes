@@ -1584,12 +1584,16 @@ class ReflectObject(object):
         )
 
     def is_class(self):
+        """Returns True if target is considered a class"""
         return isinstance(self, ReflectClass)
 
     def is_module(self):
+        """Returns True if target is considered a module"""
         return isinstance(self, ReflectModule)
 
     def is_callable(self):
+        """Returns True if target is considered a callable (usually a function
+        or method)"""
         return isinstance(self, ReflectCallable)
 
 
@@ -2111,6 +2115,24 @@ class ReflectCallable(ReflectObject):
 
             except ValueError:
                 return self.reflect_module()
+
+#     def reflect_parents(self):
+#         rp = self.reflect_parent()
+#         if rp.is_module():
+#             yield rp
+# 
+#         else:
+#             attr_name = self.name
+#             # this method might belong to a parent class but that doesn't mean
+#             # it's defined in parent, so we need to check all the parents of
+#             # parent also until we find the actual definition
+#             for rc in self.reflect_parent().reflect_mro():
+#                 if rc.has_definition(attr_name):
+#                     yield rc
+#                     break
+# 
+#                 else:
+#                     yield rc
 
     def get_class(self):
         """Get the class for the callable
