@@ -2116,24 +2116,6 @@ class ReflectCallable(ReflectObject):
             except ValueError:
                 return self.reflect_module()
 
-#     def reflect_parents(self):
-#         rp = self.reflect_parent()
-#         if rp.is_module():
-#             yield rp
-# 
-#         else:
-#             attr_name = self.name
-#             # this method might belong to a parent class but that doesn't mean
-#             # it's defined in parent, so we need to check all the parents of
-#             # parent also until we find the actual definition
-#             for rc in self.reflect_parent().reflect_mro():
-#                 if rc.has_definition(attr_name):
-#                     yield rc
-#                     break
-# 
-#                 else:
-#                     yield rc
-
     def get_class(self):
         """Get the class for the callable
 
@@ -2729,14 +2711,15 @@ class ReflectCallable(ReflectObject):
         class _Finder(ast.NodeVisitor):
             nodes = []
             def visit_Return(self, node):
-                self.nodes.append(node)
+                if node.value:
+                    self.nodes.append(node.value)
 
         finder = _Finder()
         node = self.get_ast()
         finder.visit(node)
         for node in finder.nodes:
             yield self.create_reflect_ast(
-                node.value,
+                node,
                 reflect_callable=self
             )
 

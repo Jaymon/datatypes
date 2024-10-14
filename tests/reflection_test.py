@@ -1388,6 +1388,38 @@ class ReflectCallableTest(TestCase):
         nodes = list(rc.reflect_ast_returns())
         self.assertEqual(0, len(nodes))
 
+    def test_reflect_ast_returns_none(self):
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self):
+                    return None
+
+        """)
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_returns())
+        self.assertEqual(1, len(nodes))
+
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self):
+                    ret = None
+                    return ret
+
+        """)
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_returns())
+        self.assertEqual(1, len(nodes))
+
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def foo(self):
+                    return
+
+        """)
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_returns())
+        self.assertEqual(0, len(nodes))
+
     def test_reflect_return_type(self):
         foo_class = testdata.create_module_class("""
             class Foo(object):
