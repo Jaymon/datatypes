@@ -161,6 +161,16 @@ class StringTest(TestCase):
         self.assertTrue(type(b2) is bytes)
         self.assertFalse(type(b2) is ByteString)
 
+    def test_dedent(self):
+        s = String("""
+            foo
+            bar
+                che
+        """).dedent().strip()
+
+        self.assertTrue(s.startswith("foo"))
+        self.assertTrue(s.endswith("    che"))
+
 
 class NamingConventionTest(TestCase):
     def test_camelcase(self):

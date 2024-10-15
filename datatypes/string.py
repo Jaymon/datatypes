@@ -7,6 +7,7 @@ import binascii
 import unicodedata
 from distutils.fancy_getopt import wrap_text
 import secrets
+import textwrap
 
 from .compat import *
 from .config.environ import environ
@@ -297,6 +298,11 @@ class String(Str, StringMixin):
         s = ((indent * count) + line for line in self.splitlines(True))
         s = "".join(s)
         return type(self)(s)
+
+    def dedent(self):
+        """Wrapper around textwrap.dedent that does the opposite of indent
+        and is sometimes handy"""
+        return type(self)(textwrap.dedent(self))
 
     def wrap(self, size):
         """Wraps text to less than width wide
