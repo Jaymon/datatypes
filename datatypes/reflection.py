@@ -1739,23 +1739,28 @@ class ReflectType(ReflectObject):
 
     This is used to get more information from typing annotations
 
+    Let's say we have the type: `dict[str, int]`, the origin type would be
+    `dict`, and the value types would be `[int]`, the key types would be
+    `[str]`.
+
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
     """
     def _get_types(self, t):
-        """Internal method. This normalizes type t to get the actual types
+        """Internal method. This breaks apart the argument types and iterates
+        through them
 
-        :param t: Any, the type, this could be a union (eg, int|str) or an
-            alias (eg, dict[str, int], tuple[int, ...]) or other any other
+        :param t: Any, the type, this could be a union (eg, `int|str`) or an
+            alias (eg, `dict[str, int]`, `tuple[int, ...]`) or any other
             type
-        :returns: generator[type], yields the actual raw types
+        :returns: generator[type], yields the argument sub types
         """
         if isinstance(t, types.UnionType):
             for at in get_args(t):
                 yield from self._get_types(at)
 
         elif isinstance(t, types.GenericAlias):
-            yield get_origin(t)
+            yield t
 
         elif isinstance(t, types.EllipsisType):
             # we ignore the ellipses type because it is just saying more of
@@ -1769,6 +1774,55 @@ class ReflectType(ReflectObject):
 
         else:
             yield t
+
+    def _get_value_args(self):
+        """Certain arguments are key arguments and the rest are value args,
+        this filters the key arguments and yields the value args
+
+        :returns: generator[type]
+        """
+        arg_types = get_args(self.get_target())
+        if self.is_dictish():
+            if arg_types:
+                yield arg_types[1]
+
+        else:
+            yield from arg_types
+
+    def _get_origin_types(self, t):
+        """Internal method. This normalizes type t to get the actual types
+
+        :param t: Any, the type, this could be a union (eg, int|str) or an
+            alias (eg, dict[str, int], tuple[int, ...]) or other any other
+            type
+        :returns: generator[type], yields the actual raw types
+        """
+        for t in self._get_types(t):
+            if isinstance(t, types.GenericAlias):
+                yield get_origin(t)
+
+            else:
+                yield t
+
+#         if isinstance(t, types.UnionType):
+#             for at in get_args(t):
+#                 yield from self._get_types(at)
+# 
+#         elif isinstance(t, types.GenericAlias):
+#             yield get_origin(t)
+# 
+#         elif isinstance(t, types.EllipsisType):
+#             # we ignore the ellipses type because it is just saying more of
+#             # the previous type
+#             pass
+# 
+#         elif t is Any:
+#             # we ignore Any since it is equivalent to no check and we're only
+#             # really interested in "actionable" types
+#             pass
+# 
+#         else:
+#             yield t
 
     def get_origin_type(self):
         """Get the raw type of .target
@@ -1788,7 +1842,7 @@ class ReflectType(ReflectObject):
         :returns: generator[type]
         """
         for at in get_args(self.target):
-            yield from self._get_types(at)
+            yield from self._get_origin_types(at)
 
     def get_key_types(self):
         """Get the raw types for the keys in a mapping
@@ -1807,27 +1861,60 @@ class ReflectType(ReflectObject):
 
         arg_types = get_args(self.target)
         if arg_types:
-            yield from self._get_types(arg_types[0])
+            yield from self._get_origin_types(arg_types[0])
 
     def get_value_types(self):
         """Get  the value types of a container object
 
         :Example:
             rt = ReflectType(dict[str, int|bool])
-            list(rt.get_key_types) # [int, bool]
+            list(rt.get_value_types) # [int, bool]
 
             rt = ReflectType(list[int|bool])
-            list(rt.get_key_types) # [int, bool]
+            list(rt.get_value_types) # [int, bool]
 
         :returns: generator[type]
         """
-        if self.is_dictish():
-            arg_types = get_args(self.target)
-            if arg_types:
-                yield from self._get_types(arg_types[1])
+        for a in self._get_value_args():
+            yield from self._get_origin_types(a)
 
-        else:
-            yield from self.get_arg_types()
+#         if self.is_dictish():
+#             arg_types = get_args(self.target)
+#             if arg_types:
+#                 yield from self._get_origin_types(arg_types[1])
+# 
+#         else:
+#             yield from self.get_arg_types()
+
+    def reflect_value_types(self):
+        """Almost the same as .get_value_types but wraps each item as a
+        ReflectType instance, but this doesn't return origin types so you
+        can reflect even further down if needed
+
+        :returns: generator[ReflectType]
+        """
+        for a in self._get_value_args():
+            for t in self._get_types(a):
+                yield self.create_reflect_type(t)
+
+#         if self.is_dictish():
+#             arg_types = get_args(self.target)
+#             if arg_types:
+#                 yield self.create_reflect_type(arg_types[1])
+# 
+#         else:
+#             arg_types = get_args(self.target)
+#             for at in arg_types:
+#                 yield self.create_reflect_type(at)
+
+#         arg_types = get_args(self.target)
+#         if arg_types:
+#             yield from self._get_types(arg_types[0])
+# 
+# 
+# 
+#         for t in self.get_value_types():
+#             yield self.create_reflect_type(t)
 
     def is_type(self, haystack):
         """Returns True if .target's origin type is in haystack
@@ -1907,12 +1994,18 @@ class ReflectType(ReflectObject):
         """
         return self.is_type((str, bytes))
 
+    def is_tuple(self):
+        """Returns True if .target is a tuple
+
+        NOTE -- .is_listish will also return True for tuples
+        """
+        return self.is_type(tuple)
+
     def is_listish(self):
         """Returns True if .target looks like a list and isn't a string
 
         :returns: bool
         """
-        t = self.get_origin_type()
         return (
             not self.is_type((str, bytes))
             and self.is_type(Sequence)

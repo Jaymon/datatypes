@@ -736,6 +736,26 @@ class ReflectTypeTest(TestCase):
         self.assertEqual(1, len(types))
         self.assertEqual(int, types[0])
 
+    def test_reflect_value_types_1(self):
+        rt = ReflectType(dict[str, int])
+        rts = list(rt.reflect_value_types())
+        self.assertEqual(1, len(rts))
+        self.assertTrue(rts[0].is_type(int))
+
+    def test_reflect_value_types_2(self):
+        rt = ReflectType(list[dict[str, int]|tuple[float, float]])
+        rts = list(rt.reflect_value_types())
+        self.assertEqual(2, len(rts))
+
+        rts0 = list(rts[0].reflect_value_types())
+        self.assertEqual(1, len(rts0))
+        self.assertTrue(rts0[0].is_type(int))
+
+        rts1 = list(rts[1].reflect_value_types())
+        self.assertEqual(2, len(rts1))
+        self.assertTrue(rts1[0].is_type(float))
+        self.assertTrue(rts1[1].is_type(float))
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
