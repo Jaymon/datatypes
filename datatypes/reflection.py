@@ -1804,26 +1804,6 @@ class ReflectType(ReflectObject):
             else:
                 yield t
 
-#         if isinstance(t, types.UnionType):
-#             for at in get_args(t):
-#                 yield from self._get_types(at)
-# 
-#         elif isinstance(t, types.GenericAlias):
-#             yield get_origin(t)
-# 
-#         elif isinstance(t, types.EllipsisType):
-#             # we ignore the ellipses type because it is just saying more of
-#             # the previous type
-#             pass
-# 
-#         elif t is Any:
-#             # we ignore Any since it is equivalent to no check and we're only
-#             # really interested in "actionable" types
-#             pass
-# 
-#         else:
-#             yield t
-
     def get_origin_type(self):
         """Get the raw type of .target
 
@@ -1878,14 +1858,6 @@ class ReflectType(ReflectObject):
         for a in self._get_value_args():
             yield from self._get_origin_types(a)
 
-#         if self.is_dictish():
-#             arg_types = get_args(self.target)
-#             if arg_types:
-#                 yield from self._get_origin_types(arg_types[1])
-# 
-#         else:
-#             yield from self.get_arg_types()
-
     def reflect_value_types(self):
         """Almost the same as .get_value_types but wraps each item as a
         ReflectType instance, but this doesn't return origin types so you
@@ -1896,25 +1868,6 @@ class ReflectType(ReflectObject):
         for a in self._get_value_args():
             for t in self._get_types(a):
                 yield self.create_reflect_type(t)
-
-#         if self.is_dictish():
-#             arg_types = get_args(self.target)
-#             if arg_types:
-#                 yield self.create_reflect_type(arg_types[1])
-# 
-#         else:
-#             arg_types = get_args(self.target)
-#             for at in arg_types:
-#                 yield self.create_reflect_type(at)
-
-#         arg_types = get_args(self.target)
-#         if arg_types:
-#             yield from self._get_types(arg_types[0])
-# 
-# 
-# 
-#         for t in self.get_value_types():
-#             yield self.create_reflect_type(t)
 
     def is_type(self, haystack):
         """Returns True if .target's origin type is in haystack
