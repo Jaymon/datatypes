@@ -1384,6 +1384,24 @@ class ReflectCallableTest(TestCase):
         nodes = list(rc.reflect_ast_raises())
         self.assertEqual(6, len(nodes))
 
+    def test_reflect_ast_raises_multiple_args(self):
+        foo_class = testdata.create_module_class("""
+            class _FooError(Exception):
+                def __init__(self, one, two):
+                    super().__init__(two)
+
+            class Foo(object):
+                def foo(self, v):
+                    raise _FooError(123, "four five six")
+
+        """)
+
+        rc = ReflectCallable(foo_class.foo, foo_class)
+        nodes = list(rc.reflect_ast_raises())
+        params = nodes[0].get_parameters()
+        self.assertEqual(123, params[0][0])
+        self.assertEqual("four five six", params[0][1])
+
     def test_reflect_ast_returns_1(self):
         foo_class = testdata.create_module_class("""
             class Foo(object):

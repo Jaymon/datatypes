@@ -606,6 +606,7 @@ class ClasspathFinder(DictTree):
         nkwargs = {
             "keys": [],
             "module_keys": [],
+            "modules": [],
             "class_keys": [],
         }
 
@@ -613,14 +614,16 @@ class ClasspathFinder(DictTree):
             if rn.is_module_relative_to(prefix):
                 if modname := rn.relative_module_name(prefix):
                     for rm in rn.reflect_modules(modname):
+                        m = rm.get_module()
                         k, v = self._get_node_module_info(
                             rm.module_basename,
-                            module=rm.get_module(),
+                            module=m,
                             **nkwargs
                         )
                         if k is not None:
                             nkwargs["keys"].append(k)
                             nkwargs["module_keys"].append(k)
+                            nkwargs["modules"].append(m)
 
                         yield nkwargs["keys"], v
 
