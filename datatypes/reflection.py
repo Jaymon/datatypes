@@ -1496,7 +1496,7 @@ class ReflectName(String):
 
 
 class ReflectObject(object):
-    def __init__(self, target):
+    def __init__(self, target, **kwargs):
         self.target = target
 
     def get_docblock(self, inherit=False):
@@ -1973,6 +1973,16 @@ class ReflectType(ReflectObject):
         :returns: bool
         """
         return self.is_type(Set) 
+
+    def is_primitive(self):
+        """Return True if .target is a primitive type (str, int, float, bool,
+        or None)"""
+        return (
+            self.is_stringish()
+            or self.is_numberish()
+            or self.is_none()
+            or self.is_bool()
+        )
 
     def __instancecheck__(self, instance):
         """Returns True if instance is an instance of .target
