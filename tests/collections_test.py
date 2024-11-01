@@ -401,6 +401,28 @@ class SortedListTest(TestCase):
         self.assertEqual("boo", h.pop(-1)[1])
         self.assertEqual("che", h.pop()[1])
 
+    def test_reversed(self):
+        sl = SortedList()
+        sl.extend([5, 6, 3, 4, 4, 8, 9])
+
+        rl = [x for x in reversed(sl)]
+        self.assertEqual(len(sl), len(rl))
+
+    def test_size(self):
+        sl = SortedList(size=5)
+
+        sl.append(1)
+        sl.append(2)
+        self.assertEqual(2, len(sl))
+
+        sl.extend([5, 6, 3, 4, 4, 8, 9])
+        self.assertEqual(5, len(sl))
+
+    def test_max_sort(self):
+        sl = SortedList(key=lambda x: -x, size=3)
+        sl.extend([5, 10, 1, 4, 16, 20, 25])
+        self.assertEqual([25, 20, 16], sl)
+
 
 class NamespaceTest(TestCase):
     def test_crud(self):

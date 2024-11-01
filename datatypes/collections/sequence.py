@@ -213,12 +213,26 @@ class SortedList(list):
     if you want MaxQueue like functionality use negative values: .pop(-1) and
     if you want MinQueue like functionality use positive values: .pop(0)
 
+    :Example:
+        # max sorted list
+        sl = SortedList(key=lambda x: -x, size=3)
+        sl.extend([5, 10, 1, 4, 16, 20, 25])
+        print(sl) # [25, 20, 16]
+
     https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
     """
-    def __init__(self, iterable=None, key=None):
+    def __init__(self, iterable=None, key=None, size=None):
+        """
+        :param iterable: Sequence, the initial values
+        :param key: Callable[[Any], Any], this takes in the item and returns
+            the value used for sorting
+        :param size: int, the maximum number of items the list can have
+        """
         if key:
             self.key = key
-        self._keys = []
+
+        self.size = size if (size and size > 0) else None
+
         super().__init__()
         if iterable:
             for x in iterable:
@@ -238,26 +252,25 @@ class SortedList(list):
     def inserted(self, i, x):
         """Called after x is inserted at position i
 
-        This is handy if you want to do some post insertion manipulation of the
-        list
+        This is handy if you want to do some post insertion manipulation of
+        the list
 
-        :param i: int, the position x was inserted in the list, will be None if
-            x was inserted at the end of the list
+        :param i: int, the position x was inserted in the list, will be None
+            if x was inserted at the end of the list
         :param x: Any, the object inserted into the list
         """
-        pass
+        if self.size:
+            if len(self) > self.size:
+                self.pop(-1)
 
     def append(self, x):
-        k = self.key(x)
         # https://docs.python.org/3/library/bisect.html#bisect.bisect_right
-        i = bisect.bisect_right(self._keys, k)
+        i = bisect.bisect_right(self, self.key(x), key=self.key)
         if i is None:
-            super().append((self.key(x), x))
-            self._keys.append(k)
+            super().append(x)
 
         else:
-            super().insert(i, (self.key(x), x))
-            self._keys.insert(i, k)
+            super().insert(i, x)
 
         self.inserted(i, x)
 
@@ -265,34 +278,11 @@ class SortedList(list):
         for x in iterable:
             self.append(x)
 
-    def remove(self, x):
-        k = self.key(x)
-        self._keys.remove(k)
-        super().remove((k, x))
-
-    def pop(self, i=-1):
-        self._keys.pop(i)
-        return super().pop(i)[-1]
-
-    def clear(self):
-        super().clear()
-        self._keys.clear()
-
-    def __iter__(self):
-        for x in super().__iter__():
-            yield x[-1]
-
     def __reversed__(self):
         index = len(self)
         while index > 0:
             index -= 1
             yield self[index]
-
-    def __getitem__(self, i):
-        return super().__getitem__(i)[-1]
-
-    def __delitem__(self, i):
-        self.pop(i)
 
     def insert(self, i, x):
         raise NotImplementedError()
