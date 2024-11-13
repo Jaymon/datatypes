@@ -9,12 +9,15 @@ import runpy
 from threading import Thread
 import weakref
 from socketserver import ThreadingMixIn
+from types import NoneType
+import io
 
 from .compat import *
 from .config.environ import environ
 from .url import Host, Url
 from .path import Dirpath
 from .decorators import property as cachedproperty
+from .http import Multipart
 
 
 logger = logging.getLogger(__name__)
@@ -166,13 +169,16 @@ class BaseServer(HTTPServer):
 
     def get_body(self, handler):
         content_len = int(handler.headers.get('content-length', 0))
-
         if body := handler.rfile.read(content_len):
             ct = handler.headers.get("content-type", "")
             if ct:
-                ct = ct.lower()
-                if ct.rfind("json") >= 0:
+                if "json" in ct:
                     body = json.loads(body)
+
+                elif "multipart/form-data" in ct:
+                    body, files = Multipart.decode(handler.headers, body)
+                    if files:
+                        body.update(files)
 
                 else:
                     body = Url.parse_query(body)
@@ -355,20 +361,46 @@ class CallbackHandler(SimpleHTTPRequestHandler):
                 )
 
         else:
-            if ret:
-                code = self.code or 200
-                if not self.headers_sent:
-                    self.send_response(code)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                b = json.dumps(ret)
-                self.wfile.write(bytes(b, self.encoding))
+            b = None
+            #code = self.code or 200
+            if not self.headers_sent:
+                code = 200
+                ct = ""
 
-            else:
-                code = self.code or 204
-                if not self.headers_sent:
-                    self.send_response(code)
-                    self.end_headers()
+                if isinstance(ret, NoneType):
+                    code = 204
+
+                elif isinstance(ret, (str, int, bool, float)):
+                    b = bytes(str(ret), self.encoding)
+                    ct = "text/html"
+
+                elif isinstance(ret, bytes):
+                    b = ret
+                    ct = "application/octet-stream"
+
+                elif isinstance(ret, io.IOBase):
+                    b = ret.read()
+                    ct = "application/octet-stream"
+
+                else:
+                    b = bytes(json.dumps(ret), self.encoding)
+                    ct = "application/json"
+
+                self.code = code
+                self.send_response(code)
+                if ct:
+                    self.send_header("Content-Type", ct)
+                self.end_headers()
+
+            if b is not None:
+                self.wfile.write(b)
+                #self.wfile.write(bytes(b, self.encoding))
+
+#             else:
+#                 code = self.code or 204
+#                 if not self.headers_sent:
+#                     self.send_response(code)
+#                     self.end_headers()
 
     def __getattr__(self, k):
         """By default, the handler looks for do_<HTTP_METHOD> (eg, do_GET)

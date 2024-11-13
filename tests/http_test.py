@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.http import (
@@ -8,6 +7,7 @@ from datatypes.http import (
     HTTPClient,
     HTTPResponse,
     UserAgent,
+    Multipart,
 )
 from datatypes.string import String, ByteString
 from datatypes.config.environ import environ
@@ -278,6 +278,22 @@ class HTTPClientTest(TestCase):
             rc += rch
         self.assertEqual(content, rc)
 
+    def test_files(self):
+        def POST(handler):
+            return handler.body["file1"].read().decode(handler.encoding)
+
+        server = self.create_callbackserver({
+            "POST": POST,
+        })
+
+        data = "this is the file body"
+        p = self.create_file(data, ext="txt")
+
+        with server:
+            c = HTTPClient(server)
+            res = c.post(server, body={"foo": "bar"}, files={"file1": p})
+            self.assertEqual(data, res.body)
+
 
 class UserAgentTest(TestCase):
     def test_user_agent(self):
@@ -345,4 +361,38 @@ class UserAgentTest(TestCase):
             ua = UserAgent(user_agent[0])
             for k, v in user_agent[1].items():
                 self.assertEqual(v, getattr(ua, k))
+
+
+class MultipartTest(TestCase):
+    def test_get_media_type(self):
+        self.assertEqual("multipart/form-data", Multipart.get_media_type())
+
+    def test_encode_decode(self):
+        p = self.create_file("this is the file body", ext="txt")
+
+        fields = {
+            "foo": "1",
+            "bar": "2"
+        }
+
+        files = {
+            "file1": p
+        }
+
+        headers, body = Multipart.encode(fields, files)
+
+        fields2, files2 = Multipart.decode(headers, body)
+
+        self.assertEqual(fields, fields2)
+        self.assertEqual(p.read_bytes(), files2["file1"].read())
+
+    def test_encode_io(self):
+        p = self.create_file("io file body", ext="txt")
+        with p.open() as fp:
+            headers, body = Multipart.encode({}, {"file1": fp})
+
+        fields2, files2 = Multipart.decode(headers, body)
+
+        self.assertEqual({}, fields2)
+        self.assertEqual(p.read_bytes(), files2["file1"].read())
 

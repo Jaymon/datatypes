@@ -7,6 +7,13 @@ import re
 import json
 import email.message
 import platform
+import email
+import email.mime.multipart
+import email.mime.text
+import email.mime.base
+import mimetypes
+import io
+import os
 
 from .compat import *
 from .copy import Deepcopy
@@ -376,8 +383,10 @@ class HTTPResponse(object):
     def body(self):
         if self.http.is_json(self.headers):
             body = self.json()
+
         else:
             body = self.content
+
         return body
 
     def __init__(self, code, body, headers, http, response):
@@ -436,24 +445,38 @@ class HTTPClient(object):
     timeout = 10
 
     def __init__(self, base_url="", **kwargs):
+        """
+        :param base_url: str, the base url that will be used (eg,
+            http:localhost:8080)
+        :param headers: dict[str, str], these are the common headers that
+            usually don't change all that much
+        :param json: bool, if True then try and do a json request when
+            possible
+        """
         self.base_url = base_url
         self.query = {}
 
-        # these are the common headers that usually don't change all that much
         self.headers = HTTPHeaders(kwargs.get("headers", None))
+        self.json = kwargs.get("json", False)
 
-        if kwargs.get("json", False):
-            self.headers.update({
-                "Content-Type": "application/json",
-            })
+#         if kwargs.get("json", False):
+#             self.headers.update({
+#                 "Content-Type": "application/json",
+#             })
 
     def get(self, uri, query=None, **kwargs):
         """make a GET request"""
-        return self.fetch('get', uri, query, **kwargs)
+        return self.fetch("get", uri, query, **kwargs)
 
     def post(self, uri, body=None, **kwargs):
         """make a POST request"""
-        return self.fetch('post', uri, kwargs.pop("query", None), body, **kwargs)
+        return self.fetch(
+            "post",
+            uri,
+            kwargs.pop("query", None),
+            body,
+            **kwargs
+        )
 
     def __getattr__(self, key):
         def callback(*args, **kwargs):
@@ -464,10 +487,12 @@ class HTTPClient(object):
     def basic_auth(self, username, password):
         """add basic auth to this client
 
-        this will set the Authorization header so the request will use Basic auth
+        this will set the Authorization header so the request will use Basic
+        auth
 
         link -- http://stackoverflow.com/questions/6068674/
         link -- https://docs.python.org/2/howto/urllib2.html#id6
+        link -- https://en.wikipedia.org/wiki/Basic_access_authentication
 
         :param username: str
         :param password: str
@@ -486,11 +511,13 @@ class HTTPClient(object):
         """Get rid of the internal Authorization header"""
         self.headers.pop('Authorization', None)
 
-    def fetch(self, method, uri, query=None, body=None, **kwargs):
-        """wrapper method that all the top level methods (get, post, etc.) use to actually
-        make the request
+    def fetch(self, method, uri, query=None, body=None, files=None, **kwargs):
+        """wrapper method that all the top level methods (get, post, etc.) use
+        to actually make the request
         """
-        if not query: query = {}
+        if not query:
+            query = {}
+
         fetch_url = self.get_fetch_url(uri, query)
 
         fetch_kwargs = {}
@@ -502,17 +529,22 @@ class HTTPClient(object):
         if "timeout" in kwargs:
             fetch_kwargs["timeout"] = kwargs["timeout"]
 
-        if body:
-            fetch_kwargs["data"] = self.get_fetch_body(fetch_kwargs["headers"], body)
+        if body or files:
+            headers, fetch_kwargs["data"] = self.get_fetch_data(
+                body,
+                files
+            )
+            fetch_kwargs["headers"].update(headers)
 
         res = self._fetch(method, fetch_url, **fetch_kwargs)
         return res
 
     def _fetch(self, method, fetch_url, **kwargs):
-        """Internal method called from self.fetch that performs the actual request
+        """Internal method called from self.fetch that performs the actual
+        request
 
-        If you wanted to switch out the backend to actually use requests then this
-        should be the only method you would need to override
+        If you wanted to switch out the backend to actually use requests then
+        this should be the only method you would need to override
 
         :param method: str, the http method (eg, GET, POST)
         :param fetch_url: str, the full url requested
@@ -528,18 +560,17 @@ class HTTPClient(object):
         return res
 
     def get_fetch_url(self, uri, query=None):
-        """Combine the passed in uri and query with self.base_url to create the full
-        url the request will actually request
+        """Combine the passed in uri and query with self.base_url to create the
+        full url the request will actually request
 
-        :param uri: str, usually like a relative path (eg /path) but can be a full
-            url (eg scheme://host.ext/path)
-        :param query: dict, the key/val that you want to attach to the url after the
-            question mark
+        :param uri: str, usually like a relative path (eg /path) but can be a
+            full url (eg scheme://host.ext/path)
+        :param query: dict, the key/val that you want to attach to the url
+            after the question mark
         :returns: str, the full url (eg scheme://host.ext/path?key=val&...)
         """
         if not isinstance(uri, basestring):
             # allow ["foo", "bar"] to be converted to "/foo/bar"
-            pout.v(uri)
             uri = "/".join(uri)
 
         if re.match(r"^\S+://\S", uri):
@@ -569,7 +600,8 @@ class HTTPClient(object):
 
         :param query_str: str, a query string, if not empty then query will be 
             added onto it
-        :param query: dict, key/val that will be added to query_str and returned
+        :param query: dict, key/val that will be added to query_str and
+            returned
         :returns: str, the full query string
         """
         all_query = getattr(self, "query", {})
@@ -599,8 +631,8 @@ class HTTPClient(object):
         )
 
     def get_fetch_user_agent(self):
-        """create a default user agent that looks very similar to a web browser's
-        user-agent string
+        """create a default user agent that looks very similar to a web
+        browser's user-agent string
 
         :returns: str, the full user agent that will be passed up to the server
             in the User-Agent header
@@ -617,7 +649,9 @@ class HTTPClient(object):
                 if machine.startswith("x86"):
                     osname += " Intel"
 
-                osname += " Mac OS X {}".format(platform.mac_ver()[0].replace(".", "_"))
+                osname += " Mac OS X {}".format(
+                    platform.mac_ver()[0].replace(".", "_")
+                )
 
             elif ps == "Linux":
                 osname = "X11; Linux {}".format(machine)
@@ -631,7 +665,11 @@ class HTTPClient(object):
             else:
                 osname = "Unknown OS {}".format(machine)
 
-            ua = "Mozilla/5.0 ({}) AppleWebKit/537.36 (KHTML, like Gecko) {} Safari/537.36".format(
+            ua = (
+                "Mozilla/5.0 ({})"
+                " AppleWebKit/537.36 (KHTML, like Gecko)"
+                " {} Safari/537.36"
+            ).format(
                 osname,
                 self.get_fetch_user_agent_name(),
             )
@@ -641,7 +679,8 @@ class HTTPClient(object):
     def get_fetch_headers(self, method, headers, http_cookies):
         """merge class headers with passed in headers
 
-        you can see what headers browsers are sending: http://httpbin.org/headers
+        you can see what headers browsers are sending:
+            - http://httpbin.org/headers
 
         More info:
             - https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
@@ -650,8 +689,8 @@ class HTTPClient(object):
             - https://www.zenrows.com/blog/stealth-web-scraping-in-python-avoid-blocking-like-a-ninja
             - https://www.scrapehero.com/how-to-fake-and-rotate-user-agents-using-python-3/
 
-        :param method: string, (eg, GET or POST), this is passed in so you can customize
-            headers based on the method that you are calling
+        :param method: string, (eg, GET or POST), this is passed in so you can
+            customize headers based on the method that you are calling
         :param headers: dict, all the headers passed into the fetch method
         :param http_cookies: dict, all the cookies
         :returns: passed in headers merged with global class headers
@@ -668,7 +707,8 @@ class HTTPClient(object):
                 "application/signed-exchange;v=b3;q=0.9", 
             ]),
             # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
-            # Indicates the identity function (that is, without modification or compression)
+            # Indicates the identity function (that is, without modification or
+            # compression)
             "Accept-Encoding": "identity", #"gzip, deflate", 
             # https://stackoverflow.com/a/29020782/5006
             # could use LANG environment variable
@@ -693,32 +733,61 @@ class HTTPClient(object):
             if cl:
                 fetch_headers["Cookie"] =  ", ".join(cl)
 
+#         if "Content-Type" not in fetch_headers:
+#             if files:
+#                 fetch_headers["Content-Type"] = "multipart/form-data"
+# 
+#             elif body:
+#                 fetch_headers["Content-Type"] = (
+#                     "application/"
+#                     "x-www-form-urlencoded"
+#                 )
+
         return fetch_headers
 
-    def get_fetch_body(self, headers, body):
+    def get_fetch_data(self, body, files, **kwargs):
         """Get the body that will be sent up to the server
 
-        :param headers: HTTPHeaders, the full set of headers being sent to the server,
-            that means these headers have been returned from get_fetch_headers
+        :param headers: HTTPHeaders, the full set of headers being sent to the
+            server, that means these headers have been returned from
+            get_fetch_headers
         :param body: mixed, the raw body that will be normalized and returned
         :returns: str, the body ready to be sent up to the server
         """
-        if self.is_json(headers):
-            ret = json.dumps(body)
+        headers = {}
+        body = body or {}
+        files = files or {}
+
+        if files:
+            headers, data = Multipart.encode(
+                body,
+                files,
+                environ.ENCODING
+            )
+
         else:
-            ret = urlencode(body, doseq=True)
-        return ret if is_py2 else ret.encode(environ.ENCODING)
+            if self.json:
+                data = json.dumps(body)
+
+            else:
+                headers["Content-Type"] = "x-www-form-urlencoded"
+                data = urlencode(body, doseq=True)
+
+            data = data.encode(environ.ENCODING)
+
+        return headers, data
 
     def get_fetch_request(self, method, *args, **kwargs):
-        """Create a request that can be passed to get_fetch_response to actually
-        make the request
+        """Create a request that can be passed to get_fetch_response to
+        actually make the request
 
         This is used in self._fetch
 
         :param method: str, the http method (eg GET, POST)
         :param *args: mixed, any positional arguments you need
         :param **kwargs: mixed, any keyword arguments you need
-        :returns: Request instance, a request object that can be passed to get_fetch_response
+        :returns: Request instance, a request object that can be passed to
+            get_fetch_response
         """
         req = Request(*args, **kwargs) # compat * import
         # https://stackoverflow.com/a/111988
@@ -732,8 +801,10 @@ class HTTPClient(object):
 
         https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
 
-        :param req: Request instance, the request instance created by self.get_fetch_request
-        :returns: HTTPResponse instance, this looks like a requests Response object
+        :param req: Request instance, the request instance created by
+            self.get_fetch_request
+        :returns: HTTPResponse instance, this looks like a requests Response
+            object
         """
         try:
             res = urlopen(req, timeout=timeout)
@@ -771,10 +842,7 @@ class HTTPClient(object):
     def is_json(self, headers):
         """return true if content_type is a json content type"""
         ret = False
-        ct = headers.get(
-            "Content-Type",
-            headers.get("content-type", "")
-        ).lower()
+        ct = headers.get("Content-Type", "").lower()
         if ct:
             ret = ct.lower().rfind("json") >= 0
         return ret
@@ -836,3 +904,133 @@ class UserAgent(NormalizeString):
                         break
 
         return d
+
+
+class Multipart(object):
+    """Handles encoding and decoding a multipart/form-data body"""
+    @classmethod
+    def get_media_type(cls):
+        """Return the default content type"""
+        return "multipart/form-data"
+
+    @classmethod
+    def get_file_media_types(cls, path):
+        """Internal method. given path give the best main and sub types for
+        the media type
+
+        :param path: str, the file path
+        :returns: tuple[str, str], the maintype and subtype
+        """
+        if mimetype := mimetypes.guess_type(path)[0]:
+            maintype, subtype = mimetype.split("/", maxsplit=1)
+
+        else:
+            maintype = "application"
+            subtype = "octet-stream"
+
+        return maintype, subtype
+
+    @classmethod
+    def encode(cls, fields, files, encoding=None):
+        """Encode fields and files into body
+
+        This return tuple should be able to be passed into .decode to get
+        the values back out
+
+        :param fields: dict[str, str], the fields of the request
+        :param files: dict[str, IOBase|str], the key is the field name
+            for this file in the form and the value is either an open file
+            pointer or a path to the file
+        :param encoding: (optional) str, the charset to use
+        :returns: tuple[HTTPHeaders, bytes]
+        """
+        multipart_data = email.mime.multipart.MIMEMultipart("form-data")
+
+        # Add form fields
+        for key, value in fields.items():
+            part = email.mime.text.MIMEText(
+                value,
+                "plain",
+                _charset=encoding
+            )
+            part.add_header(
+                "Content-Disposition",
+                f"form-data; name=\"{key}\""
+            )
+            multipart_data.attach(part)
+
+        # Add files
+        for key, path in files.items():
+            if isinstance(path, io.IOBase):
+                maintype, subtype = cls.get_file_media_types(path.name)
+                basename = os.path.basename(path.name)
+                part = email.mime.base.MIMEBase(maintype, subtype)
+                part.set_payload(path.read())
+
+            else:
+                maintype, subtype = cls.get_file_media_types(path)
+                part = email.mime.base.MIMEBase(maintype, subtype)
+                basename = os.path.basename(path)
+                with open(path, "rb") as fp:
+                    part.set_payload(fp.read())
+
+            part.add_header(
+                "Content-Disposition",
+                (
+                    f"form-data; name=\"{key}\";"
+                    f" filename=\"{basename}\""
+                )
+            )
+            email.encoders.encode_base64(part)
+            multipart_data.attach(part)
+
+        headerbytes, body = multipart_data.as_bytes().split(b"\n\n", 1)
+
+        hp = email.parser.BytesParser().parsebytes(
+            headerbytes,
+            headersonly=True
+        )
+
+        return HTTPHeaders(hp._headers), body
+
+    @classmethod
+    def decode(cls, headers, body):
+        """decode the body using the headers
+
+        The return tuple can be passed to .encode to get headers and body
+        back.
+
+        This is based on endpoints's BaseApplication.get_request_multipart
+        and was moved here on 11-12-2024
+
+        :param headers: HTTPHeaders
+        :param body: bytes
+        :returns: tuple[dict[str, str], dict[str, IOBase]]
+        """
+        fields = {}
+        files = {}
+        body = bytes(headers) + body
+
+        em = email.message_from_bytes(body)
+        for part in em.walk():
+            if not part.is_multipart():
+                data = part.get_payload(decode=True)
+                params = {}
+                for header_name in part:
+                    for k, v in part.get_params(header=header_name)[1:]:
+                        params[k] = v
+
+                if "name" not in params:
+                    raise IOError("Bad body data")
+
+                if "filename" in params:
+                    fp = io.BytesIO(data)
+                    fp.filename = params["filename"]
+                    fp.name = params["filename"]
+                    files[params["name"]] = fp
+
+                else:
+                    fields[params["name"]] = String(data)
+
+        return fields, files
+

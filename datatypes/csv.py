@@ -158,7 +158,7 @@ class CSV(object):
     def appending(self, mode="a+"):
         """The default context manager truncates and write a new file, but that
         doesn't work for .add(), .append(), or .extend() so this provides an
-        alternative context manager allows for appending to the file
+        alternative context manager for appending to the file
 
         :param mode: str, the append mode that will be used to create the
             writer
