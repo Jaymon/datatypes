@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class ServerThread(Url):
-    """This makes it easy to run a Server in another thread, it masquerades as a
-    Url instance whose value is the url scheme://hostname:port but adds helper
-    methods to start/stop the passed in Server instance and clean up after it
+    """This makes it easy to run a Server in another thread, it masquerades as
+    a Url instance whose value is the url scheme://hostname:port but adds
+    helper methods to start/stop the passed in Server instance and clean up
+    after it
 
     Moved from testdata.server on 1-24-2023
 
@@ -136,8 +137,8 @@ class BaseServer(HTTPServer):
             print(s.get_url("foo.txt")) # http://localhost:PORT/foo.txt
 
         :param *args: passed through to Url
-        :param **kwargs: passed throught to Url, scheme, hostname, and port will
-            be set if not overridden
+        :param **kwargs: passed throught to Url, scheme, hostname, and port
+            will be set if not overridden
         :returns: Url instance
         """
         hostname = self.server_address[0]
@@ -266,6 +267,8 @@ class CallbackHandler(SimpleHTTPRequestHandler):
         * .server.server_name - the name of the server
         * .server.server_port - the port of the server
         * .code - int, the return code
+        * .body - Any, the request body
+        * .query - dict[str, str], the request query
     """
     @property
     def uri(self):
@@ -298,24 +301,33 @@ class CallbackHandler(SimpleHTTPRequestHandler):
         else:
             self.callbacks = {"ANY": callbacks}
 
+        if "HEAD" not in self.callbacks:
+            if "GET" in self.callbacks:
+                self.callbacks["HEAD"] = self.callbacks["GET"]
+
         super().__init__(*args, **kwargs)
 
     def do_HEAD(self):
-        """Here because this exists on parent class
+        """Here because this exists on parent class and if it isn't overridden
+        then all HEAD requests would ignore .callbacks
+
+        The internal workings of parent seem to handle not actually sending
+        the body
 
         https://docs.python.org/3/library/http.server.html#http.server.SimpleHTTPRequestHandler.do_HEAD
         """
         return self.do()
 
     def do_GET(self):
-        """Here because this exists on parent class
+        """Here because this exists on parent class and if it isn't overridden
+        then all GET requests would ignore .callbacks
 
         https://docs.python.org/3/library/http.server.html#http.server.SimpleHTTPRequestHandler.do_GET
         """
         return self.do()
 
     def do(self):
-        ret = None
+        body = None
         self.headers_sent = False
 
         # log request headers
@@ -323,13 +335,52 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             self.log_message("req - %s: %s", h, v)
 
         try:
-            ret = self.callbacks.get(
+            body = self.callbacks.get(
                 self.command,
                 self.callbacks.get("ANY", None)
             )(self)
 
-        except TypeError as e:
-            if not self.headers_sent:
+        except Exception as e:
+            self.do_error(e)
+
+        else:
+            self.do_success(body)
+
+    def do_success(self, body):
+        if not self.headers_sent:
+            code = 200
+            ct = ""
+
+            if isinstance(body, NoneType):
+                code = 204
+
+            elif isinstance(body, (str, int, bool, float)):
+                body = bytes(str(body), self.encoding)
+                ct = "text/html"
+
+            elif isinstance(body, bytes):
+                ct = "application/octet-stream"
+
+            elif isinstance(body, io.IOBase):
+                body = body.read()
+                ct = "application/octet-stream"
+
+            else:
+                body = bytes(json.dumps(body), self.encoding)
+                ct = "application/json"
+
+            self.code = code
+            self.send_response(code)
+            if ct:
+                self.send_header("Content-Type", ct)
+            self.end_headers()
+
+        if body is not None:
+            self.wfile.write(body)
+
+    def do_error(self, e):
+        if not self.headers_sent:
+            if isinstance(e, TypeError):
                 if self.command in self.callbacks:
                     code = self.code or 500
                     self.send_error(
@@ -338,69 +389,27 @@ class CallbackHandler(SimpleHTTPRequestHandler):
                     )
 
                 else:
+                    code = self.code or 501
                     self.send_error(
-                        501,
+                        code,
                         "Unsupported method {}".format(self.command)
                     )
 
-        except ValueError as e:
-            code = self.code or 400
-            if not self.headers_sent:
+            elif isinstance(e, ValueError):
+                code = self.code or 400
                 self.send_error(
                     code,
                     str(e)
                 )
 
-        except Exception as e:
-            code = self.code or 500
-            logger.exception(e)
-            if not self.headers_sent:
-                self.send_error(
-                    code,
-                    "{} - {}".format(e.__class__.__name__, e)
-                )
-
-        else:
-            b = None
-            #code = self.code or 200
-            if not self.headers_sent:
-                code = 200
-                ct = ""
-
-                if isinstance(ret, NoneType):
-                    code = 204
-
-                elif isinstance(ret, (str, int, bool, float)):
-                    b = bytes(str(ret), self.encoding)
-                    ct = "text/html"
-
-                elif isinstance(ret, bytes):
-                    b = ret
-                    ct = "application/octet-stream"
-
-                elif isinstance(ret, io.IOBase):
-                    b = ret.read()
-                    ct = "application/octet-stream"
-
-                else:
-                    b = bytes(json.dumps(ret), self.encoding)
-                    ct = "application/json"
-
-                self.code = code
-                self.send_response(code)
-                if ct:
-                    self.send_header("Content-Type", ct)
-                self.end_headers()
-
-            if b is not None:
-                self.wfile.write(b)
-                #self.wfile.write(bytes(b, self.encoding))
-
-#             else:
-#                 code = self.code or 204
-#                 if not self.headers_sent:
-#                     self.send_response(code)
-#                     self.end_headers()
+            elif isinstance(e, Exception):
+                code = self.code or 500
+                logger.exception(e)
+                if not self.headers_sent:
+                    self.send_error(
+                        code,
+                        "{} - {}".format(e.__class__.__name__, e)
+                    )
 
     def __getattr__(self, k):
         """By default, the handler looks for do_<HTTP_METHOD> (eg, do_GET)
@@ -495,8 +504,8 @@ class MethodServer(CallbackServer):
 
 
 class WSGIServer(BaseServer, WSGIHTTPServer):
-    """Starts a wsgi server using a wsgifile, the wsgifile is a python file that
-    has an application property
+    """Starts a wsgi server using a wsgifile, the wsgifile is a python file
+    that has an application property
 
     Moved from testdata.server on 1-24-2023
 
@@ -515,8 +524,8 @@ class WSGIServer(BaseServer, WSGIHTTPServer):
 
     def __init__(self, server_address=None, **kwargs):
         """
-        :param server_address: tuple[str, int]|None, a tuple of (hostname, port)
-            or None and it will be chosen automatically
+        :param server_address: tuple[str, int]|None, a tuple of (hostname,
+            port) or None and it will be chosen automatically
         :param **kwargs:
             * application: callable, the wsgi application
             * wsgipath: str, a filepath to a python file that exposed an

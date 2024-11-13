@@ -128,14 +128,16 @@ class CallbackServerTest(ServerTestCase):
             res = testdata.fetch(s.child(path="/foo/bar/post"), {"foo": 1})
             self.assertEqual(200, res.status_code)
 
-            res = testdata.fetch(s.child(path="/foo/bar/bogus"), method="BOGUS")
+            res = testdata.fetch(
+                s.child(path="/foo/bar/bogus"),
+                method="BOGUS"
+            )
             self.assertEqual(501, res.status_code)
 
             res = testdata.fetch(s.child(path="/foo/bar/head"), method="HEAD")
             self.assertEqual(400, res.status_code)
 
     def test_multi_start_stop(self):
-
         s = self.create_server({
             "GET": lambda handler: "get"
         })
@@ -153,6 +155,19 @@ class CallbackServerTest(ServerTestCase):
         r = testdata.fetch(s)
         self.assertEqual(200, r.status_code)
         s.stop()
+
+    def test_head(self):
+        s = self.create_server({
+            "GET": lambda handler: "get"
+        })
+
+        with s:
+            rg = self.fetch(s, method="GET")
+            rh = self.fetch(s, method="HEAD")
+
+            self.assertEqual(rg.status_code, rh.status_code)
+            self.assertEqual("", rh.body)
+            self.assertNotEqual(rg.body, rh.body)
 
 
 class WSGIServerTest(ServerTestCase):

@@ -30,7 +30,7 @@ class HTTPHeaders(BaseHeaders, Mapping):
     request Content-Type or CONTENT_TYPE and get the same value.
 
     This has the same interface as Python's built-in wsgiref.Headers class but
-    makes it even more dict-like and will return titled header names when
+    makes it even more dict-like and will return title-case header names when
     iterated or anything (eg, Content-Type instead of all lowercase
     content-type)
 
@@ -94,9 +94,9 @@ class HTTPHeaders(BaseHeaders, Mapping):
         # wsgiref.headers.Headers expects a str() (py3) or unicode (py2), it
         # does not accept even a child of str, so we need to convert the String
         # instance to the actual str, as does the python wsgi methods, so even
-        # though we override this method we still return raw() strings so we get
-        # passed all the type(v) == "str" checks
-        # sadly, this method is missing in 2.7
+        # though we override this method we still return raw() strings so we
+        # get passed all the type(v) == "str" checks sadly, this method is
+        # missing in 2.7
         # https://github.com/python/cpython/blob/2.7/Lib/wsgiref/headers.py
         return String(v).raw()
 
@@ -248,8 +248,8 @@ class HTTPHeaders(BaseHeaders, Mapping):
         headers. This is not additive, the value at key in headers will
         completely replace any value currently set
 
-        :param headers: dict[str, str], the key is the name and the value is the
-            value that will be set for name
+        :param headers: dict[str, str], the key is the name and the value is
+            the value that will be set for name
         :param **kwargs: these can be name=val keywords
         """
         if not headers:
@@ -330,7 +330,8 @@ class HTTPResponse(object):
     def encoding(self):
         encoding = environ.ENCODING
         if "content-type" in self.headers:
-            # use the email stdlib to parse out the encoding from the content type
+            # use the email stdlib to parse out the encoding from the content
+            # type
             em = email.message.Message()
             em.add_header("content-type", self.headers["content-type"])
             encoding = em.get_content_charset()
@@ -341,11 +342,11 @@ class HTTPResponse(object):
             # default encoding is UTF-8
             #
             # https://www.rfc-editor.org/rfc/rfc2616
-            # HTTP when no explicit charset parameter is provided by the sender,
-            # media subtypes of the "text" type are defined to have a default
-            # charset value of "ISO-8859-1" when received via HTTP. (rfc2616 is
-            # superceded by rfc7231, which doesn't have this default charset but
-            # I'm going to keep it right now)
+            # HTTP when no explicit charset parameter is provided by the
+            # sender, media subtypes of the "text" type are defined to have a
+            # default charset value of "ISO-8859-1" when received via HTTP.
+            # (rfc2616 is superceded by rfc7231, which doesn't have this
+            # default charset but I'm going to keep it right now)
             if not encoding:
                 if self.http.is_json(self.headers):
                     encoding = "UTF-8"
@@ -458,11 +459,6 @@ class HTTPClient(object):
 
         self.headers = HTTPHeaders(kwargs.get("headers", None))
         self.json = kwargs.get("json", False)
-
-#         if kwargs.get("json", False):
-#             self.headers.update({
-#                 "Content-Type": "application/json",
-#             })
 
     def get(self, uri, query=None, **kwargs):
         """make a GET request"""
@@ -732,16 +728,6 @@ class HTTPClient(object):
                 cl.append(c[k].OutputString())
             if cl:
                 fetch_headers["Cookie"] =  ", ".join(cl)
-
-#         if "Content-Type" not in fetch_headers:
-#             if files:
-#                 fetch_headers["Content-Type"] = "multipart/form-data"
-# 
-#             elif body:
-#                 fetch_headers["Content-Type"] = (
-#                     "application/"
-#                     "x-www-form-urlencoded"
-#                 )
 
         return fetch_headers
 
