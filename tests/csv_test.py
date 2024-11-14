@@ -152,14 +152,16 @@ class CSVTest(TestCase):
         }, count=10)
 
         class ContinueCSV(CSV):
-            def create_reader_row(self, columns):
-                row = super().create_reader_row(columns)
-                if int(row["foo"]) % 2 == 0:
+            def create_reader_row(self, columns, **kwargs):
+                row = super().create_reader_row(columns, **kwargs)
+                if row and int(row["foo"]) % 2 == 0:
                     row = None
                 return row
 
         r1 = ContinueCSV(csvfile.path).rows()
         r2 = CSV(csvfile.path).rows()
+
+        pout.v(r1, r2)
         self.assertLess(len(r1), len(r2))
 
 #     def test_reader_row_class(self):
