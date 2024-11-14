@@ -50,7 +50,7 @@ class CSV(object):
 #     reader_class = csv.DictReader
     """the class that will be used by .create_reader()"""
 
-    writer_class = csv.DictWriter
+#     writer_class = csv.DictWriter
     """the class that will be used by .create_writer()"""
 
 #     rows_class = list
@@ -60,7 +60,7 @@ class CSV(object):
     """You can set this to a class and rows returned from the default
     .normalize_reader_row() will be this type"""
 
-    writer_row_class = None
+#     writer_row_class = None
     """You can set this to a class and rows returned from the default
     .normalize_writer_row() will be this type, this class should act like a
     dict unless you also change .writer_class"""
@@ -150,8 +150,8 @@ class CSV(object):
                 self.path.seek(tell)
 
         else:
-            with self.open() as f:
-                yield f
+            with self.open() as stream:
+                yield stream
 
     @contextmanager
     def writing(self):
@@ -167,8 +167,8 @@ class CSV(object):
             yield self.path
 
         else:
-            with self.open(self.writer_mode) as f:
-                yield f
+            with self.open(self.writer_mode) as stream:
+                yield stream
 
     @contextmanager
     def appending(self, mode="a+"):
@@ -205,7 +205,7 @@ class CSV(object):
             self.writer = None
             self.context_depth = 0
 
-    def create_writer(self, f, **kwargs):
+    def create_writer(self, stream, **kwargs):
         kwargs.setdefault("dialect", csv.excel)
         kwargs.setdefault("restval", "")
         if self.strict:
@@ -217,10 +217,9 @@ class CSV(object):
         kwargs.setdefault("quoting", csv.QUOTE_MINIMAL)
         kwargs.setdefault("fieldnames", self.fieldnames)
 
-        f = self.normalize_writer_stream(f)
-        writer = self.writer_class(f, **kwargs)
-        writer.f = f
-        writer.has_header = True if f.tell() > 0 else False
+        stream = self.normalize_writer_stream(stream)
+        writer = kwargs.pop("writer_class", csv.DictWriter)(stream, **kwargs)
+        writer.has_header = True if stream.tell() > 0 else False
         return writer
 
     def create_reader(self, stream, **kwargs):
@@ -229,7 +228,7 @@ class CSV(object):
         column headers, so you can override this method to pass in the column
         names, etc.
 
-        :param f: io object, usually a file path opened with open()
+        :param stream: IOBase, usually a file path opened with open()
         :returns: csv.Reader instance or something that acts like a built-in
             csv.Reader instance
         """
@@ -237,7 +236,7 @@ class CSV(object):
 
         stream = self.normalize_reader_stream(stream)
         #reader = self.reader_class(stream, **kwargs)
-        reader = csv.reader(stream, **kwargs)
+        reader = kwargs.pop("reader_class", csv.reader)(stream, **kwargs)
         #reader.f = f
         return reader
 
@@ -250,17 +249,18 @@ class CSV(object):
         """
         with self.appending():
             writer = self.writer
-
-            if row := self.normalize_writer_row(row):
+            if row := self.create_writer_row(row):
                 if not writer.has_header:
                     if not self.fieldnames:
                         self.set_fieldnames(row.keys())
 #                             self.fieldnames = self.normalize_fieldnames(
 #                                 row.keys()
 #                             )
-                    writer.fieldnames = self.normalize_writer_fieldnames(
-                        self.fieldnames
-                    )
+
+                    writer.fieldnames = self.fieldnames
+#                     writer.fieldnames = self.normalize_writer_fieldnames(
+#                         self.fieldnames
+#                     )
                     logger.debug("Writing fieldnames: {}".format(
                         ", ".join(self.fieldnames)
                     ))
@@ -326,79 +326,116 @@ class CSV(object):
             self.lookup
         )
 
-    def normalize_reader_row(self, row):
-        """prepare row for reading, meant to be overridden in child classes if
-        needed"""
-        if not self.strict:
-            # we're checking for a None key, which means there were extra
-            # commas
-            if None in row and not any(row.get(None, [])):
-                # the CSV file has extra commas at the end of the row, this is 
-                # pretty common with simple auto csv generators that just put a
-                # comma at the end of each column value when outputting the row
-                row.pop(None, None)
+#     def normalize_reader_row(self, row):
+#         """prepare row for reading, meant to be overridden in child classes if
+#         needed"""
+#         if not self.strict:
+#             # we're checking for a None key, which means there were extra
+#             # commas
+#             if None in row and not any(row.get(None, [])):
+#                 # the CSV file has extra commas at the end of the row, this is 
+#                 # pretty common with simple auto csv generators that just put a
+#                 # comma at the end of each column value when outputting the row
+#                 row.pop(None, None)
+# 
+#         if self.reader_row_class:
+#             row = self.reader_row_class(row)
+# 
+#         return row
 
-        if self.reader_row_class:
-            row = self.reader_row_class(row)
-
-        return row
-
-    def normalize_writer_row(self, row):
+    def create_writer_row(self, row, **kwargs):
         """prepare row for writing, meant to be overridden in child classes if
         needed
         """
-        row = {
-            String(k): self.normalize_writer_value(v) for k, v in row.items()
-        }
+        if writer_row_class := kwargs.get("writer_row_class", None):
+            row = writer_row_class(row, self.lookup)
 
-        if self.strict:
-            rowcount = len(row)
-            fncount = len(self.fieldnames)
-            if rowcount != fncount:
-                raise ValueError(
-                    "mismatch {} row(s) to {} fieldname(s)".format(
-                        rowcount,
-                        fncount
+        else:
+            def get_value(v):
+                if self.strict:
+                    return ByteString(v)
+
+                else:
+                    # NOTE -- for some reason, the internal writer treats b"" and
+                    # ByteString(b"") differently, the b"" would be written out as
+                    # "b""" which make me think it's doing repr(value) internally
+                    # or something
+                    return ByteString(b"" if v is None else v)
+
+            row = {
+                String(k): get_value(v) for k, v in row.items()
+            }
+
+            if self.strict:
+                rowcount = len(row)
+                fncount = len(self.fieldnames)
+                if rowcount != fncount:
+                    raise ValueError(
+                        "mismatch {} row(s) to {} fieldname(s)".format(
+                            rowcount,
+                            fncount
+                        )
                     )
-                )
-
-        if self.writer_row_class:
-            row = self.writer_row_class(row)
 
         return row
 
-    def normalize_writer_value(self, value):
-        """Ran for each individual value in a row
 
-        see .normalize_writer_row because if you overwrite that method in a
-        child class then this might not be called
+#     def normalize_writer_row(self, row):
+#         """prepare row for writing, meant to be overridden in child classes if
+#         needed
+#         """
+#         row = {
+#             String(k): self.normalize_writer_value(v) for k, v in row.items()
+#         }
+# 
+#         if self.strict:
+#             rowcount = len(row)
+#             fncount = len(self.fieldnames)
+#             if rowcount != fncount:
+#                 raise ValueError(
+#                     "mismatch {} row(s) to {} fieldname(s)".format(
+#                         rowcount,
+#                         fncount
+#                     )
+#                 )
+# 
+#         if self.writer_row_class:
+#             row = self.writer_row_class(row)
+# 
+#         return row
 
-        :param value: Any
-        :returns: bytes
-        """
-        if self.strict:
-            return ByteString(value)
+#     def normalize_writer_value(self, value):
+#         """Ran for each individual value in a row
+# 
+#         see .normalize_writer_row because if you overwrite that method in a
+#         child class then this might not be called
+# 
+#         :param value: Any
+#         :returns: bytes
+#         """
+#         if self.strict:
+#             return ByteString(value)
+# 
+#         else:
+#             # NOTE -- for some reason, the internal writer treats b"" and
+#             # ByteString(b"") differently, the b"" would be written out as
+#             # "b""" which make me think it's doing repr(value) internally or
+#             # something
+#             return ByteString(b"" if value is None else value)
 
-        else:
-            # NOTE -- for some reason, the internal writer treats b"" and
-            # ByteString(b"") differently, the b"" would be written out as
-            # "b""" which make me think it's doing repr(value) internally or
-            # something
-            return ByteString(b"" if value is None else value)
+#     def normalize_writer_fieldnames(self, fieldnames):
+#         """run this right before setting fieldnames onto the writer instance
+#         """
+#         return fieldnames
+# 
+#     def normalize_reader_fieldnames(self, fieldnames):
+#         """run this right before setting fieldnames onto the reader instance
+#         """
+#         return fieldnames
 
-    def normalize_writer_fieldnames(self, fieldnames):
-        """run this right before setting fieldnames onto the writer instance
-        """
-        return fieldnames
-
-    def normalize_reader_fieldnames(self, fieldnames):
-        """run this right before setting fieldnames onto the reader instance
-        """
-        return fieldnames
-
-    def normalize_fieldnames(self, fieldnames):
-        """run this anytime fields are going to be set on this instance"""
-        return list(map(String, fieldnames)) if fieldnames else []
+#     def normalize_fieldnames(self, fieldnames):
+#         """run this anytime fields are going to be set on this instance"""
+#         return list(map(String, fieldnames)) if fieldnames else []
 
     def set_fieldnames(self, fieldnames):
         if fieldnames:
@@ -439,13 +476,13 @@ class CSV(object):
 
     def clear(self):
         """clear the csv file"""
-        with self.writing() as f:
-            f.truncate(0)
+        with self.writing() as stream:
+            stream.truncate(0)
 
     def __iter__(self):
-        with self.reading() as f:
+        with self.reading() as stream:
             ignore_row = True
-            reader = self.create_reader(f)
+            reader = self.create_reader(stream)
             for columns in reader:
                 if ignore_row:
                     if self.fieldnames:
@@ -487,8 +524,8 @@ class CSV(object):
     def read_text(self):
         """This will print out all rows so it might not be ideal to use for 
         bigger CSVs"""
-        with self.reading() as f:
-            return f.read()
+        with self.reading() as stream:
+            return stream.read()
 
 
 class TempCSV(CSV):
