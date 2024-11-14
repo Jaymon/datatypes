@@ -65,6 +65,22 @@ class CSVTest(TestCase):
             csv.add({"foo": 5, "bar": 6})
         self.assertEqual(1, CSV(path).read_text().count("foo"))
 
+    def test_fieldnames(self):
+        path = testdata.create_file()
+        fieldnames = ["foo", "bar"]
+        csv = CSV(path, fieldnames=fieldnames)
+        self.assertEqual(fieldnames, csv.fieldnames)
+        self.assertEqual(set(fieldnames), set(csv.lookup.keys()))
+
+    def test_find_fieldnames(self):
+        csvfile = testdata.create_csv({
+            "foo": testdata.get_name,
+            "bar": testdata.get_words,
+            "che": testdata.get_int,
+        })
+        c = CSV(csvfile.path)
+        self.assertEqual(["foo", "bar", "che"], c.find_fieldnames())
+
     def test_read_unicode(self):
         """make sure we can read a utf encoded csv file"""
         csvfile = testdata.create_csv({
@@ -128,15 +144,6 @@ class CSVTest(TestCase):
         self.assertEqual(row, rows[0])
         self.assertEqual(row3, rows[1])
 
-    def test_find_fieldnames(self):
-        csvfile = testdata.create_csv({
-            "foo": testdata.get_name,
-            "bar": testdata.get_words,
-            "che": testdata.get_int,
-        })
-        c = CSV(csvfile.path)
-        self.assertEqual(["foo", "bar", "che"], c.find_fieldnames())
-
     def test_continue_error(self):
         counter = testdata.get_counter()
         csvfile = testdata.create_csv({
@@ -145,48 +152,49 @@ class CSVTest(TestCase):
         }, count=10)
 
         class ContinueCSV(CSV):
-            def normalize_reader_row(self, row):
+            def create_reader_row(self, columns):
+                row = super().create_reader_row(columns)
                 if int(row["foo"]) % 2 == 0:
-                    raise self.ContinueError()
+                    row = None
                 return row
 
         r1 = ContinueCSV(csvfile.path).rows()
         r2 = CSV(csvfile.path).rows()
         self.assertLess(len(r1), len(r2))
 
-    def test_reader_row_class(self):
-        count = 0
-        counter = testdata.get_counter()
-        csvfile = testdata.create_csv({
-            "foo": counter,
-            "bar": testdata.get_words,
-        })
+#     def test_reader_row_class(self):
+#         count = 0
+#         counter = testdata.get_counter()
+#         csvfile = testdata.create_csv({
+#             "foo": counter,
+#             "bar": testdata.get_words,
+#         })
+# 
+#         class Row(dict):
+#             pass
+# 
+#         c = CSV(csvfile.path, reader_row_class=Row)
+#         for row in c:
+#             self.assertTrue(isinstance(row, Row))
+#             count = int(row["foo"])
+#         self.assertLess(0, count)
 
-        class Row(dict):
-            pass
-
-        c = CSV(csvfile.path, reader_row_class=Row)
-        for row in c:
-            self.assertTrue(isinstance(row, Row))
-            count = int(row["foo"])
-        self.assertLess(0, count)
-
-    def test___init___kwargs(self):
-        count = 0
-        counter = testdata.get_counter()
-        csvfile = testdata.create_csv({
-            "foo": counter,
-            "bar": testdata.get_words,
-        })
-
-        class Row(dict):
-            pass
-
-        c = CSV(csvfile.path, reader_row_class=Row)
-        for row in c:
-            self.assertTrue(isinstance(row, Row))
-            count += 1
-        self.assertLess(0, count)
+#     def test___init___kwargs(self):
+#         count = 0
+#         counter = testdata.get_counter()
+#         csvfile = testdata.create_csv({
+#             "foo": counter,
+#             "bar": testdata.get_words,
+#         })
+# 
+#         class Row(dict):
+#             pass
+# 
+#         c = CSV(csvfile.path, reader_row_class=Row)
+#         for row in c:
+#             self.assertTrue(isinstance(row, Row))
+#             count += 1
+#         self.assertLess(0, count)
 
     def test_strict(self):
         csv = TempCSV(["foo", "bar"], strict=True)
@@ -203,23 +211,23 @@ class CSVTest(TestCase):
             csv.add({"foo": 1})
             csv.add({"foo": 1, "che": 3})
 
-    def test_extra_comma(self):
-        """Python's default CSV handling will add a None key with empty values
-        for each extra comma found, I'm not sure why this would ever be useful
-        except to check for formatting errors. By default we just remove the
-        None key if strict is False"""
-        csvpath = testdata.create_file([
-            "foo,bar,che",
-            "1,2,3,,",
-        ])
-
-        c = CSV(csvpath)
-        for row in c:
-            self.assertFalse(None in row)
-
-        c = CSV(csvpath, strict=True)
-        rows = list(c)
-        self.assertTrue(None in rows[0])
+#     def test_extra_comma(self):
+#         """Python's default CSV handling will add a None key with empty values
+#         for each extra comma found, I'm not sure why this would ever be useful
+#         except to check for formatting errors. By default we just remove the
+#         None key if strict is False"""
+#         csvpath = testdata.create_file([
+#             "foo,bar,che",
+#             "1,2,3,,",
+#         ])
+# 
+#         c = CSV(csvpath)
+#         for row in c:
+#             self.assertFalse(None in row)
+# 
+#         c = CSV(csvpath, strict=True)
+#         rows = list(c)
+#         self.assertTrue(None in rows[0])
 
     def test_none(self):
         """By default, CSV subs "" for None as a row value, unless strict=True

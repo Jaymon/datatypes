@@ -16,6 +16,21 @@ from . import logging
 logger = logging.getLogger(__name__)
 
 
+class CSVRow(Mapping):
+    def __init__(self, columns, lookup):
+        self.columns = columns
+        self.lookup = lookup
+
+    def __getitem__(self, k):
+        return self.columns[self.lookup[k]]
+
+    def __iter__(self):
+        yield from self.lookup
+
+    def __len__(self):
+        return len(self.lookup)
+
+
 class CSV(object):
     """Easily read/write the rows of a csv file
 
@@ -32,16 +47,16 @@ class CSV(object):
 
     https://docs.python.org/3/library/csv.html
     """
-    reader_class = csv.DictReader
+#     reader_class = csv.DictReader
     """the class that will be used by .create_reader()"""
 
     writer_class = csv.DictWriter
     """the class that will be used by .create_writer()"""
 
-    rows_class = list
+#     rows_class = list
     """the class used in .rows()"""
 
-    reader_row_class = None
+#     reader_row_class = None
     """You can set this to a class and rows returned from the default
     .normalize_reader_row() will be this type"""
 
@@ -50,9 +65,9 @@ class CSV(object):
     .normalize_writer_row() will be this type, this class should act like a
     dict unless you also change .writer_class"""
 
-    class ContinueError(Exception):
-        """Can be thrown to have CSV skip the current row"""
-        pass
+#     class ContinueError(Exception):
+#         """Can be thrown to have CSV skip the current row"""
+#         pass
 
     def __init__(self, path, fieldnames=None, encoding="", **kwargs):
         """Create the csv instance
@@ -75,7 +90,8 @@ class CSV(object):
             readonly: bool, True if writing operations should fail
         """
         self.path = path
-        self.fieldnames = self.normalize_fieldnames(fieldnames or [])
+        self.set_fieldnames(fieldnames)
+        #self.fieldnames = self.normalize_fieldnames(fieldnames)
         self.writer = None
         self.reader = None
         self.context_depth = 0 # protection against multiple context managers
@@ -93,10 +109,10 @@ class CSV(object):
             encoding = environ.ENCODING
         self.encoding = encoding
 
-        cls = type(self)
-        for k, v in kwargs.items():
-            if hasattr(cls, k):
-                setattr(self, k, v)
+#         cls = type(self)
+#         for k, v in kwargs.items():
+#             if hasattr(cls, k):
+#                 setattr(self, k, v)
 
     def open(self, mode=""):
         """Mainly an internal method used for opening the file pointers needed
@@ -124,7 +140,7 @@ class CSV(object):
         :returns: IOBase, the file pointer ready to be fully read
         """
         if isinstance(self.path, io.IOBase):
-            logger.debug("Reading io: {}".format(self.path))
+            #logger.debug("Reading io: {}".format(self.path))
             tell = self.path.tell()
             self.path.seek(0)
             try:
@@ -147,7 +163,7 @@ class CSV(object):
             raise IOError("CSV is in readonly mode")
 
         if isinstance(self.path, io.IOBase):
-            logger.debug("Writing io: {}".format(self.path))
+            #logger.debug("Writing io: {}".format(self.path.name))
             yield self.path
 
         else:
@@ -201,13 +217,13 @@ class CSV(object):
         kwargs.setdefault("quoting", csv.QUOTE_MINIMAL)
         kwargs.setdefault("fieldnames", self.fieldnames)
 
-        f = self.normalize_writer_file(f)
+        f = self.normalize_writer_stream(f)
         writer = self.writer_class(f, **kwargs)
         writer.f = f
         writer.has_header = True if f.tell() > 0 else False
         return writer
 
-    def create_reader(self, f, **kwargs):
+    def create_reader(self, stream, **kwargs):
         """create a csv reader, this exists to make it easy to customize
         functionality, for example, you might have a csv file that doesn't have
         column headers, so you can override this method to pass in the column
@@ -217,15 +233,12 @@ class CSV(object):
         :returns: csv.Reader instance or something that acts like a built-in
             csv.Reader instance
         """
-        kwargs.setdefault(
-            "fieldnames",
-            self.normalize_reader_fieldnames(self.fieldnames or None)
-        )
         kwargs.setdefault("dialect", csv.excel)
 
-        f = self.normalize_reader_file(f)
-        reader = self.reader_class(f, **kwargs)
-        reader.f = f
+        stream = self.normalize_reader_stream(stream)
+        #reader = self.reader_class(stream, **kwargs)
+        reader = csv.reader(stream, **kwargs)
+        #reader.f = f
         return reader
 
     def add(self, row):
@@ -238,27 +251,23 @@ class CSV(object):
         with self.appending():
             writer = self.writer
 
-            try:
-                row = self.normalize_writer_row(row)
-                if row:
-                    if not writer.has_header:
-                        if not self.fieldnames:
-                            self.fieldnames = self.normalize_fieldnames(
-                                row.keys()
-                            )
-                        writer.fieldnames = self.normalize_writer_fieldnames(
-                            self.fieldnames
-                        )
-                        logger.debug("Writing fieldnames: {}".format(
-                            ", ".join(self.fieldnames)
-                        ))
-                        writer.writeheader()
-                        writer.has_header = True
+            if row := self.normalize_writer_row(row):
+                if not writer.has_header:
+                    if not self.fieldnames:
+                        self.set_fieldnames(row.keys())
+#                             self.fieldnames = self.normalize_fieldnames(
+#                                 row.keys()
+#                             )
+                    writer.fieldnames = self.normalize_writer_fieldnames(
+                        self.fieldnames
+                    )
+                    logger.debug("Writing fieldnames: {}".format(
+                        ", ".join(self.fieldnames)
+                    ))
+                    writer.writeheader()
+                    writer.has_header = True
 
-                    writer.writerow(row)
-
-            except self.ContinueError:
-                pass
+                writer.writerow(row)
 
     def append(self, row):
         """Add one row to the end of the CSV file
@@ -289,24 +298,33 @@ class CSV(object):
         """
         return self.extend(rows)
 
-    def normalize_writer_file(self, f):
-        return f
+    def normalize_writer_stream(self, stream):
+        return stream
 
-    def normalize_reader_file(self, f):
+    def normalize_reader_stream(self, stream):
         # https://stackoverflow.com/a/30031962
-        class IOWrapper(io.IOBase):
-            def __init__(self, f):
-                self.f = f
-                self.last_line = "" # will contain raw CSV row
+        return stream
+#         class IOWrapper(io.IOBase):
+#             def __init__(self, f):
+#                 self.f = f
+#                 self.last_line = "" # will contain raw CSV row
+# 
+#             def __next__(self):
+#                 self.last_line = next(self.f)
+#                 return self.last_line
+# 
+#             def __getattr__(self, k):
+#                 return getattr(self.f, k)
+# 
+#         return IOWrapper(f)
 
-            def __next__(self):
-                self.last_line = next(self.f)
-                return self.last_line
-
-            def __getattr__(self, k):
-                return getattr(self.f, k)
-
-        return IOWrapper(f)
+    def create_reader_row(self, columns, **kwargs):
+        """prepare row for reading, meant to be overridden in child classes if
+        needed"""
+        return kwargs.get("reader_row_class", CSVRow)(
+            columns,
+            self.lookup
+        )
 
     def normalize_reader_row(self, row):
         """prepare row for reading, meant to be overridden in child classes if
@@ -368,10 +386,6 @@ class CSV(object):
             # something
             return ByteString(b"" if value is None else value)
 
-    def normalize_fieldnames(self, fieldnames):
-        """run this anytime fields are going to be set on this instance"""
-        return list(map(String, fieldnames))
-
     def normalize_writer_fieldnames(self, fieldnames):
         """run this right before setting fieldnames onto the writer instance
         """
@@ -382,12 +396,33 @@ class CSV(object):
         """
         return fieldnames
 
+    def normalize_fieldnames(self, fieldnames):
+        """run this anytime fields are going to be set on this instance"""
+        return list(map(String, fieldnames)) if fieldnames else []
+
+    def set_fieldnames(self, fieldnames):
+        if fieldnames:
+            self.fieldnames = list(map(String, fieldnames))
+            #self.lookup = {item[0]: item[1] for item in enumerate(fieldnames)}
+            self.lookup = {item[1]: item[0] for item in enumerate(fieldnames)}
+
+        else:
+            self.fieldnames = []
+            self.lookup = {}
+
     def find_fieldnames(self):
         """attempt to get the field names from the first line in the csv file
         """
-        with self.reading() as f:
-            reader = self.create_reader(f)
-            return list(map(String, reader.fieldnames))
+        if self.fieldnames:
+            return self.fieldnames
+
+        else:
+            for row in self:
+                return self.fieldnames
+
+#         with self.reading() as f:
+#             reader = self.create_reader(f)
+#             return list(map(String, reader.fieldnames))
 
     def rows(self):
         """Return all the rows as a list"""
@@ -400,7 +435,7 @@ class CSV(object):
 
         :returns: list
         """
-        return self.rows_class(self.__iter__())
+        return list(self.__iter__())
 
     def clear(self):
         """clear the csv file"""
@@ -409,32 +444,34 @@ class CSV(object):
 
     def __iter__(self):
         with self.reading() as f:
-            first_row = True
-            self.reader = self.create_reader(f)
-            for row in self.reader:
-                try:
-                    row = self.normalize_reader_row(row)
-                    if row:
-                        if self.fieldnames and first_row:
-                            # if you've passed in fieldnames then it will
-                            # return fieldnames mapped to fieldnames as the
-                            # first row, this will catch that and ignore it
-                            #
-                            # if we pass in fieldnames then DictReader won't
-                            # use the first row as fieldnames, so we need to
-                            # check to make sure the first row isn't a
-                            # field_name: field_name mapping
-                            if cbany(lambda r: r[0] != r[1], row.items()):
-                                yield row
+            ignore_row = True
+            reader = self.create_reader(f)
+            for columns in reader:
+                if ignore_row:
+                    if self.fieldnames:
+                        # if you've passed in fieldnames then it will
+                        # return fieldnames mapped to fieldnames as the
+                        # first row, this will catch that and ignore it
+                        #
+                        # if we pass in fieldnames then DictReader won't
+                        # use the first row as fieldnames, so we need to
+                        # check to make sure the first row isn't a
+                        # field_name: field_name mapping
+                        for i, col in enumerate(columns):
+                            if self.fieldnames[i] != col:
+                                ignore_row = False
+                                break
 
-                        else:
-                            yield row
+                    else:
+                        # if we don't have field names then the first row
+                        # has to be the fieldnames
+                        self.set_fieldnames(columns)
 
-                except self.ContinueError:
-                    pass
-
-                finally:
-                    first_row = False
+                if not ignore_row:
+                    ignore_row = False
+                    row = self.create_reader_row(columns)
+                    if row is not None:
+                        yield row
 
     def __len__(self):
         """Returns how many rows are in this csv, this actually goes through
