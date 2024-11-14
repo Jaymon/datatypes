@@ -276,38 +276,6 @@ class CSV(object):
             self.lookup
         )
 
-#     def xcreate_reader_row(self, columns, rownum, **kwargs):
-#         """prepare row for reading, meant to be overridden in child classes if
-#         needed"""
-#         if rownum == 0:
-#             ignore_row = True
-#             if self.fieldnames:
-#                 # if you've passed in fieldnames then it will
-#                 # return fieldnames mapped to fieldnames as the
-#                 # first row, this will catch that and ignore it
-#                 #
-#                 # if we pass in fieldnames then DictReader won't
-#                 # use the first row as fieldnames, so we need to
-#                 # check to make sure the first row isn't a
-#                 # field_name: field_name mapping
-#                 for i, col in enumerate(columns):
-#                     if self.fieldnames[i] != col:
-#                         ignore_row = False
-#                         break
-# 
-#             else:
-#                 # if we don't have field names then the first row
-#                 # has to be the fieldnames
-#                 self.set_fieldnames(columns)
-# 
-#             if ignore_row:
-#                 return None
-# 
-#         return kwargs.get("reader_row_class", CSVRow)(
-#             columns,
-#             self.lookup
-#         )
-
     def create_writer_row(self, row, **kwargs):
         """prepare row for writing, meant to be overridden in child classes if
         needed
@@ -386,14 +354,6 @@ class CSV(object):
         with self.writing() as stream:
             stream.truncate(0)
 
-#     def __iter__(self):
-#         with self.reading() as stream:
-#             reader = self.create_reader(stream)
-#             for rownum, columns in enumerate(reader):
-#                 row = self.create_reader_row(columns, rownum=rownum)
-#                 if row is not None:
-#                     yield row
-
     def __iter__(self):
         with self.reading() as stream:
             ignore_row = True
@@ -401,14 +361,8 @@ class CSV(object):
             for columns in reader:
                 if ignore_row:
                     if self.fieldnames:
-                        # if you've passed in fieldnames then it will
-                        # return fieldnames mapped to fieldnames as the
-                        # first row, this will catch that and ignore it
-                        #
-                        # if we pass in fieldnames then DictReader won't
-                        # use the first row as fieldnames, so we need to
-                        # check to make sure the first row isn't a
-                        # field_name: field_name mapping
+                        # Check to see if the fieldnames are the first row of
+                        # the CSV file, if they are then ignore this row
                         for i, col in enumerate(columns):
                             if self.fieldnames[i] != col:
                                 ignore_row = False
