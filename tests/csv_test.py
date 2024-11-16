@@ -164,40 +164,6 @@ class CSVTest(TestCase):
         pout.v(r1, r2)
         self.assertLess(len(r1), len(r2))
 
-#     def test_reader_row_class(self):
-#         count = 0
-#         counter = testdata.get_counter()
-#         csvfile = testdata.create_csv({
-#             "foo": counter,
-#             "bar": testdata.get_words,
-#         })
-# 
-#         class Row(dict):
-#             pass
-# 
-#         c = CSV(csvfile.path, reader_row_class=Row)
-#         for row in c:
-#             self.assertTrue(isinstance(row, Row))
-#             count = int(row["foo"])
-#         self.assertLess(0, count)
-
-#     def test___init___kwargs(self):
-#         count = 0
-#         counter = testdata.get_counter()
-#         csvfile = testdata.create_csv({
-#             "foo": counter,
-#             "bar": testdata.get_words,
-#         })
-# 
-#         class Row(dict):
-#             pass
-# 
-#         c = CSV(csvfile.path, reader_row_class=Row)
-#         for row in c:
-#             self.assertTrue(isinstance(row, Row))
-#             count += 1
-#         self.assertLess(0, count)
-
     def test_strict(self):
         csv = TempCSV(["foo", "bar"], strict=True)
 
@@ -212,24 +178,6 @@ class CSVTest(TestCase):
         with csv:
             csv.add({"foo": 1})
             csv.add({"foo": 1, "che": 3})
-
-#     def test_extra_comma(self):
-#         """Python's default CSV handling will add a None key with empty values
-#         for each extra comma found, I'm not sure why this would ever be useful
-#         except to check for formatting errors. By default we just remove the
-#         None key if strict is False"""
-#         csvpath = testdata.create_file([
-#             "foo,bar,che",
-#             "1,2,3,,",
-#         ])
-# 
-#         c = CSV(csvpath)
-#         for row in c:
-#             self.assertFalse(None in row)
-# 
-#         c = CSV(csvpath, strict=True)
-#         rows = list(c)
-#         self.assertTrue(None in rows[0])
 
     def test_none(self):
         """By default, CSV subs "" for None as a row value, unless strict=True

@@ -270,6 +270,21 @@ class HTTPClientTest(TestCase):
         headers = c.get_fetch_headers("GET", {"user-agent": "foo"}, {})
         self.assertEqual(headers["user-agent"], "foo")
 
+    def test_get_fetch_url(self):
+        """Moved from endpoints.tests.client on 11-15-2024"""
+        c = HTTPClient()
+
+        uri = "http://foo.com"
+        url = c.get_fetch_url(uri)
+        self.assertEqual(uri, url)
+
+        uri = "/foo/bar"
+        url = c.get_fetch_url(uri)
+        self.assertEqual("{}{}".format(c.base_url, uri), url)
+
+        url = c.get_fetch_url(["foo", "bar"])
+        self.assertEqual("{}{}".format(c.base_url, "/foo/bar"), url)
+
     def test_iter_content(self):
         content = testdata.get_ascii(2000)
         r = HTTPResponse(200, ByteString(content), {}, None, None)
@@ -293,6 +308,46 @@ class HTTPClientTest(TestCase):
             c = HTTPClient(server)
             res = c.post(server, body={"foo": "bar"}, files={"file1": p})
             self.assertEqual(data, res.body)
+
+    def test_basic_auth(self):
+        """Adopted from endpoints.tests.client on 11-15-2024"""
+        c = HTTPClient("http://localhost")
+        c.basic_auth("foo", "bar")
+        self.assertTrue(c.headers["Authorization"].startswith("Basic "))
+        self.assertRegex(c.headers["authorization"], r"Basic\s+[a-zA-Z0-9=]+")
+
+        c.remove_auth()
+        self.assertFalse("Authorization" in c.headers)
+
+    def test_post_json(self):
+        server = self.create_callbackserver({
+            "POST": lambda handler: handler.body,
+        })
+
+        with server:
+            c = HTTPClient(server, json=True)
+            body = {"foo": 1, "bar": [2, 3], "che": "four"}
+            r = c.post("/", body)
+            self.assertEqual(body, r.body)
+
+    def test_post_urlencoded(self):
+        c = HTTPClient("http://localhost")
+
+        with self.assertRaises(TypeError):
+            c.get_request_urlencoded(["1", "2"])
+
+        with self.assertRaises(TypeError):
+            c.get_request_urlencoded("foo")
+
+    def test_get_content_type(self):
+        server = self.create_callbackserver({
+            "GET": lambda handler: str(handler.headers),
+        })
+
+        with server:
+            c = HTTPClient(server)
+            r = c.get("/")
+            self.assertFalse("content-type:" in r.body.lower())
 
 
 class UserAgentTest(TestCase):

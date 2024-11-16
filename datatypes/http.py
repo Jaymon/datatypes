@@ -17,7 +17,7 @@ import os
 
 from .compat import *
 from .copy import Deepcopy
-from .string import String, ByteString, NormalizeString
+from .string import String, ByteString, NormalizeString, Base64
 from .config.environ import environ
 
 
@@ -448,13 +448,13 @@ class HTTPClient(object):
     def __init__(self, base_url="", **kwargs):
         """
         :param base_url: str, the base url that will be used (eg,
-            http:localhost:8080)
+            http://localhost:8080)
         :param headers: dict[str, str], these are the common headers that
             usually don't change all that much
         :param json: bool, if True then try and do a json request when
             possible
         """
-        self.base_url = base_url
+        self.base_url = self.get_base_url(base_url)
         self.query = {}
 
         self.headers = HTTPHeaders(kwargs.get("headers", None))
@@ -493,49 +493,72 @@ class HTTPClient(object):
         :param username: str
         :param password: str
         """
-        credentials = Base64.encode('{}:{}'.format(username, password))
-        auth_string = 'Basic {}'.format(credentials)
+        credentials = Base64.encode("{}:{}".format(username, password))
+        auth_string = "Basic {}".format(credentials)
         #credentials = base64.b64encode('{}:{}'.format(username, password)).strip()
         #auth_string = 'Basic {}'.format(credentials())
-        self.headers['Authorization'] = auth_string
+        self.headers["Authorization"] = auth_string
 
-    def token_auth(self, access_token):
+    def token_auth(self, token):
         """add bearer TOKEN auth to this client"""
-        self.headers['Authorization'] = 'Bearer {}'.format(access_token)
+        self.headers["Authorization"] = "Bearer {}".format(token)
 
     def remove_auth(self):
         """Get rid of the internal Authorization header"""
-        self.headers.pop('Authorization', None)
+        self.headers.pop("Authorization", None)
 
     def fetch(self, method, uri, query=None, body=None, files=None, **kwargs):
         """wrapper method that all the top level methods (get, post, etc.) use
         to actually make the request
         """
-        if not query:
-            query = {}
-
-        fetch_url = self.get_fetch_url(uri, query)
-
-        fetch_kwargs = {}
-        fetch_kwargs["headers"] = self.get_fetch_headers(
+        fetch_url = self.get_fetch_url(uri, query or {})
+        headers = self.get_fetch_headers(
             method,
-            kwargs.get("headers", {}),
-            kwargs.get("cookies", {}),
+            kwargs.pop("headers", {}),
+            kwargs.pop("cookies", {}),
         )
-        if "timeout" in kwargs:
-            fetch_kwargs["timeout"] = kwargs["timeout"]
 
-        if body or files:
-            headers, fetch_kwargs["data"] = self.get_fetch_data(
-                body,
-                files
-            )
-            fetch_kwargs["headers"].update(headers)
+        fetch_kwargs = self.get_fetch_request_kwargs(
+            method,
+            body,
+            files,
+            headers=headers,
+            **kwargs
+        )
 
-        res = self._fetch(method, fetch_url, **fetch_kwargs)
+        res = self._fetch(fetch_url, **fetch_kwargs)
         return res
 
-    def _fetch(self, method, fetch_url, **kwargs):
+
+#     def fetch(self, method, uri, query=None, body=None, files=None, **kwargs):
+#         """wrapper method that all the top level methods (get, post, etc.) use
+#         to actually make the request
+#         """
+#         if not query:
+#             query = {}
+# 
+#         fetch_url = self.get_fetch_url(uri, query)
+# 
+#         fetch_kwargs = {}
+#         fetch_kwargs["headers"] = self.get_fetch_headers(
+#             method,
+#             kwargs.get("headers", {}),
+#             kwargs.get("cookies", {}),
+#         )
+#         if "timeout" in kwargs:
+#             fetch_kwargs["timeout"] = kwargs["timeout"]
+# 
+#         if body or files:
+#             headers, fetch_kwargs["data"] = self.get_fetch_data(
+#                 body,
+#                 files
+#             )
+#             fetch_kwargs["headers"].update(headers)
+# 
+#         res = self._fetch(method, fetch_url, **fetch_kwargs)
+#         return res
+
+    def _fetch(self, fetch_url, **kwargs):
         """Internal method called from self.fetch that performs the actual
         request
 
@@ -549,11 +572,52 @@ class HTTPClient(object):
         """
         timeout = kwargs.pop("timeout", self.timeout)
 
-        # this block actually performs the request
-        req = self.get_fetch_request(method, fetch_url, **kwargs)
-        res = self.get_fetch_response(req, timeout=timeout)
+        # https://stackoverflow.com/a/48144049
+        req = Request(fetch_url, **kwargs) # compat * import
 
-        return res
+        try:
+            # https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
+            res = urlopen(req, timeout=timeout)
+            ret = HTTPResponse(
+                res.code,
+                res.read(),
+                res.headers,
+                self,
+                res
+            )
+
+        except HTTPError as e:
+            ret = HTTPResponse(
+                e.code,
+                # an HTTPError can also function as a non-exceptional file-like
+                # return value (the same thing that urlopen() returns).
+                # If you don't read the error it will leave a dangling socket
+                e.read(),
+                {},
+                self,
+                e
+            )
+
+        except URLError as e:
+            raise
+#             ret = HTTPResponse(
+#                 0,
+#                 e.reason,
+#                 {},
+#                 self,
+#                 e
+#             )
+
+        return ret
+
+        # this block actually performs the request
+#         req = self.get_fetch_request(method, fetch_url, **kwargs)
+#         res = self.get_fetch_response(req, timeout=timeout)
+# 
+#         return res
+
+    def get_base_url(self, base_url):
+        return base_url
 
     def get_fetch_url(self, uri, query=None):
         """Combine the passed in uri and query with self.base_url to create the
@@ -672,7 +736,7 @@ class HTTPClient(object):
 
         return ua
 
-    def get_fetch_headers(self, method, headers, http_cookies):
+    def get_fetch_headers(self, method, headers=None, http_cookies=None):
         """merge class headers with passed in headers
 
         you can see what headers browsers are sending:
@@ -731,99 +795,176 @@ class HTTPClient(object):
 
         return fetch_headers
 
-    def get_fetch_data(self, body, files, **kwargs):
-        """Get the body that will be sent up to the server
+    def get_fetch_request_kwargs(self, method, body, files, headers, **kwargs):
+        fetch_kwargs = {
+            "headers": headers,
+            "method": method.upper()
+        }
 
-        :param headers: HTTPHeaders, the full set of headers being sent to the
-            server, that means these headers have been returned from
-            get_fetch_headers
-        :param body: mixed, the raw body that will be normalized and returned
-        :returns: str, the body ready to be sent up to the server
-        """
-        headers = {}
-        body = body or {}
-        files = files or {}
+        if "timeout" in kwargs:
+            fetch_kwargs["timeout"] = kwargs["timeout"]
 
-        if files:
-            headers, data = Multipart.encode(
-                body,
-                files,
-                environ.ENCODING
-            )
+        if "Content-Type" in headers:
+            if headers.is_json():
+                dhs, data = self.get_request_json(body)
 
-        else:
-            if self.json:
-                data = json.dumps(body)
+            elif headers.is_multipart():
+                dhs, data = self.get_request_multipart(body, files)
+
+            elif headers.is_urlencoded():
+                dhs, data = self.get_request_urlencoded(body)
+
+            elif headers.is_plain():
+                dhs, data = self.get_request_plain(body)
 
             else:
-                headers["Content-Type"] = "x-www-form-urlencoded"
-                data = urlencode(body, doseq=True)
+                raise ValueError("Unknown request content-type: {}".format(
+                    headers["Content-Type"]
+                ))
 
-            data = data.encode(environ.ENCODING)
+        elif body or files:
+            body = body or {}
 
+            if files:
+                dhs, data = self.get_request_multipart(body, files)
+
+            else:
+                if self.json:
+                    dhs, data = self.get_request_json(body)
+
+                else:
+                    dhs, data = self.get_request_urlencoded(body)
+
+        else:
+            dhs = {}
+            data = None
+
+        fetch_kwargs["headers"].update(dhs)
+        fetch_kwargs["data"] = data
+
+        return fetch_kwargs
+
+    def get_request_multipart(self, body, files, **kwargs):
+        return Multipart.encode(
+            body,
+            files,
+            kwargs.get("encoding", environ.ENCODING)
+        )
+
+    def get_request_json(self, body, **kwargs):
+        ct = kwargs.get("content_type", "application/json")
+        headers = {"Content-Type": ct}
+        data = json.dumps(body)
+        data = data.encode(kwargs.get("encoding", environ.ENCODING))
         return headers, data
 
-    def get_fetch_request(self, method, *args, **kwargs):
-        """Create a request that can be passed to get_fetch_response to
-        actually make the request
+    def get_request_urlencoded(self, body, **kwargs):
+        ct = kwargs.get("content_type", "x-www-form-urlencoded")
+        headers = {"Content-Type": ct}
+        data = urlencode(body, doseq=True)
+        data = data.encode(kwargs.get("encoding", environ.ENCODING))
+        return headers, data
 
-        This is used in self._fetch
+    def get_request_plain(self, body, **kwargs):
+        if not isinstance(body, str):
+            body = str(body)
+        return {}, body.encode(kwargs.get("encoding", environ.ENCODING))
 
-        :param method: str, the http method (eg GET, POST)
-        :param *args: mixed, any positional arguments you need
-        :param **kwargs: mixed, any keyword arguments you need
-        :returns: Request instance, a request object that can be passed to
-            get_fetch_response
-        """
-        req = Request(*args, **kwargs) # compat * import
-        # https://stackoverflow.com/a/111988
-        req.get_method = lambda: method.upper()
-        return req
+#     def get_fetch_data(self, body, files, **kwargs):
+#         """Get the body that will be sent up to the server
+# 
+#         :param headers: HTTPHeaders, the full set of headers being sent to the
+#             server, that means these headers have been returned from
+#             get_fetch_headers
+#         :param body: mixed, the raw body that will be normalized and returned
+#         :returns: str, the body ready to be sent up to the server
+#         """
+#         headers = {}
+#         body = body or {}
+#         files = files or {}
+# 
+#         if files:
+#             headers, data = Multipart.encode(
+#                 body,
+#                 files,
+#                 environ.ENCODING
+#             )
+# 
+#         else:
+#             if self.json:
+#                 headers["Content-Type"] = "application/json"
+#                 data = json.dumps(body)
+# 
+#             else:
+#                 headers["Content-Type"] = "x-www-form-urlencoded"
+#                 data = urlencode(body, doseq=True)
+# 
+#             data = data.encode(environ.ENCODING)
+# 
+#         return headers, data
 
-    def get_fetch_response(self, req, timeout):
-        """Given a Request instance make a call and return the response
-
-        This is used in self._fetch
-
-        https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
-
-        :param req: Request instance, the request instance created by
-            self.get_fetch_request
-        :returns: HTTPResponse instance, this looks like a requests Response
-            object
-        """
-        try:
-            res = urlopen(req, timeout=timeout)
-            ret = HTTPResponse(
-                res.code,
-                res.read(),
-                res.headers,
-                self,
-                res
-            )
-
-        except HTTPError as e:
-            ret = HTTPResponse(
-                e.code,
-                # an HTTPError can also function as a non-exceptional file-like
-                # return value (the same thing that urlopen() returns).
-                # If you don't read the error it will leave a dangling socket
-                e.read(),
-                {},
-                self,
-                e
-            )
-
-        except URLError as e:
-            ret = HTTPResponse(
-                0,
-                e.reason,
-                {},
-                self,
-                e
-            )
-
-        return ret
+#     def get_fetch_request(self, method, *args, **kwargs):
+#         """Create a request that can be passed to get_fetch_response to
+#         actually make the request
+# 
+#         This is used in self._fetch
+# 
+#         :param method: str, the http method (eg GET, POST)
+#         :param *args: mixed, any positional arguments you need
+#         :param **kwargs: mixed, any keyword arguments you need
+#         :returns: Request instance, a request object that can be passed to
+#             get_fetch_response
+#         """
+#         req = Request(*args, **kwargs) # compat * import
+#         # https://stackoverflow.com/a/111988
+#         req.get_method = lambda: method.upper()
+#         return req
+# 
+#     def get_fetch_response(self, req, timeout):
+#         """Given a Request instance make a call and return the response
+# 
+#         This is used in self._fetch
+# 
+#         https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
+# 
+#         :param req: Request instance, the request instance created by
+#             self.get_fetch_request
+#         :returns: HTTPResponse instance, this looks like a requests Response
+#             object
+#         """
+#         try:
+#             res = urlopen(req, timeout=timeout)
+#             ret = HTTPResponse(
+#                 res.code,
+#                 res.read(),
+#                 res.headers,
+#                 self,
+#                 res
+#             )
+# 
+#         except HTTPError as e:
+#             ret = HTTPResponse(
+#                 e.code,
+#                 # an HTTPError can also function as a non-exceptional file-like
+#                 # return value (the same thing that urlopen() returns).
+#                 # If you don't read the error it will leave a dangling socket
+#                 e.read(),
+#                 {},
+#                 self,
+#                 e
+#             )
+# 
+#         except URLError as e:
+#             raise
+# #             ret = HTTPResponse(
+# #                 0,
+# #                 e.reason,
+# #                 {},
+# #                 self,
+# #                 e
+# #             )
+# 
+#         return ret
 
     def is_json(self, headers):
         """return true if content_type is a json content type"""
@@ -854,8 +995,8 @@ class UserAgent(NormalizeString):
 
     @classmethod
     def parse_user_agent(cls, user_agent):
-        """parses any user agent string to the best of its ability and tries not
-        to error out"""
+        """parses any user agent string to the best of its ability and tries
+        not to error out"""
         d = {}
 
         regex = r"^([^/]+)" # 1 - get everything to first slash
