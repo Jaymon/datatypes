@@ -34,6 +34,7 @@ from .copy import (
     Deepcopy,
 )
 from .csv import (
+    CSVRow,
     CSV,
     TempCSV,
 )

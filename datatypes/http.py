@@ -259,6 +259,9 @@ class HTTPHeaders(BaseHeaders, Mapping):
             headers.update(kwargs)
             headers = headers.items()
 
+        elif isinstance(headers, email.message.Message):
+            headers = headers._headers
+
         else:
             if kwargs:
                 headers = itertools.chain(
@@ -313,6 +316,22 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
         return ua
 
+    def get_content_encoding(self):
+        """Get the content-type encoding if it is defined
+
+        Uses the email stdlib to parse out the encoding from the content type
+
+        :returns: Optional[str]
+        """
+        encoding = None
+
+        if ct := self.get("Content-Type"):
+            em = email.message.Message()
+            em.add_header("content-type", ct)
+            encoding = em.get_content_charset()
+
+        return encoding
+
 
 class HTTPEnviron(HTTPHeaders):
     """just like Headers but allows any values (headers converts everything to
@@ -328,14 +347,8 @@ class HTTPResponse(object):
     """
     @property
     def encoding(self):
-        encoding = environ.ENCODING
-        if "content-type" in self.headers:
-            # use the email stdlib to parse out the encoding from the content
-            # type
-            em = email.message.Message()
-            em.add_header("content-type", self.headers["content-type"])
-            encoding = em.get_content_charset()
-
+        encoding = self.headers.get_content_encoding()
+        if not encoding:
             # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
             # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
             # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
@@ -347,12 +360,41 @@ class HTTPResponse(object):
             # default charset value of "ISO-8859-1" when received via HTTP.
             # (rfc2616 is superceded by rfc7231, which doesn't have this
             # default charset but I'm going to keep it right now)
-            if not encoding:
-                if self.http.is_json(self.headers):
-                    encoding = "UTF-8"
-                else:
-                    if self.headers["content-type"].startswith("text/"):
-                        encoding = "ISO-8859-1"
+            if self.headers.is_json():
+                encoding = "UTF-8"
+
+            elif self.headers.get("content-type", "").startswith("text/"):
+                encoding = "ISO-8859-1"
+
+            else:
+                encoding = environ.ENCODING
+
+#         if "content-type" in self.headers:
+#             pout.v(self.headers)
+# 
+#             # use the email stdlib to parse out the encoding from the content
+#             # type
+#             em = email.message.Message()
+#             em.add_header("content-type", self.headers["content-type"])
+#             encoding = em.get_content_charset()
+# 
+#             # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
+#             # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
+#             # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
+#             # default encoding is UTF-8
+#             #
+#             # https://www.rfc-editor.org/rfc/rfc2616
+#             # HTTP when no explicit charset parameter is provided by the
+#             # sender, media subtypes of the "text" type are defined to have a
+#             # default charset value of "ISO-8859-1" when received via HTTP.
+#             # (rfc2616 is superceded by rfc7231, which doesn't have this
+#             # default charset but I'm going to keep it right now)
+#             if not encoding:
+#                 if self.http.is_json(self.headers):
+#                     encoding = "UTF-8"
+#                 else:
+#                     if self.headers["content-type"].startswith("text/"):
+#                         encoding = "ISO-8859-1"
 
         return encoding
 
@@ -382,7 +424,7 @@ class HTTPResponse(object):
 
     @property
     def body(self):
-        if self.http.is_json(self.headers):
+        if self.headers.is_json():
             body = self.json()
 
         else:
@@ -393,7 +435,8 @@ class HTTPResponse(object):
     def __init__(self, code, body, headers, http, response):
         self.http = http
         self.response = response
-        self.headers = headers
+        self.headers = HTTPHeaders(headers)
+        self._headers = headers
         self._body = body
         self.code = code
 
@@ -529,35 +572,6 @@ class HTTPClient(object):
         res = self._fetch(fetch_url, **fetch_kwargs)
         return res
 
-
-#     def fetch(self, method, uri, query=None, body=None, files=None, **kwargs):
-#         """wrapper method that all the top level methods (get, post, etc.) use
-#         to actually make the request
-#         """
-#         if not query:
-#             query = {}
-# 
-#         fetch_url = self.get_fetch_url(uri, query)
-# 
-#         fetch_kwargs = {}
-#         fetch_kwargs["headers"] = self.get_fetch_headers(
-#             method,
-#             kwargs.get("headers", {}),
-#             kwargs.get("cookies", {}),
-#         )
-#         if "timeout" in kwargs:
-#             fetch_kwargs["timeout"] = kwargs["timeout"]
-# 
-#         if body or files:
-#             headers, fetch_kwargs["data"] = self.get_fetch_data(
-#                 body,
-#                 files
-#             )
-#             fetch_kwargs["headers"].update(headers)
-# 
-#         res = self._fetch(method, fetch_url, **fetch_kwargs)
-#         return res
-
     def _fetch(self, fetch_url, **kwargs):
         """Internal method called from self.fetch that performs the actual
         request
@@ -600,23 +614,16 @@ class HTTPClient(object):
 
         except URLError as e:
             raise
-#             ret = HTTPResponse(
-#                 0,
-#                 e.reason,
-#                 {},
-#                 self,
-#                 e
-#             )
 
         return ret
 
-        # this block actually performs the request
-#         req = self.get_fetch_request(method, fetch_url, **kwargs)
-#         res = self.get_fetch_response(req, timeout=timeout)
-# 
-#         return res
-
     def get_base_url(self, base_url):
+        """Internal method. Normalizes the base_url before setting it into
+        .base_url
+
+        :param base_url: str, the base url passed into __init__
+        :returns: str
+        """
         return base_url
 
     def get_fetch_url(self, uri, query=None):
@@ -870,109 +877,13 @@ class HTTPClient(object):
             body = str(body)
         return {}, body.encode(kwargs.get("encoding", environ.ENCODING))
 
-#     def get_fetch_data(self, body, files, **kwargs):
-#         """Get the body that will be sent up to the server
-# 
-#         :param headers: HTTPHeaders, the full set of headers being sent to the
-#             server, that means these headers have been returned from
-#             get_fetch_headers
-#         :param body: mixed, the raw body that will be normalized and returned
-#         :returns: str, the body ready to be sent up to the server
-#         """
-#         headers = {}
-#         body = body or {}
-#         files = files or {}
-# 
-#         if files:
-#             headers, data = Multipart.encode(
-#                 body,
-#                 files,
-#                 environ.ENCODING
-#             )
-# 
-#         else:
-#             if self.json:
-#                 headers["Content-Type"] = "application/json"
-#                 data = json.dumps(body)
-# 
-#             else:
-#                 headers["Content-Type"] = "x-www-form-urlencoded"
-#                 data = urlencode(body, doseq=True)
-# 
-#             data = data.encode(environ.ENCODING)
-# 
-#         return headers, data
-
-#     def get_fetch_request(self, method, *args, **kwargs):
-#         """Create a request that can be passed to get_fetch_response to
-#         actually make the request
-# 
-#         This is used in self._fetch
-# 
-#         :param method: str, the http method (eg GET, POST)
-#         :param *args: mixed, any positional arguments you need
-#         :param **kwargs: mixed, any keyword arguments you need
-#         :returns: Request instance, a request object that can be passed to
-#             get_fetch_response
-#         """
-#         req = Request(*args, **kwargs) # compat * import
-#         # https://stackoverflow.com/a/111988
-#         req.get_method = lambda: method.upper()
-#         return req
-# 
-#     def get_fetch_response(self, req, timeout):
-#         """Given a Request instance make a call and return the response
-# 
-#         This is used in self._fetch
-# 
-#         https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
-# 
-#         :param req: Request instance, the request instance created by
-#             self.get_fetch_request
-#         :returns: HTTPResponse instance, this looks like a requests Response
-#             object
-#         """
-#         try:
-#             res = urlopen(req, timeout=timeout)
-#             ret = HTTPResponse(
-#                 res.code,
-#                 res.read(),
-#                 res.headers,
-#                 self,
-#                 res
-#             )
-# 
-#         except HTTPError as e:
-#             ret = HTTPResponse(
-#                 e.code,
-#                 # an HTTPError can also function as a non-exceptional file-like
-#                 # return value (the same thing that urlopen() returns).
-#                 # If you don't read the error it will leave a dangling socket
-#                 e.read(),
-#                 {},
-#                 self,
-#                 e
-#             )
-# 
-#         except URLError as e:
-#             raise
-# #             ret = HTTPResponse(
-# #                 0,
-# #                 e.reason,
-# #                 {},
-# #                 self,
-# #                 e
-# #             )
-# 
+#     def is_json(self, headers):
+#         """return true if content_type is a json content type"""
+#         ret = False
+#         ct = headers.get("Content-Type", "").lower()
+#         if ct:
+#             ret = ct.lower().rfind("json") >= 0
 #         return ret
-
-    def is_json(self, headers):
-        """return true if content_type is a json content type"""
-        ret = False
-        ct = headers.get("Content-Type", "").lower()
-        if ct:
-            ret = ct.lower().rfind("json") >= 0
-        return ret
 
 
 class UserAgent(NormalizeString):

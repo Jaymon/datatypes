@@ -75,10 +75,8 @@ class CSV(object):
         """
         self.path = path
         self.set_fieldnames(fieldnames)
-        #self.fieldnames = self.normalize_fieldnames(fieldnames)
         self.writer = None
         self.reader = None
-#         self.context_depth = 0 # protection against multiple context managers
         self.strict = kwargs.pop("strict", False)
 
         self.readonly = kwargs.pop("readonly", False)
@@ -167,9 +165,7 @@ class CSV(object):
 
     def __enter__(self):
         """Enables with context manager for writing"""
-#         self.context_depth += 1
         if not self.writer:
-            #f = self.open(self.write_mode)
             cm = self.writing()
             self.writer = self.create_writer(cm.__enter__())
             self.writer.cm = cm
@@ -184,7 +180,6 @@ class CSV(object):
         if self.writer.context_depth <= 0:
             self.writer.cm.__exit__(exc_class, exc, trace)
             self.writer = None
-#             self.context_depth = 0
 
     def create_writer(self, stream, **kwargs):
         kwargs.setdefault("dialect", csv.excel)

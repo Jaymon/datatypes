@@ -29,8 +29,8 @@ class HTTPEnvironTest(TestCase):
 
 class HTTPHeadersTest(TestCase):
     def test_midbody_capital_letter(self):
-        """Previously, before June 2019, our headers didn't handle WebSocket correctly
-        instead lowercasing the S to Websocket"""
+        """Previously, before June 2019, our headers didn't handle WebSocket
+        correctly instead lowercasing the S to Websocket"""
         d = HTTPHeaders()
         d["Sec-WebSocket-Key"] = "foobar"
         self.assertTrue("Sec-Websocket-Key" in d)
@@ -46,7 +46,8 @@ class HTTPHeadersTest(TestCase):
         self.assertEqual(d[name], String(val))
 
     def test_different_original_keys(self):
-        """when setting headers using 2 different original keys it wouldn't be uniqued"""
+        """when setting headers using 2 different original keys it wouldn't be
+        uniqued"""
         d = HTTPHeaders()
         d['Content-Type'] = "application/json"
         d['content-type'] = "text/plain"
