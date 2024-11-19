@@ -369,33 +369,6 @@ class HTTPResponse(object):
             else:
                 encoding = environ.ENCODING
 
-#         if "content-type" in self.headers:
-#             pout.v(self.headers)
-# 
-#             # use the email stdlib to parse out the encoding from the content
-#             # type
-#             em = email.message.Message()
-#             em.add_header("content-type", self.headers["content-type"])
-#             encoding = em.get_content_charset()
-# 
-#             # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
-#             # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
-#             # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
-#             # default encoding is UTF-8
-#             #
-#             # https://www.rfc-editor.org/rfc/rfc2616
-#             # HTTP when no explicit charset parameter is provided by the
-#             # sender, media subtypes of the "text" type are defined to have a
-#             # default charset value of "ISO-8859-1" when received via HTTP.
-#             # (rfc2616 is superceded by rfc7231, which doesn't have this
-#             # default charset but I'm going to keep it right now)
-#             if not encoding:
-#                 if self.http.is_json(self.headers):
-#                     encoding = "UTF-8"
-#                 else:
-#                     if self.headers["content-type"].startswith("text/"):
-#                         encoding = "ISO-8859-1"
-
         return encoding
 
     @property
@@ -877,14 +850,6 @@ class HTTPClient(object):
             body = str(body)
         return {}, body.encode(kwargs.get("encoding", environ.ENCODING))
 
-#     def is_json(self, headers):
-#         """return true if content_type is a json content type"""
-#         ret = False
-#         ct = headers.get("Content-Type", "").lower()
-#         if ct:
-#             ret = ct.lower().rfind("json") >= 0
-#         return ret
-
 
 class UserAgent(NormalizeString):
     """Parse a request User-Agent header value
@@ -979,7 +944,7 @@ class Multipart(object):
         :param files: dict[str, IOBase|str], the key is the field name
             for this file in the form and the value is either an open file
             pointer or a path to the file
-        :param encoding: (optional) str, the charset to use
+        :param encoding: Optional[str], the charset to use
         :returns: tuple[HTTPHeaders, bytes]
         """
         multipart_data = email.mime.multipart.MIMEMultipart("form-data")

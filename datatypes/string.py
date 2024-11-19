@@ -1409,8 +1409,8 @@ class Password(String):
     """
     @classmethod
     def hashpw(cls, password, salt="", **kwargs):
-        """The main method to turn plain text password into an obscured password
-        hash
+        """The main method to turn plain text password into an obscured
+        password hash
 
         :param password: str, the plain text password that should be shorter
             than 1024 characters
