@@ -16,25 +16,78 @@ logger = logging.getLogger(__name__)
 class CSVRow(Mapping):
     """By default the CSV reader will return an instance of this class
 
-    This is done in CSV.create_reader_row
+    This is done in `CSV.create_reader_row`. This exists because
+    csv.DictReader was quite a bit slower than expected in real world use,
+    using this sped up CSV reading by about 2.5-3x.
 
     There is a bit of overhead for creating these instances, so if the most
     performance is a necessity, you can override `CSV.create_reader_row` and
     just return the columns, then you can manually grab columns using the
-    CSV instance's `.lookup` method
+    CSV instance's `.lookup` property exactly how this class does it
+
+    https://github.com/python/cpython/blob/3.11/Lib/_collections_abc.py#L754
     """
     def __init__(self, columns, lookup):
+        """
+        :param columns: list, the list of values of this row
+        :param lookup: dict[str, int], the keys are the field names and the
+            values are the index in `columns` of the value that corresponds
+            to that field name
+        """
         self.columns = columns
         self.lookup = lookup
+        self.mutable = False
+
+    def _make_mutable(self):
+        """Converts this row into a mutable row
+
+        If we're adding or removing fields then we need a local copy of
+        .lookup so we don't mess up any other rows in the CSV
+        """
+        if not self.mutable:
+            self.lookup = {**self.lookup}
+            self.mutable = True
 
     def __getitem__(self, k):
         return self.columns[self.lookup[k]]
+
+    def __setitem__(self, k, v):
+        """the value of .columns is updated with v if it already exists,
+        otherwise v is added to the end of .columns"""
+        if k in self.lookup:
+            self.columns[self.lookup[k]] = v
+
+        else:
+            self._make_mutable()
+            self.lookup[k] = len(self.columns)
+            self.columns.append(v)
+
+    def __delitem__(self, k):
+        """This just sets the field's value in .columns to None and removes k
+        from .lookup"""
+        self._make_mutable()
+        k = self.lookup.pop(k)
+        self.columns[k] = None
 
     def __iter__(self):
         yield from self.lookup
 
     def __len__(self):
         return len(self.lookup)
+
+    def pop(self, k, *default):
+        try:
+            v = self[k]
+            del self[k]
+
+        except KeyError:
+            if default:
+                v = default[0]
+
+            else:
+                raise
+
+        return v
 
 
 class CSV(object):
@@ -266,6 +319,7 @@ class CSV(object):
     def create_reader_row(self, columns, **kwargs):
         """prepare row for reading, meant to be overridden in child classes if
         needed"""
+        #return {k: columns[self.lookup[k]] for k in self.lookup}
         return kwargs.get("reader_row_class", CSVRow)(
             columns,
             self.lookup

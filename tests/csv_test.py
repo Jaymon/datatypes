@@ -3,10 +3,82 @@
 from datatypes.compat import *
 from datatypes.csv import (
     CSV,
+    CSVRow,
     TempCSV,
 )
 
 from . import TestCase, testdata
+
+
+class CSVRowTest(TestCase):
+    def create_row(self):
+        c = self.create_csv({
+            "foo": self.get_name,
+            "bar": self.get_int,
+        })
+        row = c.tolist()[0]
+        self.assertTrue(isinstance(row, CSVRow))
+        return row
+
+    def test_crud(self):
+        row = self.create_row()
+        bar1 = int(row["bar"])
+        row["bar"] = bar1 + 10
+        self.assertLess(bar1, row["bar"])
+        self.assertEqual(2, len(row))
+
+        che1 = "che value"
+        row["che"] = che1
+        self.assertEqual(che1, row["che"])
+        self.assertEqual(3, len(row))
+
+        del row["bar"]
+        self.assertEqual(2, len(row))
+        with self.assertRaises(KeyError):
+            row["bar"]
+
+    def test_items(self):
+        row = self.create_row()
+
+        d = {}
+        for k, v in row.items():
+            d[k] = v
+        self.assertEqual(d, row)
+
+    def test_contains(self):
+        row = self.create_row()
+        self.assertTrue("foo" in row)
+
+    def test_pop(self):
+        row = self.create_row()
+
+        with self.assertRaises(KeyError):
+            row.pop("DOES-NOT-EXIST")
+
+        self.assertEqual(None, row.pop("DOES-NOT-EXIST", None))
+
+        v1 = row["bar"]
+        v2 = row.pop("bar")
+        self.assertEqual(v1, v2)
+
+        with self.assertRaises(KeyError):
+            row.pop("bar")
+
+    def test_mutable(self):
+        c = self.create_csv({
+            "foo": self.get_name,
+        })
+
+        for i, row in enumerate(c, 1):
+            self.assertTrue("foo" in row)
+            self.assertFalse("bar" in row)
+
+            row["bar"] = i
+            self.assertTrue("bar" in row)
+
+            del row["foo"]
+            self.assertFalse("foo" in row)
+        self.assertLess(0, i)
 
 
 class CSVTest(TestCase):
@@ -160,8 +232,6 @@ class CSVTest(TestCase):
 
         r1 = ContinueCSV(csvfile.path).rows()
         r2 = CSV(csvfile.path).rows()
-
-        pout.v(r1, r2)
         self.assertLess(len(r1), len(r2))
 
     def test_strict(self):
