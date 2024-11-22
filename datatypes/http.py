@@ -438,23 +438,23 @@ class HTTPClient(object):
 
     :Example:
         # make a simple get request
-        c = HTTP("http://example.com")
+        c = HTTPClient("http://example.com")
         c.get("/foo/bar")
 
         # make a request with a cookie
-        c = HTTP("http://example.com")
+        c = HTTPClient("http://example.com")
         c.get("/foo/bar", cookies={"foo": "1"})
 
-        # make a request with a different method
-        c = HTTP("http://example.com")
-        c.fetch("PUT", "/foo/bar")
+        # make a request with a custom http verb method
+        c = HTTPClient("http://example.com")
+        c.fetch("CUSTOM", "/foo/bar")
 
         # make a POST request
-        c = HTTP("http://example.com")
+        c = HTTPClient("http://example.com")
         c.post("/foo/bar", {"foo": 1})
 
         # make a json POST request
-        c = HTTP("http://example.com")
+        c = HTTPClient("http://example.com")
         c.post("/foo/bar", {"foo": 1}, json=True)
 
     moved from testdata.client.HTTP on March 4, 2022
@@ -480,21 +480,35 @@ class HTTPClient(object):
         """make a GET request"""
         return self.fetch("get", uri, query, **kwargs)
 
-    def post(self, uri, body=None, **kwargs):
-        """make a POST request"""
-        return self.fetch(
-            "post",
-            uri,
-            kwargs.pop("query", None),
-            body,
-            **kwargs
-        )
+    def delete(self, uri, query=None, **kwargs):
+        """make a DELETE request"""
+        return self.fetch("delete", uri, query, **kwargs)
 
-    def __getattr__(self, key):
-        def callback(*args, **kwargs):
-            return self.fetch(key, *args, **kwargs)
-        return callback
-        #return lambda *args, **kwargs: self.fetch(key, *args, **kwargs)
+    def head(self, uri, query=None, **kwargs):
+        """make a HEAD request"""
+        return self.fetch("head", uri, query, **kwargs)
+
+    def trace(self, uri, query=None, **kwargs):
+        """make a TRACE request"""
+        return self.fetch("trace", uri, query, **kwargs)
+
+    def options(self, uri, query=None, **kwargs):
+        """make an OPTIONS request, not sure why you would ever want to do
+        this one but it's here for completeness and for testing functionality
+        """
+        return self.fetch("options", uri, query, **kwargs)
+
+    def put(self, uri, body=None, query=None, **kwargs):
+        """Make a PUT request, has a body so similar signature to .post"""
+        return self.fetch("put", uri, query, body, **kwargs)
+
+    def patch(self, uri, body=None, query=None, **kwargs):
+        """Make a PATCH request, has a body so similar signature to .post"""
+        return self.fetch("patch", uri, query, body, **kwargs)
+
+    def post(self, uri, body=None, query=None, **kwargs):
+        """make a POST request"""
+        return self.fetch("post", uri, query, body, **kwargs)
 
     def basic_auth(self, username, password):
         """add basic auth to this client
@@ -519,6 +533,9 @@ class HTTPClient(object):
         """add bearer TOKEN auth to this client"""
         self.headers["Authorization"] = "Bearer {}".format(token)
 
+    def bearer_auth(self, token):
+        return self.token_auth(token)
+
     def remove_auth(self):
         """Get rid of the internal Authorization header"""
         self.headers.pop("Authorization", None)
@@ -529,15 +546,15 @@ class HTTPClient(object):
         """
         fetch_url = self.get_fetch_url(uri, query or {})
         headers = self.get_fetch_headers(
-            method,
-            kwargs.pop("headers", {}),
-            kwargs.pop("cookies", {}),
+            method=method,
+            headers=kwargs.pop("headers", {}),
+            cookies=kwargs.pop("cookies", {}),
         )
 
         fetch_kwargs = self.get_fetch_request_kwargs(
-            method,
-            body,
-            files,
+            method=method,
+            body=body,
+            files=files,
             headers=headers,
             **kwargs
         )
@@ -554,18 +571,23 @@ class HTTPClient(object):
 
         :param method: str, the http method (eg, GET, POST)
         :param fetch_url: str, the full url requested
-        :param **kwargs: mixed, any arguments to pass to the backend client
+        :keyword request_class: Optional[Request]
+        :keyword response_class: Optional[HTTPResponse]
+        :param **kwargs: arguments passed through to the backend client
         :returns: HTTPResponse, a response instance
         """
         timeout = kwargs.pop("timeout", self.timeout)
+        request_class = kwargs.pop("request_class", Request)
+        response_class = kwargs.pop("response_class", HTTPResponse)
 
         # https://stackoverflow.com/a/48144049
-        req = Request(fetch_url, **kwargs) # compat * import
+         # default Request is from `compat *` import
+        req = request_class(fetch_url, **kwargs)
 
         try:
             # https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
             res = urlopen(req, timeout=timeout)
-            ret = HTTPResponse(
+            ret = response_class(
                 res.code,
                 res.read(),
                 res.headers,
@@ -716,7 +738,13 @@ class HTTPClient(object):
 
         return ua
 
-    def get_fetch_headers(self, method, headers=None, http_cookies=None):
+    def get_fetch_headers(
+        self,
+        method,
+        headers=None,
+        http_cookies=None,
+        **kwargs
+    ):
         """merge class headers with passed in headers
 
         you can see what headers browsers are sending:
@@ -733,9 +761,10 @@ class HTTPClient(object):
             customize headers based on the method that you are calling
         :param headers: dict, all the headers passed into the fetch method
         :param http_cookies: dict, all the cookies
+        :keyword headers_class: Optional[HTTPHeaders]
         :returns: passed in headers merged with global class headers
         """
-        fetch_headers = HTTPHeaders({
+        fetch_headers = kwargs.pop("headers_class", HTTPHeaders)({
             "Accept": ",".join([
                 "text/html",
                 "application/xhtml+xml",

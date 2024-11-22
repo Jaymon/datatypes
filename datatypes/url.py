@@ -523,6 +523,9 @@ class Url(String):
         return Url(*args, **kwargs)
 
     def __new__(cls, urlstring=None, *args, **kwargs):
+        """
+        :keyword hostname: Optional[str] the HOST:PORT or just HOST
+        """
         parts = cls.merge(urlstring, *args, **kwargs)
         urlstring = parts.pop("urlstring")
         instance = super().__new__(cls, urlstring)
