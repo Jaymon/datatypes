@@ -347,29 +347,54 @@ class HTTPResponse(object):
     """
     @property
     def encoding(self):
-        encoding = self.headers.get_content_encoding()
-        if not encoding:
-            # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
-            # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
-            # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
-            # default encoding is UTF-8
-            #
-            # https://www.rfc-editor.org/rfc/rfc2616
-            # HTTP when no explicit charset parameter is provided by the
-            # sender, media subtypes of the "text" type are defined to have a
-            # default charset value of "ISO-8859-1" when received via HTTP.
-            # (rfc2616 is superceded by rfc7231, which doesn't have this
-            # default charset but I'm going to keep it right now)
-            if self.headers.is_json():
-                encoding = "UTF-8"
+        encoding = environ.ENCODING
+        if ct := self.headers.get("content-type", ""):
+            # if the content-type header exists and there is no encoding then
+            # it should be None except under specific media types
+            encoding = self.headers.get_content_encoding()
+            if not encoding:
+                # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
+                # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
+                # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
+                # default encoding is UTF-8
+                #
+                # https://www.rfc-editor.org/rfc/rfc2616
+                # HTTP when no explicit charset parameter is provided by the
+                # sender, media subtypes of the "text" type are defined to have
+                # a default charset value of "ISO-8859-1" when received via
+                # HTTP.  (rfc2616 is superceded by rfc7231, which doesn't have
+                # this default charset but I'm going to keep it right now)
+                if self.headers.is_json():
+                    encoding = "UTF-8"
 
-            elif self.headers.get("content-type", "").startswith("text/"):
-                encoding = "ISO-8859-1"
-
-            else:
-                encoding = environ.ENCODING
+                elif ct.startswith("text/"):
+                    encoding = "ISO-8859-1"
 
         return encoding
+
+#         encoding = self.headers.get_content_encoding()
+#         if not encoding:
+#             # https://stackoverflow.com/questions/29761905/default-encoding-of-http-post-request-with-json-body
+#             # https://www.rfc-editor.org/rfc/rfc7158#section-8.1
+#             # JSON text SHALL be encoded in UTF-8, UTF-16, or UTF-32. The
+#             # default encoding is UTF-8
+#             #
+#             # https://www.rfc-editor.org/rfc/rfc2616
+#             # HTTP when no explicit charset parameter is provided by the
+#             # sender, media subtypes of the "text" type are defined to have a
+#             # default charset value of "ISO-8859-1" when received via HTTP.
+#             # (rfc2616 is superceded by rfc7231, which doesn't have this
+#             # default charset but I'm going to keep it right now)
+#             if self.headers.is_json():
+#                 encoding = "UTF-8"
+# 
+#             elif self.headers.get("content-type", "").startswith("text/"):
+#                 encoding = "ISO-8859-1"
+# 
+#             else:
+#                 encoding = environ.ENCODING
+# 
+#         return encoding
 
     @property
     def cookies(self):
