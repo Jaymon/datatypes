@@ -806,9 +806,14 @@ class HTTPClient(object):
         return fetch_headers
 
     def get_fetch_request_kwargs(self, method, body, files, headers, **kwargs):
+        """Produces keywords to be passed into a urllib.request.Request
+        instance
+
+        https://docs.python.org/3/library/urllib.request.html#urllib.request.Request
+        """
         fetch_kwargs = {
             "headers": headers,
-            "method": method.upper()
+            "method": method.upper() # https://stackoverflow.com/a/48144049
         }
 
         if "timeout" in kwargs:
