@@ -83,7 +83,7 @@ from .logging import (
 )
 from .number import (
     Binary,
-    Boolean, Boolean as Bool
+    Boolean, Boolean as Bool,
     Hex,
     Integer, Integer as Int,
     Exponential,
