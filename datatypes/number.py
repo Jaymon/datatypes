@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 from configparser import RawConfigParser
+import math
 
 from .compat import *
 from .string import String
@@ -20,7 +21,11 @@ class Shorten(object):
     this is a version of base58 that takes strings:
         https://github.com/keis/base58
     """
-    BASE_LIST = '23456789' + 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ' + '_-'
+    BASE_LIST = (
+        "23456789"
+        "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
+        "_-"
+    )
     BASE_DICT = dict((c, i) for i, c in enumerate(BASE_LIST))
 
     def __new__(cls, val):
@@ -57,18 +62,28 @@ class Shorten(object):
 
 class Integer(int):
     def hex(self, length=0, prefix=""):
-        format_str = "{}{{:0>{}X}}".format(prefix, length) if length else "{}{{:X}}".format(prefix)
+        if length:
+            format_str = "{}{{:0>{}X}}".format(prefix, length)
+
+        else:
+            format_str = "{}{{:X}}".format(prefix)
+
         return format_str.format(self)
 
     def binary(self, length=0, prefix=""):
-        format_str = "{}{{:0>{}b}}".format(prefix, length) if length else "{}{{:b}}".format(prefix)
+        if length:
+            format_str = "{}{{:0>{}b}}".format(prefix, length)
+
+        else:
+            format_str = "{}{{:b}}".format(prefix)
+
         return format_str.format(self)
 
     def range(self, start=0):
         """iterate from 0 to self, if self is negative it goes from self to 0
 
-        I honestly have no idea why this is useful but it was in my notes for this
-        module, so here it is
+        I honestly have no idea why this is useful but it was in my notes for
+        this module, so here it is
         """
         if self > start:
             r = range(0, self)
@@ -83,14 +98,23 @@ class Integer(int):
             if isinstance(v, str):
                 sub = True
                 if base is None:
-                    # NOTE: if you have an ambiguous value like "0001" or "0010" this
-                    # will assume it is binary
-                    if re.match(r"^[-+]?0b", v) or re.search(r"^[-+]?[01]+$", v):
+                    # NOTE: if you have an ambiguous value like "0001" or
+                    # "0010" this will assume it is binary
+                    if (
+                        re.match(r"^[-+]?0b", v)
+                        or re.search(r"^[-+]?[01]+$", v)
+                    ):
                         # https://stackoverflow.com/questions/8928240/convert-base-2-binary-number-string-to-int
                         base = 2
                         sub = False
 
-                    elif re.match(r"^[-+]?0x", v) or (re.search(r"[a-fA-F]", v) and re.search(r"[a-fA-F0-9]+$", v)):
+                    elif (
+                        re.match(r"^[-+]?0x", v)
+                        or (
+                            re.search(r"[a-fA-F]", v)
+                            and re.search(r"[a-fA-F0-9]+$", v)
+                        )
+                    ):
                         base = 16
                         sub = False
 
@@ -149,8 +173,8 @@ class Exponential(object):
     def __init__(self, initial, rate):
         """
         :param initial: int|float, the initial value
-        :param rate: int|float, the growth rate, if an integer this will be converted
-            to a float (eg, 10 would be converted to 0.1)
+        :param rate: int|float, the growth rate, if an integer this will be
+            converted to a float (eg, 10 would be converted to 0.1)
         """
         self.initial = initial
 
@@ -282,4 +306,281 @@ class Boolean(int, metaclass=BooleanMeta):
                 raise
 
         return bool(v)
+
+
+class Partitions(Sequence):
+    """Partition funciton. Generate all the partitions for pass in n
+
+    https://en.wikipedia.org/wiki/Partition_function_(number_theory)
+    via https://www.reddit.com/r/maths/comments/1h0lssh/comment/lz5bkxv/
+
+    All of these algorithms come from here:
+        https://stackoverflow.com/questions/10035752/elegant-python-code-for-integer-partitioning
+        https://code.activestate.com/recipes/218332-generator-for-integer-partitions/
+        https://jeromekelleher.net/generating-integer-partitions.html
+
+    Which I found while trying to convert the math in the wikipedia article
+    into actual code (which I failed at which is why I was trying to find
+    some examples)
+
+    References:
+        https://mathworld.wolfram.com/PartitionFunctionP.html
+        https://mathoverflow.net/questions/47611/exact-formulas-for-the-partition-function
+
+    Related:
+        https://docs.python.org/3/library/itertools.html#itertools.permutations
+        https://www.reddit.com/r/math/comments/11t6l6y/breakthrough_in_ramsey_theory_the_longstanding/
+    """
+    def __init__(self, n):
+        if n < 0:
+            raise ValueError(f"{n=} which is less than zero")
+
+        self.n = n
+
+    def __getitem__(self, index):
+        raise NotImplementedError()
+
+    def __len__(self):
+        if self.n < 2:
+            return 1
+
+        else:
+            return len([_ for _ in self])
+
+    def __iter__(self):
+        yield from self.ap()
+
+    def lower_bound(self):
+        """There are guarranteed to be more partitions than this bound
+
+        via: https://math.stackexchange.com/a/4852015
+        """
+        one = math.exp(math.pi * math.sqrt((2 * self.n) / 3))
+        two = 4 * self.n * math.sqrt(3)
+        three = 1 - (1 / (2 * math.sqrt(self.n)))
+        return int((one / two) * three)
+
+    def upper_bound(self):
+        """There are guarranteed to be less partitions than this bound
+
+        via:
+            * https://math.stackexchange.com/a/4852015
+            * https://math.stackexchange.com/a/4752148
+            * Ramanujan's upper bound for number of partitions of n:
+                https://code.activestate.com/recipes/218332-generator-for-integer-partitions/#c2
+        """
+        one = math.exp(math.pi * math.sqrt((2 * self.n) / 3))
+        two = 4 * self.n * math.sqrt(3)
+        three = 1 - (1 / (3 * math.sqrt(self.n)))
+        return int((one / two) * three)
+
+    def ap(self):
+        """Generate partitions of .n as ordered lists in ascending
+        lexicographical order.
+
+        This highly efficient routine is based on the delightful
+        work of Kelleher and O'Sullivan.
+
+        .. Example:
+
+            >>> for i in aP(6): i
+            ...
+            [1, 1, 1, 1, 1, 1]
+            [1, 1, 1, 1, 2]
+            [1, 1, 1, 3]
+            [1, 1, 2, 2]
+            [1, 1, 4]
+            [1, 2, 3]
+            [1, 5]
+            [2, 2, 2]
+            [2, 4]
+            [3, 3]
+            [6]
+
+            >>> for i in aP(0): i
+            ...
+            []
+
+        References
+        ----------
+
+        .. [1] Generating Integer Partitions, [online],
+            Available: http://jeromekelleher.net/generating-integer-partitions.html
+        .. [2] Jerome Kelleher and Barry O'Sullivan, "Generating All
+            Partitions: A Comparison Of Two Encodings", [online],
+            Available: http://arxiv.org/pdf/0909.2331v2.pdf
+        ..  [3] via: https://code.activestate.com/recipes/218332-generator-for-integer-partitions/#c9
+
+        :returns: Generator[list[int]]
+        """
+        # The list `a`'s leading elements contain the partition in which
+        # y is the biggest element and x is either the same as y or the
+        # 2nd largest element; v and w are adjacent element indices
+        # to which x and y are being assigned, respectively.
+        n = self.n
+        a = [1]*n
+        y = -1
+        v = n
+        while v > 0:
+            v -= 1
+            x = a[v] + 1
+            while y >= 2 * x:
+                a[v] = x
+                y -= x
+                v += 1
+            w = v + 1
+            while x <= y:
+                a[v] = x
+                a[w] = y
+                yield a[:w + 1]
+                x += 1
+                y -= 1
+            a[v] = x + y
+            y = a[v] - 1
+            yield a[:w]
+
+    def accel_asc(self):
+        """This is the default fast method that .ap takes inspiration from
+
+        https://jeromekelleher.net/generating-integer-partitions.html
+
+        :returns: Generator[list[int]]
+        """
+        n = self.n
+        a = [0 for i in range(n + 1)]
+        k = 1
+        y = n - 1
+        while k != 0:
+            x = a[k - 1] + 1
+            k -= 1
+            while 2 * x <= y:
+                a[k] = x
+                y -= x
+                k += 1
+            l = k + 1
+            while x <= y:
+                a[k] = x
+                a[l] = y
+                yield a[:k + 2]
+                x += 1
+                y -= 1
+            a[k] = x + y
+            y = x + y - 1
+            yield a[:k + 1]
+
+    def kpartitions(self, k=None):
+        """Generate all partitions of integer n (>= 0) using integers no
+        greater than k (default, None, allows the partition to contain n).
+
+        Each partition is represented as a multiset, i.e. a dictionary
+        mapping an integer to the number of copies of that integer in
+        the partition.  For example, the partitions of 4 are {4: 1},
+        {3: 1, 1: 1}, {2: 2}, {2: 1, 1: 2}, and {1: 4} corresponding to
+        [4], [1, 3], [2, 2], [1, 1, 2] and [1, 1, 1, 1], respectively.
+        In general, sum(k * v for k, v in a_partition.iteritems()) == n, and
+        len(a_partition) is never larger than about sqrt(2*n).
+
+        Note that the _same_ dictionary object is returned each time.
+        This is for speed:  generating each partition goes quickly,
+        taking constant time independent of n. If you want to build a list
+        of returned values then use .copy() to get copies of the returned
+        values:
+
+        >>> p_all = []
+        >>> for p in partitions(6, 2):
+        ...     p_all.append(p.copy())
+        ...
+        >>> print(p_all)
+        [{2: 3}, {1: 2, 2: 2}, {1: 4, 2: 1}, {1: 6}]
+
+        Reference
+        ---------
+
+        Modified from Tim Peter's posting to accomodate a k value:
+        http://code.activestate.com/recipes/218332/
+
+        via: https://code.activestate.com/recipes/218332-generator-for-integer-partitions/#c7
+        via: https://code.activestate.com/recipes/218332-generator-for-integer-partitions/#c5
+
+        :param k: int, the upper bound value that values in the partition can't
+            be greater than
+        :returns: Generator[dict[int, int]], where the keys are the integer and
+            the values are the number of times the integer/key appears in the
+            partition
+        """
+        n = self.n
+        if n == 0:
+            yield {}
+            return
+
+        if k is None or k > n:
+            k = n
+
+        q, r = divmod(n, k)
+        ms = {k : q}
+        keys = [k]
+        if r:
+            ms[r] = 1
+            keys.append(r)
+        yield ms
+
+        while keys != [1]:
+            # Reuse any 1's.
+            if keys[-1] == 1:
+                del keys[-1]
+                reuse = ms.pop(1)
+            else:
+                reuse = 0
+
+            # Let i be the smallest key larger than 1.  Reuse one
+            # instance of i.
+            i = keys[-1]
+            newcount = ms[i] = ms[i] - 1
+            reuse += i
+            if newcount == 0:
+                del keys[-1], ms[i]
+
+            # Break the remainder into pieces of size i-1.
+            i -= 1
+            q, r = divmod(reuse, i)
+            ms[i] = q
+            keys.append(i)
+            if r:
+                ms[r] = 1
+                keys.append(r)
+
+            yield ms
+
+    def perm(k=None):
+        """Wrapper around math.perm
+
+        https://docs.python.org/3/library/math.html#math.perm
+        """
+        return math.perm(self.n, k)
+
+    def strict(self):
+        """Yield all the strict partitions where there are no repeating
+        numbers
+
+        https://en.wikipedia.org/wiki/Partition_function_(number_theory)#Strict_partition_function
+            A partition in which no part occurs more than once is called
+            strict, or is said to be a partition into distinct parts. The
+            function q(n) gives the number of these strict partitions of the
+            given sum n. For example, q(3) = 2 because the partitions 3 and 1 +
+            2 are strict, while the third partition 1 + 1 + 1 of 3 has repeated
+            parts
+
+        :returns: Generator[list[int]]
+        """
+        for p in self.kpartitions():
+            rp = []
+            for n, count in p.items():
+                if count > 1:
+                    break
+
+                rp.append(n)
+
+            else:
+                # only yield if the for loop completely finished
+                yield rp
 

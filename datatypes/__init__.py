@@ -82,12 +82,13 @@ from .logging import (
     LogMixin,
 )
 from .number import (
-    Shorten,
-    Integer, Integer as Int,
-    Hex,
     Binary,
-    Exponential,
     Boolean, Boolean as Bool
+    Hex,
+    Integer, Integer as Int,
+    Exponential,
+    Partitions,
+    Shorten,
 )
 from .parse import (
     ArgvParser,

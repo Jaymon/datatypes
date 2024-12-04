@@ -8,6 +8,7 @@ from datatypes.number import (
     Hex,
     #Binary,
     Boolean,
+    Partitions,
 )
 
 from . import TestCase, testdata
@@ -155,4 +156,77 @@ class BooleanTest(TestCase):
         self.assertFalse(Boolean("   "))
         self.assertFalse(Boolean("f"))
         self.assertFalse(Boolean("false"))
+
+
+class PartitionsTest(TestCase):
+    def test_bounds(self):
+        p = Partitions(10)
+        self.assertLess(p.lower_bound(), len(p))
+        self.assertGreater(p.upper_bound(), len(p))
+
+    def test_kpartitions(self):
+        p = Partitions(10)
+        for p in p.kpartitions(4):
+            for k in p.keys():
+                self.assertLessEqual(k, 4)
+
+        p = Partitions(6)
+        for p in p.kpartitions(2):
+            for k in p.keys():
+                self.assertLessEqual(k, 2)
+
+    def test___iter__(self):
+        ps = Partitions(10)
+        count = 0
+        for p in ps:
+            count += 1
+        self.assertEqual(42, count)
+
+    def test___len__(self):
+        # values from: https://en.wikipedia.org/wiki/Partition_function_(number_theory)
+        ps = [
+            (0, 1),
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (4, 5),
+            (5, 7),
+            (6, 11),
+            (7, 15),
+            (8, 22),
+            (9, 30),
+            (10, 42),
+            (25, 1958),
+            (40, 37338),
+        ]
+
+        for pn, plen in ps:
+            p = Partitions(pn)
+            self.assertEqual(plen, len(p))
+
+    def test_strict(self):
+        pstests = [
+            (0, 1),
+            (1, 1),
+            (2, 1),
+            (3, 2),
+            (4, 2),
+            (5, 3),
+            (6, 4),
+            (7, 5),
+            (8, 6),
+            (9, 8),
+        ]
+
+        for pn, plen in pstests:
+            ps = Partitions(pn)
+            count = 0
+            for p in ps.strict():
+                count += 1
+                seen = set()
+                for n in p:
+                    self.assertFalse(n in seen)
+                    seen.add(n)
+
+            self.assertEqual(plen, count, f"{ps.n=}")
 
