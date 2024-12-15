@@ -463,6 +463,13 @@ class NamingConvention(String):
     """Class that makes it easy to handle the different types of names that can
     be defined and passed in.
 
+    Common methods:
+
+        * .upper_camelcase, .capwords - FooBar
+        * .lower_camelcase, .mixedcase - fooBar
+        * .snakecase - foo_bar
+        * .kebabcase - foo-bar
+
     For example, python convention for variables is snake case (lower case with
     underscores between words: foo_bar), but class names are camel case (title
     case words scrunched together: FooBar) and you would want to pass in values
@@ -510,8 +517,8 @@ class NamingConvention(String):
         return self.split("_")
 
     def split(self, *args, **kwargs):
-        """Overrides the normal string split to also split on camelcasing,
-        dashes, or underscores. If you pass in a value then it will act like
+        """Overrides the normal string split to also split on camelcasing or
+        punctuation. If you pass in any arguments then it will act like
         the normal split
         """
         if args or kwargs:
@@ -519,7 +526,9 @@ class NamingConvention(String):
 
         else:
             ret = []
-            for p in re.split(r"[\s_-]", self):
+            #regex = r"[\s_-]"
+            regex = r"[\s" + re.escape(self.PUNCTUATION) + r"]"
+            for p in re.split(regex, self):
                 ret.extend(type(self)(p).splitcamel())
 
         return ret
@@ -571,18 +580,23 @@ class NamingConvention(String):
             NamingConvention("FooBar").varname() # foo_bar
         """
         return self.snakecase()
-    variable_name = varname
-    variable = varname
-    var_name = varname
+    def variable_name(self):
+        return self.varname()
+    def variable(self):
+        return self.varname()
+    def var_name(self):
+        return self.varname()
 
     def classname(self):
-        """Return the typical python class name for self
+        """Return the typical python class name for self, this is upper
+        camel case
 
         :Example:
             NamingConvention("foo_bar").classname() # FooBar
         """
-        return self.camelcase()
-    class_name = classname
+        return self.upper_camelcase()
+    def class_name(self):
+        return self.classname()
 
     def constantname(self):
         """Return the typical constant name for self
@@ -591,7 +605,8 @@ class NamingConvention(String):
             NamingConvention("foo_bar").constantname() # FOO_BAR
         """
         return self.screaming_snakecase()
-    constant = constantname
+    def constant(self):
+        return self.constantname()
 
     def keyname(self):
         """Return the typical key name for self
@@ -602,9 +617,13 @@ class NamingConvention(String):
         return self.kebabcase()
 
     def camelcase(self):
-        """Convert a string to use camel case (spaces removed and capital
-        letters)
+        return self.upper_camelcase()
 
+    def upper_camelcase(self):
+        """Convert a string to use camel case (spaces and punctuation removed
+        and capital letters)
+
+        FooBar
         CamelCase
 
         :Example:
@@ -614,24 +633,47 @@ class NamingConvention(String):
         here on March 8, 2022
 
         https://en.wikipedia.org/wiki/Camel_case
+            the practice of writing phrases without spaces or punctuation and
+            with capitalized words
         https://stackoverflow.com/questions/17326185/what-are-the-different-kinds-of-cases
         https://en.wikipedia.org/wiki/Naming_convention_(programming)#Examples_of_multiple-word_identifier_formats
         """
         return "".join(map(lambda s: s.title(), self.split()))
-    def upper_camelcase(self):
-        """aliase of camel case"""
-        return self.camelcase()
     def pascalcase(self):
-        """alias of camel casee"""
-        return self.camelcase()
-    def studlycase(self):
-        """alias of camel case"""
-        return self.camelcase()
+        return self.upper_camelcase()
     def CamelCase(self):
-        return self.camelcase()
+        return self.upper_camelcase()
+    def camelcaps(self):
+        return self.upper_camelcase()
+    def camelback(self):
+        return self.upper_camelcase()
+    def capitalizedwords(self):
+        """Python name for upper camel case
+
+        FooBar
+
+        https://legacy.python.org/dev/peps/pep-0008/#descriptive-naming-styles
+            CapitalizedWords (or CapWords, or CamelCase -- so named because of
+            the bumpy look of its letters [4]). This is also sometimes known as
+            StudlyCaps.
+
+            Note: When using abbreviations in CapWords, capitalize all the
+            letters of the abbreviation. Thus HTTPServerError is better than
+            HttpServerError.
+        """
+        return self.upper_camelcase()
+    def capwords(self):
+        return self.upper_camelcase()
+    def studlycaps(self):
+        return self.upper_camelcase()
+    def studlycase(self):
+        return self.upper_camelcase()
 
     def lower_camelcase(self):
         """camel case but first letter is lowercase (eg camelCase)
+
+        fooBar
+        camelCase
 
         :Example:
             NamingConvention("foo-bar").lower_camelcase() # fooBar
@@ -642,6 +684,12 @@ class NamingConvention(String):
         """camel case but first letter is lowercase"""
         return self.lower_camelcase()
     def camelCase(self):
+        return self.lower_camelcase()
+    def mixedcase(self):
+        """mixedCase for lower camel case in Python
+
+        https://legacy.python.org/dev/peps/pep-0008/#descriptive-naming-styles
+        """
         return self.lower_camelcase()
 
     def snakecase(self):

@@ -259,6 +259,10 @@ class NamingConventionTest(TestCase):
         self.assertTrue("foo-bar" in vs)
         self.assertTrue("foo_bar" in vs)
 
+    def test_punctuation(self):
+        s = NamingConvention("foo.bar")
+        self.assertEqual("fooBar", s.lower_camelcase())
+
 
 class EnglishWordTest(TestCase):
     def test_syllables(self):
