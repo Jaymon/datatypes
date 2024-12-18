@@ -463,12 +463,10 @@ class NamingConvention(String):
     """Class that makes it easy to handle the different types of names that can
     be defined and passed in.
 
-    Common methods:
-
-        * .upper_camelcase, .capwords - FooBar
-        * .lower_camelcase, .mixedcase - fooBar
-        * .snakecase - foo_bar
-        * .kebabcase - foo-bar
+    * .upper_camelcase, .capwords - FooBar
+    * .lower_camelcase, .mixedcase - fooBar
+    * .snakecase - foo_bar
+    * .kebabcase - foo-bar
 
     For example, python convention for variables is snake case (lower case with
     underscores between words: foo_bar), but class names are camel case (title
