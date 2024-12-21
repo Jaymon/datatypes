@@ -69,13 +69,14 @@ class ABNFToken(object):
         :param depth: int, if 1, then this will only return immediate tokens
             that match name. If depth is >1 then it will return up to depth
             levels of name tokens. If depth is <=0 then it will return all
-            levels of name tokens. It's handy to have this level of control when
-            actually parsing something
-        :param related: bool, only matters if depth != 1, if True then this will
-            only yield subsequent depths from found name tokens. So if you were
-            looking for "foo" tokens and passed in depth=0 and related=True, you
-            would get foo.foo... tokens but not bar.foo tokens if that makes
-            sense
+            levels of name tokens. It's handy to have this level of control
+            when actually parsing something
+        :param related: bool, only matters if depth != 1, if True then this
+            will only yield subsequent depths from found name tokens. So if you
+            were looking for "foo" tokens and passed in depth=0 and
+            related=True, you would get foo.foo... tokens but not bar.foo
+            tokens if that makes sense. Basically, related makes it so checking
+            further depth only happens on previously matched tokens
         :returns: generator, yields name tokens
         """
         vs = []
@@ -100,7 +101,7 @@ class ABNFToken(object):
 
 
 class ABNFDefinition(ABNFToken):
-    """Returned by the ABNFGrammar, this hads some helper methods to make it
+    """Returned by the ABNFGrammar, this has some helper methods to make it
     easier to manipulate and check ABNF grammars against input to be parsed"""
     @property
     def defname(self):
@@ -272,11 +273,11 @@ class ABNFDefinition(ABNFToken):
             for v in definedas.values:
                 if isinstance(v, str):
                     if v == "=/":
-                        # we want to find the alternation of self and append the
-                        # concatenation values of definition's alternation
+                        # we want to find the alternation of self and append
+                        # the concatenation values of definition's alternation
 
-                        # we add rule, elements, and alternation to options more
-                        # for logging than anything else
+                        # we add rule, elements, and alternation to options
+                        # more for logging than anything else
 
                         elements1 = self.values[2]
                         elements2 = definition.values[2]
@@ -605,9 +606,10 @@ class ABNFGrammar(Scanner):
                                 ; prose description, to be used as
                                 ;  last resort
 
-        as far as I can tell prose-val is equivalent to rulename so this returns
-        a rulename definition so other functionality can pick it up, it looks
-        like if you wanted to have spaces in your rulenames you would use these
+        as far as I can tell prose-val is equivalent to rulename so this
+        returns a rulename definition so other functionality can pick it up, it
+        looks like if you wanted to have spaces in your rulenames you would use
+        these
         """
         start = self.tell()
 
@@ -1104,8 +1106,8 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
 
     To use instaparse for ABNF, in the lower right, click on Options and change
     `:input-format` to ':abnf'. Then paste an ABNF grammar into the entry box
-    above the options. Then you can paste something to parse into the box on the
-    left.
+    above the options. Then you can paste something to parse into the box on
+    the left.
 
     https://en.wikipedia.org/wiki/Recursive_descent_parser
     https://en.wikipedia.org/wiki/Left_recursion
@@ -1146,7 +1148,10 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             eoftell = len(self.scanner)
             if token.stop < eoftell:
                 raise ParseError(
-                    "Only parsed {}/{} characters of buffer using {}: {}".format(
+                    (
+                        "Only parsed {}/{} characters of buffer using"
+                        " {}: {}"
+                    ).format(
                         token.stop,
                         eoftell,
                         self.entry_rule.defname,
@@ -1303,11 +1308,11 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             self.push(rule)
             success = 0
 
-            # you might be tempted to change this to "stop < eoftell" but that 
+            # you might be tempted to change this to "stop < eoftell" but that
             # would be a mistake. You need to go through the rule one more time
-            # after hitting the eof to successfully pick up any optional rules that
-            # don't need to actually parse anything but do need to successfully
-            # parse by returning an empty list
+            # after hitting the eof to successfully pick up any optional rules
+            # that don't need to actually parse anything but do need to
+            # successfully parse by returning an empty list
             while True:
                 self.scanner.seek(start)
 
@@ -1335,10 +1340,10 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
                         token
                     )
 
-                    # we check the saved token here, if it is more "complete" than
-                    # the token we just parsed let's switch to the saved token and
-                    # go ahead and bail since it seems like we're done with parsing
-                    # this token
+                    # we check the saved token here, if it is more "complete"
+                    # than the token we just parsed let's switch to the saved
+                    # token and go ahead and bail since it seems like we're
+                    # done with parsing this token
                     save = True
                     parsing_info = self.parsing_rules_info[rulename]
                     if saved_token := parsing_info["indexes"].get(start, None):
@@ -1499,76 +1504,6 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         except ParseError:
             return []
 
-#     def xparse_num_val(self, rule):
-#         """Terminal parsing rule, this actually moves the cursor and consumes
-#         the buffer
-#         """
-#         values = []
-#         start = self.scanner.tell()
-#         with self.transaction() as scanner:
-#             if rule.is_val_range():
-#                 v = scanner.read(1)
-#                 if v:
-#                     codepoint = ord(v)
-#                     if rule.min > codepoint or codepoint > rule.max:
-#                         raise ParseError(
-#                             "Failure {}, {} not in range: {} <= {} <= {}".format(
-#                                 rule.name,
-#                                 v,
-#                                 rule.min,
-#                                 codepoint,
-#                                 rule.max
-#                             )
-#                         )
-# 
-#                     self.log_debug("Parsed {} value: {}", rule.name, v)
-# 
-#                     if v in String.DIGITS:
-#                         v = int(v)
-#                     values = [v]
-# 
-#                 else:
-#                     raise ParseError(f"Failure {rule.name}")
-# 
-#             elif rule.is_val_chars():
-#                 chars = rule.chars
-#                 total_chars = len(chars)
-#                 for i, ch in enumerate(chars, 1):
-#                     v = scanner.read(1)
-#                     if v:
-#                         codepoint = ord(v)
-#                         if codepoint != ch:
-#                             raise ParseError(
-#                                 "Failure {} character {}/{}, {} value {} != {}".format(
-#                                     rule.name,
-#                                     i,
-#                                     total_chars,
-#                                     v,
-#                                     codepoint,
-#                                     ch
-#                                 )
-#                             )
-# 
-#                         self.log_debug(
-#                             "Parsed {} character {}/{} value: {}",
-#                             rule.name,
-#                             i,
-#                             total_chars,
-#                             v
-#                         )
-# 
-#                         if v in String.DIGITS:
-#                             v = int(v)
-#                         values.append(v)
-# 
-#                     else:
-#                         raise ParseError(f"Failure {rule.name}")
-# 
-#             else:
-#                 raise RuntimeError(f"Unsure how to handle {rule.name}")
-# 
-#         return values
-
     def parse_num_val(self, rule):
         """Terminal parsing rule, this actually moves the cursor and consumes
         the buffer
@@ -1582,7 +1517,9 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
                     codepoint = ord(v)
                     if chmin > codepoint or codepoint > chmax:
                         raise ParseError(
-                            "Failure {}, {} not in range: {} <= {} <= {}".format(
+                            (
+                                "Failure {}, {} not in range: {} <= {} <= {}"
+                            ).format(
                                 rule.name,
                                 v,
                                 chmin,
