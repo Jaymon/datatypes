@@ -2,11 +2,12 @@
 import re
 import shlex
 from collections import defaultdict
+import functools
 
 from datatypes import Boolean
 
 from .compat import *
-from .string import String, NormalizeString
+from .string import String
 from .token.abnf import ABNFGrammar, ABNFDefinition
 from .token.base import Scanner
 
@@ -244,25 +245,24 @@ class ArgParser(ArgvParser):
         super().__init__(argv, **kwargs)
 
 
-class Version(NormalizeString):
+class Version(String):
     """This is a lightweight quick and dirty version parser, it is not trying
     to replace the one in setuptools and is not PEP440 compliant
 
     https://peps.python.org/pep-0440/
     https://stackoverflow.com/a/11887885/5006
     """
-    @classmethod
-    def after_create(cls, instance, **kwargs):
+    @functools.cached_property
+    def parts(self):
         parts = []
-        for part in instance.split("."):
+        for part in self.split("."):
             if part.isdigit():
                 parts.append(int(part))
 
             else:
                 parts.append(part)
 
-        instance.parts = parts
-        return instance
+        return parts
 
     def __eq__(self, other):
         ov = type(self)(other)
