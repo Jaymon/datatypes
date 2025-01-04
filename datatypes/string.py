@@ -433,32 +433,6 @@ class String(Str, StringMixin):
         })
 
 
-class NormalizeString(String):
-    """Triggers a .before_create(val, **kwargs) call before creating the String
-    instance and an .after_create(instance) after creating the string
-    """
-    def __new__(cls, val, **kwargs):
-        """
-        :param val: str, the prospective slug
-        :param **kwargs: passed through to .normalize() method
-        """
-        val = cls.before_create(val, **kwargs)
-        instance = super().__new__(cls, val)
-        return cls.after_create(instance, **kwargs)
-
-    @classmethod
-    def before_create(cls, val, **kwargs):
-        return cls.normalize(val, **kwargs)
-
-    @classmethod
-    def normalize(cls, val, **kwargs):
-        return val
-
-    @classmethod
-    def after_create(cls, instance, **kwargs):
-        return instance
-
-
 class NamingConvention(String):
     """Class that makes it easy to handle the different types of names that can
     be defined and passed in.
