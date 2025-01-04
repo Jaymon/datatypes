@@ -17,7 +17,7 @@ import os
 
 from .compat import *
 from .copy import Deepcopy
-from .string import String, ByteString, NormalizeString, Base64
+from .string import String, ByteString, Base64
 from .config.environ import environ
 
 
@@ -886,7 +886,7 @@ class HTTPClient(object):
         return {}, body.encode(kwargs.get("encoding", environ.ENCODING))
 
 
-class UserAgent(NormalizeString):
+class UserAgent(String):
     """Parse a request User-Agent header value
 
     https://github.com/Jaymon/datatypes/issues/55
@@ -897,12 +897,13 @@ class UserAgent(NormalizeString):
         * client_version
         * client_device
     """
-    @classmethod
-    def after_create(cls, instance, **kwargs):
+    def __new__(cls, user_agent, **kwargs):
+        instance = super().__new__(cls, user_agent, **kwargs)
         for k, v in cls.parse_user_agent(instance).items():
             setattr(instance, k, v)
 
         return instance
+
 
     @classmethod
     def parse_user_agent(cls, user_agent):
