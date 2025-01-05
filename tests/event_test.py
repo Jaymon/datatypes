@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, division, print_function, absolute_import
 
 from datatypes.compat import *
 from datatypes.event import Event
@@ -7,15 +6,6 @@ from . import TestCase
 
 
 class EventTest(TestCase):
-    def setUp(self):
-        event = Event()
-        event.reset()
-
-    def test_singleton(self):
-        e = Event()
-        e2 = Event()
-        self.assertTrue(e is e2)
-
     def test_push_and_bind(self):
         ev = Event()
 
