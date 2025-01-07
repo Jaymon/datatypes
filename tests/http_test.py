@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import email
 
 from datatypes.compat import *
 from datatypes.http import (
@@ -237,6 +238,22 @@ class HTTPHeadersTest(TestCase):
         h.delete_header("content-type")
         self.assertFalse(h.has_header("content-type"))
 
+    def test_get_cookies(self):
+        headers = email.message_from_bytes((
+            b"Server: SimpleHTTP/0.6 Python/3.10.14"
+            b"\nDate: Tue, 07 Jan 2025 00:48:46 GMT"
+            b"\nSet-Cookie: foo=w4D6PIVaDb6Pmmzg"
+            b"\nSet-Cookie: bar=weQMzmtGKZb3FMoCk"
+            b"\nSet-Cookie: che=1\n\n"
+        ))
+
+        hs = HTTPHeaders(headers)
+        cs = hs.get_cookies()
+
+        self.assertEqual(3, len(cs))
+        for k in ["foo", "bar", "che"]:
+            self.assertTrue(k in cs)
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):
@@ -349,6 +366,15 @@ class HTTPClientTest(TestCase):
             c = HTTPClient(server)
             r = c.get("/")
             self.assertFalse("content-type:" in r.body.lower())
+
+    def test_cookies(self):
+        server = self.create_callbackserver({
+            "GET": lambda handler: None,
+        })
+        with server:
+            c = HTTPClient(server)
+            r = c.get("", cookies={"foo": "1"})
+            self.assertTrue("Cookie" in r.request.headers)
 
 
 class UserAgentTest(TestCase):

@@ -110,12 +110,12 @@ class BaseServer(HTTPServer):
         * https://docs.python.org/3/library/socketserver.html#socketserver.TCPServer
         * https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer
     """
-    def __init__(self, server_address=None, encoding="", **kwargs):
+    def __init__(self, server_address=None, *, encoding="", **kwargs):
         """
         :param server_address: tuple[str, int], (hostname, port), if None this
             will use ("", None) which will cause the parent to use 0.0.0.0 and
             to find an available free port
-        :param encoding: str, if empty then environment setting will be used
+        :keyword encoding: str, if empty then environment setting will be used
         :param **kwargs: passed to parent
             RequestHandlerClass: will be set to children's handler_class param
         """
@@ -234,12 +234,12 @@ class PathServer(BaseServer):
     """
     handler_class = PathHandler
 
-    def __init__(self, path, *args, **kwargs):
+    def __init__(self, path, server_address=None, **kwargs):
         self.path = Dirpath(path)
         if not self.path.isdir():
             raise ValueError(f"{path} is not a valid directory")
 
-        super().__init__(*args, **kwargs)
+        super().__init__(server_address, **kwargs)
 
     def finish_request(self, request, client_address):
         self.RequestHandlerClass(
@@ -347,28 +347,28 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             self.do_success(body)
 
     def do_success(self, body):
+        code = 200
+        ct = ""
+
+        if isinstance(body, NoneType):
+            code = 204
+
+        elif isinstance(body, (str, int, bool, float)):
+            body = bytes(str(body), self.encoding)
+            ct = "text/html"
+
+        elif isinstance(body, bytes):
+            ct = "application/octet-stream"
+
+        elif isinstance(body, io.IOBase):
+            body = body.read()
+            ct = "application/octet-stream"
+
+        else:
+            body = bytes(json.dumps(body), self.encoding)
+            ct = "application/json"
+
         if not self.headers_sent:
-            code = 200
-            ct = ""
-
-            if isinstance(body, NoneType):
-                code = 204
-
-            elif isinstance(body, (str, int, bool, float)):
-                body = bytes(str(body), self.encoding)
-                ct = "text/html"
-
-            elif isinstance(body, bytes):
-                ct = "application/octet-stream"
-
-            elif isinstance(body, io.IOBase):
-                body = body.read()
-                ct = "application/octet-stream"
-
-            else:
-                body = bytes(json.dumps(body), self.encoding)
-                ct = "application/json"
-
             self.code = code
             self.send_response(code)
             if ct:
@@ -435,23 +435,40 @@ class CallbackServer(BaseServer):
 
     Moved from testdata.server on 1-24-2023
 
-    :Example:
+    ..Example 1:
+        # define the callbacks using callables
+
         def do_GET(handler):
             return "GET REQUEST"
 
         def do_POST(handler):
             return handler.body
 
-        s = CallbackServer({
+        s = CallbackServer(callbacks={
             "GET": do_GET,
             "POST": do_POST,
         })
+
+    ..Example 2:
+        # define the callbacks in a child class
+
+        class MyServer(CallbackServer):
+            def GET(self, handler):
+                # handle GET HTTP requests
+                print(handler.query)
+
+            def POST(self, handler):
+                # handle POST HTTP requests
+                print(handler.body)
     """
     handler_class = CallbackHandler
 
-    def __init__(self, callbacks, *args, **kwargs):
+    def __init__(self, callbacks=None, server_address=None, **kwargs):
+        if not callbacks:
+            callbacks = self.find_callbacks()
+
         self.callbacks = callbacks
-        super().__init__(*args, **kwargs)
+        super().__init__(server_address, **kwargs)
 
     def finish_request(self, request, client_address):
         self.RequestHandlerClass(
@@ -461,24 +478,6 @@ class CallbackServer(BaseServer):
             self,
             encoding=self.encoding,
         )
-
-
-class MethodServer(CallbackServer):
-    """Very similar to a CallbackServer except it is designed to be extended
-    and the child class can define the handler methods
-
-    :Example:
-        class MyServer(MethodServer):
-            def GET(self, handler):
-                # handle GET HTTP requests
-                print(handler.query)
-
-            def POST(self, handler):
-                # handle POST HTTP requests
-                print(handler.body)
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(self.find_callbacks(), *args, **kwargs)
 
     def find_callbacks(self):
         """Internal method to generate the callbacks dict that the
@@ -501,6 +500,46 @@ class MethodServer(CallbackServer):
                 callbacks[method_name] = getattr(self, method_name)
 
         return callbacks
+
+
+# class MethodServer(CallbackServer):
+#     """Very similar to a CallbackServer except it is designed to be extended
+#     and the child class can define the handler methods
+# 
+#     :Example:
+#         class MyServer(MethodServer):
+#             def GET(self, handler):
+#                 # handle GET HTTP requests
+#                 print(handler.query)
+# 
+#             def POST(self, handler):
+#                 # handle POST HTTP requests
+#                 print(handler.body)
+#     """
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(self.find_callbacks(), *args, **kwargs)
+# 
+#     def find_callbacks(self):
+#         """Internal method to generate the callbacks dict that the
+#         CallbackServer expects
+# 
+#         :returns: dict[str, callable[CallableHandler]], this looks for any
+#             method that starts with `do_` (eg `do_GET`) or any method with all
+#             uppercase characters (eg, `GET`)
+#         """
+#         callbacks = {}
+#         for method_name in dir(self):
+#             if method_name.startswith("_"):
+#                 # ignore private and magic methods
+#                 continue
+# 
+#             elif method_name.startswith("do_"):
+#                 callbacks[method_name[3:]] = getattr(self, method_name)
+# 
+#             elif method_name.isupper():
+#                 callbacks[method_name] = getattr(self, method_name)
+# 
+#         return callbacks
 
 
 class WSGIServer(BaseServer, WSGIHTTPServer):

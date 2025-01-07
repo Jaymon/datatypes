@@ -16,6 +16,7 @@ import io
 import os
 
 from .compat import *
+from .compat import cookies as httpcookies
 from .copy import Deepcopy
 from .string import String, ByteString, Base64
 from .config.environ import environ
@@ -38,9 +39,9 @@ class HTTPHeaders(BaseHeaders, Mapping):
         https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
 
     wsgiref class docs:
-        https://docs.python.org/2/library/wsgiref.html#module-wsgiref.headers
-        https://hg.python.org/cpython/file/2.7/Lib/wsgiref/headers.py
-    actual python3 code:
+        https://docs.python.org/3/library/wsgiref.html#module-wsgiref.headers
+
+    actual code:
         https://github.com/python/cpython/blob/master/Lib/wsgiref/headers.py
     """
     encoding = "iso-8859-1"
@@ -54,9 +55,30 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
     def __init__(self, headers=None, **kwargs):
         super().__init__([])
-        self.update(headers, **kwargs)
+        self.append(headers, **kwargs)
 
-    def _convert_string_part(self, bit):
+    def _iter_headers(self, headers, **kwargs):
+        """
+        :param headers: dict[str, str]|list[tuple[str, str]]|Message
+        :param **kwargs: key=val where key is the header name and val is the
+            header value
+        :returns: generator[tuple[str, str]]
+        """
+        if headers:
+            if isinstance(headers, Mapping):
+                headers = headers.items()
+
+            elif isinstance(headers, email.message.Message):
+                headers = headers._headers
+
+            for k, v in headers:
+                yield k, v
+
+        if kwargs:
+            for k, v in kwargs.items():
+                yield k, v
+
+    def _convert_string_part(self, part):
         """each part of a header will go through this method, this allows
         further normalization of each part, so a header like FOO_BAR would call
         this method twice, once with foo and again with bar
@@ -64,28 +86,51 @@ class HTTPHeaders(BaseHeaders, Mapping):
         this is called train case or http-header case
 
         https://stackoverflow.com/questions/17326185/what-are-the-different-kinds-of-cases
-
-        this method doesn't normalize all the non-standard header bits, for
-        example, this would mess up ETag, HTTP2, WWW, DNT, ATT, ID, etc
-
         https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
 
-        :param bit: string, a part of a header all lowercase
-        :returns: string, the normalized bit
+        :param part: string, a part of a header all lowercase
+        :returns: string, the normalized part
         """
-        if bit == "websocket":
-            bit = "WebSocket"
+        part = part.lower()
+
+        if part == "websocket":
+            part = "WebSocket"
+
+        elif part == "etag":
+            part = "ETag"
+
+        elif (
+            part == "id"
+            or part == "www"
+            or part == "xss"
+            or part == "md5"
+            or part == "http"
+            or part == "http2"
+            or part == "dnt"
+            or part == "att"
+            or part == "ch"
+            or part == "im"
+            or part == "p3p"
+            or part == "csp"
+            or part == "ct"
+            or part == "nel"
+            or part == "ua"
+            or part == "gpc"
+            or part == "uidh"
+            or part == "te"
+        ):
+            part = part.upper()
 
         else:
-            bit = bit.title()
+            part = part.title()
 
-        return bit
+        return part
 
     def _convert_string_name(self, k):
         """converts things like FOO_BAR to Foo-Bar which is the normal form"""
         k = String(k, self.encoding)
-        bits = k.lower().replace('_', '-').split('-')
-        return "-".join((self._convert_string_part(bit) for bit in bits))
+        parts = k.replace('_', '-').split('-')
+        return "-".join((self._convert_string_part(part) for part in parts))
 
     def _convert_string_type(self, v):
         """Override the internal method wsgiref.headers.Headers uses to check
@@ -243,33 +288,24 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
         return val
 
+    def append(self, headers, **kwargs):
+        """This adds headers 
+
+        :param headers: see `._iter_headers`
+        :param **kwargs: these can be name=val keywords
+        """
+        for k, v in self._iter_headers(headers, **kwargs):
+            self.add_header(k, v)
+
     def update(self, headers=None, **kwargs):
         """This replaces headers currently in the instance with those found in
         headers. This is not additive, the value at key in headers will
         completely replace any value currently set
 
-        :param headers: dict[str, str], the key is the name and the value is
-            the value that will be set for name
+        :param headers: see `._iter_headers`
         :param **kwargs: these can be name=val keywords
         """
-        if not headers:
-            headers = {}
-
-        if isinstance(headers, Mapping):
-            headers.update(kwargs)
-            headers = headers.items()
-
-        elif isinstance(headers, email.message.Message):
-            headers = headers._headers
-
-        else:
-            if kwargs:
-                headers = itertools.chain(
-                    headers,
-                    kwargs.items()
-                )
-
-        for k, v in headers:
+        for k, v in self._iter_headers(headers, **kwargs):
             self[k] = v
 
     def copy(self):
@@ -332,6 +368,27 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
         return encoding
 
+    def get_cookies(self):
+        """Return all the cookie values
+
+        * https://en.wikipedia.org/wiki/HTTP_cookie
+        * https://stackoverflow.com/questions/25387340/is-comma-a-valid-character-in-cookie-value
+        * https://stackoverflow.com/questions/21522586/python-convert-set-cookies-response-to-array-of-cookies
+        * https://gist.github.com/Ostrovski/c8d16ce16759eddf6664
+
+        :returns: dict[str, str], the key is the cookie name
+        """
+        cookie_headers = self.get_all("Set-Cookie")
+        cookie_headers.extend(self.get_all("Cookie"))
+        if cookie_headers:
+            cs = httpcookies.SimpleCookie("\r\n".join(cookie_headers))
+            ret = {cs[k].key:cs[k].value for k in cs}
+
+        else:
+            ret = {}
+
+        return ret
+
 
 class HTTPEnviron(HTTPHeaders):
     """just like Headers but allows any values (headers converts everything to
@@ -374,17 +431,7 @@ class HTTPResponse(object):
 
     @property
     def cookies(self):
-        # https://stackoverflow.com/questions/25387340/is-comma-a-valid-character-in-cookie-value
-        # https://stackoverflow.com/questions/21522586/python-convert-set-cookies-response-to-array-of-cookies
-        # https://gist.github.com/Ostrovski/c8d16ce16759eddf6664
-        if "set-cookie" in self.headers:
-            # for some reason SimpleCookie leaves commas in the value
-            cookie_headers = self.headers.get_all("set-cookie", "")
-            cs = cookies.SimpleCookie("\r\n".join(cookie_headers))
-            ret = {cs[k].key:cs[k].value for k in cs}
-        else:
-            ret = {}
-        return ret
+        return self.headers.get_cookies()
 
     @property
     def content(self):
@@ -406,8 +453,17 @@ class HTTPResponse(object):
 
         return body
 
-    def __init__(self, code, body, headers, http, response):
-        self.http = http
+    def __init__(self, code, body, headers, request, response):
+        """
+        :param code: int, the response http code
+        :param body: bytes, the response body
+        :param headers: http.client:HTTPMessage, the headers
+        :param request: urllib.request:Request, the client that made the http
+            request
+        :param response: http.client:HTTPResponse, the response from the
+            server
+        """
+        self.request = request
         self.response = response
         self.headers = HTTPHeaders(headers)
         self._headers = headers
@@ -592,7 +648,7 @@ class HTTPClient(object):
                 res.code,
                 res.read(),
                 res.headers,
-                self,
+                req,
                 res
             )
 
@@ -604,7 +660,7 @@ class HTTPClient(object):
                 # If you don't read the error it will leave a dangling socket
                 e.read(),
                 {},
-                self,
+                req,
                 e
             )
 
@@ -743,7 +799,7 @@ class HTTPClient(object):
         self,
         method,
         headers=None,
-        http_cookies=None,
+        cookies=None,
         **kwargs
     ):
         """merge class headers with passed in headers
@@ -761,7 +817,7 @@ class HTTPClient(object):
         :param method: string, (eg, GET or POST), this is passed in so you can
             customize headers based on the method that you are calling
         :param headers: dict, all the headers passed into the fetch method
-        :param http_cookies: dict, all the cookies
+        :param cookies: dict, all the cookies
         :keyword headers_class: Optional[HTTPHeaders]
         :returns: passed in headers merged with global class headers
         """
@@ -794,10 +850,10 @@ class HTTPClient(object):
         if headers:
             fetch_headers.update(headers)
 
-        if http_cookies:
+        if cookies:
             cl = []
-            for k, v in http_cookies.items():
-                c = cookies.SimpleCookie()
+            for k, v in cookies.items():
+                c = httpcookies.SimpleCookie()
                 c[k] = v
                 cl.append(c[k].OutputString())
             if cl:

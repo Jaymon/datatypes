@@ -124,12 +124,11 @@ from .reflection import (
     ReflectType,
 )
 from .server import (
-    ServerThread,
-    PathServer,
     CallbackServer,
-    MethodServer,
-    WSGIServer,
+    PathServer,
+    ServerThread,
     ThreadingWSGIServer,
+    WSGIServer,
 )
 from .string import (
     String, String as Str,
