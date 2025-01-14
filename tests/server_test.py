@@ -169,6 +169,22 @@ class CallbackServerTest(ServerTestCase):
             self.assertEqual("", rh.body)
             self.assertNotEqual(rg.body, rh.body)
 
+    def test_async(self):
+        """
+        https://github.com/Jaymon/datatypes/issues/82
+        """
+        async def do_GET(handler):
+            return 1
+
+        server = self.create_server({
+            "GET": do_GET,
+        })
+
+        with server:
+            res = testdata.fetch(server)
+            self.assertEqual(200, res.status_code)
+            self.assertEqual("1", res.body)
+
 
 class WSGIServerTest(ServerTestCase):
 

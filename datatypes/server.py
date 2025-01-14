@@ -11,6 +11,8 @@ import weakref
 from socketserver import ThreadingMixIn
 from types import NoneType
 import io
+import inspect
+import asyncio
 
 from .compat import *
 from .config.environ import environ
@@ -327,6 +329,14 @@ class CallbackHandler(SimpleHTTPRequestHandler):
         return self.do()
 
     def do(self):
+        """All requests should go through this method
+
+        The `.do_HEAD` and `.do_GET` methods are wrappers that just call this
+        method because the parent class has those methods defined so this child
+        class needed to define them also to make them go through this method.
+        Likewise, `.__getattr__` wraps this method for any `do_*` method calls
+        so everything should go through this method
+        """
         body = None
         self.headers_sent = False
 
@@ -335,10 +345,23 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             self.log_message("req - %s: %s", h, v)
 
         try:
-            body = self.callbacks.get(
+            callback = self.callbacks.get(
                 self.command,
                 self.callbacks.get("ANY", None)
-            )(self)
+            )
+            if inspect.iscoroutinefunction(callback):
+                self.log_message(
+                    "Handling %s with async callable",
+                    self.command,
+                )
+                # the fact we have to bring up an entire async await loop and
+                # then tear it down each request when we have an async callable
+                # is wildly impractical but is the only way to support async
+                # callbacks right now
+                body = asyncio.run(callback(self))
+
+            else:
+                body = callback(self)
 
         except Exception as e:
             self.do_error(e)
@@ -347,6 +370,7 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             self.do_success(body)
 
     def do_success(self, body):
+        """Called from `.do` on a successful request"""
         code = 200
         ct = ""
 
@@ -379,6 +403,7 @@ class CallbackHandler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_error(self, e):
+        """Called from `.do` on an unsuccessful request"""
         if not self.headers_sent:
             if isinstance(e, TypeError):
                 if self.command in self.callbacks:
@@ -412,11 +437,14 @@ class CallbackHandler(SimpleHTTPRequestHandler):
                     )
 
     def __getattr__(self, k):
-        """By default, the handler looks for do_<HTTP_METHOD> (eg, do_GET)
-        methods on the handler. This routes all those requests to .do() and
-        then uses the dict passed in to decide how to route the request"""
+        """By default, the parent handler looks for `do_<HTTP_METHOD>` (eg,
+        `do_GET`) methods on the handler. This routes all those requests to
+        `.do` and then `.do` uses the dict passed in to decide how to route
+        the request
+        """
         if k.startswith("do_"):
             return self.do
+
         else:
             raise AttributeError(k)
 
