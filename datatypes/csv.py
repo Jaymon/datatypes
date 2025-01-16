@@ -13,6 +13,26 @@ from . import logging
 logger = logging.getLogger(__name__)
 
 
+class CSVRowDict(dict):
+    """An actual dict for each row
+
+    While this is about 50% slower than CSVRow, sometimes, like trying to
+    serialize a CSV row using orjson, you need an actual dict and not
+    something that just quacks like a dict. Basically, anything that is
+    using the Python C api PyDict_Next won't be able to "see" the CSVRow's
+    actual data so you have to take the speed hit and use something like
+    this class
+
+    .. Example:
+        # use a custom CSV row class
+        c = CSV("<CSV-PATH>", reader_row_class=CSVRowDict)
+        for row in c:
+            assert isinstance(row, dict)
+    """
+    def __init__(self, columns, lookup):
+        super().__init__(zip(lookup.keys(), columns))
+
+
 class CSVRow(Mapping):
     """By default the CSV reader will return an instance of this class
 
@@ -20,10 +40,16 @@ class CSVRow(Mapping):
     csv.DictReader was quite a bit slower than expected in real world use,
     using this sped up CSV reading by about 2.5-3x.
 
+    This walks and talks like a dict but it is not a traditional dict, that's
+    something to be aware of.
+
     There is a bit of overhead for creating these instances, so if the most
     performance is a necessity, you can override `CSV.create_reader_row` and
     just return the columns, then you can manually grab columns using the
     CSV instance's `.lookup` property exactly how this class does it
+
+    `Mapping` parent gives implementations for .__contains__, .items, .keys,
+    and .values
 
     https://github.com/python/cpython/blob/3.11/Lib/_collections_abc.py#L754
     """
@@ -66,8 +92,8 @@ class CSVRow(Mapping):
         """This just sets the field's value in .columns to None and removes k
         from .lookup"""
         self._make_mutable()
-        k = self.lookup.pop(k)
-        self.columns[k] = None
+        i = self.lookup.pop(k)
+        self.columns[i] = None
 
     def __iter__(self):
         yield from self.lookup
@@ -89,6 +115,60 @@ class CSVRow(Mapping):
 
         return v
 
+#     def __contains__(self, k):
+#         return k in self.lookup
+# 
+#     def get(self, k, default=None):
+#         try:
+#             return self[k]
+# 
+#         except (KeyError, IndexError):
+#             return default
+
+    def popitem(self):
+        self._make_mutable()
+        k, i = self.lookup.popitem()
+        v = self.columns[i]
+        self.columns[i] = None
+        return k, v
+
+    def clear(self):
+        self._make_mutable()
+        self.lookup.clear()
+        self.columns = []
+
+    def __reversed__(self):
+        return reversed(list(self.keys()))
+
+    def copy(self):
+        return type(self)(self.columns, self.lookup)
+
+    def setdefault(self, k, v):
+        if k not in self:
+            self[k] = v
+
+    def update(self, *others, **kwargs):
+        for other in others:
+            if keys := getattr(other, "keys", None):
+                for k in keys():
+                    self[k] = other[k]
+
+            else:
+                for k, v in other:
+                    self[k] = v
+
+        for k, v in kwargs.items():
+            self[k] = v
+
+    def __or__(self, other):
+        r = self.copy()
+        r.update(other)
+        return r
+
+    def __ior__(self, other):
+        self.update(other)
+        return self
+
 
 class CSV(object):
     """Easily read/write the rows of a csv file
@@ -103,6 +183,9 @@ class CSV(object):
         with c:
             for row in rows:
                 c.add(row)
+
+    In testing, this is about 25-30% slower than the vanilla CSV reader but
+    gives you dict support among other niceties
 
     https://docs.python.org/3/library/csv.html
     """
@@ -144,6 +227,11 @@ class CSV(object):
         if not encoding:
             encoding = environ.ENCODING
         self.encoding = encoding
+
+        self.reader_row_class = kwargs.get("reader_row_class", CSVRow)
+        self.writer_row_class = kwargs.get("writer_row_class", None)
+        self.writer_class = kwargs.get("writer_class", csv.DictWriter)
+        self.reader_class = kwargs.get("reader_class", csv.reader)
 
     def open(self, mode=""):
         """Mainly an internal method used for opening the file pointers needed
@@ -246,7 +334,10 @@ class CSV(object):
         kwargs.setdefault("quoting", csv.QUOTE_MINIMAL)
         kwargs.setdefault("fieldnames", self.fieldnames)
 
-        writer = kwargs.pop("writer_class", csv.DictWriter)(stream, **kwargs)
+        writer = kwargs.pop("writer_class", self.writer_class)(
+            stream,
+            **kwargs
+        )
         writer.has_header = True if stream.tell() > 0 else False
         return writer
 
@@ -261,7 +352,10 @@ class CSV(object):
             csv.Reader instance
         """
         kwargs.setdefault("dialect", csv.excel)
-        reader = kwargs.pop("reader_class", csv.reader)(stream, **kwargs)
+        reader = kwargs.pop("reader_class", self.reader_class)(
+            stream,
+            **kwargs
+        )
         return reader
 
     def add(self, row):
@@ -320,7 +414,7 @@ class CSV(object):
         """prepare row for reading, meant to be overridden in child classes if
         needed"""
         #return {k: columns[self.lookup[k]] for k in self.lookup}
-        return kwargs.get("reader_row_class", CSVRow)(
+        return kwargs.get("reader_row_class", self.reader_row_class)(
             columns,
             self.lookup
         )
@@ -329,7 +423,11 @@ class CSV(object):
         """prepare row for writing, meant to be overridden in child classes if
         needed
         """
-        if writer_row_class := kwargs.get("writer_row_class", None):
+        writer_row_class = kwargs.get(
+            "writer_row_class",
+            self.writer_row_class
+        )
+        if writer_row_class:
             row = writer_row_class(row, self.lookup)
 
         else:

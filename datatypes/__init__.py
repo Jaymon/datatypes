@@ -35,6 +35,7 @@ from .copy import (
 )
 from .csv import (
     CSVRow,
+    CSVRowDict,
     CSV,
     TempCSV,
 )

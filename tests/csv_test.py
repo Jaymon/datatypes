@@ -4,6 +4,7 @@ from datatypes.compat import *
 from datatypes.csv import (
     CSV,
     CSVRow,
+    CSVRowDict,
     TempCSV,
 )
 
@@ -79,6 +80,54 @@ class CSVRowTest(TestCase):
             del row["foo"]
             self.assertFalse("foo" in row)
         self.assertLess(0, i)
+
+    def test_methods(self):
+        row = self.create_row()
+        drow = CSVRowDict(row.columns, row.lookup)
+
+        self.assertFalse(isinstance(row, dict))
+        self.assertTrue(isinstance(row, Mapping))
+
+        self.assertTrue("foo" in row)
+
+        r = row.copy()
+        self.assertEqual(r, row)
+
+        self.assertEqual(row["foo"], row.get("foo"))
+
+        self.assertEqual([k for k in row], [k for k in row.keys()])
+        self.assertEqual([k for k in drow], [k for k in row.keys()])
+
+        self.assertEqual([v for v in row.values()], [v for v in row.values()])
+        self.assertEqual([v for v in drow.values()], [v for v in row.values()])
+
+        self.assertEqual(len(row), len([c for c in row.items()]))
+        self.assertEqual(len(row), len([k for k in row.keys()]))
+        self.assertEqual(len(row), len([k for k in reversed(row)]))
+        self.assertEqual(len(row), len([v for v in row.values()]))
+
+        row.setdefault("che", 1)
+        self.assertEqual(1, row["che"])
+
+        row.update({"che": 2})
+        self.assertEqual(2, row["che"])
+        self.assertEqual(3, len(row))
+
+        r = row | {"che": 3}
+        self.assertEqual(3, row["che"])
+        self.assertEqual(3, len(row))
+
+        row |= {"che": 4}
+        self.assertEqual(4, row["che"])
+        self.assertEqual(3, len(row))
+
+        self.assertEqual(4, row.pop("che", None))
+
+        r = row.popitem()
+        self.assertTrue(r[0] in ["foo", "bar"])
+
+        row.clear()
+        self.assertEqual(0, len(row))
 
 
 class CSVTest(TestCase):
