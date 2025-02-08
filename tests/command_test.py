@@ -174,6 +174,23 @@ class CommandTest(TestCase):
         self.assertTrue("5" in r)
         self.assertTrue((stop - start) < 1)
 
+    def test_passthrough(self):
+        """This test was added to check that the Command prints out as it
+        runs because I was having issues a while back. Sadly, I can't
+        reproduce the problem I was having but I am going to leave the test
+        here for when it pops up again so I can finally fix it (2025-02-07)
+        """
+        fp = self.create_file("""
+            for i in {1..100}; do
+                echo $i
+            done
+        """)
+        fp.chmod(755)
+
+        c = Command(fp)
+        r = c.run()
+        self.assertTrue("100" in r)
+
 
 class ModuleCommandTest(TestCase):
     def test_unicode_output(self):
