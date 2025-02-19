@@ -11,9 +11,19 @@ logger = logging.getLogger(__name__)
 class BroadcastEvent(object):
     """An instance of this class is passed as the first argument to any
     callback when an event is broadcast"""
-    def __init__(self, event_name, **kwargs):
+    def __init__(self, event, event_name, **kwargs):
+        """
+        :param event: Event, the instance that created this event
+        :param event_name: str, the event's name
+        """
+        self.event = event
         self.event_name = event_name
+
+        # each callback this event is broadcast to will be appended here, so
+        # any callback can see the history of this instance
         self.event_callbacks = []
+
+        # all the event keys of the passed in kwargs will be appended here
         self.event_keys = []
 
         for k, v in kwargs.items():
@@ -28,7 +38,7 @@ class BroadcastEvent(object):
 
 
 class Event(object):
-    """Singleton. The main interface for interacting with events
+    """The main interface for interacting with events
 
     you add events with .bind() and run events using either .broadcast() or
     .push()
@@ -74,6 +84,7 @@ class Event(object):
 
     def create_broadcast_event(self, event_name, **kwargs):
         return self.broadcast_class(
+            self,
             event_name,
             **self.event_kwargs,
             **kwargs
