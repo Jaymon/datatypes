@@ -60,6 +60,14 @@ class EnvironTest(TestCase):
         environ.setdefault("BAR", 2, override=True)
         self.assertEqual(2, environ["BAR"])
 
+    def test_load_path(self):
+        p = self.create_file("""
+            FOO=bar"che"
+        """)
+
+        environ = Environ(environ={})
+        environ.load_path(p)
+
 
 class SettingsTest(TestCase):
     def test_preference(self):

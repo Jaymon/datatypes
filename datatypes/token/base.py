@@ -296,9 +296,9 @@ class Scanner(io.StringIO):
         * delims - a list of arbitrary length strings that will be checked
             (ie, ["foo", "bar"] will check for the sentinels "foo" and "bar"
             and will keep going until "foo" or "bar" are encountered in total)
-        * chars - a set of single characters to be checked (ie, "abc" will check
-            for character "a", "b", and "c" separately and if any one of those
-            matches the sentinel is considered found)
+        * chars - a set of single characters to be checked (ie, "abc" will
+            check for character "a", "b", and "c" separately and if any one of
+            those matches the sentinel is considered found)
 
     :Example:
         s = Scanner("before [[che baz]] middle [[foo]] after")
@@ -322,184 +322,282 @@ class Scanner(io.StringIO):
     def transaction(self):
         """If an error is raised reset the cursor back to where the transaction
         was started"""
-        start = self.tell()
+        index = self.tell()
         try:
             yield self
 
         except Exception as e:
-            self.seek(start)
+            self.seek(index)
             raise
 
-    def peek(self):
-        try:
-            return self.getvalue()[self.tell()]
+    def peek(self, count=1):
+        with self.transaction():
+            return self.read(count)
 
-        except IndexError:
-            return ""
+    def skip(self, count):
+        """Skip ahead count characters"""
+        self.seek(self.tell() + count)
 
-    def read_to_chars(self, chars, **kwargs):
-        """Read up to chars but don't include chars"""
-        return self.read_to(chars=chars, **kwargs)
+#     def read_thru_whitespace(self, **kwargs):
+#         """read from the current offset through any whitespace characters,
+#         basically read until you encounter a non-whitespace character"""
+#         return self.read_thru(chars=String.WHITESPACE, **kwargs)
+# 
+#     def read_to_whitespace(self, **kwargs):
+#         """Read non-whitespace characters until you hit any whitespace"""
+#         return self.read_to(chars=String.WHITESPACE, **kwargs)
+# 
+#     def read_thru_hspace(self, **kwargs):
+#         """read through horizontal spaces (ie, space and tab)"""
+#         return self.read_thru(chars=String.HORIZONTAL_SPACE, **kwargs)
+# 
+#     def read_to_hspace(self, **kwargs):
+#         """read to horizontal spaces (ie, space and tab)"""
+#         return self.read_to(chars=String.HORIZONTAL_SPACE, **kwargs)
+# 
+#     def read_to_newline(self, **kwargs):
+#         """Return all characters up to but not including a newline"""
+#         return self.read_to(chars="\n", **kwargs)
 
-    def read_until_chars(self, chars, **kwargs):
-        """Read up to and thru chars so the returned value should include a
-        matching char at the end"""
-        return self.read_until(chars=chars, **kwargs)
+#     def read_until_newline(self, **kwargs):
+#         """Return all characters up to and including a newline"""
+#         return self.read_until(chars="\n", **kwargs)
 
-    def read_thru_chars(self, chars, **kwargs):
-        """Read while chars are encountered
-
-        :Example:
-            s = Scanner("12345 foo bar")
-            s.read_thru_chars("1234567890") # "12345"
-
-        :param chars: str|Container, the characters that will be read, nothing
-            outside of this set of characters will be returned
-        :returns: str, a string containing the number of characters in a row
-            found in chars
-        """
-        return self.read_thru(chars=chars, **kwargs)
-
-    def read_to_char(self, char, **kwargs):
-        """Alias for .read_to_chars to be consistent with delim/delims"""
-        return self.read_to(chars=char, **kwargs)
-
-    def read_until_char(self, char, **kwargs):
-        """Alias for .read_until_chars to be consistent with delim/delims"""
-        return self.read_until(chars=char, **kwargs)
-
-    def read_thru_char(self, char, **kwargs):
-        """Alias for .read_thru_chars to be consistent with delim/delims"""
-        return self.read_thru(chars=char, **kwargs)
-
-    def read_thru_whitespace(self, **kwargs):
-        """read from the current offset through any whitespace characters,
-        basically read until you encounter a non-whitespace character"""
-        return self.read_thru(chars=String.WHITESPACE, **kwargs)
-
-    def read_to_whitespace(self, **kwargs):
-        """Read non-whitespace characters until you hit any whitespace"""
-        return self.read_to(chars=String.WHITESPACE, **kwargs)
-
-    def read_thru_hspace(self, **kwargs):
-        """read through horizontal spaces (ie, space and tab)"""
-        return self.read_thru(chars=String.HORIZONTAL_SPACE, **kwargs)
-
-    def read_to_hspace(self, **kwargs):
-        """read to horizontal spaces (ie, space and tab)"""
-        return self.read_to(chars=String.HORIZONTAL_SPACE, **kwargs)
-
-    def read_to_newline(self, **kwargs):
-        """Return all characters up to but not including a newline"""
-        return self.read_to(chars="\n", **kwargs)
-
-    def read_until_newline(self, **kwargs):
-        """Return all characters up to and including a newline"""
-        return self.read_until(chars="\n", **kwargs)
-
-    def _read_kwargs(self, **kwargs):
+    def _normalize_delims(self, **kwargs):
         """Internal method that normalizes the kwargs for the three
         semi-internal read methods (to, until, thru) since they all take the
         same kwargs
 
-        :param **kwargs:
-            * delim: str, the sentinel we're looking for (eg "foo")
-            * delims: list, the sentinels we're looking for (eg ["foo", "bar"])
-            * chars: Container|str, any of the characters in the set will
-                cause the reader to exit (eg, {"f", "o", "o"})
-            * chrange: Sequence, a range of characters (eg range(0x00, 0x7F))
-        :returns: tuple[set, set], returns (delims, chars) that can be used to
-            check for sentinel values
+        :keyword delim: str, the sentinel we're looking for (eg "foo")
+        :keyword delims: list, the sentinels we're looking for
+            (eg ["foo", "bar"])
+        :keyword chars: Container|str, any of the characters in the set will
+            cause the reader to exit (eg, {"f", "o", "o"})
+        :keyword chrange: Sequence, a range of characters
+            (eg range(0x00, 0x7F))
+        :keyword whitespace: bool, True for all whitespace delims to be
+            included
+        :keyword hspace: bool, True for only horizontal (space and tab) spaces
+            to be included
+        :keyword newline: bool, True for newline to be a delim
+        :returns: dict[str, int], the key is the delim and the value is the
+            length of the delim
         """
-        delims = kwargs.get("delims", [])
-        delim = kwargs.get("delim", "")
-        if delim:
-            delims.append(delim)
+        delims = {}
+        prefix = kwargs.get("prefix", "")
 
-        chars = set(kwargs.get("chars", ""))
-        chars.update(chr(ch) for ch in kwargs.get("chrange", []))
-        char = kwargs.get("char", "")
-        if char:
-            chars.append(char)
+        for delim in kwargs.get(f"{prefix}delims", []):
+            delims[delim] = len(delim)
 
-        return delims, chars
+        if delim := kwargs.get(f"{prefix}delim", ""):
+            delims[delim] = len(delim)
 
-    def read_to(self, **kwargs):
-        """scans and returns string up to but not including delims or chars
+        for char in kwargs.get(f"{prefix}chars", ""):
+            delims[char] = len(char)
 
-        :Example:
-            s = Scanner("foo bar [[che baz]]")
-            s.read_to(delim="[[") # "foo bar "
+        if char := kwargs.get(f"{prefix}char", ""):
+            delims[char] = len(char)
 
-        :param **kwargs: see ._read_kwargs
-        :returns: str, returns self.getvalue() from self.tell() when this method
-            was called to self.tell() right before the sentinel starts
-        """
+        for chint in kwargs.get(f"{prefix}chrange", []):
+            char = chr(chint)
+            delims[char] = len(char)
+
+        if kwargs.get(f"{prefix}whitespace", False):
+            for char in String.WHITESPACE:
+                delims[char] = len(char)
+
+        if kwargs.get(
+            f"{prefix}hspace",
+            kwargs.get(f"{prefix}horizontal_space", False)
+        ):
+            for char in String.HORIZONTAL_SPACE:
+                delims[char] = len(char)
+
+        if kwargs.get(f"{prefix}newline", False):
+            delims["\n"] = 1
+            #delims["\r\n"] = 2
+
+        return delims
+
+    def _normalize_include_delim(self, default=False, **kwargs):
+        return kwargs.get(
+            "include_delim",
+            kwargs.get("include", default)
+        )
+
+    def _read_to_delim(self, delims):
         partial = ""
 
-        delims, chars = self._read_kwargs(**kwargs)
-        buffer = self.getvalue()
-        offset = self.tell()
-        length = len(self)
+        while True:
+            offset = self.tell()
+            char = self.read(1)
+            delim = ""
+            delim_len = 0
 
-        while offset < length:
-            # escaped characters don't count against our delim
-            if buffer[offset] == "\\":
-                partial += buffer[offset]
+            if char == "":
+                # we've reached eof
+                break
+
+            elif char == "\\":
+                # escaped characters don't count against our delim
+                partial += char
 
                 # record the character and move passed it since it can't
                 # be taken into account when checking the delim because it
                 # is escaped
-                offset += 1
-                partial += buffer[offset]
+                partial += self.read(1)
+                offset = self.tell()
+                char = self.read(1)
 
-                offset += 1
+            found = False
 
-            if delims:
-                found = False
-                for delim in delims:
-                    delim_len = len(delim)
-                    st = buffer[offset:offset + delim_len]
+            for delim, delim_len in delims.items():
+                token = char + self.read(delim_len - 1)
 
-                    if st == delim:
-                        found = True
-                        break
+                self.seek(offset)
+                char = self.read(1)
 
-                if found:
+                if token == delim:
+                    self.seek(offset)
+                    found = True
                     break
 
-            elif chars:
-                st = buffer[offset]
-                if st in chars:
-                    break
+            if found:
+                break
 
-            partial += buffer[offset]
-            offset += 1
+            else:
+                # we are basically re-reading the character so internal
+                # offset will increment
+                partial += char
+                #partial += self.read(1)
 
-        self.seek(offset)
-        return partial
+        return partial, delim, delim_len
 
-    def read_until(self, **kwargs):
-        """Scans and returns string up to and including delims or chars
-
-        :param **kwargs: see ._read_kwargs()
-        :returns: str, returns the string that includes the found sentinel value
-        """
-        delims, chars = self._read_kwargs(**kwargs)
-        count = kwargs.get("count", 1)
-
+    def _read_thru_delim(self, delims):
         partial = ""
-        for _ in range(count):
-            if delims:
-                partial += self.read_to(delims=delims)
-                partial += self.read_thru_delims(delims)
-                #partial += self.read_to(delim=delim)
-                #partial += self.read(len(delim))
+        offset = self.tell()
 
-            elif chars:
-                partial += self.read_to(chars=chars) + self.read(1)
+        found = False
+
+        for delim, delim_len in delims.items():
+            partial = self.read(delim_len)
+            self.seek(offset)
+
+            if partial == delim:
+                found = True
+                break
+
+            else:
+                partial = ""
+
+        if not found:
+            delim = ""
+            delim_len = 0
+
+        return partial, delim, delim_len
+
+    def read_to(self, **kwargs):
+        """scans and returns string up to but not including delims or chars
+
+        .. Example:
+            s = Scanner("foo bar [[che baz]]")
+            s.read_to(delim="[[") # "foo bar "
+
+        :param **kwargs: see ._read_kwargs
+        :returns: str, returns self.getvalue() from self.tell() when this
+            method was called to self.tell() right before the sentinel starts
+        """
+        delims = self._normalize_delims(**kwargs)
+        delims.update(self._normalize_delims(prefix="stop_", **kwargs))
+        include_delim = self._normalize_include_delim(**kwargs)
+
+        partial, delim, delim_len = self._read_to_delim(delims)
+
+        if include_delim and delim_len > 0:
+            partial += delim
+            self.skip(delim_len)
+            #self.seek(self.tell() + delim_len)
 
         return partial
+
+#     def read_to(self, **kwargs):
+#         """scans and returns string up to but not including delims or chars
+# 
+#         .. Example:
+#             s = Scanner("foo bar [[che baz]]")
+#             s.read_to(delim="[[") # "foo bar "
+# 
+#         :param **kwargs: see ._read_kwargs
+#         :returns: str, returns self.getvalue() from self.tell() when this
+#             method was called to self.tell() right before the sentinel starts
+#         """
+#         partial = ""
+# 
+#         delims = self._normalize_delims(**kwargs)
+#         delims.update(self._normalize_delims(prefix="stop_", **kwargs))
+#         include_delim = self._normalize_include_delim(**kwargs)
+#         buffer = self.getvalue()
+#         offset = self.tell()
+#         length = len(self)
+# 
+#         while offset < length:
+#             # escaped characters don't count against our delim
+#             if buffer[offset] == "\\":
+#                 partial += buffer[offset]
+# 
+#                 # record the character and move passed it since it can't
+#                 # be taken into account when checking the delim because it
+#                 # is escaped
+#                 offset += 1
+#                 partial += buffer[offset]
+# 
+#                 offset += 1
+# 
+#             found = False
+#             for delim, delim_len in delims.items():
+#                 st = buffer[offset:offset + delim_len]
+# 
+#                 if st == delim:
+#                     found = True
+# 
+#                     if include_delim:
+#                         partial += st
+#                         offset += delim_len
+# 
+#                     break
+# 
+#             if found:
+#                 break
+# 
+#             else:
+#                 partial += buffer[offset]
+#                 offset += 1
+# 
+#         self.seek(offset)
+#         return partial
+
+#     def read_until(self, **kwargs):
+#         """Scans and returns string up to and including delims or chars
+# 
+#         :param **kwargs: see ._read_kwargs()
+#         :returns: str, returns the string that includes the found sentinel value
+#         """
+#         delims, chars = self._read_kwargs(**kwargs)
+#         count = kwargs.get("count", 1)
+# 
+#         partial = ""
+#         for _ in range(count):
+#             if delims:
+#                 partial += self.read_to(delims=delims)
+#                 partial += self.read_thru_delims(delims)
+#                 #partial += self.read_to(delim=delim)
+#                 #partial += self.read(len(delim))
+# 
+#             elif chars:
+#                 partial += self.read_to(chars=chars) + self.read(1)
+# 
+#         return partial
+
 
     def read_thru(self, **kwargs):
         """Scans and returns string that only include delims or chars
@@ -508,80 +606,57 @@ class Scanner(io.StringIO):
         :returns: str, returns the string that only includes the found sentinel
             value
         """
-        partial = ""
+        delims = self._normalize_delims(**kwargs)
+        delims.update(self._normalize_delims(prefix="start_", **kwargs))
+        include_delim = self._normalize_include_delim(True, **kwargs)
 
-        delims, chars = self._read_kwargs(**kwargs)
-        buffer = self.getvalue()
-        offset = self.tell()
+        partial, delim, delim_len = self._read_thru_delim(delims)
 
-        if delims:
-            start = self.tell()
-            for delim in delims:
-                stop = offset + len(delim)
-                partial = buffer[offset:stop]
-                if partial == delim:
-                    self.seek(stop)
-                    break
+        self.skip(delim_len)
 
-                else:
-                    partial = ""
-
-        elif chars:
-            length = len(self)
-
-            while offset < length:
-                ch = buffer[offset]
-                if ch in chars:
-                    partial += ch
-                    offset += 1
-
-                else:
-                    break
-
-            self.seek(offset)
+        if not include_delim:
+            partial = ""
 
         return partial
 
-    def read_to_delim(self, delim, **kwargs):
-        """scans and returns string up to delim
 
-        :Example:
-            s = Scanner("foo bar [[che baz]]")
-            s.read_to_delim("[[") # "foo bar "
+#     def read_thru(self, **kwargs):
+#         """Scans and returns string that only include delims or chars
+# 
+#         :param **kwargs: see ._read_kwargs()
+#         :returns: str, returns the string that only includes the found sentinel
+#             value
+#         """
+#         partial = ""
+# 
+#         delims = self._normalize_delims(**kwargs)
+#         delims.update(self._normalize_delims(prefix="start_", **kwargs))
+#         include_delim = self._normalize_include_delim(True, **kwargs)
+# 
+#         buffer = self.getvalue()
+#         offset = self.tell()
+# 
+#         start = self.tell()
+#         for delim, delim_len in delims.items():
+#             stop = offset + delim_len
+#             partial = buffer[offset:stop]
+#             if partial == delim:
+#                 self.seek(stop)
+#                 break
+# 
+#             else:
+#                 partial = ""
+# 
+#         return partial if include_delim else ""
 
-        :param delim: str, the sentinel we're looking for
-        :returns: str, returns self.text from self.offset when this method was
-            called to the offset right before delim starts
-        """
-        return self.read_to(delims=[delim], **kwargs)
+    def _endswith_delim(self, partial, delims):
+        for delim in delims:
+            if partial.endswith(delim):
+                return True
 
-    def read_until_delim(self, delim, **kwargs):
-        """scans and returns string up to and including delim
+        return False
 
-        :Example:
-            s = Scanner("foo bar [[che baz]]")
-            s.read_to_delim("[[") # "foo bar "
-            s.read_until_delim("]]") # "[[che baz]]"
-
-        :param delim: str, the sentinel we're looking for
-        :returns: str, returns self.text from self.offset when this method was
-            called to the offset right after delim ends
-        """
-        return self.read_until(delims=[delim], **kwargs)
-
-    def read_thru_delim(self, delim, **kwargs):
-        return self.read_thru(delims=[delim], **kwargs)
-
-    def read_to_delims(self, delims, **kwargs):
-        return self.read_to(delims=delims, **kwargs)
-
-    def read_until_delims(self, delims, **kwargs):
-        return self.read_until(delims=delims, **kwargs)
-
-    def read_thru_delims(self, delims, **kwargs):
-        return self.read_thru(delims=delims, **kwargs)
-
-    def read_balanced_delims(self, start_delim, stop_delim, **kwargs):
+    def read_between(self, **kwargs):
         """Reads thru start_delim until stop_delim taking into account sub
         strings that also might contain start_delim and stop_delim
 
@@ -598,29 +673,127 @@ class Scanner(io.StringIO):
                 returned, the value between start and stop delims
         :returns: str, the found matching sub string
         """
-        partial = self.read_thru(delims=[start_delim])
-        if partial:
-            if start_delim == stop_delim:
-                p = partial
-                while p.endswith(start_delim):
-                    p = self.read_until(delims=[start_delim])
-                    if p.endswith(start_delim):
+        all_delims = self._normalize_delims(**kwargs)
+        start_delims = {
+            **all_delims,
+            **self._normalize_delims(prefix="start_", **kwargs)
+        }
+        stop_delims = {
+            **all_delims,
+            **self._normalize_delims(prefix="stop_", **kwargs)
+        }
+        include_delim = self._normalize_include_delim(True, **kwargs)
+
+        partial, delim, delim_len = self._read_thru_delim(start_delims)
+        self.skip(delim_len)
+
+        if delim:
+            if not include_delim:
+                partial = ""
+
+            if delim in stop_delims:
+                offset = self.tell()
+                offset_delim_len = 0
+
+                while delim:
+                    p, delim, delim_len = self._read_to_delim(stop_delims)
+                    if delim:
                         partial += p
+                        partial += delim
+
+                        self.skip(delim_len)
+
+                        offset = self.tell()
+                        offset_delim_len = delim_len
+
+                    else:
+                        self.seek(offset)
+
+                if not include_delim and offset_delim_len > 0:
+                    partial = partial[:-1 * offset_delim_len]
 
             else:
+                all_delims = {**start_delims, **stop_delims}
                 count = 1
                 while count > 0:
-                    partial += self.read_until(delims=[start_delim, stop_delim])
-                    if partial.endswith(start_delim):
-                        count += 1
+                    p, delim, delim_len = self._read_to_delim(all_delims)
+                    if delim:
+                        partial += p
 
-                    elif partial.endswith(stop_delim):
-                        count -= 1
+                        if delim in start_delims:
+                            count += 1
+                            partial += delim
+                            self.skip(delim_len)
 
-            if kwargs.get("strip", False):
-                partial = partial[len(start_delim):-len(stop_delim)]
+                        elif delim in stop_delims:
+                            count -= 1
+
+                            if count == 0:
+                                if include_delim:
+                                    partial += delim
+
+                                self.skip(delim_len)
+
+                            else:
+                                partial += delim
+                                self.skip(delim_len)
+
+
+                    else:
+                        # we've reached the end of the buffer
+                        partial += p
+                        break
 
         return partial
+
+#     def read_between(self, **kwargs):
+#         """Reads thru start_delim until stop_delim taking into account sub
+#         strings that also might contain start_delim and stop_delim
+# 
+#         :Example:
+#             s = Scanner("(foo (bar (che))) baz")
+#             s.read_balanced_delims("(", ")") # "(foo (bar (che)))"
+#             s.read_balanced_delims("(", ")", strip=True) # "foo (bar (che))"
+# 
+#         :param start_delim: str, the starting deliminator
+#         :param stop_delim: str, the ending deliminator
+#         :param **kwargs:
+#             * strip: bool, defaults to False and will strip the top level
+#                 delims, so by default only the inside of the read value gets
+#                 returned, the value between start and stop delims
+#         :returns: str, the found matching sub string
+#         """
+#         start_delims = self._normalize_delims(prefix="start_", **kwargs)
+#         stop_delims = self._normalize_delims(prefix="stop_", **kwargs)
+#         include_delim = self._normalize_include_delim(True, **kwargs)
+# 
+#         partial = self.read_thru(
+#             start_delims=start_delims,
+#             include_delim=include_delim
+#         )
+# 
+#         if partial:
+#             if start_delim == stop_delim:
+#                 p = partial
+#                 while p.endswith(start_delim):
+#                     p = self.read_until(delims=[start_delim])
+#                     if p.endswith(start_delim):
+#                         partial += p
+# 
+#             else:
+#                 count = 1
+#                 while count > 0:
+#                     partial += self.read_until(delims=[start_delim, stop_delim])
+#                     if partial.endswith(start_delim):
+#                         count += 1
+# 
+#                     elif partial.endswith(stop_delim):
+#                         count -= 1
+# 
+#             if kwargs.get("strip", False):
+#                 partial = partial[len(start_delim):-len(stop_delim)]
+# 
+#         return partial
 
     def __bool__(self):
         return self.peek() != ""

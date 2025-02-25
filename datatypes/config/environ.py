@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import tempfile
+from pathlib import Path
 
 from ..compat import *
 
@@ -45,12 +46,16 @@ class Environ(Mapping):
         """
         :param namespace: str, usually __name__ from the calling module but can
             also be "PREFIX_" or something like that
-        :param environ: str, the environment you want this instance to wrap, it
-            defualts to os.environ
+        :param environ: Mapping|None, the environment you want this instance
+            to wrap, it defaults to os.environ if a mapping isn't passed in
         """
         self.__dict__["namespace"] = self.find_namespace(namespace)
         self.__dict__["defaults"] = {}
-        self.__dict__["environ"] = environ or os.environ
+        if environ is None:
+            self.__dict__["environ"] = os.environ
+
+        else:
+            self.__dict__["environ"] = environ
 
     def setdefault(self, key, value, type=None, override=False):
         """Set a default value to be returned if there isn't a value set in
@@ -305,6 +310,14 @@ class Environ(Mapping):
 
     def __len__(self):
         return len(list(self.keys()))
+
+    def load_path(self, path):
+        path = Path(path)
+        with path.open() as fp:
+            for line in fp:
+                pout.v(line)
+
+
 
 
 ###############################################################################

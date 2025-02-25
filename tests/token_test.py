@@ -20,7 +20,7 @@ from . import TestCase as _TestCase, testdata
 
 
 class TestCase(_TestCase):
-    def create_instance(self, buffer, **kwargs):
+    def create_instance(self, buffer="", **kwargs):
         if isinstance(buffer, list):
             if buffer[-1] != "":
                 buffer.append("")
@@ -396,67 +396,201 @@ class ScannerTest(TestCase):
     tokenizer_class = Scanner
 
     def test_escaped(self):
-        s = self.create_instance("foo bar \\\[[che]] baz")
-        self.assertEqual("foo bar \\\[[", s.read_until_delim("[["))
+        s = self.create_instance(r"foo bar \\\[[che]] baz")
+        self.assertEqual(
+            r"foo bar \\\[[",
+            s.read_to(delim="[[", include_delim=True)
+        )
 
         s = self.create_instance("foo bar \\[[che]] baz")
-        self.assertEqual("foo bar \\[[che]] baz", s.read_until_delim("[["))
+        self.assertEqual(
+            "foo bar \\[[che]] baz",
+            s.read_to(delim="[[", include_delim=True)
+        )
 
         s = self.create_instance("foo bar \\\" che \" baz")
-        self.assertEqual("foo bar \\\" che \"", s.read_until_delim("\""))
+        self.assertEqual(
+            "foo bar \\\" che \"",
+            s.read_to(delim="\"", include_delim=True)
+        )
 
         s = self.create_instance("foo bar \\\" che \" baz")
-        self.assertEqual("foo bar \\\" che ", s.read_to_delim("\""))
+        self.assertEqual(
+            "foo bar \\\" che ",
+            s.read_to(delim="\"")
+        )
 
-    def test_multichar_delim(self):
+    def test_read_to_1(self):
         text = "before [[foo bar ]] middle [[ che baz]] after"
         s = self.create_instance(text)
 
-        subtext = s.read_to_delim("[[")
+        subtext = s.read_to(delim="[[")
         self.assertEqual("before ", subtext)
 
-        subtext = s.read_until_delim("]]")
+        subtext = s.read_to(delim="]]", include_delim=True)
         self.assertEqual("[[foo bar ]]", subtext)
 
-        subtext = s.read_to_delim("[[")
+        subtext = s.read_to(delim="[[")
         self.assertEqual(" middle ", subtext)
 
-        subtext = s.read_until_delim("]]")
+        subtext = s.read_to(delim="]]", include_delim=True)
         self.assertEqual("[[ che baz]]", subtext)
 
-        subtext = s.read_to_delim("[[")
+        subtext = s.read_to(delim="[[")
         self.assertEqual(" after", subtext)
 
-    def test_delims(self):
+    def test_read_to_2(self):
         delims = ["->", "+>"]
 
         s = self.create_instance("foo+>bar")
-        subtext = s.read_until_delims(delims)
+        subtext = s.read_to(delims=delims, include_delim=True)
         self.assertTrue(subtext.endswith("+>"))
 
         s.seek(0)
-        subtext = s.read_to_delims(delims)
+        subtext = s.read_to(delims=delims)
         self.assertEqual("foo", subtext)
 
-        subtext = self.create_instance("foo->bar").read_until_delims(delims)
+        s = self.create_instance("foo->bar")
+        subtext = s.read_to(delims=delims, include_delim=True)
         self.assertTrue(subtext.endswith("->"))
 
-    def test_balanced_1(self):
-        s = self.create_instance("(foo bar (che))")
-        subtext = s.read_balanced_delims("(", ")")
-        self.assertEqual("(foo bar (che))", subtext)
+    def test_read_thru(self):
+        s = self.create_instance("foo bar")
+        subtext = s.read_thru(delim="foo")
+        self.assertEqual("foo", subtext)
 
+        subtext = s.read_thru(whitespace=True)
+        self.assertEqual(" ", subtext)
+
+        subtext = s.read_thru(delims=["bar"])
+        self.assertEqual("bar", subtext)
+
+        s = self.create_instance("foo bar")
+
+        subtext = s.read_thru(delim="bar")
+        self.assertEqual("", subtext)
+        self.assertEqual(0, s.tell())
+
+        subtext = s.read_thru(delim="foo", include_delim=False)
+        self.assertEqual("", subtext)
+        self.assertEqual(3, s.tell())
+
+        s = self.create_instance("foo bar")
+        subtext = s.read_thru(delim="foo", include_delim=True)
+        self.assertEqual("foo", subtext)
+        self.assertEqual(3, s.tell())
+
+    def test_read_between_1(self):
         s = self.create_instance("/* foo bar */ che")
-        subtext = s.read_balanced_delims("/*", "*/")
+        subtext = s.read_between(start_delim="/*", stop_delim="*/")
         self.assertEqual("/* foo bar */", subtext)
 
-    def test_balanced_2(self):
+        s = self.create_instance("(foo bar (che))")
+        subtext = s.read_between(start_delim="(", stop_delim=")")
+        self.assertEqual("(foo bar (che))", subtext)
+
+#     def xtest_balanced_1(self):
+#         s = self.create_instance("(foo bar (che))")
+#         subtext = s.read_balanced_delims("(", ")")
+#         self.assertEqual("(foo bar (che))", subtext)
+# 
+#         s = self.create_instance("/* foo bar */ che")
+#         subtext = s.read_balanced_delims("/*", "*/")
+#         self.assertEqual("/* foo bar */", subtext)
+
+    def test_read_between_2(self):
         s = self.create_instance("```foo bar ```che``` bam``` after")
-        subtext = s.read_balanced_delims("```", "```")
+        subtext = s.read_between(start_delim="```", stop_delim="```")
         self.assertEqual("```foo bar ```che``` bam```", subtext)
+        self.assertEqual(27, s.tell())
 
+        s = self.create_instance("```foo bar ``` after")
+        subtext = s.read_between(start_delim="```", stop_delim="```")
+        self.assertEqual("```foo bar ```", subtext)
 
+    def test_read_between_include_delim(self):
+        s = self.create_instance("(foo bar) after")
+        subtext = s.read_between(
+            start_delim="(",
+            stop_delim=")",
+            include_delim=False
+        )
+        self.assertEqual("foo bar", subtext)
+        self.assertEqual(9, s.tell())
 
+        s = self.create_instance("`foo bar` after")
+        subtext = s.read_between(
+            start_delim="`",
+            stop_delim="`",
+            include_delim=False
+        )
+        self.assertEqual("foo bar", subtext)
+        self.assertEqual(9, s.tell())
+
+    def test_read_between_no_stop(self):
+        s = self.create_instance("```foo bar")
+        subtext = s.read_between(delim="```", include_delim=False)
+        self.assertEqual("", subtext)
+        self.assertEqual(3, s.tell())
+
+        s = self.create_instance("```foo bar")
+        subtext = s.read_between(delim="```")
+        self.assertEqual("```", subtext)
+        self.assertEqual(3, s.tell())
+
+    def test__normalize_delims(self):
+        s = self.create_instance()
+        delims = s._normalize_delims(
+            delim="foo",
+            delims=["bar", "che"],
+            chars="abc",
+            char="d",
+            whitespace=True
+        )
+
+        for delim in ["foo", "che", "d", "\n"]:
+            self.assertTrue(delim in delims)
+
+    def test__read_to_delim_1(self):
+        s = self.create_instance("foo (bar)")
+
+        partial, delim, delim_len = s._read_to_delim({"(": 1})
+        self.assertEqual("foo ", partial)
+        self.assertEqual("(", delim)
+        self.assertEqual(4, s.tell())
+
+        partial, delim, delim_len = s._read_to_delim({")": 1})
+        self.assertEqual("(bar", partial)
+        self.assertEqual(")", delim)
+        self.assertEqual(8, s.tell())
+
+    def test__read_to_delim_2(self):
+        s = self.create_instance("12 */ 34")
+        t = s._read_to_delim({"/*": 2, "*/": 2})
+        self.assertEqual("12 ", t[0])
+        self.assertEqual("*/", t[1])
+        self.assertEqual(3, s.tell())
+
+    def test__read_thru_delim(self):
+        s = self.create_instance("foobar")
+
+        partial, delim, delim_len = s._read_thru_delim({"bar": 3})
+        self.assertEqual("", partial)
+        self.assertEqual("", delim)
+        self.assertEqual(0, delim_len)
+        self.assertEqual(0, s.tell())
+
+        partial, delim, delim_len = s._read_thru_delim({"foo": 3})
+        self.assertEqual("foo", partial)
+        self.assertEqual("foo", delim)
+        self.assertEqual(0, s.tell())
+
+        s.seek(s.tell() + delim_len)
+
+        partial, delim, delim_len = s._read_thru_delim({"bar": 3})
+        self.assertEqual("bar", partial)
+        self.assertEqual("bar", delim)
+        self.assertEqual(3, s.tell())
 
 
 class ABNFGrammarTest(TestCase):
