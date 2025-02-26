@@ -585,7 +585,7 @@ class ABNFGrammar(Scanner):
         start = self.tell()
         ch = self.peek()
         if ch and ch in String.ALPHA:
-            rulename = self.read_thru_chars(String.ALPHANUMERIC + "-")
+            rulename = self.read_thru(chars=String.ALPHANUMERIC + "-")
 
         else:
             raise GrammarError(f"[{ch}] was not an ALPHA character")
@@ -616,15 +616,14 @@ class ABNFGrammar(Scanner):
         if self.read(1) != "<":
             raise GrammarError("prose-val begins with <")
 
-        val = self.read_until_delim(">").strip(">")
+        val = self.read_to(delim=">")
+        self.read_thru(delim=">")
         return self.create_definition(
             "rulename",
             [val],
             start,
             self.tell()
         )
-
-
 
     def scan_defined_as(self):
         """
@@ -639,7 +638,7 @@ class ABNFGrammar(Scanner):
         with self.optional() as scanner:
             values.append(scanner.scan_c_wsp())
 
-        sign = scanner.read_thru_chars("=/")
+        sign = scanner.read_thru(chars="=/")
         if sign in set(["=", "=/"]):
             values.append(sign)
             options["sign"] = sign
@@ -664,7 +663,7 @@ class ABNFGrammar(Scanner):
         c-wsp          =  WSP / (c-nl WSP)
         """
         start = self.tell()
-        space = self.read_thru_hspace()
+        space = self.read_thru(hspace=True)
         if space:
             stop = self.tell()
             cwsp = self.create_definition("c-wsp", [space], start, stop)
@@ -672,7 +671,7 @@ class ABNFGrammar(Scanner):
         else:
             comment = self.scan_c_nl()
             start = self.tell()
-            space = self.read_thru_hspace()
+            space = self.read_thru(hspace=True)
             if space:
                 stop = self.tell()
                 cwsp = self.create_definition(
@@ -705,7 +704,7 @@ class ABNFGrammar(Scanner):
         elif ch == "\r" or ch == "\n":
             # we loosen restrictions a bit here by allowing \r\n or just \n
             start = self.tell()
-            newline = self.read_until_newline()
+            newline = self.read_to(newline=True, include_delim=True)
             stop = self.tell()
             crlf = self.create_definition("CRLF", newline, start, stop)
 

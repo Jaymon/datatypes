@@ -454,7 +454,7 @@ class ScannerTest(TestCase):
         subtext = s.read_to(delims=delims, include_delim=True)
         self.assertTrue(subtext.endswith("->"))
 
-    def test_read_thru(self):
+    def test_read_thru_1(self):
         s = self.create_instance("foo bar")
         subtext = s.read_thru(delim="foo")
         self.assertEqual("foo", subtext)
@@ -480,6 +480,14 @@ class ScannerTest(TestCase):
         self.assertEqual("foo", subtext)
         self.assertEqual(3, s.tell())
 
+    def test_read_thru_2(self):
+        s = self.create_instance("foobar")
+        delims = {"f": 1, "o": 1}
+
+        subtext = s.read_thru(chars="fo")
+        self.assertEqual("foo", subtext)
+        self.assertEqual(3, s.tell())
+
     def test_read_between_1(self):
         s = self.create_instance("/* foo bar */ che")
         subtext = s.read_between(start_delim="/*", stop_delim="*/")
@@ -488,15 +496,6 @@ class ScannerTest(TestCase):
         s = self.create_instance("(foo bar (che))")
         subtext = s.read_between(start_delim="(", stop_delim=")")
         self.assertEqual("(foo bar (che))", subtext)
-
-#     def xtest_balanced_1(self):
-#         s = self.create_instance("(foo bar (che))")
-#         subtext = s.read_balanced_delims("(", ")")
-#         self.assertEqual("(foo bar (che))", subtext)
-# 
-#         s = self.create_instance("/* foo bar */ che")
-#         subtext = s.read_balanced_delims("/*", "*/")
-#         self.assertEqual("/* foo bar */", subtext)
 
     def test_read_between_2(self):
         s = self.create_instance("```foo bar ```che``` bam``` after")
@@ -571,7 +570,7 @@ class ScannerTest(TestCase):
         self.assertEqual("*/", t[1])
         self.assertEqual(3, s.tell())
 
-    def test__read_thru_delim(self):
+    def test__read_thru_delim_1(self):
         s = self.create_instance("foobar")
 
         partial, delim, delim_len = s._read_thru_delim({"bar": 3})

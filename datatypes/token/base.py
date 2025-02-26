@@ -23,17 +23,6 @@ class Token(object):
 
 
 class TokenizerABC(io.IOBase):
-#     def _normalize_buffer(self, buffer):
-#         """Implemented in BaseTokenizer and called by BaseTokenizer.set_buffer,
-#         this is here because children might want to customize what the
-#         buffer actually is
-# 
-#         :param buffer: str|IOBase
-#         :returns: IOBase, it needs to be a seekable io instance that can be
-#             manipulated in `.next` and `.prev`
-#         """
-#         raise NotImplementedError()
-
     def next(self):
         raise NotImplementedError()
 
@@ -95,7 +84,7 @@ class BaseTokenizer(TokenizerABC):
 
         :param count: int, if >0 then return count tokens, if -1 then return
             all remaining tokens
-        :returns: list, the read Token instances
+        :returns: str, the read tokens as a substring
         """
         return self.buffer.read(count)
 
@@ -243,6 +232,99 @@ class Tokenizer(BaseTokenizer):
     """
     token_class = Token
     """The token class this class will use to create Token instances"""
+
+    def tell(self):
+        """Return the starting position of the current token but don't
+        increment the cursor offset"""
+        t = self.peek()
+        return t.start if t else self.buffer.tell() 
+
+    def read(self, count=-1):
+        """Read count tokens and return them
+
+        :param count: int, if >0 then return count tokens, if -1 then return
+            all remaining tokens
+        :returns: list, the read Token instances
+        """
+        ret = []
+        if count:
+            if count > 0:
+                while count > 0:
+                    try:
+                        ret.append(self.next())
+
+                    except StopIteration:
+                        break
+
+                    else:
+                        count -= 1
+
+            else:
+                while True:
+                    try:
+                        ret.append(self.next())
+
+                    except StopIteration:
+                        break
+
+        return ret
+
+    def seek(self, offset, whence=SEEK_SET):
+        """Change to the token given by offset and calculated according to the
+        whence value
+
+        Change the token position to the given offset. offset is
+        interpreted relative to the position indicated by whence.
+
+        The default value for whence is SEEK_SET. Values for whence are:
+
+            * SEEK_SET or 0 – start of the tokens (the default); offset should
+                be zero or positive
+            * SEEK_CUR or 1 – current token position; offset may be negative
+            * SEEK_END or 2 – end of the tokens; offset is usually negative
+
+        Return the new absolute buffer position.
+
+        https://docs.python.org/3/library/io.html#io.IOBase.seek
+
+        :param offset: int, the token to seek to
+        :returns: int, the starting position in the buffer of the token
+        """
+        offset = int(offset)
+
+        if whence == SEEK_SET:
+            offset = max(0, offset)
+
+        elif whence == SEEK_CUR:
+            if offset:
+                for _ in range(abs(offset)):
+                    t = self.prev()
+                    offset = t.start
+
+            else:
+                offset = self.buffer.tell()
+
+        elif whence == SEEK_END:
+            total = len(self)
+            total = max(total, total - abs(offset))
+            with self.temporary() as it:
+                it.seek(0)
+                for _ in range(total):
+                    t = it.next()
+
+                offset = t.start
+
+        else:
+            raise ValueError(f"Unknown or unsupported whence value: {whence}")
+
+        self.buffer.seek(offset)
+        return offset
+
+    def readline(self, size=-1):
+        raise io.UnsupportedOperation()
+
+    def readlines(self, hint=-1):
+        raise io.UnsupportedOperation()
 
 
 class Scanner(BaseTokenizer):
@@ -441,6 +523,61 @@ class Scanner(BaseTokenizer):
 
         return partial, delim, delim_len
 
+#     def _read_thru_delims(self, delims):
+#         """Internal method. Reads thru the found delim in `delims`
+# 
+#         :param delims: dict[str, int], the returned value from
+#             `._normalize_delims`
+#         :returns: tuple[str, str, int], returns the found stubstring, the
+#             matched delim, and the length of the matched delim
+#         """
+#         partial = ""
+# 
+#         while True:
+#             offset = self.tell()
+#             found = False
+# 
+#             pout.b()
+# 
+#             for delim, delim_len in delims.items():
+#                 p = self.read(delim_len)
+#                 pout.v(partial, p, delim)
+# 
+#                 if p == delim:
+#                     found = True
+#                     partial += p
+#                     break
+# 
+#                 else:
+#                     self.seek(offset)
+# 
+#             pout.v(found)
+# 
+#             if not found:
+#                 delim = ""
+#                 delim_len = 0
+#                 break
+# 
+#         return partial, delim, delim_len
+
+    def _read_thru_delims(self, delims):
+        partial = ""
+        partial_delims = ""
+        partial_delims_len = 0
+
+        while True:
+            p, delim, delim_len = self._read_thru_delim(delims)
+            if delim:
+                partial += p
+                partial_delims += delim
+                partial_delims_len += delim_len
+                self.skip(delim_len)
+
+            else:
+                break
+
+        return partial, partial_delims, partial_delims_len
+
     def read_to(self, **kwargs):
         """scans and returns string up to but not including the delim unless
         `include_delim=True` is passed in
@@ -483,18 +620,49 @@ class Scanner(BaseTokenizer):
         :returns: str, returns the string that only includes the found sentinel
             value
         """
+        partial = ""
+
         delims = self._normalize_delims(**kwargs)
         delims.update(self._normalize_delims(prefix="start_", **kwargs))
         include_delim = self._normalize_include_delim(True, **kwargs)
 
-        partial, delim, delim_len = self._read_thru_delim(delims)
-
-        self.skip(delim_len)
-
+        partial, delim, delim_len = self._read_thru_delims(delims)
         if not include_delim:
             partial = ""
 
         return partial
+
+#     def read_thru(self, **kwargs):
+#         """Scans and returns string that only includes the delims or chars
+# 
+#         This has roughly the same signature as `.read_to` and `.read_between`
+# 
+#         :param **kwargs: see ._normalize_delims
+#         :keyword include_delim: bool, see ._normalize_include_delim, no
+#             matter what the value the index will always be set to after the
+#             found delims
+#         :returns: str, returns the string that only includes the found sentinel
+#             value
+#         """
+#         partial = ""
+# 
+#         delims = self._normalize_delims(**kwargs)
+#         delims.update(self._normalize_delims(prefix="start_", **kwargs))
+#         include_delim = self._normalize_include_delim(True, **kwargs)
+# 
+#         while True:
+#             p, delim, delim_len = self._read_thru_delim(delims)
+#             if delim:
+#                 partial += delim
+#                 self.skip(delim_len)
+# 
+#             else:
+#                 break
+# 
+#         if not include_delim:
+#             partial = ""
+# 
+#         return partial
 
     def read_between(self, **kwargs):
         """Reads thru start_delim until stop_delim taking into account sub
