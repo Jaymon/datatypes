@@ -170,7 +170,8 @@ class HTMLCleaner(BaseHTMLParser):
 
     @classmethod
     def unescape(cls, s):
-        """unescapes html entities (eg, &gt;) to plain text (eg, &gt; becomes >)"""
+        """unescapes html entities (eg, &gt;) to plain text 
+        (eg, &gt; becomes >)"""
         # https://stackoverflow.com/a/2087433/5006
         return html.unescape(s)
 
@@ -216,7 +217,7 @@ class HTMLParser(BaseHTMLParser):
         :param data: string, the html
         :param tagnames: list|string, the tags you want to parse out of data
         """
-        super(HTMLParser, self).__init__()
+        super().__init__()
 
         self.handle_tagnames(tagnames)
         self.feed(data)
@@ -237,8 +238,8 @@ class HTMLParser(BaseHTMLParser):
 
     def feed(self, data):
         """This .feed is different than parent's .feed in that data has to be
-        the full html, so you can't keep calling it, every time you call this method
-        it will set .data and parse it and place it into .tags
+        the full html, so you can't keep calling it, every time you call this
+        method it will set .data and parse it and place it into .tags
         """
         self.stack = []
         self.tags = []
@@ -457,6 +458,9 @@ class HTMLTokenizer(Tokenizer):
     def prev(self):
         taginfo = self.buffer.prev()
         return self.token_class(self, taginfo)
+
+#     def set_buffer(self, buffer):
+#         self.buffer = buffer
 
 
 class UnlinkedTagTokenizer(object):
