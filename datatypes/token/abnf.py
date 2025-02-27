@@ -728,7 +728,8 @@ class ABNFGrammar(Scanner):
         if self.read(1) != ";":
             raise GrammarError("Comment must start with ;")
 
-        comment = self.read_until_newline()
+        #comment = self.read_until_newline()
+        comment = self.read_to(newline=True, include_delim=True)
         if not comment.endswith("\n"):
             raise GrammarError("Comment must end with a newline")
 
@@ -845,7 +846,7 @@ class ABNFGrammar(Scanner):
             [0, 0] # *
         """
         start = self.tell()
-        mrep = self.read_thru_chars(String.DIGITS)
+        mrep = self.read_thru(chars=String.DIGITS)
         if mrep:
             min_repeat = int(mrep)
 
@@ -861,7 +862,7 @@ class ABNFGrammar(Scanner):
 
             ch = self.peek()
             if ch and ch in String.DIGITS:
-                max_repeat = int(self.read_thru_chars(String.DIGITS))
+                max_repeat = int(self.read_thru(chars=String.DIGITS))
 
         else:
             max_repeat = min_repeat
@@ -932,7 +933,7 @@ class ABNFGrammar(Scanner):
         char-val so they stay consistent with ABNF updates from RFT7405
         """
         if self.peek() != "\"":
-            raise GrammarError("Char value begins with double-quote")
+            raise GrammarError("Char value does not begin with double-quote")
 
         start = self.tell()
         charval = self.read_until_delim("\"", count=2)
@@ -998,7 +999,7 @@ class ABNFGrammar(Scanner):
                 numchars = String.HEXDIGITS
                 name = "hex-val"
 
-            v = self.read_thru_chars(numchars)
+            v = self.read_thru(chars=numchars)
             if not v:
                 raise GrammarError("num-val with no number values")
 
@@ -1008,7 +1009,7 @@ class ABNFGrammar(Scanner):
             if ch == "-":
                 values.append(self.read(1))
 
-                v = self.read_thru_chars(numchars)
+                v = self.read_thru(chars=numchars)
                 if not v:
                     raise GrammarError(
                         f"num-val {ch} with no number values after"
@@ -1019,7 +1020,7 @@ class ABNFGrammar(Scanner):
             elif ch == ".":
                 while ch == ".":
                     values.append(self.read(1))
-                    v = self.read_thru_chars(numchars)
+                    v = self.read_thru(chars=numchars)
                     if not v:
                         raise GrammarError(
                             f"num-val {ch} with no number values after"
@@ -1049,7 +1050,7 @@ class ABNFGrammar(Scanner):
         start = self.tell()
         values = []
 
-        ch = self.read_thru_chars(start_char)
+        ch = self.read_thru(chars=start_char)
         if ch != start_char:
             raise GrammarError(f"Group must start with {start_char}")
 
@@ -1063,7 +1064,7 @@ class ABNFGrammar(Scanner):
         with self.optional() as scanner:
             values.append(scanner.scan_c_wsp())
 
-        ch = self.read_thru_chars(stop_char)
+        ch = self.read_thru(chars=stop_char)
         if ch != stop_char:
             raise GrammarError(f"Group must end with {stop_char}")
 

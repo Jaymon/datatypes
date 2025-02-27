@@ -489,12 +489,11 @@ class Scanner(BaseTokenizer):
                 # we are basically re-reading the character so internal
                 # offset will increment
                 partial += char
-                #partial += self.read(1)
 
         return partial, delim, delim_len
 
     def _read_thru_delim(self, delims):
-        """Internal method. Reads thru the found delim in `delims`
+        """Internal method. Reads through the found delim in `delims`
 
         :param delims: dict[str, int], the returned value from
             `._normalize_delims`
@@ -523,44 +522,17 @@ class Scanner(BaseTokenizer):
 
         return partial, delim, delim_len
 
-#     def _read_thru_delims(self, delims):
-#         """Internal method. Reads thru the found delim in `delims`
-# 
-#         :param delims: dict[str, int], the returned value from
-#             `._normalize_delims`
-#         :returns: tuple[str, str, int], returns the found stubstring, the
-#             matched delim, and the length of the matched delim
-#         """
-#         partial = ""
-# 
-#         while True:
-#             offset = self.tell()
-#             found = False
-# 
-#             pout.b()
-# 
-#             for delim, delim_len in delims.items():
-#                 p = self.read(delim_len)
-#                 pout.v(partial, p, delim)
-# 
-#                 if p == delim:
-#                     found = True
-#                     partial += p
-#                     break
-# 
-#                 else:
-#                     self.seek(offset)
-# 
-#             pout.v(found)
-# 
-#             if not found:
-#                 delim = ""
-#                 delim_len = 0
-#                 break
-# 
-#         return partial, delim, delim_len
-
     def _read_thru_delims(self, delims):
+        """Internal method. Reads through all the found delims in delims,
+        this is basically a wrapper around `._read_thru_delim` and is what
+        is called by `.read_thru`
+
+        :param delims: dict[str, int], the returned value from
+            `._normalize_delims`
+        :returns: tuple[str, str, int], returns the found substring, the
+            matched delims (basically a concatenated string of all the matched
+            delims, and the length of all the matched delims
+        """
         partial = ""
         partial_delims = ""
         partial_delims_len = 0
@@ -604,7 +576,6 @@ class Scanner(BaseTokenizer):
         if include_delim and delim_len > 0:
             partial += delim
             self.skip(delim_len)
-            #self.seek(self.tell() + delim_len)
 
         return partial
 
@@ -631,38 +602,6 @@ class Scanner(BaseTokenizer):
             partial = ""
 
         return partial
-
-#     def read_thru(self, **kwargs):
-#         """Scans and returns string that only includes the delims or chars
-# 
-#         This has roughly the same signature as `.read_to` and `.read_between`
-# 
-#         :param **kwargs: see ._normalize_delims
-#         :keyword include_delim: bool, see ._normalize_include_delim, no
-#             matter what the value the index will always be set to after the
-#             found delims
-#         :returns: str, returns the string that only includes the found sentinel
-#             value
-#         """
-#         partial = ""
-# 
-#         delims = self._normalize_delims(**kwargs)
-#         delims.update(self._normalize_delims(prefix="start_", **kwargs))
-#         include_delim = self._normalize_include_delim(True, **kwargs)
-# 
-#         while True:
-#             p, delim, delim_len = self._read_thru_delim(delims)
-#             if delim:
-#                 partial += delim
-#                 self.skip(delim_len)
-# 
-#             else:
-#                 break
-# 
-#         if not include_delim:
-#             partial = ""
-# 
-#         return partial
 
     def read_between(self, **kwargs):
         """Reads thru start_delim until stop_delim taking into account sub
@@ -702,6 +641,7 @@ class Scanner(BaseTokenizer):
         }
         include_delim = self._normalize_include_delim(True, **kwargs)
 
+        offset = self.tell()
         partial, delim, delim_len = self._read_thru_delim(start_delims)
         self.skip(delim_len)
 
@@ -710,25 +650,31 @@ class Scanner(BaseTokenizer):
                 partial = ""
 
             if delim in stop_delims:
-                offset = self.tell()
                 offset_delim_len = 0
 
-                while delim:
-                    p, delim, delim_len = self._read_to_delim(stop_delims)
-                    if delim:
-                        partial += p
+                p, delim, delim_len = self._read_to_delim(stop_delims)
+                if delim:
+                    partial += p
+
+                    if include_delim:
                         partial += delim
 
-                        self.skip(delim_len)
+                    self.skip(delim_len)
 
-                        offset = self.tell()
-                        offset_delim_len = delim_len
+                else:
+                    # we couldn't match and we got to the end of the file so
+                    # fail
+                    partial = ""
+                    self.seek(offset)
 
-                    else:
-                        self.seek(offset)
-
-                if not include_delim and offset_delim_len > 0:
-                    partial = partial[:-1 * offset_delim_len]
+#                     offset = self.tell()
+#                     offset_delim_len = delim_len
+# 
+#                 else:
+#                     self.seek(offset)
+# 
+#                 if not include_delim and offset_delim_len > 0:
+#                     partial = partial[:-1 * offset_delim_len]
 
             else:
                 all_delims = {**start_delims, **stop_delims}
@@ -758,8 +704,11 @@ class Scanner(BaseTokenizer):
 
 
                     else:
-                        # we've reached the end of the buffer
-                        partial += p
+                        # we've reached the end of the buffer and we didn't
+                        # finish matching so we failed
+                        #partial += p
+                        partial = ""
+                        self.seek(offset)
                         break
 
         return partial
