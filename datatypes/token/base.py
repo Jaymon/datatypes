@@ -56,12 +56,6 @@ class BaseTokenizer(TokenizerABC):
         self.seek(0)
         return self
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback):
-        return False if exception_value else True
-
     def peek(self, count=1):
         """Return the next token but don't increment the cursor offset"""
         with self.temporary() as it:
@@ -91,6 +85,23 @@ class BaseTokenizer(TokenizerABC):
     def readall(self):
         """Read and return all remaining tokens"""
         return self.read()
+
+    def read_slice(self, start_offset, stop_offset):
+        """Reads a slice of the buffer starting at `start_offset` and ending
+        at `stop_offset`
+
+        :param start_offset: int, where to start in the buffer
+        :param stop_offset: int, where to stop in the buffer
+        :returns: str, the read tokens in the buffer from start to stop offset
+        """
+        with self.temporary() as fp:
+            fp.seek(start_offset)
+            return fp.read(stop_offset - start_offset)
+
+    def getvalue(self):
+        """mimics `StringIO.getvalue`"""
+        with self.temporary() as fp:
+            return fp.read()
 
     def fileno(self):
         return self.buffer.fileno()
@@ -139,11 +150,17 @@ class BaseTokenizer(TokenizerABC):
         """https://docs.python.org/3/library/io.html#io.IOBase.seekable"""
         return self.buffer.seekable()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        return False if exception_value else True
+
     @contextmanager
     def transaction(self):
-        """If an error is raised reset the cursor back to where the transaction
-        was started, if no error is raised then keep the cursor at current
-        position"""
+        """If an error is raised reset the cursor back to where the
+        transaction was started, if no error is raised then keep the cursor
+        at current position"""
         start = self.buffer.tell()
         try:
             yield self
@@ -154,9 +171,9 @@ class BaseTokenizer(TokenizerABC):
 
     @contextmanager
     def temporary(self):
-        """similar to .transaction() but will always discard anything read and
-        reset the cursor back to where it started, you use this because you
-        want to check some tokens ephemerally"""
+        """similar to `.transaction()` but will always discard anything read
+        and reset the cursor back to where it started, you use this because
+        you want to check some tokens ephemerally"""
         start = self.buffer.tell()
         try:
             yield self
@@ -167,6 +184,9 @@ class BaseTokenizer(TokenizerABC):
     def count(self):
         """This is a terrible way to do this, but sometimes you just want to
         know how many tokens you have left
+
+        It's important to note, this is how many tokens are *left*, not how
+        many tokens *total*
 
         :returns: int, how many tokens you have left
         """
@@ -195,7 +215,7 @@ class BaseTokenizer(TokenizerABC):
         return total
 
     def __bool__(self):
-        return self.peek()
+        return True if self.peek() else False
 
     def close(self, *args, **kwargs):
         raise io.UnsupportedOperation()
@@ -232,6 +252,12 @@ class Tokenizer(BaseTokenizer):
     """
     token_class = Token
     """The token class this class will use to create Token instances"""
+
+    def peek(self, count=1):
+        """Return the next token but don't increment the cursor offset"""
+        tokens = super().peek(count)
+        if tokens:
+            return tokens if count > 1 else tokens[0]
 
     def tell(self):
         """Return the starting position of the current token but don't
@@ -666,15 +692,6 @@ class Scanner(BaseTokenizer):
                     # fail
                     partial = ""
                     self.seek(offset)
-
-#                     offset = self.tell()
-#                     offset_delim_len = delim_len
-# 
-#                 else:
-#                     self.seek(offset)
-# 
-#                 if not include_delim and offset_delim_len > 0:
-#                     partial = partial[:-1 * offset_delim_len]
 
             else:
                 all_delims = {**start_delims, **stop_delims}

@@ -522,16 +522,6 @@ class ScannerTest(TestCase):
         subtext = s.read_between(delim="```")
         self.assertEqual(r"```foo bar \``` che ```", subtext)
 
-#     def test_read_between_2(self):
-#         s = self.create_instance("```foo bar ```che``` bam``` after")
-#         subtext = s.read_between(start_delim="```", stop_delim="```")
-#         self.assertEqual("```foo bar ```che``` bam```", subtext)
-#         self.assertEqual(27, s.tell())
-# 
-#         s = self.create_instance("```foo bar ``` after")
-#         subtext = s.read_between(start_delim="```", stop_delim="```")
-#         self.assertEqual("```foo bar ```", subtext)
-
     def test_read_between_include_delim(self):
         s = self.create_instance("(foo bar) after")
         subtext = s.read_between(
@@ -556,8 +546,6 @@ class ScannerTest(TestCase):
         subtext = s.read_between(start_delim="(", stop_delim=")")
         self.assertEqual("", subtext)
         self.assertEqual(0, s.tell())
-
-        return
 
         s = self.create_instance("```foo bar")
         subtext = s.read_between(delim="```", include_delim=False)

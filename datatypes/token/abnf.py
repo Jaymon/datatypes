@@ -43,8 +43,10 @@ class ABNFToken(object):
 
     def __str__(self):
         if "parser" in self.options:
-            scanner = self.options["parser"].scanner.getvalue()
-            return scanner[self.start:self.stop]
+            return self.options["parser"].scanner.read_slice(
+                self.start,
+                self.stop
+            )
 
         else:
             return self.name
@@ -181,8 +183,8 @@ class ABNFDefinition(ABNFToken):
 
     @property
     def chars(self):
-        """If the val concatenated chars then this will return those chars as a
-        list"""
+        """If the val concatenated chars then this will return those chars as
+        a list"""
         if self.is_val_range():
             raise ValueError(f"No chars property on {self.name} with range")
 
@@ -202,11 +204,17 @@ class ABNFDefinition(ABNFToken):
     def __str__(self):
         if "grammar" in self.options:
             body = [
-                self.options["grammar"].getvalue()[self.start:self.stop].strip()
+                self.options["grammar"].read_slice(
+                    self.start,
+                    self.stop
+                ).strip()
             ]
             for md in self.options.get("merged", []):
                 body.append(
-                    self.options["grammar"].getvalue()[md.start:md.stop].strip()
+                    self.options["grammar"].read_slice(
+                        md.start,
+                        md.stop
+                    ).strip()
                 )
 
             return "{}({})".format(
@@ -224,16 +232,20 @@ class ABNFDefinition(ABNFToken):
     def is_internal(self):
         """Return True if this definition is an internal definition that can
         be safely ignored when checking input against a grammar"""
-        return self.is_c_wsp() \
-            or self.is_c_nl() \
-            or self.is_defined_as() \
+        return (
+            self.is_c_wsp()
+            or self.is_c_nl()
+            or self.is_defined_as()
             or self.is_comment()
+        )
 
     def is_num_val(self):
         """Return True if this definition is a numval token"""
-        return self.is_bin_val() \
-            or self.is_dec_val() \
+        return (
+            self.is_bin_val()
+            or self.is_dec_val()
             or self.is_hex_val()
+        )
 
     def is_val_range(self):
         """Return True if this grammar is a numval token and represents a range
@@ -247,8 +259,11 @@ class ABNFDefinition(ABNFToken):
         """Return True if this grammar is a numval token and represents a set
         of values"""
         if self.is_num_val():
-            return len(self.values) >= 5 and self.values[3] == "." \
+            return (
+                len(self.values) >= 5
+                and self.values[3] == "."
                 or not self.is_val_range()
+            )
 
         return False
 
@@ -936,8 +951,9 @@ class ABNFGrammar(Scanner):
             raise GrammarError("Char value does not begin with double-quote")
 
         start = self.tell()
-        charval = self.read_until_delim("\"", count=2)
-        charval = charval.strip("\"")
+        charval = self.read_between(char="\"", include_delim=False)
+        #charval = self.read_until_delim("\"", count=2)
+        #charval = charval.strip("\"")
         return self.create_definition(
             "quoted-string",
             [charval],
