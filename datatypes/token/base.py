@@ -46,9 +46,6 @@ class BaseTokenizer(TokenizerABC):
 
         self.buffer = buffer
 
-        #if not isinstance(buffer, io.IOBase):
-        #    raise ValueError("buffer should be an instance of io.IOBase")
-
         if not self.seekable():
             raise ValueError("buffer is not seekable")
 

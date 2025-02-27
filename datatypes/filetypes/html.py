@@ -25,7 +25,8 @@ class HTML(String):
 
         Moved from bang.utils on 1-6-2023
 
-        :param html: str, the html that will be injected to the head tag of self
+        :param html: str, the html that will be injected to the head tag of
+            self
         :returns: HTML, a new HTML string with the injected html
         """
         def callback(m):
@@ -40,7 +41,8 @@ class HTML(String):
 
         Moved from bang.utils on 1-6-2023
 
-        :param html: str, the html that will be injected to the body tag of self
+        :param html: str, the html that will be injected to the body tag of
+            self
         :returns: HTML, a new HTML string with the injected html
         """
         def callback(m):
@@ -53,15 +55,16 @@ class HTML(String):
     def strip_tags(self, remove_tags=None):
         """Strip tags, completely removing any tags in remove_tags list
 
-        you probably should use .plain() instead but this still has a place because
-        it will completely remove anything in remove_tags which HTMLCleaner doesn't
-        support (.plain() uses HTMLCleaner)
+        you probably should use .plain() instead but this still has a place
+        because it will completely remove anything in remove_tags which
+        HTMLCleaner doesn't support (.plain() uses HTMLCleaner)
 
         Moved from bang.utils on 1-6-2023
 
-        :param remove_tags: list, a list of tags that will be completely removed
-            not just plained
-        :returns: str, the plain text of the html with remove_tags completely removed
+        :param remove_tags: list, a list of tags that will be completely
+            removed not just plained
+        :returns: str, the plain text of the html with remove_tags completely
+            removed
         """
         return HTMLStripper(self, remove_tags=remove_tags).get_data()
 
@@ -129,13 +132,13 @@ class HTMLCleaner(BaseHTMLParser):
     def __init__(self, block_sep="\n", inline_sep="", keep_img_src=False):
         """create an instance and configure it
 
-        :param block_sep: string, strip a block tag and then add this to the end of the
-            stripped tag, so if you have <p>foo bar<p> and block_sep=\n, then the stripped
-            string would be foo bar\n
-        :param inline_sep: string, same as block_sep, but gets added to the end of the
-            stripped inline tag
-        :param keep_img_src: boolean, if True, the img.src attribute will replace the <img />
-            tag
+        :param block_sep: string, strip a block tag and then add this to the
+            end of the stripped tag, so if you have <p>foo bar<p> and
+            block_sep=\n, then the stripped string would be foo bar\n
+        :param inline_sep: string, same as block_sep, but gets added to the
+            end of the stripped inline tag
+        :param keep_img_src: boolean, if True, the img.src attribute will
+            replace the <img /> tag
         """
         self.fed = []
         self.block_sep = block_sep
@@ -179,8 +182,8 @@ class HTMLCleaner(BaseHTMLParser):
 class HTMLParser(BaseHTMLParser):
     """Parses HTML
 
-    This is a very simple html parser, if you need something more full featured
-    you should use BeautifulSoup or the like
+    This is a very simple html parser, if you need something more full
+    featured you should use BeautifulSoup or the like
 
     This can act like a stream/IO object
 
@@ -261,8 +264,8 @@ class HTMLParser(BaseHTMLParser):
             self.tags.append(tag)
 
     def handle_starttag(self, tagname, attrs):
-        # we add the tag if it is in the wanted tag list or if it is part of the
-        # body of another tag
+        # we add the tag if it is in the wanted tag list or if it is part of
+        # the body of another tag
         if not self.is_tagname(tagname) and not self.stack:
             return
 
@@ -310,7 +313,8 @@ class HTMLParser(BaseHTMLParser):
         return True
 
     def seek(self, offset):
-        """This is the current tag position, not the position while parsing the html"""
+        """This is the current tag position, not the position while parsing
+        the html"""
         self.tag_offset = offset
 
     def fileno(self):
@@ -459,9 +463,6 @@ class HTMLTokenizer(Tokenizer):
         taginfo = self.buffer.prev()
         return self.token_class(self, taginfo)
 
-#     def set_buffer(self, buffer):
-#         self.buffer = buffer
-
 
 class UnlinkedTagTokenizer(object):
     """This will go through an html block of code and return pieces that aren't
@@ -487,10 +488,8 @@ class UnlinkedTagTokenizer(object):
             tag = s.read_until_delim(">")
             plain = s.read_to_delim("<")
             if [st for st in start_set if tag.startswith(st)]:
-            #if tag.startswith("<a"):
-                # get rid of </a>, we can't do anything with the plain because it
-                # is linked in an <a> already
-                #while not tag.endswith("</a>"):
+                # get rid of </a>, we can't do anything with the plain because
+                # it is linked in an <a> already
                 while len([st for st in stop_set if tag.endswith(st)]) == 0:
                     tag += plain
                     tag += s.read_until_delim(">")
@@ -505,8 +504,9 @@ class HTMLStripper(BaseHTMLParser):
 
     Moved from bang.utils on 1-6-2023, I think it would be better to use
     HTMLCleaner though, I'll leave this in for a little while. This actually
-    still has a place because it supports remove_tags, at some point remove_tags
-    should be integrated into HTMLCleaner and then this can be removed
+    still has a place because it supports remove_tags, at some point
+    remove_tags should be integrated into HTMLCleaner and then this can be
+    removed
 
     https://docs.python.org/3/library/html.parser.html
     http://stackoverflow.com/a/925630/5006
