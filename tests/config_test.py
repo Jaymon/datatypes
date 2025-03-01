@@ -7,8 +7,88 @@ from datatypes.config import (
     Settings,
     MultiSettings,
 )
+from datatypes.config.environ.token import EnvironTokenizer
 
 from . import TestCase, testdata
+
+
+class EnvironTokenizerTest(TestCase):
+    def test_next_simple(self):
+        ts = EnvironTokenizer("FOO=foobar")
+
+        t = ts.next()
+        self.assertEqual("FOO", t.name)
+        self.assertEqual("foobar", t.value)
+
+    def test_escaped(self):
+        ts = EnvironTokenizer("FOO=foo\\$bar")
+
+        t = ts.next()
+        self.assertEqual("FOO", t.name)
+        self.assertEqual("foo$bar", t.value)
+
+    def test_string(self):
+        ts = EnvironTokenizer("FOO=foo\"bar\"")
+
+        t = ts.next()
+        self.assertEqual("FOO", t.name)
+        self.assertEqual("foobar", t.value)
+
+    def test_variable(self):
+        environ = Environ(environ={})
+        buffer = "\n".join([
+            "FOO=foobar",
+            "BAR=che$FOO",
+            "BAZ=boo${BAR}",
+            ""
+        ])
+        ts = EnvironTokenizer(buffer, environ)
+
+        t = ts.next()
+        environ.set(t.name, t.value)
+
+        t = ts.next()
+        environ.set(t.name, t.value)
+        self.assertEqual("BAR", t.name)
+        self.assertEqual("chefoobar", t.value)
+
+        t = ts.next()
+        self.assertEqual("BAZ", t.name)
+        self.assertEqual("boochefoobar", t.value)
+
+    def test_next_multiline_1(self):
+        buffer = "\n".join([
+            "FOO=foobar \\",
+            "  che bar \\ # comment",
+            "baz",
+            ""
+        ])
+        ts = EnvironTokenizer(buffer)
+
+        t = ts.next()
+        self.assertEqual("FOO", t.name)
+        self.assertEqual("foobar che bar baz", t.value)
+
+        t = ts.next()
+        self.assertIsNone(t)
+
+    def test_next_multiline_2(self):
+        buffer = "\n".join([
+            "FOO=foobar \\ # comment 1",
+            "  che # comment 2",
+            "BAZ=barfoo",
+            ""
+        ])
+
+        ts = EnvironTokenizer(buffer)
+
+        t = ts.next()
+        self.assertEqual("FOO", t.name)
+        self.assertEqual("foobar che ", t.value)
+
+        t = ts.next()
+        self.assertEqual("BAZ", t.name)
+        self.assertEqual("barfoo", t.value)
 
 
 class EnvironTest(TestCase):
@@ -61,12 +141,19 @@ class EnvironTest(TestCase):
         self.assertEqual(2, environ["BAR"])
 
     def test_load_path(self):
+        environ = Environ(environ={})
+
         p = self.create_file("""
             FOO=bar"che"
         """)
-
-        environ = Environ(environ={})
         environ.load_path(p)
+        self.assertEqual("barche", environ["FOO"])
+
+        p = self.create_file("""
+            BAR=boo$FOO"
+        """)
+        environ.load_path(p)
+        self.assertEqual("boobarche", environ["BAR"])
 
 
 class SettingsTest(TestCase):

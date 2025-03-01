@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
-import tempfile
 from pathlib import Path
 
-from ..compat import *
+from ...compat import *
 
 
 class Environ(Mapping):
@@ -91,9 +90,11 @@ class Environ(Mapping):
         self.environ[self.key(key)] = value
 
     def nset(self, key, values):
-        """Given a list of values, this will set key_* where * is 1 -> len(values)
+        """Given a list of values, this will set key_* where * is
+        1 -> len(values)
 
-        :param key: string, the key that will be added to the environment as key_*
+        :param key: string, the key that will be added to the environment as
+            key_*
         :param values: list, a list of values
         """
         self.ndelete(key)
@@ -121,8 +122,8 @@ class Environ(Mapping):
         """get a value for key from the environment
 
         :param key: string, this will be normalized using the key() method
-        :returns: mixed, the value in the environment of key, or default if key
-            is not in the environment
+        :returns: mixed, the value in the environment of key, or default if
+            key is not in the environment
         """
         try:
             return self[key]
@@ -170,8 +171,8 @@ class Environ(Mapping):
         N is 1 to infinity) in the environment
 
         The number checks (eg *_1, *_2) go in order, so you can't do *_1, *_3,
-        because it will fail on missing *_2 and move on, so make sure your number
-        suffixes are in order (eg, 1, 2, 3, ...)
+        because it will fail on missing *_2 and move on, so make sure your
+        number suffixes are in order (eg, 1, 2, 3, ...)
 
         :param key: string, the name of the environment variables
         :returns: generator, the found values for key and key_* variants
@@ -312,37 +313,20 @@ class Environ(Mapping):
         return len(list(self.keys()))
 
     def load_path(self, path):
+        """Load the environment file found at `path` into this instance
+
+        :param path: str|Path
+        :returns: int, how many variables were loaded from the file
+        """
+        from .token import EnvironTokenizer # avoid circular dependency
+
+        count = 0
         path = Path(path)
         with path.open() as fp:
-            for line in fp:
-                pout.v(line)
+            ts = EnvironTokenizer(fp, self)
+            for t in ts:
+                self.set(t.name, t.value)
+                count += 1
 
-
-
-
-###############################################################################
-# Actual environment configuration that is used throughout the package
-###############################################################################
-environ = Environ("DATATYPES_")
-
-environ.setdefault("ENCODING", "UTF-8")
-"""For things that need encoding, this will be the default encoding if nothing
-else is passed in"""
-
-
-environ.setdefault("ENCODING_ERRORS", "replace")
-"""For things that need encoding, this will handle any errors"""
-
-
-# 2021-1-15 - we place our cache by default into another directory because I
-# have problems running some commands like touch on the base temp directory on
-# MacOS on Python3, no idea why but I couldn't get around it
-environ.setdefault(
-    "CACHE_DIR",
-    os.path.join(tempfile.gettempdir(), environ.namespace.lower().rstrip("_"))
-)
-"""the default caching directory for things that need a cache folder"""
-
-
-environ.setdefault("USER_AGENT", "")
+        return count
 

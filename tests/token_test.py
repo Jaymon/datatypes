@@ -340,20 +340,22 @@ class WordTokenizerTest(TestCase):
         self.assertEqual("2345678", r.text)
 
         t.seek(0)
-        self.assertEqual(2, len(t.readall()))
+        self.assertEqual(2, len(t.read()))
 
     def test_unicode_pure(self):
         text = testdata.get_unicode_words(100)
         t = self.create_instance(text)
-        # really, we just need .readall() not to raise an error and we know it worked
-        self.assertGreaterEqual(100, len(t.readall()))
+        # really, we just need .read() not to raise an error and we know it
+        # worked
+        self.assertGreaterEqual(100, len(t.read()))
 
     def test_unicode_mixed(self):
         """make sure mixed unicode and ascii work as expected"""
         text = testdata.get_words(100)
         t = self.create_instance(text)
-        # really, we just need .readall() not to raise an error and we know it worked
-        self.assertGreaterEqual(100, len(t.readall()))
+        # really, we just need .read() not to raise an error and we know it
+        # worked
+        self.assertGreaterEqual(100, len(t.read()))
 
     def test_count_total(self):
         t = self.create_instance("foo bar che bam boo")
@@ -453,16 +455,6 @@ class ScannerTest(TestCase):
         s = self.create_instance("foo->bar")
         subtext = s.read_to(delims=delims, include_delim=True)
         self.assertTrue(subtext.endswith("->"))
-
-#     def test_read_to_count(self):
-#         s = self.create_instance("foo+bar+che")
-#         subtext = s.read_to(char="+", count=2)
-#         pout.v(subtext)
-# 
-#     def test_read_between_count(self):
-#         s = self.create_instance("\"foo bar che\" baz\" boo")
-#         subtext = s.read_between(char="\"", count=1)
-#         pout.v(subtext)
 
     def test_read_thru_1(self):
         s = self.create_instance("foo bar")
@@ -610,6 +602,15 @@ class ScannerTest(TestCase):
         self.assertEqual("bar", partial)
         self.assertEqual("bar", delim)
         self.assertEqual(3, s.tell())
+
+#     def test_read_chars(self):
+#         s = self.create_instance(r"\$")
+#         ch = s.read_chars()
+#         self.assertEqual(r"\$", ch)
+# 
+#         s = self.create_instance("\\\n")
+#         ch = s.read_chars()
+#         pout.v(ch)
 
 
 class ABNFGrammarTest(TestCase):

@@ -185,7 +185,7 @@ class HTMLParser(BaseHTMLParser):
     This is a very simple html parser, if you need something more full
     featured you should use BeautifulSoup or the like
 
-    This can act like a stream/IO object
+    This acts like a stream/IO io.IOBase object
 
     :Example:
         # get all <a> tags from a block of html

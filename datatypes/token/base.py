@@ -23,14 +23,34 @@ class Token(object):
 
 
 class TokenizerABC(io.IOBase):
+    """Contains the most common methods a child class should implement.
+
+    You don't directly extend this class, you would instead extend
+    Tokenizer
+    """
     def next(self):
+        """Return the next token
+
+        This is responsible for creating the Token instance
+
+        :returns: Token
+        """
         raise NotImplementedError()
 
     def prev(self):
+        """Return the previous token
+
+        This is responsible for creating the Token instance
+
+        :returns: Token
+        """
         raise io.UnsupportedOperation()
 
 
 class BaseTokenizer(TokenizerABC):
+    """Basically an io.IOBase wrapper, implementing all the functionality of
+    a feature complete io stream
+    """
     def __init__(self, buffer):
         """
         :param buffer: str|io.IOBase, this is the input that will be tokenized,
@@ -53,47 +73,12 @@ class BaseTokenizer(TokenizerABC):
         self.seek(0)
         return self
 
-    def peek(self, count=1):
-        """Return the next token but don't increment the cursor offset"""
-        with self.temporary() as it:
-            try:
-                return it.read(count)
-
-            except StopIteration:
-                pass
-
-    def tell(self):
-        """Return the starting position of the current token but don't
-        increment the cursor offset"""
-        return self.buffer.tell()
-
     def __next__(self):
-        return self.next()
+        token = self.next()
+        if token is None or token == "":
+            raise StopIteration()
 
-    def read(self, count=-1):
-        """Read count tokens and return them
-
-        :param count: int, if >0 then return count tokens, if -1 then return
-            all remaining tokens
-        :returns: str, the read tokens as a substring
-        """
-        return self.buffer.read(count)
-
-    def readall(self):
-        """Read and return all remaining tokens"""
-        return self.read()
-
-    def read_slice(self, start_offset, stop_offset):
-        """Reads a slice of the buffer starting at `start_offset` and ending
-        at `stop_offset`
-
-        :param start_offset: int, where to start in the buffer
-        :param stop_offset: int, where to stop in the buffer
-        :returns: str, the read tokens in the buffer from start to stop offset
-        """
-        with self.temporary() as fp:
-            fp.seek(start_offset)
-            return fp.read(stop_offset - start_offset)
+        return token
 
     def getvalue(self):
         """mimics `StringIO.getvalue`"""
@@ -101,6 +86,9 @@ class BaseTokenizer(TokenizerABC):
             return fp.read()
 
     def fileno(self):
+        """
+        https://docs.python.org/3/library/io.html#io.IOBase.fileno
+        """
         return self.buffer.fileno()
 
     def readable(self):
@@ -116,6 +104,20 @@ class BaseTokenizer(TokenizerABC):
         # give this error: "OSError: Can't do nonzero cur-relative seeks
         return self.seek(self.tell() + count)
         #return self.seek(count, SEEK_CUR)
+
+    def peek(self, count=1):
+        """Return the next token but don't increment the cursor offset"""
+        with self.temporary() as it:
+            try:
+                return it.read(count)
+
+            except StopIteration:
+                pass
+
+    def tell(self):
+        """Return the starting position of the current token but don't
+        increment the cursor offset"""
+        return self.buffer.tell()
 
     def seek(self, offset, whence=SEEK_SET):
         """Change to the token given by offset and calculated according to the
@@ -146,12 +148,6 @@ class BaseTokenizer(TokenizerABC):
     def seekable(self):
         """https://docs.python.org/3/library/io.html#io.IOBase.seekable"""
         return self.buffer.seekable()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback):
-        return False if exception_value else True
 
     @contextmanager
     def transaction(self):
@@ -220,10 +216,42 @@ class BaseTokenizer(TokenizerABC):
     def closed(self, *args, **kwargs):
         return self.buffer.closed()
 
+    def read_slice(self, start_offset, stop_offset):
+        """Reads a slice of the buffer starting at `start_offset` and ending
+        at `stop_offset`
+
+        :param start_offset: int, where to start in the buffer
+        :param stop_offset: int, where to stop in the buffer
+        :returns: str, the read tokens in the buffer from start to stop offset
+        """
+        with self.temporary() as fp:
+            fp.seek(start_offset)
+            return fp.read(stop_offset - start_offset)
+
+    def read(self, count=-1):
+        """Read count tokens and return them
+
+        https://docs.python.org/3/library/io.html#io.IOBase
+            Even though IOBase does not declare read() or write() because their
+            signatures will vary, implementations and clients should consider
+            those methods part of the interface.
+
+        :param count: int, if >0 then return count tokens, if -1 then return
+            all remaining tokens
+        :returns: str, the read tokens as a substring
+        """
+        return self.buffer.read(count)
+
     def readline(self, size=-1):
+        """
+        https://docs.python.org/3/library/io.html#io.IOBase.readline
+        """
         return self.buffer.readline(size)
 
     def readlines(self, hint=-1):
+        """
+        https://docs.python.org/3/library/io.html#io.IOBase.readlines
+        """
         return self.buffer.readlines(hint)
 
 
@@ -232,7 +260,29 @@ class Tokenizer(BaseTokenizer):
 
     A Tokenizer class acts like an IO object but returns tokens instead of
     strings and all read operations return Token instances and all setting
-    operations manipulate positions according to tokens
+    operations manipulate positions according to tokens. You can see this
+    by looking at `.read()`, it returns an array of tokens instead of a string
+    like a normal io stream would.
+
+    To create a custom Tokenizer, you usually would extend 2 classes:
+        * Token
+        * Tokenizer
+
+    A custom Tokenizer will usually set the `.token_class` property to the
+    new custom `Token` class and implement the `.next()` method
+
+    .. Example:
+        from datatypes.token import Token, Tokenizer
+
+        class MyToken(Token):
+            # customize this class based on needs
+            pass
+
+        class MyTokenizer(Tokenizer):
+            token_class = MyToken
+
+            def next(self):
+                return self.token_class(self)
 
     Summarized from https://stackoverflow.com/a/380487
         A tokenizer breaks a stream of text into tokens, usually by breaking it
@@ -572,6 +622,17 @@ class Scanner(BaseTokenizer):
                 break
 
         return partial, partial_delims, partial_delims_len
+
+#     def next_chars(self, count=1):
+#         for _ in range(count):
+#             char = self.read(1)
+#             escaped = False
+# 
+#             if char == "\\":
+#                 escaped = True
+#                 char = self.read(1)
+# 
+#             yield char, escaped
 
     def read_to(self, **kwargs):
         """scans and returns string up to but not including the delim unless

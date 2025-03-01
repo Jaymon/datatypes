@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from .environ import (
+from .environ.base import (
     Environ,
 )
 from .parser import (
