@@ -43,7 +43,7 @@ class ABNFToken(object):
 
     def __str__(self):
         if "parser" in self.options:
-            return self.options["parser"].scanner.read_slice(
+            return self.options["parser"].scanner.get_slice(
                 self.start,
                 self.stop
             )
@@ -204,14 +204,14 @@ class ABNFDefinition(ABNFToken):
     def __str__(self):
         if "grammar" in self.options:
             body = [
-                self.options["grammar"].read_slice(
+                self.options["grammar"].get_slice(
                     self.start,
                     self.stop
                 ).strip()
             ]
             for md in self.options.get("merged", []):
                 body.append(
-                    self.options["grammar"].read_slice(
+                    self.options["grammar"].get_slice(
                         md.start,
                         md.stop
                     ).strip()
@@ -552,17 +552,33 @@ class ABNFGrammar(Scanner):
         """
         start = self.tell()
         values = []
-        eoftell = len(self)
 
-        while self.tell() < eoftell:
+        while True:
             try:
-                values.append(self.scan_rule())
+                try:
+                    rule = self.scan_rule()
+                    values.append(rule)
 
-            except GrammarError:
-                with self.optional() as scanner:
-                    values.append(scanner.scan_c_wsp())
+                except GrammarError:
+                    with self.optional() as scanner:
+                        values.append(scanner.scan_c_wsp())
 
-                values.append(self.scan_c_nl())
+                    values.append(self.scan_c_nl())
+
+            except EOFError:
+                break
+
+#         eoftell = len(self)
+# 
+#         while self.tell() < eoftell:
+#             try:
+#                 values.append(self.scan_rule())
+# 
+#             except GrammarError:
+#                 with self.optional() as scanner:
+#                     values.append(scanner.scan_c_wsp())
+# 
+#                 values.append(self.scan_c_nl())
 
         return self.create_definition(
             "rulelist",
@@ -598,12 +614,24 @@ class ABNFGrammar(Scanner):
         rule names are case-insensitive
         """
         start = self.tell()
-        ch = self.peek()
-        if ch and ch in String.ALPHA:
-            rulename = self.read_thru(chars=String.ALPHANUMERIC + "-")
+        ch = self.read(1)
+        if ch:
+            if ch in String.ALPHA:
+                rulename = ch + self.read_thru(chars=String.ALPHANUMERIC + "-")
+
+            else:
+                self.seek(start) # reset the character
+                raise GrammarError(f"[{ch}] was not an ALPHA character")
 
         else:
-            raise GrammarError(f"[{ch}] was not an ALPHA character")
+            raise EOFError()
+
+#         if ch and ch in String.ALPHA:
+#             rulename = ch + self.read_thru(chars=String.ALPHANUMERIC + "-")
+# 
+#         else:
+#             self.seek(start) # reset the character
+#             raise GrammarError(f"[{ch}] was not an ALPHA character")
 
         stop = self.tell()
         return self.create_definition(
@@ -1149,7 +1177,7 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
     def parse(self, buffer, partial=False):
         """Parse buffer and return the parsed token
 
-        :param buffer: str, teh input to be parsed using self.parser.grammar
+        :param buffer: str, the input to be parsed using self.parser.grammar
         :param partial: bool, True if you don't expect to completely parse
             buffer, if False (default) then buffer must be fully consumed or a
             ParseError is raised
@@ -1160,20 +1188,31 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
         values = self.parse_rule(self.entry_rule)
         token = values[0]
 
-        if not partial:
-            eoftell = len(self.scanner)
-            if token.stop < eoftell:
-                raise ParseError(
-                    (
-                        "Only parsed {}/{} characters of buffer using"
-                        " {}: {}"
-                    ).format(
-                        token.stop,
-                        eoftell,
-                        self.entry_rule.defname,
-                        buffer[0:token.stop],
-                    )
+        if not partial and self.scanner.peek():
+            raise ParseError(
+                (
+                    "Parsed {} characters using {}: {} but buffer"
+                    " contains trailing characters"
+                ).format(
+                    token.stop,
+                    self.entry_rule.defname,
+                    buffer[0:token.stop],
                 )
+            )
+
+#             eoftell = len(self.scanner)
+#             if token.stop < eoftell:
+#                 raise ParseError(
+#                     (
+#                         "Only parsed {}/{} characters of buffer using"
+#                         " {}: {}"
+#                     ).format(
+#                         token.stop,
+#                         eoftell,
+#                         self.entry_rule.defname,
+#                         buffer[0:token.stop],
+#                     )
+#                 )
 
         return values[0]
 
@@ -1319,7 +1358,7 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             self.scanner.seek(token.stop)
 
         else:
-            eoftell = len(self.scanner)
+#             eoftell = len(self.scanner)
 
             self.push(rule)
             success = 0
@@ -1383,8 +1422,11 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
                             stop = istop
 
                             if parsing_info.get("left-recursion", False):
-                                if stop < eoftell:
+                                if self.scanner.peek():
                                     continue
+#                                 if stop < eoftell:
+#                                     continue
+#                                 continue
 
                     break
 

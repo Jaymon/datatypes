@@ -216,9 +216,11 @@ class BaseTokenizer(TokenizerABC):
     def closed(self, *args, **kwargs):
         return self.buffer.closed()
 
-    def read_slice(self, start_offset, stop_offset):
+    def get_slice(self, start_offset, stop_offset):
         """Reads a slice of the buffer starting at `start_offset` and ending
         at `stop_offset`
+
+        This uses `.temporary()` to not mess with the index pointer
 
         :param start_offset: int, where to start in the buffer
         :param stop_offset: int, where to stop in the buffer
