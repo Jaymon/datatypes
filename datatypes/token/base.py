@@ -174,38 +174,38 @@ class BaseTokenizer(TokenizerABC):
         finally:
             self.buffer.seek(start)
 
-    def count(self):
-        """This is a terrible way to do this, but sometimes you just want to
-        know how many tokens you have left
-
-        It's important to note, this is how many tokens are *left*, not how
-        many tokens *total*
-
-        :returns: int, how many tokens you have left
-        """
-        count = 0
-        with self.temporary() as it:
-            try:
-                while it.read(1):
-                    count += 1
-            except StopIteration:
-                pass
-
-        return count
-
-    def __len__(self):
-        """Returns the total number of tokens no matter where offset is
-        positioned
-
-        WARNING -- don't use this if you can avoid it because it will parse the
-            entire buffer and then reset it so it is not efficient in any way
-
-        :returns: int, the total tokens, irrespective of current offset
-        """
-        with self.temporary() as it:
-            it.seek(0)
-            total = it.count()
-        return total
+#     def count(self):
+#         """This is a terrible way to do this, but sometimes you just want to
+#         know how many tokens you have left
+# 
+#         It's important to note, this is how many tokens are *left*, not how
+#         many tokens *total*
+# 
+#         :returns: int, how many tokens you have left
+#         """
+#         count = 0
+#         with self.temporary() as it:
+#             try:
+#                 while it.read(1):
+#                     count += 1
+#             except StopIteration:
+#                 pass
+# 
+#         return count
+# 
+#     def __len__(self):
+#         """Returns the total number of tokens no matter where offset is
+#         positioned
+# 
+#         WARNING -- don't use this if you can avoid it because it will parse the
+#             entire buffer and then reset it so it is not efficient in any way
+# 
+#         :returns: int, the total tokens, irrespective of current offset
+#         """
+#         with self.temporary() as it:
+#             it.seek(0)
+#             total = it.count()
+#         return total
 
     def __bool__(self):
         return True if self.peek() else False
