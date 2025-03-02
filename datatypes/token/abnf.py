@@ -23,7 +23,15 @@ class ParseError(ValueError):
 
 class GrammarError(ValueError):
     """Raised in ABNFGrammar when the grammar can't be parsed"""
-    pass
+    def __init__(self, *args, **kwargs):
+        """
+        :keyword offset: int, the starting offset of where the error was
+            encountered, defaults to -1 which means no offset information,
+            has the same meaning as `ABNFToken.start`
+        """
+        self.start = kwargs.pop("start", -1)
+
+        super().__init__(*args, **kwargs)
 
 
 class ABNFToken(object):
@@ -355,9 +363,9 @@ class ABNFGrammar(Scanner):
 
     This class isn't as strict as an actual grammar parser should be:
 
-        * \r\n and \n are both considered valid line endings
-        * / and | are both considered valid alternation deliminators
-        * <...> is converted to a rulename instead of prose-val
+        * `\r\n` and `\n` are both considered valid line endings
+        * `/` and `|` are both considered valid alternation deliminators
+        * `<...>` is converted to a rulename instead of prose-val
     """
     definition_class = ABNFDefinition
 
@@ -559,7 +567,12 @@ class ABNFGrammar(Scanner):
                     rule = self.scan_rule()
                     values.append(rule)
 
-                except GrammarError:
+                except GrammarError as e:
+                    # reset back to the starting character in an attempt to
+                    # clear whitespace and try again
+                    if e.start >= 0:
+                        self.seek(e.start)
+
                     with self.optional() as scanner:
                         values.append(scanner.scan_c_wsp())
 
@@ -567,18 +580,6 @@ class ABNFGrammar(Scanner):
 
             except EOFError:
                 break
-
-#         eoftell = len(self)
-# 
-#         while self.tell() < eoftell:
-#             try:
-#                 values.append(self.scan_rule())
-# 
-#             except GrammarError:
-#                 with self.optional() as scanner:
-#                     values.append(scanner.scan_c_wsp())
-# 
-#                 values.append(self.scan_c_nl())
 
         return self.create_definition(
             "rulelist",
@@ -620,18 +621,13 @@ class ABNFGrammar(Scanner):
                 rulename = ch + self.read_thru(chars=String.ALPHANUMERIC + "-")
 
             else:
-                self.seek(start) # reset the character
-                raise GrammarError(f"[{ch}] was not an ALPHA character")
+                raise GrammarError(
+                    f"[{ch}] was not an ALPHA character",
+                    start=start
+                )
 
         else:
             raise EOFError()
-
-#         if ch and ch in String.ALPHA:
-#             rulename = ch + self.read_thru(chars=String.ALPHANUMERIC + "-")
-# 
-#         else:
-#             self.seek(start) # reset the character
-#             raise GrammarError(f"[{ch}] was not an ALPHA character")
 
         stop = self.tell()
         return self.create_definition(
@@ -657,7 +653,7 @@ class ABNFGrammar(Scanner):
         start = self.tell()
 
         if self.read(1) != "<":
-            raise GrammarError("prose-val begins with <")
+            raise GrammarError("prose-val begins with <", start=start)
 
         val = self.read_to(delim=">")
         self.read_thru(delim=">")
@@ -688,7 +684,7 @@ class ABNFGrammar(Scanner):
 
         else:
             val = sign or scanner.peek()
-            raise GrammarError(f"{val} is not = or =/")
+            raise GrammarError(f"{val} is not = or =/", start=start)
 
         with self.optional() as scanner:
             values.append(scanner.scan_c_wsp())
@@ -725,7 +721,7 @@ class ABNFGrammar(Scanner):
                 )
 
             else:
-                raise GrammarError("(c-nl WSP) missing WSP")
+                raise GrammarError("(c-nl WSP) missing WSP", start=start)
 
         return cwsp
 
@@ -734,6 +730,8 @@ class ABNFGrammar(Scanner):
         c-nl           =  comment / CRLF
                                 ; comment or newline
         """
+        start = self.tell()
+
         ch = self.peek()
         if ch == ";":
             comment = self.scan_comment()
@@ -746,7 +744,6 @@ class ABNFGrammar(Scanner):
 
         elif ch == "\r" or ch == "\n":
             # we loosen restrictions a bit here by allowing \r\n or just \n
-            start = self.tell()
             newline = self.read_to(newline=True, include_delim=True)
             stop = self.tell()
             crlf = self.create_definition("CRLF", newline, start, stop)
@@ -759,7 +756,7 @@ class ABNFGrammar(Scanner):
             )
 
         else:
-            raise GrammarError("c-nl rule failed")
+            raise GrammarError("c-nl rule failed", start=start)
 
         return cnl
 
@@ -768,13 +765,13 @@ class ABNFGrammar(Scanner):
         comment        =  ";" *(WSP / VCHAR) CRLF
         """
         start = self.tell()
-        if self.read(1) != ";":
-            raise GrammarError("Comment must start with ;")
 
-        #comment = self.read_until_newline()
+        if self.read(1) != ";":
+            raise GrammarError("Comment must start with ;", start=start)
+
         comment = self.read_to(newline=True, include_delim=True)
         if not comment.endswith("\n"):
-            raise GrammarError("Comment must end with a newline")
+            raise GrammarError("Comment must end with a newline", start=start)
 
         stop = self.tell()
         return self.create_definition(
@@ -955,7 +952,10 @@ class ABNFGrammar(Scanner):
             values.append(self.scan_prose_val())
 
         else:
-            raise GrammarError(f"Unknown element starting with [{ch}]")
+            raise GrammarError(
+                f"Unknown element starting with [{ch}]",
+                start=start
+            )
 
         return self.create_definition(
             "element",
@@ -975,13 +975,15 @@ class ABNFGrammar(Scanner):
         When parsing the grammar any quoted-string rules are wrapped with
         char-val so they stay consistent with ABNF updates from RFT7405
         """
-        if self.peek() != "\"":
-            raise GrammarError("Char value does not begin with double-quote")
-
         start = self.tell()
+
+        if self.peek() != "\"":
+            raise GrammarError(
+                "Char value does not begin with double-quote",
+                start=start
+            )
+
         charval = self.read_between(char="\"", include_delim=False)
-        #charval = self.read_until_delim("\"", count=2)
-        #charval = charval.strip("\"")
         return self.create_definition(
             "quoted-string",
             [charval],
@@ -1023,7 +1025,7 @@ class ABNFGrammar(Scanner):
 
         ch = self.read(1)
         if ch != "%":
-            raise GrammarError("num-val starts with %")
+            raise GrammarError("num-val starts with %", start=start)
 
         values.append(ch)
 
@@ -1045,7 +1047,10 @@ class ABNFGrammar(Scanner):
 
             v = self.read_thru(chars=numchars)
             if not v:
-                raise GrammarError("num-val with no number values")
+                raise GrammarError(
+                    "num-val with no number values",
+                    start=start
+                )
 
             values.append(v)
 
@@ -1056,7 +1061,8 @@ class ABNFGrammar(Scanner):
                 v = self.read_thru(chars=numchars)
                 if not v:
                     raise GrammarError(
-                        f"num-val {ch} with no number values after"
+                        f"num-val {ch} with no number values after",
+                        start=start
                     )
 
                 values.append(v)
@@ -1067,7 +1073,8 @@ class ABNFGrammar(Scanner):
                     v = self.read_thru(chars=numchars)
                     if not v:
                         raise GrammarError(
-                            f"num-val {ch} with no number values after"
+                            f"num-val {ch} with no number values after",
+                            start=start
                         )
 
                     values.append(v)
@@ -1078,7 +1085,7 @@ class ABNFGrammar(Scanner):
             name = "char-val"
 
         else:
-            raise GrammarError(f"Terminal value {ch} failed")
+            raise GrammarError(f"Terminal value {ch} failed", start=start)
 
         return self.create_definition(
             name,
@@ -1096,7 +1103,10 @@ class ABNFGrammar(Scanner):
 
         ch = self.read_thru(chars=start_char)
         if ch != start_char:
-            raise GrammarError(f"Group must start with {start_char}")
+            raise GrammarError(
+                f"Group must start with {start_char}",
+                start=start
+            )
 
         values.append(ch)
 
@@ -1110,7 +1120,10 @@ class ABNFGrammar(Scanner):
 
         ch = self.read_thru(chars=stop_char)
         if ch != stop_char:
-            raise GrammarError(f"Group must end with {stop_char}")
+            raise GrammarError(
+                f"Group must end with {stop_char}",
+                start=start
+            )
 
         values.append(ch)
 
@@ -1192,27 +1205,13 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             raise ParseError(
                 (
                     "Parsed {} characters using {}: {} but buffer"
-                    " contains trailing characters"
+                    " still contains trailing characters"
                 ).format(
                     token.stop,
                     self.entry_rule.defname,
                     buffer[0:token.stop],
                 )
             )
-
-#             eoftell = len(self.scanner)
-#             if token.stop < eoftell:
-#                 raise ParseError(
-#                     (
-#                         "Only parsed {}/{} characters of buffer using"
-#                         " {}: {}"
-#                     ).format(
-#                         token.stop,
-#                         eoftell,
-#                         self.entry_rule.defname,
-#                         buffer[0:token.stop],
-#                     )
-#                 )
 
         return values[0]
 
@@ -1358,8 +1357,6 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             self.scanner.seek(token.stop)
 
         else:
-#             eoftell = len(self.scanner)
-
             self.push(rule)
             success = 0
 
@@ -1424,9 +1421,6 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
                             if parsing_info.get("left-recursion", False):
                                 if self.scanner.peek():
                                     continue
-#                                 if stop < eoftell:
-#                                     continue
-#                                 continue
 
                     break
 
