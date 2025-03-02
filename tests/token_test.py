@@ -357,17 +357,6 @@ class WordTokenizerTest(TestCase):
         # worked
         self.assertGreaterEqual(100, len(t.read()))
 
-#     def test_count_total(self):
-#         t = self.create_instance("foo bar che bam boo")
-#         total = len(t)
-#         self.assertEqual(total, t.count())
-# 
-#         t.next()
-#         t.next()
-#         self.assertEqual(3, t.count())
-#         self.assertLess(t.count(), len(t))
-#         self.assertEqual(total, len(t))
-
     def test_word_sizes_1(self):
         s = "I is the have steps foobar"
         t = self.create_instance(s)
