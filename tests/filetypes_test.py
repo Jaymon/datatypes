@@ -38,6 +38,46 @@ class HTMLTest(TestCase):
         self.assertEqual("two", tag["class"])
         self.assertEqual("two body", tag.text)
 
+    def test_blocks_1(self):
+        html = HTML("<p></p>")
+        count = 0
+        for tag, plain in html.blocks():
+            count += 1
+        self.assertEqual(2, count)
+
+    def test_blocks_2(self):
+        """make sure bad html with no end tag is handled"""
+        html = HTML("<p>")
+        count = 0
+        for tag, plain in html.blocks():
+            count += 1
+        self.assertEqual(1, count)
+
+    def test_blocks_2(self):
+        """make sure bad html with no end ignored tag is handled"""
+        html = HTML("<p>after p <pre> after pre")
+        count = 0
+        for tag, plain in html.blocks(["pre"]):
+            count += 1
+        self.assertEqual(2, count)
+
+    def test_blocks_3(self):
+        html = HTML("""
+            <div>
+                before p
+                <p>
+                    after p <a href=\"/foo/bar/che\">inside a</a>
+                    after a
+                </p>
+                after p
+            </div>
+        """)
+
+        count = 0
+        for tag, plain in html.blocks(["a", "pre"]):
+            count += 1
+        self.assertEqual(6, count)
+
 
 class HTMLCleanerTest(TestCase):
     def test_lifecycle(self):

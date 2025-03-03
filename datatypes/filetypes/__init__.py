@@ -5,7 +5,6 @@ from .html import (
     HTMLParser,
     HTML,
     HTMLTokenizer,
-    UnlinkedTagTokenizer,
 )
 from .toml import (
     TOML,

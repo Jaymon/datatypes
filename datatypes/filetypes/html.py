@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from collections import Counter
+from collections.abc import Iterable
 import re
 
 from ..compat import *
@@ -67,6 +68,22 @@ class HTML(String):
             removed
         """
         return HTMLStripper(self, remove_tags=remove_tags).get_data()
+
+    def blocks(self, ignore_tagnames=None):
+        """Tokenize the html into blocks. This is tough to describe so go
+        read the description on the html block iterator this returns
+
+        :returns: HTMLBlockTokenizer
+        """
+        return HTMLBlockTokenizer(self, ignore_tagnames)
+
+#     def linkable_blocks(self, ignore_tagnames=None):
+#         if not ignore_tagnames:
+#             ignore_tagnames = []
+# 
+#         ignore_tagnames.extend(["a", "pre"])
+# 
+#         yield from self.blocks(ignore_tagnames=ignore_tagnames)
 
 
 class HTMLCleaner(BaseHTMLParser):
@@ -249,7 +266,7 @@ class HTMLParser(BaseHTMLParser):
         self.data = data
         self.seek(0)
 
-        super(HTMLParser, self).feed(data)
+        super().feed(data)
         self.close()
 
     def close(self):
@@ -464,39 +481,166 @@ class HTMLTokenizer(Tokenizer):
         return self.token_class(self, taginfo)
 
 
-class UnlinkedTagTokenizer(object):
-    """This will go through an html block of code and return pieces that aren't
-    linked (between <a> and </a>, or pre tags), allowing you to mess with the
-    blocks of plain text that isn't special in some way
+class HTMLBlockTokenizer(Iterable):
+    """Internal class. Iterate through blocks of html and the inner text of
+    the element.
 
-    Moved from bang.utils on 1-6-2023
+    The way to describe this is that everything this iterates would equal
+    the original input if it was all concatenated together.
+
+    .. Example:
+        html = HTMLBlockTokenizer(
+            "before all"
+            " <p>after p before a "
+            " <a href=\"#\">between a</a>"
+            " after a</p>"
+            " after all"
+        )
+
+        blocks = ""
+        for element in html:
+            # ("", "before all")
+            # ("<p>", "after p before a")
+            # ("<a href="#">", "between a")
+            # ("</a>", "after a")
+            # ("</p>", "after all")
+            blocks += element[0]
+            blocks += element[1]
+
+        assert blocks == html
+
+    Now, if you pass any tags into `ignore_tagnames` then the first element
+    of the tuple will be the full value of that tag
+
+    .. Example:
+        html = HTMLBlockTokenizer(
+            (
+                " <p>after p before a "
+                " <a href=\"#\">between a</a>"
+                " after a</p>"
+            ),
+            ignore_tagnames=["a"]
+        )
+
+        blocks = ""
+        for element in html:
+            # ("<p>", "after p before a")
+            # ("<a href="#">between a</a>", "after a")
+            # ("</p>", "")
+            blocks += element[0]
+            blocks += element[1]
+
+        assert blocks == html
+
+    This allows for things like getting all the plain text bodies for further
+    processing, like automatically linking URLs and not having to worry with
+    linking things that are already linked. I know that might seem niche but
+    I've had to do this exact thing in multiple projects throughout the
+    years.
+
+    Moved from bang.utils on 1-6-2023, fleshed out and integrated into HTML
+    on 3-3-2025
     """
-    def __init__(self, text):
-        self.s = Scanner(text)
+    def __init__(self, html, ignore_tagnames=None):
+        """Create a block tokenizer
 
-    def __iter__(self):
-        """returns plain text blocks that aren't in html tags"""
-        start_set = set(["<a ", "<pre>", "<pre "])
-        stop_set = set(["</a>", "</pre>"])
+        :param html: str|io.IOBase, the html that is going to be split into
+            blocks
+        :param ignore_tagnames: Collection, the list/set of tag names that
+            should be ignored (eg, ["a", "pre"])
+        """
+        self.scanner = Scanner(html)
 
-        s = self.s
-        tag = ""
-        plain = s.read_to_delim("<")
-        while s:
-            yield tag, plain
+        self.ignore_start_set = set()
+        self.ignore_stop_set = set()
 
-            tag = s.read_until_delim(">")
-            plain = s.read_to_delim("<")
-            if [st for st in start_set if tag.startswith(st)]:
-                # get rid of </a>, we can't do anything with the plain because
-                # it is linked in an <a> already
-                while len([st for st in stop_set if tag.endswith(st)]) == 0:
-                    tag += plain
-                    tag += s.read_until_delim(">")
-                    plain = s.read_to_delim("<")
+        if ignore_tagnames:
+            for tagname in ignore_tagnames:
+                self.ignore_start_set.add(f"<{tagname}>")
+                self.ignore_start_set.add(f"<{tagname} ")
+                self.ignore_stop_set.add(f"</{tagname}>")
+
+    def _startswith_tagname(self, html) -> bool:
+        """Internal method. Used to see if the html starts with an ignored
+        tag name"""
+        for tag in self.ignore_start_set:
+            if html.startswith(tag):
+                return True
+
+        return False
+
+    def _endswith_tagname(self, html) -> bool:
+        """Internal method. Used to see if the html ends with an ignored
+        tag name"""
+        for tag in self.ignore_stop_set:
+            if html.endswith(tag):
+                return True
+
+        return False
+
+    def __iter__(self) -> Iterable[tuple[str, str]]:
+        """returns plain text blocks that aren't in html tags
+
+        :returns: each tuple is the html tag and then the inner html of that
+            tag
+        """
+        s = self.scanner
+        html = ""
+        plain = s.read_to(delim="<")
+        while True:
+            if html or plain:
+                yield html, plain
+
+            html = s.read_to(delim=">", include_delim=True)
+            if html:
+                plain = s.read_to(delim="<")
+                if self._startswith_tagname(html):
+                    while not self._endswith_tagname(html):
+                        html += plain
+                        h = s.read_to(delim=">", include_delim=True)
+                        plain = s.read_to(delim="<")
+
+                        if h or plain:
+                            html += h
+
+                        else:
+                            # we've reached EOF
+                            break
+
+            if not html:
+                # we've reached the end of the file
+                break
 
         # pick up any stragglers
-        yield tag, plain
+#         if html or plain:
+#             yield html, plain
+
+#     def __iter__(self):
+#         """returns plain text blocks that aren't in html tags"""
+#         start_set = set(["<a ", "<pre>", "<pre "])
+#         stop_set = set(["</a>", "</pre>"])
+# 
+#         s = self.s
+#         tag = ""
+#         #plain = s.read_to_delim("<")
+#         plain = s.read_to(delim="<")
+#         while s:
+#             yield tag, plain
+# 
+#             #tag = s.read_until_delim(">")
+#             tag = s.read_to(delim=">", include_delim=True)
+#             plain = s.read_to(delim="<")
+#             if [st for st in start_set if tag.startswith(st)]:
+#                 # get rid of </a>, we can't do anything with the plain because
+#                 # it is linked in an <a> already
+#                 while len([st for st in stop_set if tag.endswith(st)]) == 0:
+#                     tag += plain
+#                     #tag += s.read_until_delim(">")
+#                     tag += s.read_to(delim=">", include_delim=True)
+#                     plain = s.read_to(delim="<")
+# 
+#         # pick up any stragglers
+#         yield tag, plain
 
 
 class HTMLStripper(BaseHTMLParser):
@@ -517,7 +661,7 @@ class HTMLStripper(BaseHTMLParser):
         return s.get_data()
 
     def __init__(self, html="", remove_tags=None):
-        super(HTMLStripper, self).__init__()
+        super().__init__()
 
         self.fed = []
         self.removed = Counter()

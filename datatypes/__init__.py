@@ -71,7 +71,6 @@ from .filetypes import (
     HTMLParser,
     HTML,
     HTMLTokenizer,
-    UnlinkedTagTokenizer,
     TOML,
 )
 from .http import (
