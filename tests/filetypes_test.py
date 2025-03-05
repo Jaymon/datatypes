@@ -61,6 +61,20 @@ class HTMLBlockTokenizerTest(TestCase):
             count += 1
         self.assertEqual(6, count)
 
+    def test_delim_in_attr(self):
+        """make sure bad html with no end ignored tag is handled"""
+        html = HTML("<p data=\"foo>bar\">between p</p>")
+
+        blocks = list(html.blocks())
+
+        self.assertEqual(2, len(blocks))
+
+        self.assertEqual("<p data=\"foo>bar\">", blocks[0][0])
+        self.assertEqual("between p", blocks[0][1])
+
+        self.assertEqual("</p>", blocks[1][0])
+        self.assertEqual("", blocks[1][1])
+
 
 class HTMLCleanerTest(TestCase):
     def test_lifecycle(self):

@@ -153,7 +153,7 @@ class HTMLParser(HTMLParser):
         "video",
     ])
 
-    def normalize_tagnames(self, tagnames) -> set[str]:
+    def _normalize_tagnames(self, tagnames) -> set[str]:
         tnames = set()
 
         if tagnames:
@@ -206,9 +206,9 @@ class HTMLCleaner(HTMLParser):
             self.ignore_tagnames = ignore_tagnames
 
         else:
-            self.ignore_tagnames = self.normalize_tagnames(ignore_tagnames)
+            self.ignore_tagnames = self._normalize_tagnames(ignore_tagnames)
 
-        self.strip_tagnames = self.normalize_tagnames(strip_tagnames)
+        self.strip_tagnames = self._normalize_tagnames(strip_tagnames)
 
         self.block_sep = block_sep
         self.inline_sep = inline_sep
@@ -336,7 +336,7 @@ class HTMLTagParser(HTMLParser):
         super().__init__()
 
         #self.tagnames = set(map(lambda s: s.lower(), tagnames))
-        self.tagnames = self.normalize_tagnames(tagnames)
+        self.tagnames = self._normalize_tagnames(tagnames)
 
     def reset(self):
         super().reset()
@@ -686,7 +686,11 @@ class HTMLBlockTokenizer(Iterable):
             if html or plain:
                 yield html, plain
 
-            html = s.read_to(delim=">", include_delim=True)
+            html = s.read_to(
+                delim=">",
+                ignore_between_delims=["\"", "'"],
+                include_delim=True
+            )
             if html:
                 plain = s.read_to(delim="<")
                 if self._startswith_tagname(html):

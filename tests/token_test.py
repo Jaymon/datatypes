@@ -592,6 +592,42 @@ class ScannerTest(TestCase):
         self.assertEqual("bar", delim)
         self.assertEqual(3, s.tell())
 
+    def test_read_to_ignore_between(self):
+        s = self.create_instance("<p data=\"foo>bar\">after")
+
+        partial = s.read_to(
+            chars=">",
+            ignore_between_char="\"",
+            include_delim=True
+        )
+        self.assertEqual("<p data=\"foo>bar\">", partial)
+
+    def test_read_between_ignore_between(self):
+        s = self.create_instance("<p data=\"foo>bar\">after")
+        partial = s.read_between(
+            start_char="<",
+            stop_char=">",
+            ignore_between_char="\"",
+            include_delim=True
+        )
+        self.assertEqual("<p data=\"foo>bar\">", partial)
+
+        s = self.create_instance("|data=(foo|bar)|after")
+        partial = s.read_between(
+            char="|",
+            ignore_between_start_char="(",
+            ignore_between_stop_char=")",
+            include_delim=True
+        )
+        self.assertEqual("|data=(foo|bar)|", partial)
+
+        s = self.create_instance("|data=(foo|bar)|after")
+        partial = s.read_between(
+            char="|",
+            include_delim=True
+        )
+        self.assertEqual("|data=(foo|", partial)
+
 #     def test_read_chars(self):
 #         s = self.create_instance(r"\$")
 #         ch = s.read_chars()

@@ -465,6 +465,40 @@ class Scanner(BaseTokenizer):
 
         return delims
 
+    def _normalize_ignore_delims(self, **kwargs):
+        """Find the delims used to ignore the sentinel delims.
+
+        When you are searching for delims you might want to ignore them
+        when they are between other delims, this figures out what delims
+        should trigger ignoring the sentinel delims
+
+        It uses all the same keywords as `._normalize_delims()` with the
+        following prefixes:
+            * ignore_between_
+            * ignore_between_start
+            * ignore_between_stop
+        """
+        ignore_delims = self._normalize_delims(
+            prefix="ignore_between_",
+            **kwargs
+        )
+        ignore_start_delims = {
+            **ignore_delims,
+            **self._normalize_delims(
+                prefix="ignore_between_start_",
+                **kwargs
+            )
+        }
+        ignore_stop_delims = {
+            **ignore_delims,
+            **self._normalize_delims(
+                prefix="ignore_between_stop_",
+                **kwargs
+            )
+        }
+
+        return ignore_start_delims, ignore_stop_delims
+
     def _normalize_include_delim(self, default=False, **kwargs):
         """Find the passed in flag to include delims, default to `default` if
         not found
@@ -613,22 +647,46 @@ class Scanner(BaseTokenizer):
 
         This has roughly the same signature as `.read_thru` and `.read_between`
 
-        :param **kwargs: see ._normalize_delims
+        :param **kwargs: see `._normalize_delims()` and
+            `._normalize_ignore_delims()`
         :keyword include_delim: bool, see ._normalize_include_delim, if this
             is True then the index will be set to after the found delims, if
             False then the index will be set to before the found delims
         :returns: str, returns the matched substring from self.tell() when this
             method was called to self.tell() right before or after the delim
         """
+        partial = ""
+
         delims = self._normalize_delims(**kwargs)
         delims.update(self._normalize_delims(prefix="stop_", **kwargs))
+        ignore_delims = self._normalize_ignore_delims(**kwargs)
+
+        all_delims = {
+            **delims,
+            **ignore_delims[0],
+        }
+
         include_delim = self._normalize_include_delim(False, **kwargs)
 
-        partial, delim, delim_len = self._read_to_delim(delims)
+        while True:
+            p, delim, delim_len = self._read_to_delim(all_delims)
 
-        if include_delim and delim_len > 0:
-            partial += delim
-            self.skip(delim_len)
+            if delim in ignore_delims[0]:
+                p += self.read_between(
+                    start_delims=ignore_delims[0],
+                    stop_delims=ignore_delims[1],
+                    include_delims=True
+                )
+
+                partial += p
+
+            else:
+                if include_delim and delim_len > 0:
+                    p += delim
+                    self.skip(delim_len)
+
+                partial += p
+                break
 
         return partial
 
@@ -641,8 +699,8 @@ class Scanner(BaseTokenizer):
         :keyword include_delim: bool, see ._normalize_include_delim, no
             matter what the value the index will always be set to after the
             found delims
-        :returns: str, returns the string that only includes the found sentinel
-            value
+        :returns: str, returns the string that only includes the found
+            sentinel value
         """
         partial = ""
 
@@ -674,7 +732,8 @@ class Scanner(BaseTokenizer):
 
         This has roughly the same signature as `.read_to` and `.read_thru`
 
-        :param **kwargs: see ._normalize_delims
+        :param **kwargs: see `._normalize_delims()` and
+            `._normalize_ignore_delims()`
         :keyword start_delim: str, the starting deliminator
         :keyword stop_delim: str, the ending deliminator
         :keyword include_delims: bool, see ._normalize_include_delim, whether
@@ -683,13 +742,17 @@ class Scanner(BaseTokenizer):
         :returns: str, the found matching sub string, with or without the
             wrapping delims depending on the value of `include_delims`
         """
-        all_delims = self._normalize_delims(**kwargs)
+        delims = self._normalize_delims(**kwargs)
+
+        ignore_delims = self._normalize_ignore_delims(**kwargs)
+
         start_delims = {
-            **all_delims,
+            **delims,
             **self._normalize_delims(prefix="start_", **kwargs)
         }
         stop_delims = {
-            **all_delims,
+            **delims,
+            **ignore_delims[0],
             **self._normalize_delims(prefix="stop_", **kwargs)
         }
         include_delim = self._normalize_include_delim(True, **kwargs)
@@ -705,7 +768,21 @@ class Scanner(BaseTokenizer):
             if delim in stop_delims:
                 offset_delim_len = 0
 
-                p, delim, delim_len = self._read_to_delim(stop_delims)
+                p = ""
+                while True: # handle ignore_between_* delims
+                    sp, delim, delim_len = self._read_to_delim(stop_delims)
+                    if delim in ignore_delims[0]:
+                        p += sp
+                        p += self.read_between(
+                            start_delims=ignore_delims[0],
+                            stop_delims=ignore_delims[1],
+                            include_delims=True
+                        )
+
+                    else:
+                        p += sp
+                        break
+
                 if delim:
                     partial += p
 
@@ -724,7 +801,21 @@ class Scanner(BaseTokenizer):
                 all_delims = {**start_delims, **stop_delims}
                 count = 1
                 while count > 0:
-                    p, delim, delim_len = self._read_to_delim(all_delims)
+                    p = ""
+                    while True: # handle ignore_between_* delims
+                        sp, delim, delim_len = self._read_to_delim(all_delims)
+                        if delim in ignore_delims[0]:
+                            p += sp
+                            p += self.read_between(
+                                start_delims=ignore_delims[0],
+                                stop_delims=ignore_delims[1],
+                                include_delims=True
+                            )
+
+                        else:
+                            p += sp
+                            break
+
                     if delim:
                         partial += p
 
@@ -745,7 +836,6 @@ class Scanner(BaseTokenizer):
                             else:
                                 partial += delim
                                 self.skip(delim_len)
-
 
                     else:
                         # we've reached the end of the buffer and we didn't
