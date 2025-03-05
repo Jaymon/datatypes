@@ -4,9 +4,7 @@ from datatypes.compat import *
 from datatypes.filetypes.html import (
     HTML,
     HTMLCleaner,
-    HTMLParser,
-    HTMLTokenizer,
-    HTMLStripper,
+    HTMLTagTokenizer,
 )
 from datatypes.filetypes.toml import (
     TOML,
@@ -21,23 +19,8 @@ class HTMLTest(TestCase):
         r = html.inject_into_head("foo")
         self.assertEqual("<html><head>foo</head><body></body></html>", r)
 
-    def test_tags(self):
-        html = HTML("\n".join([
-            "<p class=\"one\">one body</p>",
-            "<p class=\"two\">two body</p>",
-        ]))
 
-        self.assertEqual(2, len(list(html.tags())))
-
-        tags = html.tags()
-        tag = next(tags)
-        self.assertEqual("one", tag["class"])
-        self.assertEqual("one body", tag.text)
-
-        tag = next(tags)
-        self.assertEqual("two", tag["class"])
-        self.assertEqual("two body", tag.text)
-
+class HTMLBlockTokenizerTest(TestCase):
     def test_blocks_1(self):
         html = HTML("<p></p>")
         count = 0
@@ -57,7 +40,7 @@ class HTMLTest(TestCase):
         """make sure bad html with no end ignored tag is handled"""
         html = HTML("<p>after p <pre> after pre")
         count = 0
-        for tag, plain in html.blocks(["pre"]):
+        for tag, plain in html.blocks(ignore_tagnames=["pre"]):
             count += 1
         self.assertEqual(2, count)
 
@@ -74,114 +57,207 @@ class HTMLTest(TestCase):
         """)
 
         count = 0
-        for tag, plain in html.blocks(["a", "pre"]):
+        for tag, plain in html.blocks(ignore_tagnames=["a", "pre"]):
             count += 1
         self.assertEqual(6, count)
 
 
 class HTMLCleanerTest(TestCase):
     def test_lifecycle(self):
-        s = HTMLCleaner.strip_tags("foo<br />bar")
+        s = HTMLCleaner().feed("foo<br />bar")
         self.assertEqual("foo\nbar", s)
 
-        s = HTMLCleaner.strip_tags("&lt;:‑|<br />&gt;:)")
+        s = HTMLCleaner().feed("&lt;:‑|<br />&gt;:)")
         self.assertEqual("<:‑|\n>:)", s)
 
     def test_images(self):
-        html = 'foo <IMG src="bar.jpeg" /> che'
-        s_keep = HTMLCleaner.strip_tags(html, keep_img_src=True)
-        s = HTMLCleaner.strip_tags(html, keep_img_src=False)
+        html = 'foo <IMG src="bar.jpg" /> che'
+
+        s_keep = HTMLCleaner(keep_img_src=True).feed(html)
+        self.assertTrue("bar.jpg" in s_keep)
+
+        s = HTMLCleaner(keep_img_src=False).feed(html)
+        self.assertFalse("bar.jpg" in s)
+
         self.assertNotEqual(s, s_keep)
 
     def test_whitespace(self):
-        html = 'Sideways <a href="/wiki/Latin_1" class="mw-redirect" title="Latin 1">Latin</a>-only emoticons'
-        s = HTMLCleaner.strip_tags(html)
+        html = (
+            'Sideways <a'
+            ' href="/wiki/Latin_1"'
+            ' class="mw-redirect"'
+            ' title="Latin 1"'
+            '>Latin</a>-only emoticons'
+        )
+        s = HTMLCleaner(inline_sep="").feed(html)
         self.assertEqual("Sideways Latin-only emoticons", s)
 
     def test_unescape(self):
         s = "&lt;:‑|&gt;:)"
 
-        s = HTMLCleaner.unescape(s)
+        s = HTMLCleaner().feed(s)
         self.assertEqual("<:‑|>:)", s)
 
-        s = HTMLCleaner.unescape(s)
+        s = HTMLCleaner().feed(s)
         self.assertEqual("<:‑|>:)", s)
 
+    def test_ignore_tagnames(self):
+        hc = HTMLCleaner(
+            ignore_tagnames=["span"]
+        )
 
-class HTMLParserTest(TestCase):
-    def test_no_end_tag(self):
-        html = '<div><h1 class="foo">h1 full</h1><p>this is somethign <b>bold</b> and stuff</p>'
-        #html = '<body>body data before <h1 class="foo">h1 data</h1> body data after</body>'
-        t = HTMLParser(html)
-        self.assertEqual(1, len(t))
-        self.assertEqual("div", t.next()["tagname"])
+        plain = hc.feed("""
+            <div>
+                After div before p
+                <p>
+                    after p before span <span class="red">between span</span>
+                    after span
+                </p>
+                after p
+            </div>
+        """)
+        self.assertTrue('<span class="red">' in plain)
+        self.assertTrue("</span>" in plain)
 
-    def test_tagnames(self):
-        html = "\n".join([
-            '<div>',
-            '<p>one</p>'
-            '<p>two with <a href="#">link</a></p>'
-            '<p>three with <img src="foobar.jpg" /></p>'
-            '<p>four with <img src="foobar.jpg" /> and <a href="#2">link</a></p>'
-            '<p>five</p>'
-            '</div>',
-        ])
-        t = HTMLParser(html, "p")
-        self.assertEqual(5, len(t))
-        self.assertEqual(2, len(t.tags[1]["body"]))
-        self.assertEqual(2, len(t.tags[2]["body"]))
-        self.assertEqual(4, len(t.tags[3]["body"]))
-        self.assertEqual(1, len(t.tags[4]["body"]))
+    def test_strip_tagnames(self):
+        hc = HTMLCleaner(
+            strip_tagnames=["div"]
+        )
 
-    def test_notagnames(self):
-        html = '<div><h1 class="foo">h1 full</h1><p>this is something <b>bold</b> and stuff</p></div>'
-        #html = '<body>body data before <h1 class="foo">h1 data</h1> body data after</body>'
-        t = HTMLParser(html)
-        self.assertEqual(1, len(t))
-        self.assertEqual(2, len(t.tags[0]["body"]))
+        plain = hc.feed(
+            '<div class="foo">1<div>2</div>3</div><div>4</div><p>5</p>'
+        )
+        self.assertEqual("5\n", plain)
 
-    def test_empty_tags(self):
-        html = '<div><span><img src=""><p>p data</p><br></span></div>'
-        t = HTMLParser(html)
-        self.assertEqual(1, len(t))
-        self.assertEqual(1, len(t.tags[0]["body"]))
-        self.assertEqual(3, len(t.tags[0]["body"][0]["body"]))
+    def test_plain(self):
+        html = HTML("""
+            <p>one</p>
+            <p>two</p>
+            <p>three</p>
+        """)
+
+        plain = html.plain()
+        self.assertFalse("<p>" in plain)
+        self.assertTrue("two" in plain)
+
+    def test_strip_tags(self):
+        html = HTML("""
+            <p>one</p>
+            <p>two <span>between span</span></p>
+            <p>three</p>
+        """)
+
+        stripped_html = html.strip_tags(["span"])
+        self.assertTrue("<p>" in stripped_html)
+        self.assertTrue("two" in stripped_html)
+        self.assertFalse("<span>between span</span>" in stripped_html)
 
 
-class HTMLTokenizerTest(TestCase):
-    def test_notagnames(self):
-        html = "\n".join([
-            '<div>',
-            '<p>one</p>'
-            '<p>two with <a href="#">link</a></p>'
-            '<p>three with <img src="foobar.jpg" /></p>'
-            '<p>four with <img src="foobar.jpg" /> and <a href="#2">link</a></p>'
-            '<p>five</p>'
-            '</div>',
-        ])
+class HTMLTagTokenizerTest(TestCase):
+    def test_tags(self):
+        html = HTML("""
+            <p class="one">one body</p>
+            <p class="two">two body</p>
+        """)
 
-        t = HTMLTokenizer(html)
+        self.assertEqual(2, len(list(html.tags())))
+
+        tags = html.tags()
+        tag = next(tags)
+        self.assertEqual("one", tag["class"])
+        self.assertEqual("one body", tag.text)
+
+        tag = next(tags)
+        self.assertEqual("two", tag["class"])
+        self.assertEqual("two body", tag.text)
+
+    def test_tag_hierarchy(self):
+        html = """
+            <div>
+                <p> after p before span
+                    <span>inside span</span>
+                after span</p>
+            </div>
+        """.strip()
+        t = HTMLTagTokenizer(html)
+
+        tag = t.next()
+        self.assertEqual("div", tag.tagname)
+        self.assertEqual(html, str(tag))
+
+    def test_no_tagnames(self):
+        html = """
+            <div>
+                <p>one</p>
+                <p>two with <a href="#">link</a></p>
+                <p>three with <img src="foobar.jpg" /></p>
+                <p>four with <img src="foobar.jpg" />
+                    and <a href="#2">link</a>
+                </p>
+                <p>five</p>
+            </div>
+        """
+
+        t = HTMLTagTokenizer(html)
 
         tag = t.next()
         self.assertEqual("div", tag.tagname)
 
-    def test_next_prev(self):
-        html = "\n".join([
-            '<one>1</one>',
-            '<two>2</two>',
-            '<three>3</three>',
-            '<four>4</four>',
-        ])
-        t = HTMLTokenizer(html)
+    def test_no_tagnames_2(self):
+        html = """
+            <div>
+                <h1 class="foo">h1 full</h1>
+                <p>this is something <b>bold</b> and stuff</p>
+            </div>'
+        """
 
-        with self.assertRaises(StopIteration):
-            t.prev()
+        tags = list(HTMLTagTokenizer(html))
+        self.assertEqual(1, len(tags))
+        self.assertEqual(8, len(tags[0]["body"]))
+
+    def test_tagnames(self):
+        html = """
+            <div>
+                <p>one</p>
+                <p>two with <a href="#">link</a></p>
+                <p>three with <img src="foobar.jpg" /></p>
+                <p>four with <img src="foobar.jpg" />
+                    and <a href="#2">link</a>
+                </p>
+                <p>five</p>
+            </div>
+        """
+
+        t = HTMLTagTokenizer(html, tagnames=["p"])
+
+        for _ in range(5):
+            tag = t.next()
+            self.assertEqual("p", tag.tagname)
+
+    def test_close(self):
+        html = """
+            <div>
+                <p> after p before span
+                    <span>inside span
+                after span
+        """.strip()
+        t = HTMLTagTokenizer(html)
 
         tag = t.next()
-        self.assertEqual("one", tag.tagname)
+        # all the tags should have the same stop value at EOF
+        stops = set()
+        for t in tag.tags():
+            stops.add(t.stop)
+        self.assertEqual(1, len(stops))
 
-        tag = t.prev()
-        self.assertEqual("one", tag.tagname)
+    def test_next(self):
+        html = "\n".join([
+            "<one>1</one>",
+            "<two>2</two>",
+            "<three>3</three>",
+            "<four>4</four>",
+        ])
+        t = HTMLTagTokenizer(html)
 
         tag = t.next()
         self.assertEqual("one", tag.tagname)
@@ -196,34 +272,58 @@ class HTMLTokenizerTest(TestCase):
         self.assertEqual("four", tag.tagname)
         self.assertEqual("4", tag.text)
 
-        with self.assertRaises(StopIteration):
-            tag = t.next()
+        tag = t.next()
+        self.assertIsNone(tag)
 
-        tag = t.prev()
-        self.assertEqual("four", tag.tagname)
+    def test_attrs(self):
+        html = '<a href="/foo/bar" class="che" data-item="boo">between a</a>'
+        t = HTMLTagTokenizer(html)
+        tag = t.next()
+        self.assertEqual("/foo/bar", tag.href)
+        self.assertEqual("boo", tag.data_item)
+        self.assertEqual(3, len(tag.attrs))
 
-        tag = t.prev()
-        self.assertEqual("three", tag.tagname)
+    def test_offsets(self):
+        html = '<div><a href="/" class="che">between a</a></div>'
+        t = HTMLTagTokenizer(html, ["a"])
+        tag = t.next()
+        self.assertEqual(5, tag.start)
+        self.assertEqual(38, tag.stop) # missing the </div>
 
+    def test_no_end_tag(self):
+        html = """
+            <div>
+                <h1 class="foo">h1 full</h1>
+                <p>this is something <b>bold</b> and stuff</p>
+        """
+        t = HTMLTagTokenizer(html)
+        self.assertEqual("div", t.next()["tagname"])
 
-class HTMLStripperTest(TestCase):
-    def test_remove_tags(self):
-        hs = HTMLStripper(
-            '<div class="foo">1<div>2</div>3</div><div>4</div><p>5</p>',
-            remove_tags=["div"]
-        )
+    def test_tagnames(self):
+        html = """
+            <div>
+                <p>one</p>
+                <p>two with <a href="#">link</a></p>
+                <p>three with <img src="foobar.jpg" /></p>
+                <p>
+                    four with <img src="foobar.jpg" />
+                    and <a href="#2">link</a>
+                </p>
+                <p>five</p>
+            </div>
+        """
+        tags = list(HTMLTagTokenizer(html, ["p"]))
+        self.assertEqual(2, len(tags[1]["body"]))
+        self.assertEqual(2, len(tags[2]["body"]))
+        self.assertEqual(8, len(tags[3]["body"]))
+        self.assertEqual(1, len(tags[4]["body"]))
 
-        plain = hs.get_data()
-        self.assertEqual("5", plain)
-        return
+    def test_empty_tags(self):
+        html = '<div><span><img src=""><p>p data</p><br></span></div>'
 
-        hs = HTMLStripper(
-            '<div class="foo">1<div>2</div>3</div><div>4</div>',
-            remove_tags=["div.foo"]
-        )
-
-        plain = hs.get_data()
-        self.assertEqual("4", plain)
+        t = HTMLTagTokenizer(html).next()
+        self.assertEqual(1, len(t["body"]))
+        self.assertEqual(3, len(t["body"][0]["body"]))
 
 
 class TOMLTest(TestCase):

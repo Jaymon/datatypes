@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from collections import Counter
 from collections.abc import Iterable
+from functools import cached_property
 import re
 
 from ..compat import *
@@ -13,13 +14,18 @@ from ..token import Token, Tokenizer, Scanner
 
 class HTML(String):
     """Adds HTML specific methods on top of the String class"""
-    def plain(self, *args, **kwargs):
-        return HTMLCleaner.strip_tags(self, *args, **kwargs)
+    def plain(self, **kwargs):
+        hc = kwargs.pop("cleaner_class", HTMLCleaner)(**kwargs)
+        return hc.feed(self)
 
-    def tags(self, tagnames=None):
-        tokenizer = HTMLTokenizer(self, tagnames)
-        for t in tokenizer:
-            yield t
+    def tags(self, tagnames=None, **kwargs):
+        """Return only the tags in `tagnames`
+
+        :param tagnames: list[str], the tags to return
+        :returns: HTMLTokenizer[HTMLToken]
+        """
+        tokenizer_class = kwargs.get("tokenizer_class", HTMLTagTokenizer)
+        return tokenizer_class(self, tagnames)
 
     def inject_into_head(self, html):
         """Inject passed in html into head
@@ -53,50 +59,60 @@ class HTML(String):
         ret = re.sub(regex, callback, self, flags=re.I|re.M)
         return type(self)(ret)
 
-    def strip_tags(self, remove_tags=None):
+    def strip_tags(self, strip_tagnames=None, **kwargs):
         """Strip tags, completely removing any tags in remove_tags list
 
-        you probably should use .plain() instead but this still has a place
-        because it will completely remove anything in remove_tags which
-        HTMLCleaner doesn't support (.plain() uses HTMLCleaner)
+        This is different than `.plain()` in that only the html tags that
+        in `strip_tagnames` are completely removed, all other html tags
+        remain intact
 
         Moved from bang.utils on 1-6-2023
 
-        :param remove_tags: list, a list of tags that will be completely
-            removed not just plained
-        :returns: str, the plain text of the html with remove_tags completely
+        http://stackoverflow.com/a/925630
+
+        :param strip_tagnames: list[str], a list of tags that will be
+        completely removed from the html
+        :returns: str, the html with tags in `strip_tagnames` completely
             removed
         """
-        return HTMLStripper(self, remove_tags=remove_tags).get_data()
+        hc = kwargs.get("cleaner_class", HTMLCleaner)(
+            ignore_tagnames=True,
+            strip_tagnames=strip_tagnames
+        )
+        return hc.feed(self)
 
-    def blocks(self, ignore_tagnames=None):
+    def blocks(self, *, ignore_tagnames=None, **kwargs):
         """Tokenize the html into blocks. This is tough to describe so go
         read the description on the html block iterator this returns
 
         :returns: HTMLBlockTokenizer
         """
-        return HTMLBlockTokenizer(self, ignore_tagnames)
-
-#     def linkable_blocks(self, ignore_tagnames=None):
-#         if not ignore_tagnames:
-#             ignore_tagnames = []
-# 
-#         ignore_tagnames.extend(["a", "pre"])
-# 
-#         yield from self.blocks(ignore_tagnames=ignore_tagnames)
+        tokenizer_class = kwargs.get("tokenizer_class", HTMLBlockTokenizer)
+        return tokenizer_class(self, ignore_tagnames=ignore_tagnames)
 
 
-class HTMLCleaner(BaseHTMLParser):
-    """strip html tags from a string
+class HTMLParser(HTMLParser):
+    """Internal parent class. Used by other more specialized HTML parsers"""
 
-    :example:
-        html = "this is <b>some html</b>
-        text = HTMLCleaner.strip_tags(html)
-        print(text) # this is some html
+    # https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
+    EMPTY_TAGNAMES = set([
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "keygen",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    ])
 
-    http://stackoverflow.com/a/925630/5006
-    https://docs.python.org/2/library/htmlparser.html
-    """
     # https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
     BLOCK_TAGNAMES = set([
         "address",
@@ -137,153 +153,254 @@ class HTMLCleaner(BaseHTMLParser):
         "video",
     ])
 
-    @classmethod
-    def strip_tags(cls, html, *args, **kwargs):
-        s = cls(*args, **kwargs)
-        # convert entities back otherwise stripper will get rid of them
-        # http://stackoverflow.com/a/28827374/5006
-        #html = s.unescape(html)
-        s.feed(html)
-        return s.get_data()
+    def normalize_tagnames(self, tagnames) -> set[str]:
+        tnames = set()
 
-    def __init__(self, block_sep="\n", inline_sep="", keep_img_src=False):
+        if tagnames:
+            tnames.update(map(lambda s: s.lower(), tagnames))
+
+        return tnames
+
+
+class HTMLCleaner(HTMLParser):
+    """Internal class. Can turn html to plain text, completely remove
+    certain tags, or both
+
+    :example:
+        html = "this is <b>some html</b>
+        text = HTMLCleaner.strip_tags(html)
+        print(text) # this is some html
+
+    http://stackoverflow.com/a/925630/5006
+    https://docs.python.org/3/library/html.parser.html
+    """
+    def __init__(
+        self,
+        *,
+        ignore_tagnames=None,
+        strip_tagnames=None,
+        block_sep="\n",
+        inline_sep="",
+        keep_img_src=False
+    ):
         """create an instance and configure it
 
-        :param block_sep: string, strip a block tag and then add this to the
+        :keyword ignore_tagnames: Collection[str]|bool|None, the list of
+            tagnames to not clean, either a list of tagnames (eg ["a"]) or
+            True. If True, then all tags be ignored except the tags in
+            `strip_tagnames`
+        :keyword strip_tagnames: Collection[str]|None, the list of tags to
+            be completely stripped out (everything from the opening <TAGNAME
+            to the closing </TAGNAME> will be removed)
+        :keyword block_sep: string, strip a block tag and then add this to the
             end of the stripped tag, so if you have <p>foo bar<p> and
             block_sep=\n, then the stripped string would be foo bar\n
-        :param inline_sep: string, same as block_sep, but gets added to the
+        :keyword inline_sep: string, same as block_sep, but gets added to the
             end of the stripped inline tag
-        :param keep_img_src: boolean, if True, the img.src attribute will
-            replace the <img /> tag
+        :keyword keep_img_src: boolean, if True, the img.src attribute will
+            replace the full <img /> tag, this is nice when you want plain
+            text but want to keep knowledge of the images that were in the
+            original html
         """
-        self.fed = []
+        if ignore_tagnames is True:
+            self.ignore_tagnames = ignore_tagnames
+
+        else:
+            self.ignore_tagnames = self.normalize_tagnames(ignore_tagnames)
+
+        self.strip_tagnames = self.normalize_tagnames(strip_tagnames)
+
         self.block_sep = block_sep
         self.inline_sep = inline_sep
         self.keep_img_src = keep_img_src
 
         super().__init__()
 
-    def handle_data(self, d):
-        self.fed.append(d)
+    def reset(self):
+        self.cleaned_html = ""
+        self.stripping_tagnames_stack = []
+
+        super().reset()
+
+    def feed(self, data) -> str:
+        """process `data` based on the instance flags
+
+        :returns: str, the processed/cleaned data
+        """
+        self.cleaned_html = ""
+
+        super().feed(data)
+
+        return self.cleaned_html
+
+    def close(self) -> str:
+        """Finish processing any data left in the buffer and return the
+        cleaned buffer
+
+        :returns: str, the processed/cleaned buffer
+        """
+        self.cleaned_html = ""
+
+        super().close()
+
+        return self.cleaned_html
+
+    def _is_ignored(self, tagname) -> bool:
+        """Return True if tagname should be ignored"""
+        if self.ignore_tagnames is True:
+            return True
+
+        else:
+            return self.ignore_tagnames and (tagname in self.ignore_tagnames)
+
+    def _is_stripped(self, tagname) -> bool:
+        """Return True if tagname should be completely stripped"""
+        return self.strip_tagnames and (tagname in self.strip_tagnames)
+
+    def handle_data(self, data):
+        if not self.stripping_tagnames_stack:
+            self.cleaned_html += data
 
     def handle_entityref(self, name):
-        self.fed.append("&{};".format(name))
+        if not self.stripping_tagnames_stack:
+            entity = f"&{name};"
+            if self.ignore_tagnames:
+                # the cleaned html is still html, so treat it like html
+                self.cleaned_html += entity
 
-    def handle_starttag(self, tag, attrs):
+            else:
+                # the cleaned html is plain text, so convert the entity (eg, &gt;)
+                # to plain text (eg, &gt; becomes >)
+                # https://stackoverflow.com/a/2087433/5006
+                self.cleaned_html += html.unescape(entity)
+
+    def handle_starttag(self, tagname, attrs):
         # https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_starttag
-        if tag == "img" and self.keep_img_src:
-            for attr_name, attr_val in attrs:
-                if attr_name == "src":
-                    self.fed.append("\n{}\n".format(attr_val))
+        if self._is_stripped(tagname):
+            self.stripping_tagnames_stack.append(tagname)
+
+        elif self._is_ignored(tagname):
+            if not self.stripping_tagnames_stack:
+                self.cleaned_html += self.get_starttag_text()
+
+        else:
+            if not self.stripping_tagnames_stack:
+                if tagname == "img" and self.keep_img_src:
+                    for attr_name, attr_val in attrs:
+                        if attr_name == "src":
+                            self.cleaned_html += "{}{}".format(
+                                self.block_sep,
+                                attr_val
+                            )
 
     def handle_endtag(self, tagname):
-        if tagname in self.BLOCK_TAGNAMES:
-            if self.block_sep:
-                self.fed.append(self.block_sep)
+        if self._is_stripped(tagname):
+            if self.stripping_tagnames_stack:
+                self.stripping_tagnames_stack.pop(-1)
+
+        elif self._is_ignored(tagname):
+            if not self.stripping_tagnames_stack:
+                self.cleaned_html += f"</{tagname}>"
+
         else:
-            if self.inline_sep:
-                self.fed.append(self.inline_sep)
+            if not self.stripping_tagnames_stack:
+                if tagname in self.BLOCK_TAGNAMES:
+                    self.cleaned_html += self.block_sep
 
-    def get_data(self):
-        return self.unescape("".join(self.fed))
+                else:
+                    if tagname == "img" and self.keep_img_src:
+                        self.cleaned_html += self.block_sep
 
-    @classmethod
-    def unescape(cls, s):
-        """unescapes html entities (eg, &gt;) to plain text 
-        (eg, &gt; becomes >)"""
-        # https://stackoverflow.com/a/2087433/5006
-        return html.unescape(s)
+                    else:
+                        self.cleaned_html += self.inline_sep
 
 
-class HTMLParser(BaseHTMLParser):
-    """Parses HTML
+class HTMLTagParser(HTMLParser):
+    """Internal class. This is the parser used by HTMLTagTokenizer.
 
-    This is a very simple html parser, if you need something more full
-    featured you should use BeautifulSoup or the like
+    This is not a general purpose parser, it's purpose is only to find the
+    tagnames passed into it, for example, if you pass into a website's html
+    and don't specify the tags you want (like "a"), then it will return you
+    one tag info dict, the top level "html" tag, all the other tags will be
+    in the "body" keys.
 
-    This acts like a stream/IO io.IOBase object
-
-    :Example:
-        # get all <a> tags from a block of html
-        p = HTMLParser(html, "a")
-        for atag in p:
-            print(atag)
+    If you need something more full featured you should use BeautifulSoup or
+    the like.
 
     https://docs.python.org/3/library/html.parser.html
     """
-    # https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
-    EMPTY_TAGNAMES = set([
-        "area",
-        "base",
-        "br",
-        "col",
-        "embed",
-        "hr",
-        "img",
-        "input",
-        "keygen",
-        "link",
-        "meta",
-        "param",
-        "source",
-        "track",
-        "wbr",
-    ])
-
-    def __init__(self, data, tagnames=None):
-        """create an instance
-
-        :param data: string, the html
-        :param tagnames: list|string, the tags you want to parse out of data
+    def __init__(self, tagnames=None):
+        """
+        :param tagnames: Collection[str], the list of wanted tag names
         """
         super().__init__()
 
-        self.handle_tagnames(tagnames)
-        self.feed(data)
+        #self.tagnames = set(map(lambda s: s.lower(), tagnames))
+        self.tagnames = self.normalize_tagnames(tagnames)
 
-    def handle_tagnames(self, tagnames):
-        if tagnames:
-            tagnames = set(map(lambda s: s.lower(), make_list(tagnames)))
+    def reset(self):
+        super().reset()
 
-        self.tagnames = tagnames
+        # as child tags are parsed they are placed in here until the closing
+        # tag is found
+        self.tag_stack = []
 
-    def is_tagname(self, tagname):
+        # once the tag stack is completely depleted the main tag is placed
+        # into this property, this is returned in `.feed()` and `.close()`
+        self.closed_tag = None
+
+    def _include_tag(self, tagname) -> bool:
         """Returns True if tagname is one of the tags that should be parsed
 
         :param tagname: str, lowercase tagname
-        :returns: bool, True if tagname should be parsed, False otherwise
+        :returns: True if tagname should be parsed, False otherwise
         """
-        return not self.tagnames or tagname in self.tagnames
+        return not self.tagnames or (tagname in self.tagnames)
 
-    def feed(self, data):
-        """This .feed is different than parent's .feed in that data has to be
-        the full html, so you can't keep calling it, every time you call this
-        method it will set .data and parse it and place it into .tags
-        """
-        self.stack = []
-        self.tags = []
-        self.data = data
-        self.seek(0)
+    def _add_tag(self, tag):
+        if self.tag_stack:
+            self.tag_stack[-1]["body"].append(tag)
+
+        else:
+            self.closed_tag = tag
+
+    def feed(self, data) -> dict|None:
+        """This reaturns the tag info dict or None if no tag was found. this
+        method is called in `HTMLTokenizer.next()`"""
+        self.closed_tag = None
 
         super().feed(data)
-        self.close()
 
-    def close(self):
-        # clean up any stragglers, we now know the HTML was invalid
-        while self.stack:
-            self.tags.append(self.stack.pop(-1))
+        return self.closed_tag
 
-    def append(self, tag):
-        if self.stack:
-            self.stack[-1]["body"].append(tag)
-        else:
-            self.tags.append(tag)
+    def close(self) -> dict|None:
+        """This reaturns the tag info dict or None if no straggler tag was
+        found. this method is called in `HTMLTokenizer.next()` if the buffer
+        is depleted"""
+        self.closed_tag = None
+
+        super().close()
+
+        while self.tag_stack:
+            tag = self.tag_stack.pop(-1)
+
+            stop_line, stop_ch = self.getpos()
+            tag["stop"] = stop_ch
+            tag["stop_line"] = stop_line
+
+            self._add_tag(tag)
+
+        return self.closed_tag
 
     def handle_starttag(self, tagname, attrs):
+        """
+        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_starttag
+        """
         # we add the tag if it is in the wanted tag list or if it is part of
         # the body of another tag
-        if not self.is_tagname(tagname) and not self.stack:
+        #pout.b(tagname)
+
+        if not self._include_tag(tagname) and not self.tag_stack:
             return
 
         start_line, start_ch = self.getpos()
@@ -299,17 +416,22 @@ class HTMLParser(BaseHTMLParser):
         if tagname in self.EMPTY_TAGNAMES:
             tag["stop"] = start_ch
             tag["stop_line"] = start_line
-            self.append(tag)
+            self._add_tag(tag)
 
         else:
-            self.stack.append(tag)
+            self.tag_stack.append(tag)
+
 
     def handle_data(self, data):
-        if not self.stack:
+        """
+        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_data
+        """
+        if not self.tag_stack:
             return
 
         start_line, start_ch = self.getpos()
-        self.stack[-1]["body"].append({
+
+        self.tag_stack[-1]["body"].append({
             "body": [data],
             "start": start_ch,
             "start_line": start_line,
@@ -317,133 +439,93 @@ class HTMLParser(BaseHTMLParser):
         })
 
     def handle_endtag(self, tagname):
-        if not self.stack or (self.stack[-1]["tagname"] != tagname):
+        """
+        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_starttag
+        """
+        if not self.tag_stack or (self.tag_stack[-1]["tagname"] != tagname):
             return
 
         stop_line, stop_ch = self.getpos()
-        tag = self.stack.pop(-1)
+
+        tag = self.tag_stack.pop(-1)
+
         tag["stop"] = stop_ch
         tag["stop_line"] = stop_line
-        self.append(tag)
 
-    def seekable(self):
-        return True
-
-    def seek(self, offset):
-        """This is the current tag position, not the position while parsing
-        the html"""
-        self.tag_offset = offset
-
-    def fileno(self):
-        return 0
-
-    def readable(self):
-        return True
-
-    def writeable(self):
-        """https://docs.python.org/3/library/io.html#io.IOBase.writable"""
-        return False
-
-    def tell(self):
-        """Return the current tag position"""
-        return self.tag_offset
-
-    def next(self):
-        if self.tag_offset >= len(self.tags):
-            raise StopIteration()
-
-        tag = self.tags[self.tag_offset]
-        self.tag_offset += 1
-        return tag
-
-    def prev(self):
-        if not self.tag_offset:
-            raise StopIteration()
-
-        self.tag_offset -= 1
-        tag = self.tags[self.tag_offset]
-        return tag
-
-    def reset(self):
-        self.stack = []
-        self.tags = []
-        self.seek(0)
-        super(HTMLParser, self).reset()
-
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        self.seek(0)
-        return self
-
-    def __len__(self):
-        return len(self.tags)
+        self._add_tag(tag)
 
 
-class HTMLToken(Token):
+class HTMLTagToken(Token):
     """This is what is returned from the HTMLTokenizer
 
         .tagname - the name of the tag
         .text - the body of the tag
+        .attrs - the attributes
     """
-    @property
+    @cached_property
     def text(self):
-        text = []
+        text = ""
         for d in self.taginfo.get("body", []):
             if "tagname" in d:
                 t = type(self)(self.tokenizer, d)
-                text.append(t.__unicode__())
+                text += t.__str__()
 
             else:
-                text.extend(d["body"])
+                text += "".join(d["body"])
 
-        return "".join(text)
+        return text
+
+    @cached_property
+    def attrs(self):
+        attrs = {}
+        for attr_name, attr_val in self.taginfo.get("attrs", []):
+            attrs[attr_name] = attr_val
+
+        return attrs
 
     def __init__(self, tokenizer, taginfo):
         self.tagname = taginfo.get("tagname", "")
-        self.start = taginfo.get("start", -1)
-        self.stop = taginfo.get("stop", -1)
         self.taginfo = taginfo
-        self.tokenizer = tokenizer
 
-    def __getattr__(self, k):
-        if k in self.taginfo:
-            return self.taginfo[k]
+        super().__init__(
+            tokenizer,
+            taginfo.get("start", -1),
+            taginfo.get("stop", -1)
+        )
+
+    def __getattr__(self, key):
+        if key in self.taginfo:
+            return self.taginfo[key]
 
         else:
-            # support foo-bar and foo_bar
-            ks = set([
-                k.replace("-", "_"),
-                k.replace("_", "-"),
-            ])
+            # support foo-bar and foo_bar attribute fetching
+            for k in [key.replace("-", "_"), key.replace("_", "-")]:
+                if k in self.attrs:
+                    return self.attrs[k]
 
-            ret = None
-            for attr_name, attr_val in self.taginfo.get("attrs", []):
-                if attr_name in ks:
-                    return attr_val
+        raise AttributeError(key)
 
-        raise AttributeError(k)
+    def __getitem__(self, key):
+        try:
+            return self.__getattr__(key)
 
-    def __getitem__(self, k):
-        return self.__getattr__(k)
+        except AttributeError as e:
+            raise KeyError(key) from e
 
-    def attrs(self):
-        ret = {}
-        for attr_name, attr_val in self.taginfo.get("attrs", []):
-            ret[attr_name] = attr_val
-        return ret
+    def tags(self, tagnames=None):
+        """Returns the matching subtags of this tag"""
+        tagnames = set(t.lower() for t in tagnames) if tagnames else set()
 
-    def __pout__(self):
-        """used by pout python external library
+        for d in self.taginfo.get("body", []):
+            if "tagname" in d:
+                if not tagnames or d["tagname"] in tagnames:
+                    t = type(self)(self.tokenizer, d)
+                    yield t
+                    yield from t.tags(tagnames)
 
-        https://github.com/Jaymon/pout
-        """
-        return self.__unicode__()
-
-    def __unicode__(self):
+    def __str__(self):
         attrs = ""
-        for ak, av in self.attrs().items():
+        for ak, av in self.attrs.items():
             attrs += ' {}="{}"'.format(ak, av)
 
         s = "<{}{}>{}</{}>".format(
@@ -455,30 +537,43 @@ class HTMLToken(Token):
         return s
 
 
-class HTMLTokenizer(Tokenizer):
+class HTMLTagTokenizer(Tokenizer):
     """Tokenize HTML and only yield asked for tagnames
 
-    Honestly, this has ended up being such a thin layer around HTMLParser that
-    I'm not completely sure why it even exists. It does allow you to customize
-    the token that's returned though, and that might be useful
+    This is the public interface for HTMLParser. It is primarily used via
+    `HTML.tags`
     """
-    token_class = HTMLToken
+    token_class = HTMLTagToken
 
-    def __init__(self, html, tagnames=None):
+    def __init__(self, buffer, tagnames=None):
         """
-        :param html: str, this is the input that will be tokenized
-        :param tagnames: the tags to be parsed
+        :param buffer: str|io.IOBase, this is the html that will be tokenized
+        :param tagnames: Collection[str], the tags to be parsed
         """
-        buffer = HTMLParser(html, tagnames)
         super().__init__(buffer)
 
-    def next(self):
-        taginfo = self.buffer.next()
+        self.parser = HTMLTagParser(tagnames=tagnames)
+
+    def create_token(self, taginfo):
         return self.token_class(self, taginfo)
 
-    def prev(self):
-        taginfo = self.buffer.prev()
-        return self.token_class(self, taginfo)
+    def next(self):
+        tag = None
+
+        # we keep reading chunks of buffer until the html parser returns
+        # something we can use
+        while tag is None:
+            if line := self.buffer.readline():
+                if taginfo := self.parser.feed(line):
+                    tag = self.create_token(taginfo)
+
+            else:
+                if taginfo := self.parser.close():
+                    tag = self.create_token(taginfo)
+
+                break
+
+        return tag
 
 
 class HTMLBlockTokenizer(Iterable):
@@ -541,7 +636,7 @@ class HTMLBlockTokenizer(Iterable):
     Moved from bang.utils on 1-6-2023, fleshed out and integrated into HTML
     on 3-3-2025
     """
-    def __init__(self, html, ignore_tagnames=None):
+    def __init__(self, html, *, ignore_tagnames=None):
         """Create a block tokenizer
 
         :param html: str|io.IOBase, the html that is going to be split into
@@ -610,95 +705,4 @@ class HTMLBlockTokenizer(Iterable):
             if not html:
                 # we've reached the end of the file
                 break
-
-        # pick up any stragglers
-#         if html or plain:
-#             yield html, plain
-
-#     def __iter__(self):
-#         """returns plain text blocks that aren't in html tags"""
-#         start_set = set(["<a ", "<pre>", "<pre "])
-#         stop_set = set(["</a>", "</pre>"])
-# 
-#         s = self.s
-#         tag = ""
-#         #plain = s.read_to_delim("<")
-#         plain = s.read_to(delim="<")
-#         while s:
-#             yield tag, plain
-# 
-#             #tag = s.read_until_delim(">")
-#             tag = s.read_to(delim=">", include_delim=True)
-#             plain = s.read_to(delim="<")
-#             if [st for st in start_set if tag.startswith(st)]:
-#                 # get rid of </a>, we can't do anything with the plain because
-#                 # it is linked in an <a> already
-#                 while len([st for st in stop_set if tag.endswith(st)]) == 0:
-#                     tag += plain
-#                     #tag += s.read_until_delim(">")
-#                     tag += s.read_to(delim=">", include_delim=True)
-#                     plain = s.read_to(delim="<")
-# 
-#         # pick up any stragglers
-#         yield tag, plain
-
-
-class HTMLStripper(BaseHTMLParser):
-    """strip html tags and return plaintext data
-
-    Moved from bang.utils on 1-6-2023, I think it would be better to use
-    HTMLCleaner though, I'll leave this in for a little while. This actually
-    still has a place because it supports remove_tags, at some point
-    remove_tags should be integrated into HTMLCleaner and then this can be
-    removed
-
-    https://docs.python.org/3/library/html.parser.html
-    http://stackoverflow.com/a/925630/5006
-    """
-    @classmethod
-    def strip_tags(cls, html, remove_tags=None):
-        s = cls(html, remove_tags)
-        return s.get_data()
-
-    def __init__(self, html="", remove_tags=None):
-        super().__init__()
-
-        self.fed = []
-        self.removed = Counter()
-        self.remove_tags = set(remove_tags or [])
-
-        if html:
-            self.feed(html)
-
-    def handle_starttag(self, tag, attrs):
-        if tag in self.remove_tags:
-            if tag not in self.removed:
-                self.removed[tag] = 0
-
-        # really basic css selector support
-        for k, v in attrs:
-            if k == "class":
-                if "{}.{}".format(tag, v) in self.remove_tags:
-                    self.removed[tag] = 0
-
-            if k == "id":
-                if "{}#{}".format(tag, v) in self.remove_tags:
-                    self.removed[tag] = 0
-
-        if tag in self.removed:
-            self.removed[tag] += 1
-
-    def handle_data(self, d):
-        if sum(self.removed.values()) == 0:
-            self.fed.append(d)
-
-    def handle_endtag(self, tag):
-        if sum(self.removed.values()) > 0:
-            if tag in self.removed:
-                self.removed[tag] -= 1
-                if self.removed[tag] <= 0:
-                    del self.removed[tag]
-
-    def get_data(self):
-        return ''.join(self.fed)
 
