@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from .html import (
-    HTMLCleaner,
     HTML,
+    HTMLCleaner,
+    HTMLTagTokenizer,
 )
 from .toml import (
     TOML,

@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-from collections import Counter
 from collections.abc import Iterable
+from collections import Counter
 from functools import cached_property
 import re
 
 from ..compat import *
-from ..compat import HTMLParser as BaseHTMLParser
-from ..config.environ import environ
-from ..utils import make_list
 from ..string import String
 from ..token import Token, Tokenizer, Scanner
 
@@ -75,7 +72,7 @@ class HTML(String):
         :returns: str, the html with tags in `strip_tagnames` completely
             removed
         """
-        hc = kwargs.get("cleaner_class", HTMLCleaner)(
+        hc = kwargs.pop("cleaner_class", HTMLCleaner)(
             ignore_tagnames=True,
             strip_tagnames=strip_tagnames
         )
@@ -161,15 +158,59 @@ class HTMLParser(HTMLParser):
 
         return tnames
 
+    def _in_tagnames(self, tagname, attrs, tagnames) -> bool:
+        """Check if `tagnames` is in `tagnames`.
+
+        Uses `attrs` for simple css selector support (eg, `div.foo` to match
+        div tags with the `foo` class, and `div#foo` to match div tags with
+        the `foo` id)
+
+        :param tagname: str
+        :param attrs: list[tuple[str, str]]
+        :param tagnames: set, usually the value returned from
+            `._normalize_tagnames()`
+        """
+        ret = False
+
+        if tagnames:
+            if tagname in tagnames:
+                ret = True
+
+            else:
+                # really basic css selector support
+                for k, v in attrs:
+                    if k == "class":
+                        selector = "{}.{}".format(tagname, v)
+                        if selector in tagnames:
+                            ret = True
+                            break
+
+                    elif k == "id":
+                        selector = "{}#{}".format(tagname, v)
+                        if selector in tagnames:
+                            ret = True
+                            break
+
+        return ret
+
 
 class HTMLCleaner(HTMLParser):
     """Internal class. Can turn html to plain text, completely remove
     certain tags, or both
 
-    :example:
+    .. Example:
+        # convert html to plain text
         html = "this is <b>some html</b>
-        text = HTMLCleaner.strip_tags(html)
+        text = HTMLCleaner().feed(html)
         print(text) # this is some html
+
+        # strip certain tags from the html
+        html = "<p>this is some <span>fancy text</span> stuff</p>"
+        text = HTMLCleaner(
+            ignore_tagnames=True,
+            strip_tagnames=["span"]
+        ).feed(html)
+        print(text) # <p>this is some stuff</p>
 
     http://stackoverflow.com/a/925630/5006
     https://docs.python.org/3/library/html.parser.html
@@ -181,13 +222,14 @@ class HTMLCleaner(HTMLParser):
         strip_tagnames=None,
         block_sep="\n",
         inline_sep="",
-        keep_img_src=False
+        keep_img_src=False,
+        **kwargs
     ):
         """create an instance and configure it
 
         :keyword ignore_tagnames: Collection[str]|bool|None, the list of
             tagnames to not clean, either a list of tagnames (eg ["a"]) or
-            True. If True, then all tags be ignored except the tags in
+            True. If True, then all tags will be ignored except the tags in
             `strip_tagnames`
         :keyword strip_tagnames: Collection[str]|None, the list of tags to
             be completely stripped out (everything from the opening <TAGNAME
@@ -214,11 +256,12 @@ class HTMLCleaner(HTMLParser):
         self.inline_sep = inline_sep
         self.keep_img_src = keep_img_src
 
-        super().__init__()
+        super().__init__(**kwargs)
 
     def reset(self):
         self.cleaned_html = ""
         self.stripping_tagnames_stack = []
+        self.stripping_tags = Counter()
 
         super().reset()
 
@@ -245,65 +288,73 @@ class HTMLCleaner(HTMLParser):
 
         return self.cleaned_html
 
-    def _is_ignored(self, tagname) -> bool:
+    def _is_ignored(self, tagname, attrs=None) -> bool:
         """Return True if tagname should be ignored"""
         if self.ignore_tagnames is True:
             return True
 
         else:
-            return self.ignore_tagnames and (tagname in self.ignore_tagnames)
+            return self._in_tagnames(
+                tagname,
+                attrs or [],
+                self.ignore_tagnames
+            )
 
-    def _is_stripped(self, tagname) -> bool:
+    def _is_stripped(self, tagname, attrs=None) -> bool:
         """Return True if tagname should be completely stripped"""
-        return self.strip_tagnames and (tagname in self.strip_tagnames)
+        return self._in_tagnames(
+            tagname,
+            attrs or [],
+            self.strip_tagnames
+        )
 
     def handle_data(self, data):
-        if not self.stripping_tagnames_stack:
+        if not self.stripping_tags:
+        #if not self.stripping_tagnames_stack:
             self.cleaned_html += data
 
     def handle_entityref(self, name):
-        if not self.stripping_tagnames_stack:
-            entity = f"&{name};"
-            if self.ignore_tagnames:
-                # the cleaned html is still html, so treat it like html
-                self.cleaned_html += entity
+        """keep entityrefs as they were
 
-            else:
-                # the cleaned html is plain text, so convert the entity (eg, &gt;)
-                # to plain text (eg, &gt; becomes >)
-                # https://stackoverflow.com/a/2087433/5006
-                self.cleaned_html += html.unescape(entity)
+        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_entityref
+        > This method is never called if convert_charrefs is True
+        """
+        entity = f"&{name};"
+        self.cleaned_html += entity
 
     def handle_starttag(self, tagname, attrs):
         # https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_starttag
-        if self._is_stripped(tagname):
-            self.stripping_tagnames_stack.append(tagname)
 
-        elif self._is_ignored(tagname):
-            if not self.stripping_tagnames_stack:
-                self.cleaned_html += self.get_starttag_text()
+        if self._is_stripped(tagname, attrs):
+            self.stripping_tags[tagname] += 1
+            #self.stripping_tagnames_stack.append(tagname)
 
         else:
-            if not self.stripping_tagnames_stack:
-                if tagname == "img" and self.keep_img_src:
-                    for attr_name, attr_val in attrs:
-                        if attr_name == "src":
-                            self.cleaned_html += "{}{}".format(
-                                self.block_sep,
-                                attr_val
-                            )
+            if not self.stripping_tags:
+                if self._is_ignored(tagname, attrs):
+                    self.cleaned_html += self.get_starttag_text()
+
+                else:
+                    if tagname == "img" and self.keep_img_src:
+                        for attr_name, attr_val in attrs:
+                            if attr_name == "src":
+                                self.cleaned_html += "{}{}".format(
+                                    self.block_sep,
+                                    attr_val
+                                )
 
     def handle_endtag(self, tagname):
-        if self._is_stripped(tagname):
-            if self.stripping_tagnames_stack:
-                self.stripping_tagnames_stack.pop(-1)
-
-        elif self._is_ignored(tagname):
-            if not self.stripping_tagnames_stack:
-                self.cleaned_html += f"</{tagname}>"
+        if self.stripping_tags:
+            if tagname in self.stripping_tags:
+                self.stripping_tags[tagname] -= 1
+                if self.stripping_tags[tagname] == 0:
+                    del self.stripping_tags[tagname]
 
         else:
-            if not self.stripping_tagnames_stack:
+            if self._is_ignored(tagname):
+                self.cleaned_html += f"</{tagname}>"
+
+            else:
                 if tagname in self.BLOCK_TAGNAMES:
                     self.cleaned_html += self.block_sep
 
@@ -335,7 +386,6 @@ class HTMLTagParser(HTMLParser):
         """
         super().__init__()
 
-        #self.tagnames = set(map(lambda s: s.lower(), tagnames))
         self.tagnames = self._normalize_tagnames(tagnames)
 
     def reset(self):
@@ -349,13 +399,16 @@ class HTMLTagParser(HTMLParser):
         # into this property, this is returned in `.feed()` and `.close()`
         self.closed_tag = None
 
-    def _include_tag(self, tagname) -> bool:
+    def _include_tag(self, tagname, attrs) -> bool:
         """Returns True if tagname is one of the tags that should be parsed
 
         :param tagname: str, lowercase tagname
         :returns: True if tagname should be parsed, False otherwise
         """
-        return not self.tagnames or (tagname in self.tagnames)
+        return (
+            not self.tagnames
+            or self._in_tagnames(tagname, attrs, self.tagnames)
+        )
 
     def _add_tag(self, tag):
         if self.tag_stack:
@@ -400,7 +453,7 @@ class HTMLTagParser(HTMLParser):
         # the body of another tag
         #pout.b(tagname)
 
-        if not self._include_tag(tagname) and not self.tag_stack:
+        if not self._include_tag(tagname, attrs) and not self.tag_stack:
             return
 
         start_line, start_ch = self.getpos()
@@ -636,15 +689,16 @@ class HTMLBlockTokenizer(Iterable):
     Moved from bang.utils on 1-6-2023, fleshed out and integrated into HTML
     on 3-3-2025
     """
-    def __init__(self, html, *, ignore_tagnames=None):
+    def __init__(self, html, *, ignore_tagnames=None, **kwargs):
         """Create a block tokenizer
 
         :param html: str|io.IOBase, the html that is going to be split into
             blocks
-        :param ignore_tagnames: Collection, the list/set of tag names that
+        :keyword ignore_tagnames: Collection, the list/set of tag names that
             should be ignored (eg, ["a", "pre"])
+        :keyword scanner_class: Scanner
         """
-        self.scanner = Scanner(html)
+        self.scanner = kwargs.get("scanner_class", Scanner)(html)
 
         self.ignore_start_set = set()
         self.ignore_stop_set = set()

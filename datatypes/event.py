@@ -67,6 +67,15 @@ class Event(object):
     broadcast_class = BroadcastEvent
 
     def __init__(self):
+        self.reset()
+
+    def reset(self):
+        """Reset this instance to its first initialized state
+
+        This is called in `.__init__()` when a new instance is created and
+        exists to make it easier for applications to have/test a
+        singleton instance
+        """
         # these are populated through .bind_event_params and will be present
         # in all events
         self.event_kwargs = {}

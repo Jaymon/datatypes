@@ -67,8 +67,9 @@ from .event import (
     Event,
 )
 from .filetypes import (
-    HTMLCleaner,
     HTML,
+    HTMLCleaner,
+    HTMLTagTokenizer,
     TOML,
 )
 from .http import (

@@ -106,7 +106,7 @@ class HTMLCleanerTest(TestCase):
         s = HTMLCleaner(inline_sep="").feed(html)
         self.assertEqual("Sideways Latin-only emoticons", s)
 
-    def test_unescape(self):
+    def test_entity_ref_escape(self):
         s = "&lt;:‑|&gt;:)"
 
         s = HTMLCleaner().feed(s)
@@ -115,7 +115,13 @@ class HTMLCleanerTest(TestCase):
         s = HTMLCleaner().feed(s)
         self.assertEqual("<:‑|>:)", s)
 
-    def test_ignore_tagnames(self):
+    def test_entity_ref_unescape(self):
+        between = "4 &gt; 3 &lt; 5"
+        html = f"<p>{between}</p>"
+        plain = HTMLCleaner(convert_charrefs=False).feed(html)
+        self.assertEqual(between, plain.strip())
+
+    def test_ignore_tagnames_1(self):
         hc = HTMLCleaner(
             ignore_tagnames=["span"]
         )
@@ -132,6 +138,13 @@ class HTMLCleanerTest(TestCase):
         """)
         self.assertTrue('<span class="red">' in plain)
         self.assertTrue("</span>" in plain)
+
+    def test_ignore_tagnames_2(self):
+        html = "<p>this is some <span>fancy text</span> stuff</p>"
+        plain = HTMLCleaner(
+            ignore_tagnames=["p"],
+        ).feed(html)
+        self.assertEqual("<p>this is some fancy text stuff</p>", plain)
 
     def test_strip_tagnames(self):
         hc = HTMLCleaner(
@@ -165,6 +178,22 @@ class HTMLCleanerTest(TestCase):
         self.assertTrue("<p>" in stripped_html)
         self.assertTrue("two" in stripped_html)
         self.assertFalse("<span>between span</span>" in stripped_html)
+
+    def test_css_selector(self):
+        html = HTML("""
+            <p>one</p>
+            <p>
+                two <span class="foo">between <bold>span 1</bold></span>
+                three <span>between span 2</span>
+            </p>
+            <p>four</p>
+        """)
+
+        plain = html.plain(strip_tagnames=["span.foo"])
+        self.assertFalse("span 1" in plain)
+        self.assertTrue("span 2" in plain)
+        for tag in ["<p>", "<bold>", "<span"]:
+            self.assertFalse(tag in plain)
 
 
 class HTMLTagTokenizerTest(TestCase):
@@ -338,6 +367,11 @@ class HTMLTagTokenizerTest(TestCase):
         t = HTMLTagTokenizer(html).next()
         self.assertEqual(1, len(t["body"]))
         self.assertEqual(3, len(t["body"][0]["body"]))
+
+    def test_entity_ref(self):
+        html = "<p>4 &gt; 3 &lt; 5</p>"
+        t = HTMLTagTokenizer(html).next()
+        self.assertEqual("4 > 3 < 5", t.text)
 
 
 class TOMLTest(TestCase):
