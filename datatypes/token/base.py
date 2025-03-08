@@ -197,7 +197,7 @@ class BaseTokenizer(TokenizerABC):
             fp.seek(start_offset)
             return fp.read(stop_offset - start_offset)
 
-    def read(self, count=-1):
+    def read(self, size=-1):
         """Read count tokens and return them
 
         https://docs.python.org/3/library/io.html#io.IOBase
@@ -209,7 +209,7 @@ class BaseTokenizer(TokenizerABC):
             all remaining tokens
         :returns: str, the read tokens as a substring
         """
-        return self.buffer.read(count)
+        return self.buffer.read(size)
 
     def readline(self, size=-1):
         """
@@ -289,25 +289,15 @@ class Tokenizer(BaseTokenizer):
         :returns: list, the read Token instances
         """
         ret = []
-        if count:
-            if count > 0:
-                while count > 0:
-                    try:
-                        ret.append(self.next())
+        while count < 0 or count > 0:
+            try:
+                ret.append(self.next())
 
-                    except StopIteration:
-                        break
-
-                    else:
-                        count -= 1
+            except StopIteration:
+                break
 
             else:
-                while True:
-                    try:
-                        ret.append(self.next())
-
-                    except StopIteration:
-                        break
+                count -= 1
 
         return ret
 
@@ -406,6 +396,21 @@ class Scanner(BaseTokenizer):
     * https://docs.python.org/3/library/io.html#io.StringIO
     * https://docs.python.org/3/library/io.html#io.TextIOWrapper
     """
+    def __init__(self, buffer, convert_escaped=False, escape_char="\\"):
+        """
+        :param buffer: str|io.IOBytes
+        :param convert_escaped: bool, True if the `escape_char` should be
+            removed from the returned text (eg, "foo$bar" would be returned
+            for buffer "foo\$bar")
+        :param escape_char: str, the escape character, it has to be one
+            character and probably shouldn't ever be changed from its
+            default backslash
+        """
+        self.convert_escaped = convert_escaped
+        self.escape_char = escape_char
+
+        super().__init__(buffer)
+
     def next(self):
         return self.readline()
 
@@ -526,7 +531,7 @@ class Scanner(BaseTokenizer):
 
         while True:
             offset = self.tell()
-            char = self.read(1)
+            char = self.buffer.read(1)
             delim = ""
             delim_len = 0
 
@@ -534,24 +539,26 @@ class Scanner(BaseTokenizer):
                 # we've reached eof
                 break
 
-            elif char == "\\":
+            elif char == self.escape_char:
                 # escaped characters don't count against our delim
-                partial += char
+
+                if not self.convert_escaped:
+                    partial += char
 
                 # record the character and move passed it since it can't
                 # be taken into account when checking the delim because it
                 # is escaped
-                partial += self.read(1)
+                partial += self.buffer.read(1)
                 offset = self.tell()
-                char = self.read(1)
+                char = self.buffer.read(1)
 
             found = False
 
             for delim, delim_len in delims.items():
-                token = char + self.read(delim_len - 1)
+                token = char + self.buffer.read(delim_len - 1)
 
                 self.seek(offset)
-                char = self.read(1)
+                char = self.buffer.read(1)
 
                 if token == delim:
                     self.seek(offset)
@@ -582,7 +589,7 @@ class Scanner(BaseTokenizer):
         found = False
 
         for delim, delim_len in delims.items():
-            partial = self.read(delim_len)
+            partial = self.buffer.read(delim_len)
             self.seek(offset)
 
             if partial == delim:
@@ -625,17 +632,6 @@ class Scanner(BaseTokenizer):
                 break
 
         return partial, partial_delims, partial_delims_len
-
-#     def next_chars(self, count=1):
-#         for _ in range(count):
-#             char = self.read(1)
-#             escaped = False
-# 
-#             if char == "\\":
-#                 escaped = True
-#                 char = self.read(1)
-# 
-#             yield char, escaped
 
     def read_to(self, **kwargs):
         """scans and returns string up to but not including the delim unless
@@ -846,4 +842,73 @@ class Scanner(BaseTokenizer):
                         break
 
         return partial
+
+    def read(self, size=-1):
+        """Read `size` consumable characters.
+
+        A consumable character is a character not proceeded with
+        `.escape_char`
+
+        :param size: int, how many characters to read
+        :returns: str
+        """
+        if self.convert_escaped:
+            s = ""
+
+            while size < 0 or size > 0:
+                size -= 1
+
+                char = self.buffer.read(1)
+
+                if char == "":
+                    break
+
+                else:
+                    if char == self.escape_char:
+                        char = self.buffer.read(1)
+
+                    s += char
+
+        else:
+            s = self.buffer.read(size)
+
+        return s
+
+    def readline(self, size=-1):
+        """Read `size` consumable characters or until encountering a newline
+
+        A consumable character is a character not proceeded with
+        `.escape_char`
+
+        :param size: int, how many characters to read
+        :returns: str
+        """
+        if self.convert_escaped:
+            s = ""
+
+            while size < 0 or size > 0:
+                size -= 1
+
+                char = self.buffer.read(1)
+
+                if char == "":
+                    break
+
+                else:
+                    if char == self.escape_char:
+                        char = self.buffer.read(1)
+                        s += char
+
+                    else:
+                        s += char
+                        if char == "\n":
+                            break
+
+        else:
+            s = self.buffer.readline(size)
+
+        return s
+
+    def readlines(self, hint=-1):
+        raise io.UnsupportedOperation()
 

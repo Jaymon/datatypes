@@ -628,14 +628,29 @@ class ScannerTest(TestCase):
         )
         self.assertEqual("|data=(foo|", partial)
 
-#     def test_read_chars(self):
-#         s = self.create_instance(r"\$")
-#         ch = s.read_chars()
-#         self.assertEqual(r"\$", ch)
-# 
-#         s = self.create_instance("\\\n")
-#         ch = s.read_chars()
-#         pout.v(ch)
+    def test_convert_escaped(self):
+        s = self.create_instance(
+            r"|before 1\|after 1|" + "\n" + r"|before 2\|after 2|",
+            convert_escaped=True
+        )
+        data = s.read()
+        self.assertEqual("|before 1|after 1|\n|before 2|after 2|", data)
+
+        s = self.create_instance(
+            r"|before 1\|after 1|" + "\n" + r"|before 2\|after 2|",
+            convert_escaped=True
+        )
+        line = s.readline()
+        self.assertEqual("|before 1|after 1|\n", line)
+        line = s.readline()
+        self.assertEqual("|before 2|after 2|", line)
+
+        s = self.create_instance(
+            r"|before 1\|after 1|" + "\n" + r"|before 2\|after 2|",
+            convert_escaped=True
+        )
+        with self.assertRaises(Exception):
+            lines = s.readlines()
 
 
 class ABNFGrammarTest(TestCase):
