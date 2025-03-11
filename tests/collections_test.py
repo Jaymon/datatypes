@@ -73,6 +73,14 @@ class HotSetTest(TestCase):
         s.add(1)
         self.assertEqual([2, 1], list(s))
 
+    def test_size(self):
+        s = HotSet(5)
+
+        for x in range(11):
+            s.add(x)
+
+        self.assertEqual([6, 7, 8, 9, 10], list(s))
+
 
 class PoolTest(TestCase):
     def test_setdefault(self):
@@ -156,9 +164,21 @@ class PoolTest(TestCase):
         self.assertEqual(2, len(p))
 
         v = p[3]
-        pout.v(p.pq)
         self.assertEqual(3, v)
         self.assertEqual(2, len(p))
+
+    def test___delitem__(self):
+        p = Pool(3)
+
+        p[1] = 1
+        self.assertTrue(1 in p.pq)
+
+        del p[1]
+        self.assertEqual(0, len(p))
+        self.assertFalse(1 in p.pq)
+
+        with self.assertRaises(KeyError):
+            del p[1]
 
 
 class DictTest(TestCase):
@@ -383,7 +403,7 @@ class SortedListTest(TestCase):
         self.assertEqual(len(sl), len(rl))
 
     def test_size(self):
-        sl = SortedList(size=5)
+        sl = SortedList(maxsize=5)
 
         sl.append(1)
         sl.append(2)
@@ -393,7 +413,7 @@ class SortedListTest(TestCase):
         self.assertEqual(5, len(sl))
 
     def test_max_sort(self):
-        sl = SortedList(key=lambda x: -x, size=3)
+        sl = SortedList(key=lambda x: -x, maxsize=3)
         sl.extend([5, 10, 1, 4, 16, 20, 25])
         self.assertEqual([25, 20, 16], sl)
 

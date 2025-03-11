@@ -15,15 +15,15 @@ class Pool(dict):
     """Generic pool of some values bounded by size, this means when size is
     reached then the least used item will be silently dropped from the pool.
 
-    This class gets interesting when you extend it and add __missing__() so you
-    can use this as kind of a hotcache of the maxsize most used items in the
-    Pool
+    This class gets interesting when you extend it and add __missing__() so
+    you can use this as kind of a hot cache of the maxsize most used items in
+    the Pool
 
     :Example:
         class HotPool(Pool):
             def __missing__(self, key):
                 value = get_some_value_here(key)
-                self[key] = value # save the found value at key so it will cache
+                self[key] = value # cache value at key
                 return value
     """
     def __init__(self, maxsize=0):
@@ -48,11 +48,19 @@ class Pool(dict):
 
         self.pq.add(key)
 
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        self.pq.remove(key)
+
     def popitem(self):
-        dead_key = self.pq.pop()
-        dead_value = self[dead_key]
-        del self[dead_key]
-        return dead_key, dead_value
+        if self:
+            dead_key = self.pq.pop()
+            dead_value = super().__getitem__(dead_key)
+            super().__delitem__(dead_key)
+            return dead_key, dead_value
+
+        else:
+            raise KeyError("Pool is empty")
 
     def pop(self, key, *args):
         if key in self:

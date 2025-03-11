@@ -131,6 +131,18 @@ class SortedList(list):
     def sort(self):
         raise NotImplementedError()
 
+    def full(self):
+        """
+        https://docs.python.org/3/library/queue.html#queue.Queue.full
+        """
+        return len(self) == self.maxsize
+
+    def empty(self):
+        """
+        https://docs.python.org/3/library/queue.html#queue.Queue.empty
+        """
+        return len(self) == 0
+
 
 class Stack(list):
     """An incredibly simple stack implementation"""

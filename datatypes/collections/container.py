@@ -73,9 +73,9 @@ class MembershipSet(set):
 class SortedSet(MembershipSet):
     """An ordered set (a unique list)
 
-    This keeps the order that elements were added in, so basically it is like a
-    unique list, in fact, it could totally be called UniqueList. It is similar
-    to OrderedDict.keys
+    This keeps the order that elements were added in, so basically it is like
+    a unique list, in fact, it could totally be called UniqueList. It is
+    similar to OrderedDict.keys
 
     https://github.com/Jaymon/datatypes/issues/34
 
@@ -114,6 +114,8 @@ class SortedSet(MembershipSet):
         """
         if self.maxsize:
             if len(self) > self.maxsize:
+                # elem wasn't in the set and we are now over max capacity so
+                # eject the oldest element
                 self.pop()
 
     def remove(self, elem):
@@ -138,61 +140,9 @@ class SortedSet(MembershipSet):
     def __iter__(self):
         """iterate through the set in add order"""
         yield from self.order
-#         for elem in self.order:
-#             yield elem
 
     def __reversed__(self):
         yield from reversed(self)
-#         for elem in reversed(self):
-#             yield elem
-
-
-class HotSet(MembershipSet):
-    """Holds maxsize unique elems and keeps it at that size, discarding
-    the oldest elem when a new elem is added once maxsize is reached"""
-    def __init__(self, maxsize=0):
-        super().__init__()
-
-        self.maxsize = maxsize
-        self.clear()
-
-    def add(self, elem):
-        if elem in self:
-            # elem is already in the list but we're going to refresh its
-            # ordering since elem has just been "touched"
-            self.elems.remove(elem)
-
-        else:
-            # elem isn't in the set and we are at max capacity so eject
-            # the oldest element
-            if (self.maxsize > 0) and (len(self) == self.maxsize):
-                self.pop()
-
-        self.elems.append(elem)
-        super().add(elem)
-
-    def remove(self, elem):
-        if elem in self:
-            self.elems.remove(elem)
-
-        super().remove(elem)
-
-    def clear(self):
-        self.elems = []
-        super().clear()
-
-    def update(self, *others):
-        for iterable in others:
-            for elem in iterable:
-                self.add(elem)
-
-    def pop(self):
-        elem = self.elems.pop(0)
-        super().remove(elem)
-        return elem
-
-    def __iter__(self):
-        yield from self.elems
 
     def full(self):
         """
@@ -205,6 +155,23 @@ class HotSet(MembershipSet):
         https://docs.python.org/3/library/queue.html#queue.Queue.empty
         """
         return len(self) == 0
+
+
+class HotSet(SortedSet):
+    """Holds maxsize unique elems and keeps it at that size, discarding
+    the oldest elem when a new elem is added once maxsize is reached"""
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize=maxsize)
+
+    def add(self, elem):
+        if elem in self:
+            # elem is already in the list but we're going to refresh its
+            # ordering since elem has just been "touched"
+            self.order.remove(elem)
+            self.order.append(elem)
+
+        else:
+            super().add(elem)
 
 
 class Trie(object):
