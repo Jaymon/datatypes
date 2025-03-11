@@ -4,10 +4,9 @@ Container and membership like objects (eg, sets)
 
 https://docs.python.org/3/library/collections.abc.html#collections.abc.Container
 """
+from queue import Queue
 
 from ..compat import *
-
-from .sequence import PriorityQueue
 
 
 class MembershipSet(set):
@@ -71,42 +70,7 @@ class MembershipSet(set):
     union = noimp = noimp
 
 
-class HotSet(MembershipSet):
-    """Similar to Pool, this holds maxsize elems and keeps it at that size"""
-    def __init__(self, maxsize=0):
-        super().__init__()
-        self.pq = PriorityQueue(maxsize, key=lambda value: value)
-
-    def add(self, elem):
-        super().add(elem)
-        try:
-            self.pq.put(elem)
-
-        except OverflowError:
-            self.pop()
-            self.pq.put(elem)
-
-    def remove(self, elem):
-        if elem in self:
-            self.pq.remove(elem)
-        super().remove(elem)
-
-    def clear(self):
-        self.pq.clear()
-        super().clear()
-
-    def update(self, *others):
-        for iterable in others:
-            for elem in iterable:
-                self.add(elem)
-
-    def pop(self):
-        elem = self.pq.get()
-        self.remove(elem)
-        return elem
-
-
-class OrderedSet(MembershipSet):
+class SortedSet(MembershipSet):
     """An ordered set (a unique list)
 
     This keeps the order that elements were added in, so basically it is like a
@@ -122,8 +86,11 @@ class OrderedSet(MembershipSet):
 
     This implementation has O(1) for add and contains, but O(n) for remove
     """
-    def __init__(self, iterable=None):
+    def __init__(self, iterable=None, maxsize=None):
         self.order = []
+
+        self.maxsize = maxsize if (maxsize and maxsize > 0) else None
+
         super().__init__(iterable)
 
     def update(self, *others):
@@ -135,6 +102,19 @@ class OrderedSet(MembershipSet):
         if elem not in self:
             super().add(elem)
             self.order.append(elem)
+            self.added(elem)
+
+    def added(self, elem):
+        """Called after elem is added to the set
+
+        This is handy if you want to do some post added manipulation of
+        the set
+
+        :param x: Any, the object added to the set
+        """
+        if self.maxsize:
+            if len(self) > self.maxsize:
+                self.pop()
 
     def remove(self, elem):
         super().remove(elem)
@@ -144,8 +124,8 @@ class OrderedSet(MembershipSet):
         """Pop from the beginning of the set (this will always pop the oldest
         item added to the set"""
         try:
-            elem = self.order[0]
-            self.remove(elem)
+            elem = self.order.pop(0)
+            super().remove(elem)
             return elem
 
         except IndexError as e:
@@ -157,12 +137,74 @@ class OrderedSet(MembershipSet):
 
     def __iter__(self):
         """iterate through the set in add order"""
-        for elem in self.order:
-            yield elem
+        yield from self.order
+#         for elem in self.order:
+#             yield elem
 
     def __reversed__(self):
-        for elem in reversed(self):
-            yield elem
+        yield from reversed(self)
+#         for elem in reversed(self):
+#             yield elem
+
+
+class HotSet(MembershipSet):
+    """Holds maxsize unique elems and keeps it at that size, discarding
+    the oldest elem when a new elem is added once maxsize is reached"""
+    def __init__(self, maxsize=0):
+        super().__init__()
+
+        self.maxsize = maxsize
+        self.clear()
+
+    def add(self, elem):
+        if elem in self:
+            # elem is already in the list but we're going to refresh its
+            # ordering since elem has just been "touched"
+            self.elems.remove(elem)
+
+        else:
+            # elem isn't in the set and we are at max capacity so eject
+            # the oldest element
+            if (self.maxsize > 0) and (len(self) == self.maxsize):
+                self.pop()
+
+        self.elems.append(elem)
+        super().add(elem)
+
+    def remove(self, elem):
+        if elem in self:
+            self.elems.remove(elem)
+
+        super().remove(elem)
+
+    def clear(self):
+        self.elems = []
+        super().clear()
+
+    def update(self, *others):
+        for iterable in others:
+            for elem in iterable:
+                self.add(elem)
+
+    def pop(self):
+        elem = self.elems.pop(0)
+        super().remove(elem)
+        return elem
+
+    def __iter__(self):
+        yield from self.elems
+
+    def full(self):
+        """
+        https://docs.python.org/3/library/queue.html#queue.Queue.full
+        """
+        return len(self) == self.maxsize
+
+    def empty(self):
+        """
+        https://docs.python.org/3/library/queue.html#queue.Queue.empty
+        """
+        return len(self) == 0
 
 
 class Trie(object):

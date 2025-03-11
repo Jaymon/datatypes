@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 
 from .mapping import (
-    Pool,
+    ContextNamespace,
     Dict,
-    NormalizeDict,
+    DictTree,
     idict,
     Namespace,
-    ContextNamespace,
-    DictTree,
+    NormalizeDict,
+    Pool,
 )
 from .sequence import (
-    PriorityQueue,
     AppendList,
+    ListIterator,
     SortedList,
     Stack,
-    ListIterator,
 )
 from .container import (
-    Trie,
     HotSet,
-    OrderedSet,
+    SortedSet,
+    Trie,
 )
 

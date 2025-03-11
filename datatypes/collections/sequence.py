@@ -4,171 +4,9 @@ List like objects
 
 https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence
 """
-import heapq
-import itertools
 import bisect
 
 from ..compat import *
-
-
-class PriorityQueue(object):
-    """A generic priority queue
-
-    if passing in a tuple (priority, value) then...
-
-        * MinQueue: priority=lambda x: x[0]
-        * MaxQueue: priority=lambda x: -x[0]
-
-    Inspiration:
-
-        * https://stackoverflow.com/a/3311765/5006
-        * https://docs.python.org/2/library/heapq.html#priority-queue-implementation-notes
-
-    https://en.wikipedia.org/wiki/Priority_queue
-
-    :Example:
-        # MinQueue example
-        pq = PriorityQueue(priority=lambda x: x[0])
-        pq.put((30, "che"))
-        pq.put((1, "foo"))
-        pq.put((4, "bar"))
-        pq.get() # (1, "foo")
-
-    This uses .put() and .get() because that is the same interface as Python's built-in
-    queue class.
-
-    If you never pass in priorities it defaults to a FIFO queue, this allows you
-    to pass in keys to .put() to set uniqueness and move items back to the top of
-    the queue if they have the same key, another name for this might be RefreshQueue
-    since a value with the same key will move to the bottom of the queue
-    """
-    def __init__(self, maxsize=0, key=None, priority=None):
-        """create an instance
-
-        :param maxsize: int, the size you want the key to be, 0 for unlimited
-        :param key: callable, a callback that will be passed value on every
-            call to .put() that doesn't have a key passed in
-        :param priority: callable, a callback that will be passed value on every
-            call to .put() that doesn't have a priority passed in
-        """
-        self.clear()
-
-        self.maxsize = maxsize
-
-        if key:
-            self.key = key
-
-        if priority:
-            self.priority = priority
-
-    def clear(self):
-        self.pq = []
-        self.item_finder = {}
-        self.key_counter = itertools.count()
-        self.priority_counter = itertools.count()
-        self.removed_count = 0
-
-    def key(self, value):
-        """If key isn't passed into the constructor then this method will be called"""
-        return next(self.key_counter)
-
-    def priority(self, value):
-        """If priority isn't passed into the constructor then this method will be called"""
-        return next(self.priority_counter)
-
-    def push(self, value, key=None, priority=None):
-        """Same interface as .put() but will remove the next element if the queue
-        is full so value can be placed into the queue"""
-        try:
-            self.put(value, key=key, priority=priority)
-
-        except OverflowError:
-            self.popitem()
-            self.put(value, key=key, priority=priority)
-
-    def put(self, value, key=None, priority=None):
-        """add a value to the queue with priority, using the key to know uniqueness
-
-        :param value: mixed, the value to add to the queue
-        :param key: string|int, this is used to determine uniqueness in the queue,
-            if key is already in the queue, then the val will be replaced in the
-            queue with the new priority, if key is None then .key(value) will be
-            called to determine a key for value
-        :param priority: int, the priority of value, if None then .priority(value)
-            will be called to determine a priority for the value, defaults to FIFO
-        """
-        deleted = False
-
-        if key is None:
-            key = self.key(value)
-
-        if priority is None:
-            priority = self.priority(value)
-
-        if key in self.item_finder:
-            self.remove(key)
-
-        else:
-            # keep the queue contained
-            if self.full():
-                raise OverflowError("Queue is full")
-
-        item = [priority, key, value, deleted]
-        self.item_finder[key] = item
-        heapq.heappush(self.pq, item)
-
-    def remove(self, key):
-        """remove the value found at key from the queue"""
-        item = self.item_finder.pop(key)
-        item[-1] = True
-        self.removed_count += 1
-
-    def popitem(self):
-        """remove the next prioritized (value, key, priority) and return it"""
-        pq = self.pq
-        while pq:
-            priority, key, value, deleted = heapq.heappop(pq)
-            if deleted:
-                self.removed_count -= 1
-
-            else:
-                del self.item_finder[key]
-                return value, key, priority
-
-        raise KeyError("Pop from an empty queue")
-
-    def get(self):
-        """Remove the next prioritized val and return it"""
-        value, key, priority = self.popitem()
-        return value
-
-    def full(self):
-        """Return True if the queue is full"""
-        if not self.maxsize: return False
-        return len(self.pq) >= (self.maxsize + self.removed_count)
-
-    def keys(self):
-        """return the keys in the order they are in the queue"""
-        for x in self.pq:
-            if not x[3]:
-                yield x[1]
-
-    def values(self):
-        """return the values in the order they are in the queue"""
-        for x in self.pq:
-            if not x[3]:
-                yield x[2]
-
-    def qsize(self):
-        """for similarity to python's queue interface"""
-        return self.maxsize
-
-    def __len__(self):
-        return len(self.item_finder)
-
-    def __bool__(self):
-        return bool(len(self))
-    __nonzero__ = __bool__
 
 
 # class FrozenList(list): # a read only list that can only be set via constructor
@@ -215,23 +53,23 @@ class SortedList(list):
 
     :Example:
         # max sorted list
-        sl = SortedList(key=lambda x: -x, size=3)
+        sl = SortedList(key=lambda x: -x, maxsize=3)
         sl.extend([5, 10, 1, 4, 16, 20, 25])
         print(sl) # [25, 20, 16]
 
     https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
     """
-    def __init__(self, iterable=None, key=None, size=None):
+    def __init__(self, iterable=None, key=None, maxsize=None):
         """
         :param iterable: Sequence, the initial values
         :param key: Callable[[Any], Any], this takes in the item and returns
             the value used for sorting
-        :param size: int, the maximum number of items the list can have
+        :param maxsize: int, the maximum number of items the list can have
         """
         if key:
             self.key = key
 
-        self.size = size if (size and size > 0) else None
+        self.maxsize = maxsize if (maxsize and maxsize > 0) else None
 
         super().__init__()
         if iterable:
@@ -259,8 +97,8 @@ class SortedList(list):
             if x was inserted at the end of the list
         :param x: Any, the object inserted into the list
         """
-        if self.size:
-            if len(self) > self.size:
+        if self.maxsize:
+            if len(self) > self.maxsize:
                 self.pop(-1)
 
     def append(self, x):

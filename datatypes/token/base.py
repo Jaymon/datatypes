@@ -397,7 +397,7 @@ class Scanner(BaseTokenizer):
     * https://docs.python.org/3/library/io.html#io.TextIOWrapper
     """
     def __init__(self, buffer, convert_escaped=False, escape_char="\\"):
-        """
+        r"""
         :param buffer: str|io.IOBytes
         :param convert_escaped: bool, True if the `escape_char` should be
             removed from the returned text (eg, "foo$bar" would be returned

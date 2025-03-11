@@ -2,7 +2,6 @@
 
 from .collections import (
     Pool,
-    PriorityQueue,
     Dict, Dict as Dictionary,
     NormalizeDict,
     idict, idict as IDict, idict as Idict, idict as iDict,
@@ -15,7 +14,7 @@ from .collections import (
     HotSet,
     Stack,
     DictTree,
-    OrderedSet,
+    SortedSet, SortedSet as OrderedSet,
 )
 from .command import (
     SimpleCommand,
@@ -162,5 +161,5 @@ from .utils import (
 )
 
 
-__version__ = "0.21.0"
+__version__ = "0.22.0"
 

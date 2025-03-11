@@ -7,7 +7,8 @@ https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping
 from contextlib import contextmanager
 
 from ..compat import *
-from .sequence import PriorityQueue, Stack
+from .container import HotSet
+from .sequence import Stack
 
 
 class Pool(dict):
@@ -27,31 +28,31 @@ class Pool(dict):
     """
     def __init__(self, maxsize=0):
         super().__init__()
-        self.pq = PriorityQueue(maxsize, key=lambda value: value)
+        self.pq = HotSet(maxsize=maxsize)
 
     def __getitem__(self, key):
         shuffle = key in self
         value = super().__getitem__(key)
 
-        # since this is being accessed again, we move it to the end
+        # since this is being accessed again, we refresh it
         if shuffle:
-            self.pq.put(key)
+            self.pq.add(key)
 
         return value
 
     def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        try:
-            self.pq.put(key)
-
-        except OverflowError:
+        if len(self.pq) == self.pq.maxsize:
             self.popitem()
-            self.pq.put(key)
+
+        super().__setitem__(key, value)
+
+        self.pq.add(key)
 
     def popitem(self):
-        dead_val, dead_key, dead_priority = self.pq.popitem()
+        dead_key = self.pq.pop()
+        dead_value = self[dead_key]
         del self[dead_key]
-        return dead_key, dead_val
+        return dead_key, dead_value
 
     def pop(self, key, *args):
         if key in self:
