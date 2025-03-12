@@ -4,7 +4,6 @@ Container and membership like objects (eg, sets)
 
 https://docs.python.org/3/library/collections.abc.html#collections.abc.Container
 """
-from queue import Queue
 
 from ..compat import *
 
@@ -15,8 +14,8 @@ class MembershipSet(set):
 
     This is really more of a skeleton for the few times I've had to do this in
     a project, usually we are implementing custom functionality that acts like
-    a set and so it will be nice to just be able to extend this and not have to
-    worry about disabling the unsupported methods
+    a set and so it will be nice to just be able to extend this and not have
+    to worry about disabling the unsupported methods
 
     https://docs.python.org/3/library/stdtypes.html#set
 
@@ -49,25 +48,53 @@ class MembershipSet(set):
     #     for iterable in others:
     #         super().update(iterable)
 
-    def noimp(self, *args, **kwargs):
+    def pop(self, *args, **kwargs):
         raise NotImplementedError()
 
-    pop = noimp
-    __sub__ = noimp
-    __and__ = noimp
-    __or__ = noimp
-    __xor__ = noimp
-    __isub__ = noimp
-    __iand__ = noimp
-    __ior__ = noimp
-    __ixor__ = noimp
-    intersection_update = noimp
-    difference_update = noimp
-    symmetric_difference_update = noimp
-    symmetric_difference = noimp
-    difference = noimp
-    intersection = noimp
-    union = noimp = noimp
+    def __sub__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __and__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __or__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __xor__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __isub__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __iand__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __ior__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __ixor__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def intersection_update(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def difference_update(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def symmetric_difference_update(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def symmetric_difference(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def difference(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def intersection(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def union(self, *args, **kwargs):
+        raise NotImplementedError()
 
 
 class SortedSet(MembershipSet):
