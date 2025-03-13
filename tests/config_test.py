@@ -90,6 +90,14 @@ class EnvironTokenizerTest(TestCase):
         self.assertEqual("BAZ", t.name)
         self.assertEqual("barfoo", t.value)
 
+    def test_export(self):
+        buffer = "export FOO=foobar"
+        ts = EnvironTokenizer(buffer)
+
+        t = ts.next()
+        self.assertEqual("FOO", t.name)
+        self.assertEqual("foobar", t.value)
+
 
 class EnvironTest(TestCase):
     def test_nkeys(self):

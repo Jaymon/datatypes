@@ -74,7 +74,14 @@ class EnvironTokenizer(Tokenizer):
 
             elif ch in string.ascii_letters:
                 name = ch + buffer.read_thru(chars=alphanum)
-                break
+
+                # ignore export statements
+                if name == "export":
+                    buffer.read_thru(whitespace=True)
+                    name = ""
+
+                else:
+                    break
 
             else:
                 raise ValueError(
