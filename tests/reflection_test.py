@@ -1481,6 +1481,31 @@ class ReflectCallableTest(TestCase):
         rt = rc.reflect_return_type()
         self.assertEqual(None, rt.get_origin_type())
 
+    def test_has_catchall_methods(self):
+        """make sure the has_*_catchall methods work as expected to
+        test if a callable has an *args or **kwargs argument"""
+        foo_class = testdata.create_module_class("""
+            class Foo(object):
+                def has_args(self, *args):
+                    pass
+                def has_kwargs(self, **kwargs):
+                    pass
+                def has_both(self, *args, **kwarsg):
+                    pass
+        """)
+
+        rc = ReflectCallable(foo_class.has_args, foo_class)
+        self.assertTrue(rc.has_positionals_catchall())
+        self.assertFalse(rc.has_keywords_catchall())
+
+        rc = ReflectCallable(foo_class.has_kwargs, foo_class)
+        self.assertFalse(rc.has_positionals_catchall())
+        self.assertTrue(rc.has_keywords_catchall())
+
+        rc = ReflectCallable(foo_class.has_both, foo_class)
+        self.assertTrue(rc.has_positionals_catchall())
+        self.assertTrue(rc.has_keywords_catchall())
+
 
 class ReflectClassTest(TestCase):
     def test_docblock_1(self):

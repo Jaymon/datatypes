@@ -2085,6 +2085,11 @@ class ReflectCallable(ReflectObject):
             self.get_target().__qualname__
         ])
 
+    @property
+    def signature(self):
+        """Passthrough for `inspect.signature(self.get_target())`"""
+        return inspect.signature(self.get_target())
+
     def __init__(self, target, target_class=None, *, name=""):
         """
         :param function: callable, the callable
@@ -2571,7 +2576,8 @@ class ReflectCallable(ReflectObject):
         # or cls as the first argument. This only applies if we passed in the
         # non-bound version of the method though, so we also check 
         skip = self.is_unbound_method()
-        signature = inspect.signature(self.target)
+        signature = self.signature
+        #signature = inspect.signature(self.target)
         for name, param in signature.parameters.items():
             if skip:
                 skip = False
@@ -2610,6 +2616,24 @@ class ReflectCallable(ReflectObject):
             "keywords_name": keywords_name,
             "**_name": keywords_name, # DEPRECATED?
         }
+
+    def has_positionals_catchall(self) -> bool:
+        """returns True if the callable signature contains a positional
+        arguments catch-all variable (eg, `*args`)"""
+        for param in self.signature.parameters.values():
+            if param.kind is param.VAR_POSITIONAL:
+                return True
+
+        return False
+
+    def has_keywords_catchall(self) -> bool:
+        """returns True if the callable signature contains a keyword only
+        arguments catch-all variable (eg, `**kwargs`)"""
+        for param in self.signature.parameters.values():
+            if param.kind is param.VAR_KEYWORD:
+                return True
+
+        return False
 
     def getsource(self):
         """get the source of the callable if available
