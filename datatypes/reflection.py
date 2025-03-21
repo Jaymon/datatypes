@@ -1746,7 +1746,7 @@ class ReflectType(ReflectObject):
 
     Let's say we have the type: `dict[str, int]`, the origin type would be
     `dict`, and the value types would be `[int]`, the key types would be
-    `[str]`.
+    `[str]`. The arg types would be `[str, int]`
 
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
@@ -1810,11 +1810,17 @@ class ReflectType(ReflectObject):
                 yield t
 
     def get_origin_type(self):
-        """Get the raw type of .target
+        """Get the raw type of .target, this will normalize the value a bit
+        so it is not just a wrapper like `.get_origin`
 
         :returns: type
         """
-        return get_origin(self.target) or self.target
+        return self.get_origin() or self.get_target()
+        #return get_origin(self.target) or self.target
+
+    def get_origin(self):
+        """Wrapper around `typing.get_origin`"""
+        return get_origin(self.get_target())
 
     def get_arg_types(self):
         """Get the raw types of .target's args (eg, the types wrapped in the
@@ -1887,16 +1893,45 @@ class ReflectType(ReflectObject):
             rt = ReflectType(dict[str, int])
             list(rt.get_args()) # [str, int]
 
+        This is different than `.get_arg_types` since it doesn't unwrap like
+        that method does, this truly is just a wrapper around the
+        typing function.
+
+        .. Example:
+            rt = ReflectType(dict[str, int|float])
+            list(rt.get_args()) # [str, int|float]
+            list(rt.get_arg_types()) # [str, int, float]
+
         :returns: Generator[type]
         """
         yield from get_args(self.get_target())
 
     def reflect_args(self):
-        """Wrapper around `.get_args` that returns ReflectType instances
+        """Wrapper around `.get_arg_types` that returns ReflectType instances
 
         :returns: Generator[ReflectType]
         """
         for t in self.get_args():
+            yield self.create_reflect_type(t)
+
+    def get_origin_types(self):
+        """Return all the origin types of the target type
+
+        .. Example:
+            rt = ReflectType(dict[str, int]|list[int])
+            list(rt.get_args()) # [dict, list]
+
+        :returns: Generator[type]
+        """
+        yield from self._get_origin_types(self.get_target())
+
+    def reflect_origin_types(self):
+        """Wrapper around `.get_origin_types` that returns ReflectType
+        instances
+
+        :returns: Generator[ReflectType]
+        """
+        for t in self.get_origin_types():
             yield self.create_reflect_type(t)
 
     def is_type(self, haystack):
@@ -1973,17 +2008,14 @@ class ReflectType(ReflectObject):
     def is_any(self):
         """Returns True if .target is the special type Any"""
         return self.is_type(Any)
-        #return self.get_origin_type() is Any
 
     def is_union(self):
         """Returns true if this is a union type (eg, `str|int`)"""
         return self.is_type(types.UnionType)
-        #return isinstance(self.get_target(), types.UnionType)
 
     def is_none(self):
         """Returns True if .target is the special type None"""
         return self.is_type(None)
-        #return self.get_origin_type() is None
 
     def is_numberish(self):
         """Returns True if .target is numeric and not a boolean"""

@@ -784,6 +784,29 @@ class ReflectTypeTest(TestCase):
         self.assertTrue(rt.is_dictish())
         self.assertTrue(rt.is_none())
 
+    def test_reflect_origin_types(self):
+        rt = ReflectType(dict[str, list[int]])
+        ots = list(rt.reflect_origin_types())
+        self.assertEqual(1, len(ots))
+        self.assertTrue(ots[0].is_dictish())
+
+        rt = ReflectType(dict[str, int]|list[str]|tuple[str, str])
+        ots = list(rt.reflect_origin_types())
+        self.assertEqual(3, len(ots))
+        self.assertTrue(ots[0].is_dictish())
+        self.assertTrue(ots[1].is_listish())
+        self.assertTrue(ots[2].is_tuple())
+
+        rt = ReflectType(dict[str, int])
+        ots = list(rt.reflect_origin_types())
+        self.assertEqual(1, len(ots))
+        self.assertTrue(ots[0].is_dictish())
+
+        rt = ReflectType(dict)
+        ots = list(rt.reflect_origin_types())
+        self.assertEqual(1, len(ots))
+        self.assertTrue(ots[0].is_dictish())
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
