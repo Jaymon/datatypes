@@ -756,6 +756,34 @@ class ReflectTypeTest(TestCase):
         self.assertTrue(rts1[0].is_type(float))
         self.assertTrue(rts1[1].is_type(float))
 
+    def test_get_args(self):
+        rt = ReflectType(dict|None)
+        ts = list(rt.get_args())
+        self.assertEqual(2, len(ts))
+
+        rt = ReflectType(None)
+        ts = list(rt.get_args())
+        self.assertEqual(0, len(ts))
+
+        rt = ReflectType(tuple[list, dict, int, str])
+        ts = list(rt.get_args())
+        self.assertEqual(4, len(ts))
+
+    def test_union_type(self):
+        rt = ReflectType(bool|int)
+        self.assertTrue(rt.is_bool())
+        self.assertTrue(rt.is_int())
+
+        rt = ReflectType(Any|None)
+        self.assertTrue(rt.is_union())
+        self.assertTrue(rt.is_any())
+        self.assertTrue(rt.is_none())
+
+        rt = ReflectType(dict|None)
+        self.assertTrue(rt.is_union())
+        self.assertTrue(rt.is_dictish())
+        self.assertTrue(rt.is_none())
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):

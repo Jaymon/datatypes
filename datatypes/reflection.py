@@ -16,6 +16,8 @@ from typing import (
     Any, # https://docs.python.org/3/library/typing.html#the-any-type
     get_args, # https://stackoverflow.com/a/64643971
     get_origin,
+    Optional,
+    Union,
 )
 from collections.abc import(
     Mapping,
@@ -1872,6 +1874,31 @@ class ReflectType(ReflectObject):
             for t in self._get_types(a):
                 yield self.create_reflect_type(t)
 
+    def get_args(self):
+        """wrapper around `typing.get_args`
+
+        .. Example:
+            rt = ReflectType(str|int)
+            list(rt.get_args()) # [str, int]
+
+            rt = ReflectType(str)
+            list(rt.get_args()) # []
+
+            rt = ReflectType(dict[str, int])
+            list(rt.get_args()) # [str, int]
+
+        :returns: Generator[type]
+        """
+        yield from get_args(self.get_target())
+
+    def reflect_args(self):
+        """Wrapper around `.get_args` that returns ReflectType instances
+
+        :returns: Generator[ReflectType]
+        """
+        for t in self.get_args():
+            yield self.create_reflect_type(t)
+
     def is_type(self, haystack):
         """Returns True if .target's origin type is in haystack
 
@@ -1881,14 +1908,38 @@ class ReflectType(ReflectObject):
         :returns: bool
         """
         needle = self.get_origin_type()
-        if needle is None:
+
+        if needle is None or needle is Optional:
             return haystack is None
 
         elif needle is Any:
             return haystack is Any
 
+        elif needle is Union or issubclass(needle, types.UnionType):
+            if haystack is Union or haystack is types.UnionType:
+                return True
+
+            else:
+                for rt in self.reflect_args():
+                    if rt.is_type(haystack):
+                        return True
+
+                return False
+
         else:
-            return issubclass(needle, haystack)
+            if haystack is None:
+                if needle is None:
+                    return True
+
+                else:
+                    if isinstance(needle, type):
+                        return isinstance(None, needle)
+
+            elif haystack is Any:
+                return needle is Any
+
+            else:
+                return issubclass(needle, haystack)
 
     def is_child(self, parent_type):
         """Only returns True if .target's origin is an actual child of
@@ -1909,22 +1960,34 @@ class ReflectType(ReflectObject):
 
     def is_int(self):
         """Returns True if .target is an integer"""
-        return not self.is_bool() and self.is_type(int)
+        if self.is_union():
+            for rt in self.reflect_args():
+                if rt.is_int():
+                    return True
+
+            return False
+
+        else:
+            return not self.is_bool() and self.is_type(int)
 
     def is_any(self):
         """Returns True if .target is the special type Any"""
-        return self.get_origin_type() is Any
+        return self.is_type(Any)
+        #return self.get_origin_type() is Any
+
+    def is_union(self):
+        """Returns true if this is a union type (eg, `str|int`)"""
+        return self.is_type(types.UnionType)
+        #return isinstance(self.get_target(), types.UnionType)
 
     def is_none(self):
         """Returns True if .target is the special type None"""
-        return self.get_origin_type() is None
+        return self.is_type(None)
+        #return self.get_origin_type() is None
 
     def is_numberish(self):
         """Returns True if .target is numeric and not a boolean"""
-        return (
-            not self.is_bool()
-            and (self.is_int() or self.is_floatish())
-        )
+        return self.is_int() or self.is_floatish()
 
     def is_floatish(self):
         """Return True if .target is a number with a decimal"""
