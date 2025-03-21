@@ -1780,6 +1780,48 @@ class ReflectType(ReflectObject):
         else:
             yield t
 
+    def reflect_types(self, depth=1):
+        if self.is_union():
+            yield from self.reflect_arg_types(depth=depth)
+
+        elif self.is_any():
+            # we ignore Any since it is equivalent to no check and we're only
+            # really interested in "actionable" types
+            pass
+
+        elif self.is_ellipsis():
+            # we ignore the ellipses type because it is just saying more of
+            # the previous type
+            pass
+
+        else:
+            yield self
+            yield from self.reflect_arg_types(depth=depth-1)
+
+    def get_types(self, depth=1):
+        for rt in self.reflect_types(depth=depth):
+            yield rt.get_origin_type()
+
+    def reflect_key_types(self):
+        """Reflect the types for the key types in a mapping
+
+        :Example:
+            rt = ReflectType(dict[str, int|bool])
+            list(rt.get_key_types) # [str]
+
+        :returns: generator[ReflectType]
+        :raises: ValueError, if `.get_target()` isn't a mapping
+        """
+        if self.is_dictish():
+            for rt in self.reflect_arg_types(depth=1):
+                yield from rt.reflect_types()
+                break
+
+        else:
+            raise ValueError(
+                f"Type {self.get_origin_type} is not a Mapping type"
+            )
+
     def get_key_types(self):
         """Get the raw types for the keys in a mapping
 
@@ -1790,35 +1832,27 @@ class ReflectType(ReflectObject):
         :returns: generator[type]
         :raises: ValueError, if .target isn't a mapping
         """
-        if not self.is_dictish():
-            raise ValueError(
-                f"Type {self.get_origin_type} is not a Mapping type"
-            )
+        for rt in self.reflect_key_types():
+            yield rt.get_origin_type()
 
-        arg_types = get_args(self.target)
-        if arg_types:
-            yield from self._get_origin_types(arg_types[0])
-
-#     def _get_value_args(self):
-#         """Certain arguments are key arguments and the rest are value args,
-#         this filters the key arguments and yields the value args
+#     def get_key_types(self):
+#         """Get the raw types for the keys in a mapping
 # 
-#         .. Example:
-#             rt = ReflectType(dict[str, int])
-#             list(rt._get_value_args()) # [int]
-# 
-#             rt = ReflectType(list[str|int])
-#             list(rt._get_value_args()) # [str, int]
+#         :Example:
+#             rt = ReflectType(dict[str, int|bool])
+#             list(rt.get_key_types) # [str]
 # 
 #         :returns: generator[type]
+#         :raises: ValueError, if .target isn't a mapping
 #         """
-#         arg_types = get_args(self.get_target())
-#         if self.is_dictish():
-#             if arg_types:
-#                 yield arg_types[1]
+#         if not self.is_dictish():
+#             raise ValueError(
+#                 f"Type {self.get_origin_type} is not a Mapping type"
+#             )
 # 
-#         else:
-#             yield from arg_types
+#         arg_types = get_args(self.target)
+#         if arg_types:
+#             yield from self._get_origin_types(arg_types[0])
 
     def reflect_value_types(self):
         """Get the value types of a container object
@@ -1842,18 +1876,6 @@ class ReflectType(ReflectObject):
             else:
                 yield rt
 
-#         rts = list(self.reflect_arg_types(depth=1))
-#         if self.is_dictish():
-#             if rts:
-#                 yield rts[1]
-# 
-#         else:
-#             yield from rts
-
-#         for a in self._get_value_args():
-#             for t in self._get_types(a):
-#                 yield self.create_reflect_type(t)
-
     def get_value_types(self):
         """Wrapper around `.reflect_value_types()` that returns the raw types
 
@@ -1868,33 +1890,6 @@ class ReflectType(ReflectObject):
         """
         for rt in self.reflect_value_types():
             yield rt.get_origin_type()
-
-#     def xget_value_types(self):
-#         """Get the value types of a container object
-# 
-#         :Example:
-#             rt = ReflectType(dict[str, int|bool])
-#             list(rt.get_value_types) # [int, bool]
-# 
-#             rt = ReflectType(list[int|bool])
-#             list(rt.get_value_types) # [int, bool]
-# 
-#         :returns: generator[type]
-#         """
-#         for a in self._get_value_args():
-#             yield from self._get_origin_types(a)
-# 
-# 
-#     def xreflect_value_types(self):
-#         """Almost the same as .get_value_types but wraps each item as a
-#         ReflectType instance, but this doesn't return origin types so you
-#         can reflect even further down if needed
-# 
-#         :returns: generator[ReflectType]
-#         """
-#         for a in self._get_value_args():
-#             for t in self._get_types(a):
-#                 yield self.create_reflect_type(t)
 
     def _get_origin_types(self, t):
         """Internal method. This normalizes type t to get the actual types
@@ -2168,6 +2163,11 @@ class ReflectType(ReflectObject):
 
     def is_ellipsis(self) -> bool:
         return self.is_type(...)
+
+    def is_alias(self) -> bool:
+        """generic aliases are things like `dict[str, int]`, because it has
+        values set for the key and value types it is an alias"""
+        return isinstance(t, types.GenericAlias)
 
     def is_dictish(self) -> bool:
         """Returns True if .target is a mapping

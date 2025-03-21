@@ -852,6 +852,24 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(str)
         self.assertTrue(rt.is_actionable())
 
+    def test_reflect_types(self):
+        rt = ReflectType(dict[str, int])
+        rts = list(rt.reflect_types())
+        self.assertEqual(1, len(rts))
+        self.assertTrue(rts[0].is_dictish())
+
+        rt = ReflectType(dict[str, int])
+        rts = list(rt.reflect_types(depth=-1))
+        self.assertEqual(3, len(rts)) # dict[str, int], str, int
+
+        rt = ReflectType(dict[str, int]|list[str])
+        rts = list(rt.reflect_types())
+        self.assertEqual(2, len(rts)) # dict[...], list[...]
+
+        rt = ReflectType(dict[str, int]|list[str])
+        rts = list(rt.reflect_types(depth=-1))
+        self.assertEqual(5, len(rts)) # dict[...], list[...]
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
