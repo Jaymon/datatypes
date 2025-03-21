@@ -1799,29 +1799,63 @@ class ReflectType(ReflectObject):
         if arg_types:
             yield from self._get_origin_types(arg_types[0])
 
-    def _get_value_args(self):
-        """Certain arguments are key arguments and the rest are value args,
-        this filters the key arguments and yields the value args
+#     def _get_value_args(self):
+#         """Certain arguments are key arguments and the rest are value args,
+#         this filters the key arguments and yields the value args
+# 
+#         .. Example:
+#             rt = ReflectType(dict[str, int])
+#             list(rt._get_value_args()) # [int]
+# 
+#             rt = ReflectType(list[str|int])
+#             list(rt._get_value_args()) # [str, int]
+# 
+#         :returns: generator[type]
+#         """
+#         arg_types = get_args(self.get_target())
+#         if self.is_dictish():
+#             if arg_types:
+#                 yield arg_types[1]
+# 
+#         else:
+#             yield from arg_types
 
-        .. Example:
-            rt = ReflectType(dict[str, int])
-            list(rt._get_value_args()) # [int]
+    def reflect_value_types(self):
+        """Get the value types of a container object
 
-            rt = ReflectType(list[str|int])
-            list(rt._get_value_args()) # [str, int]
+        Unlock many other `*_types()` methods with a depth argument this
+        isn't recursive and only looks at the first set of arg types
 
-        :returns: generator[type]
+        A value is the opposite of a key type (see `.get_key_types()`)
+
+        :returns: generator[ReflectType]
         """
-        arg_types = get_args(self.get_target())
-        if self.is_dictish():
-            if arg_types:
-                yield arg_types[1]
+        for i, rt in enumerate(self.reflect_arg_types(depth=1)):
+            if i == 0:
+                if self.is_dictish():
+                    continue
 
-        else:
-            yield from arg_types
+            if rt.is_union():
+                for srt in rt.reflect_arg_types(depth=1):
+                    yield srt
+
+            else:
+                yield rt
+
+#         rts = list(self.reflect_arg_types(depth=1))
+#         if self.is_dictish():
+#             if rts:
+#                 yield rts[1]
+# 
+#         else:
+#             yield from rts
+
+#         for a in self._get_value_args():
+#             for t in self._get_types(a):
+#                 yield self.create_reflect_type(t)
 
     def get_value_types(self):
-        """Get the value types of a container object
+        """Wrapper around `.reflect_value_types()` that returns the raw types
 
         :Example:
             rt = ReflectType(dict[str, int|bool])
@@ -1832,19 +1866,35 @@ class ReflectType(ReflectObject):
 
         :returns: generator[type]
         """
-        for a in self._get_value_args():
-            yield from self._get_origin_types(a)
+        for rt in self.reflect_value_types():
+            yield rt.get_origin_type()
 
-    def reflect_value_types(self):
-        """Almost the same as .get_value_types but wraps each item as a
-        ReflectType instance, but this doesn't return origin types so you
-        can reflect even further down if needed
-
-        :returns: generator[ReflectType]
-        """
-        for a in self._get_value_args():
-            for t in self._get_types(a):
-                yield self.create_reflect_type(t)
+#     def xget_value_types(self):
+#         """Get the value types of a container object
+# 
+#         :Example:
+#             rt = ReflectType(dict[str, int|bool])
+#             list(rt.get_value_types) # [int, bool]
+# 
+#             rt = ReflectType(list[int|bool])
+#             list(rt.get_value_types) # [int, bool]
+# 
+#         :returns: generator[type]
+#         """
+#         for a in self._get_value_args():
+#             yield from self._get_origin_types(a)
+# 
+# 
+#     def xreflect_value_types(self):
+#         """Almost the same as .get_value_types but wraps each item as a
+#         ReflectType instance, but this doesn't return origin types so you
+#         can reflect even further down if needed
+# 
+#         :returns: generator[ReflectType]
+#         """
+#         for a in self._get_value_args():
+#             for t in self._get_types(a):
+#                 yield self.create_reflect_type(t)
 
     def _get_origin_types(self, t):
         """Internal method. This normalizes type t to get the actual types
@@ -1888,7 +1938,6 @@ class ReflectType(ReflectObject):
         :returns: type
         """
         return self.get_origin() or self.get_target()
-        #return get_origin(self.target) or self.target
 
     def get_origin(self):
         """Wrapper around `typing.get_origin`"""
@@ -1967,19 +2016,24 @@ class ReflectType(ReflectObject):
         for rt in self.reflect_arg_types(depth=depth):
             yield rt.get_origin_type()
 
-#         for at in get_args(self.target):
-#             yield from self._get_origin_types(at)
-
     def reflect_actionable_types(self, depth=-1):
+        """Yields all the arg types that are considered actionable
+
+        :returns: Generator[ReflectType]
+        """
         for rt in self.reflect_arg_types(depth=depth):
             if rt.is_actionable():
                 yield rt
 
     def get_actionable_types(self, depth=-1):
+        """Yields all the raw types that are considered actionable
+
+        :returns: Generator[type]
+        """
         for rt in self.reflect_actionable_types(depth=depth):
             yield rt.get_origin_type()
 
-    def is_type(self, haystack):
+    def is_type(self, haystack) -> bool:
         """Returns True if .target's origin type is in haystack
 
         https://docs.python.org/3/library/functions.html#issubclass
@@ -2022,9 +2076,13 @@ class ReflectType(ReflectObject):
 
             else:
                 return self._is_subclass(needle, haystack)
-                #return issubclass(needle, haystack)
 
-    def _is_subclass(self, needle, haystack):
+    def _is_subclass(self, needle, haystack) -> bool:
+        """Internal method. Checks if needle is a subclass of haystack
+
+        :param needle: type
+        :param haystack: type|tuple[type, ...]
+        """
         if not isinstance(needle, type):
             needle = type(needle)
 
@@ -2039,10 +2097,14 @@ class ReflectType(ReflectObject):
 
         return issubclass(needle, haystack)
 
-    def is_subclass(self, haystack):
+    def is_subclass(self, haystack) -> bool:
+        """Checks if `.get_target()` is a subclass of haystack
+
+        :param haystack: type|tuple[type, ...]
+        """
         return self._is_subclass(self.get_target(), haystack)
 
-    def is_child(self, parent_type):
+    def is_child(self, parent_type) -> bool:
         """Only returns True if .target's origin is an actual child of
         parent_type. Unlike issubclass it can't actually be parent_type
 
@@ -2055,7 +2117,7 @@ class ReflectType(ReflectObject):
 
         return False
 
-    def is_bool(self):
+    def is_bool(self) -> bool:
         """Returns True if .target is a boolean"""
         return self.is_type(bool)
 
@@ -2071,43 +2133,43 @@ class ReflectType(ReflectObject):
         else:
             return not self.is_bool() and self.is_type(int)
 
-    def is_any(self):
+    def is_any(self) -> bool:
         """Returns True if .target is the special type Any"""
         return self.is_type(Any)
 
-    def is_union(self):
+    def is_union(self) -> bool:
         """Returns true if this is a union type (eg, `str|int`)"""
         return self.is_type(types.UnionType)
 
-    def is_none(self):
+    def is_none(self) -> bool:
         """Returns True if .target is the special type None"""
         return self.is_type(None)
 
-    def is_numberish(self):
+    def is_numberish(self) -> bool:
         """Returns True if .target is numeric and not a boolean"""
         return self.is_int() or self.is_floatish()
 
-    def is_numeric(self):
+    def is_numeric(self) -> bool:
         """alias for `.is_numberish`"""
         return self.is_numberish()
 
-    def is_floatish(self):
+    def is_floatish(self) -> bool:
         """Return True if .target is a number with a decimal"""
         return self.is_type((float, decimal.Decimal))
 
-    def is_float(self):
+    def is_float(self) -> bool:
         return self.is_type(float)
 
-    def is_str(self):
+    def is_str(self) -> bool:
         return self.is_type(str)
 
-    def is_bytes(self):
+    def is_bytes(self) -> bool:
         return self.is_type((bytes, bytearray, memoryview))
 
-    def is_ellipsis(self):
+    def is_ellipsis(self) -> bool:
         return self.is_type(...)
 
-    def is_dictish(self):
+    def is_dictish(self) -> bool:
         """Returns True if .target is a mapping
 
         This uses dictish instead of mapping because of sequence and list and
@@ -2120,21 +2182,25 @@ class ReflectType(ReflectObject):
         """
         return self.is_type(Mapping)
 
-    def is_stringish(self):
+    def is_mapping(self) -> bool:
+        """Alias of `.is_dictish()`"""
+        return self.is_dictish()
+
+    def is_stringish(self) -> bool:
         """Returns True if .target is string-like
 
         :returns: bool
         """
         return self.is_str() or self.is_bytes()
 
-    def is_tuple(self):
+    def is_tuple(self) -> bool:
         """Returns True if .target is a tuple
 
         NOTE -- .is_listish will also return True for tuples
         """
         return self.is_type(tuple)
 
-    def is_listish(self):
+    def is_listish(self) -> bool:
         """Returns True if .target looks like a list and isn't a string
 
         :returns: bool
@@ -2146,14 +2212,14 @@ class ReflectType(ReflectObject):
             and self.is_type(Sequence)
         )
 
-    def is_setish(self):
+    def is_setish(self) -> bool:
         """Returns True if .target looks like a set
 
         :returns: bool
         """
         return self.is_type(Set) 
 
-    def is_primitive(self):
+    def is_primitive(self) -> bool:
         """Return True if .target is a primitive type (str, int, float, bool,
         or None)"""
         return (
@@ -2163,7 +2229,10 @@ class ReflectType(ReflectObject):
             or self.is_bool()
         )
 
-    def is_actionable(self):
+    def is_actionable(self) -> bool:
+        """Returns True if this type is an actionable type that can be used
+        for some type of comparison
+        """
         return (
             not self.is_any()
             and not self.is_ellipsis()

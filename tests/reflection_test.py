@@ -720,7 +720,7 @@ class ReflectTypeTest(TestCase):
         with self.assertRaises(ValueError):
             list(rt.get_key_types())
 
-    def test_get_value_types(self):
+    def test_get_value_types_simple(self):
         rt = ReflectType(dict[str, int])
         types = tuple(rt.get_value_types())
         self.assertEqual(1, len(types))
@@ -756,6 +756,12 @@ class ReflectTypeTest(TestCase):
         self.assertEqual(2, len(rts1))
         self.assertTrue(rts1[0].is_type(float))
         self.assertTrue(rts1[1].is_type(float))
+
+    def test_reflect_value_types_sub(self):
+        rt = ReflectType(dict[str, dict[str, int]])
+        rts = tuple(rt.reflect_value_types())
+        self.assertEqual(1, len(rts))
+        self.assertTrue(rts[0].is_dictish())
 
     def test_get_args_1(self):
         rt = ReflectType(dict|None)
