@@ -1780,61 +1780,6 @@ class ReflectType(ReflectObject):
         else:
             yield t
 
-    def _get_value_args(self):
-        """Certain arguments are key arguments and the rest are value args,
-        this filters the key arguments and yields the value args
-
-        :returns: generator[type]
-        """
-        arg_types = get_args(self.get_target())
-        if self.is_dictish():
-            if arg_types:
-                yield arg_types[1]
-
-        else:
-            yield from arg_types
-
-    def _get_origin_types(self, t):
-        """Internal method. This normalizes type t to get the actual types
-
-        :param t: Any, the type, this could be a union (eg, int|str) or an
-            alias (eg, dict[str, int], tuple[int, ...]) or other any other
-            type
-        :returns: generator[type], yields the actual raw types
-        """
-        for t in self._get_types(t):
-            if isinstance(t, types.GenericAlias):
-                yield get_origin(t)
-
-            else:
-                yield t
-
-    def get_origin_type(self):
-        """Get the raw type of .target, this will normalize the value a bit
-        so it is not just a wrapper like `.get_origin`
-
-        :returns: type
-        """
-        return self.get_origin() or self.get_target()
-        #return get_origin(self.target) or self.target
-
-    def get_origin(self):
-        """Wrapper around `typing.get_origin`"""
-        return get_origin(self.get_target())
-
-    def get_arg_types(self):
-        """Get the raw types of .target's args (eg, the types wrapped in the
-        [] of the type (eg, dict[str, int] would yield str and int))
-
-        :Example:
-            rt = ReflectType(dict[str, int|bool])
-            list(rt.get_arg_types) # [str, int, bool]
-
-        :returns: generator[type]
-        """
-        for at in get_args(self.target):
-            yield from self._get_origin_types(at)
-
     def get_key_types(self):
         """Get the raw types for the keys in a mapping
 
@@ -1854,8 +1799,29 @@ class ReflectType(ReflectObject):
         if arg_types:
             yield from self._get_origin_types(arg_types[0])
 
+    def _get_value_args(self):
+        """Certain arguments are key arguments and the rest are value args,
+        this filters the key arguments and yields the value args
+
+        .. Example:
+            rt = ReflectType(dict[str, int])
+            list(rt._get_value_args()) # [int]
+
+            rt = ReflectType(list[str|int])
+            list(rt._get_value_args()) # [str, int]
+
+        :returns: generator[type]
+        """
+        arg_types = get_args(self.get_target())
+        if self.is_dictish():
+            if arg_types:
+                yield arg_types[1]
+
+        else:
+            yield from arg_types
+
     def get_value_types(self):
-        """Get  the value types of a container object
+        """Get the value types of a container object
 
         :Example:
             rt = ReflectType(dict[str, int|bool])
@@ -1879,6 +1845,54 @@ class ReflectType(ReflectObject):
         for a in self._get_value_args():
             for t in self._get_types(a):
                 yield self.create_reflect_type(t)
+
+    def _get_origin_types(self, t):
+        """Internal method. This normalizes type t to get the actual types
+
+        :param t: Any, the type, this could be a union (eg, int|str) or an
+            alias (eg, dict[str, int], tuple[int, ...]) or other any other
+            type
+        :returns: generator[type], yields the actual raw types
+        """
+        for t in self._get_types(t):
+            if isinstance(t, types.GenericAlias):
+                yield get_origin(t)
+
+            else:
+                yield t
+
+    def get_origin_types(self):
+        """Return all the origin types of the target type
+
+        .. Example:
+            rt = ReflectType(dict[str, int]|list[int])
+            list(rt.get_args()) # [dict, list]
+
+        :returns: Generator[type]
+        """
+        yield from self._get_origin_types(self.get_target())
+
+    def reflect_origin_types(self):
+        """Wrapper around `.get_origin_types` that returns ReflectType
+        instances
+
+        :returns: Generator[ReflectType]
+        """
+        for t in self.get_origin_types():
+            yield self.create_reflect_type(t)
+
+    def get_origin_type(self):
+        """Get the raw type of .target, this will normalize the value a bit
+        so it is not just a wrapper like `.get_origin`
+
+        :returns: type
+        """
+        return self.get_origin() or self.get_target()
+        #return get_origin(self.target) or self.target
+
+    def get_origin(self):
+        """Wrapper around `typing.get_origin`"""
+        return get_origin(self.get_target())
 
     def get_args(self):
         """wrapper around `typing.get_args`
@@ -1914,25 +1928,56 @@ class ReflectType(ReflectObject):
         for t in self.get_args():
             yield self.create_reflect_type(t)
 
-    def get_origin_types(self):
-        """Return all the origin types of the target type
+    def reflect_arg_types(self, depth=-1):
+        target = self.get_target()
+        targets = []
 
-        .. Example:
-            rt = ReflectType(dict[str, int]|list[int])
-            list(rt.get_args()) # [dict, list]
+        while depth < 0 or depth > 0:
+            depth = depth - 1
 
-        :returns: Generator[type]
+            for at in get_args(target):
+                targets.append((depth, at))
+                rt = self.create_reflect_type(at)
+                if rt.is_union():
+                    if depth == 0:
+                        # we only yield unions if we are at the end, if we
+                        # aren't then they will get yielded when they are
+                        # split apart
+                        yield rt
+
+                else:
+                    yield rt
+
+            if targets:
+                depth, target = targets.pop(0)
+
+            else:
+                break
+
+    def get_arg_types(self, depth=-1):
+        """Get the raw types of .target's args (eg, the types wrapped in the
+        [] of the type (eg, dict[str, int] would yield str and int))
+
+        :Example:
+            rt = ReflectType(dict[str, int|bool])
+            list(rt.get_arg_types) # [str, int, bool]
+
+        :returns: generator[type]
         """
-        yield from self._get_origin_types(self.get_target())
+        for rt in self.reflect_arg_types(depth=depth):
+            yield rt.get_origin_type()
 
-    def reflect_origin_types(self):
-        """Wrapper around `.get_origin_types` that returns ReflectType
-        instances
+#         for at in get_args(self.target):
+#             yield from self._get_origin_types(at)
 
-        :returns: Generator[ReflectType]
-        """
-        for t in self.get_origin_types():
-            yield self.create_reflect_type(t)
+    def reflect_actionable_types(self, depth=-1):
+        for rt in self.reflect_arg_types(depth=depth):
+            if rt.is_actionable():
+                yield rt
+
+    def get_actionable_types(self, depth=-1):
+        for rt in self.reflect_actionable_types(depth=depth):
+            yield rt.get_origin_type()
 
     def is_type(self, haystack):
         """Returns True if .target's origin type is in haystack
@@ -1944,18 +1989,20 @@ class ReflectType(ReflectObject):
         """
         needle = self.get_origin_type()
 
+        #pout.v(needle, haystack)
+
         if needle is None or needle is Optional:
             return haystack is None
 
         elif needle is Any:
             return haystack is Any
 
-        elif needle is Union or issubclass(needle, types.UnionType):
+        elif needle is Union or self._is_subclass(needle, types.UnionType):
             if haystack is Union or haystack is types.UnionType:
                 return True
 
             else:
-                for rt in self.reflect_args():
+                for rt in self.reflect_arg_types(depth=1):
                     if rt.is_type(haystack):
                         return True
 
@@ -1974,7 +2021,26 @@ class ReflectType(ReflectObject):
                 return needle is Any
 
             else:
-                return issubclass(needle, haystack)
+                return self._is_subclass(needle, haystack)
+                #return issubclass(needle, haystack)
+
+    def _is_subclass(self, needle, haystack):
+        if not isinstance(needle, type):
+            needle = type(needle)
+
+        if not isinstance(haystack, type):
+            if isinstance(haystack, tuple):
+                for i in range(len(haystack)):
+                    if not isinstance(haystack[i], type):
+                        haystack[i] = type(haystack[i])
+
+            else:
+                haystack = type(haystack)
+
+        return issubclass(needle, haystack)
+
+    def is_subclass(self, haystack):
+        return self._is_subclass(self.get_target(), haystack)
 
     def is_child(self, parent_type):
         """Only returns True if .target's origin is an actual child of
@@ -1996,7 +2062,7 @@ class ReflectType(ReflectObject):
     def is_int(self):
         """Returns True if .target is an integer"""
         if self.is_union():
-            for rt in self.reflect_args():
+            for rt in self.reflect_arg_types(depth=1):
                 if rt.is_int():
                     return True
 
@@ -2021,9 +2087,25 @@ class ReflectType(ReflectObject):
         """Returns True if .target is numeric and not a boolean"""
         return self.is_int() or self.is_floatish()
 
+    def is_numeric(self):
+        """alias for `.is_numberish`"""
+        return self.is_numberish()
+
     def is_floatish(self):
         """Return True if .target is a number with a decimal"""
         return self.is_type((float, decimal.Decimal))
+
+    def is_float(self):
+        return self.is_type(float)
+
+    def is_str(self):
+        return self.is_type(str)
+
+    def is_bytes(self):
+        return self.is_type((bytes, bytearray, memoryview))
+
+    def is_ellipsis(self):
+        return self.is_type(...)
 
     def is_dictish(self):
         """Returns True if .target is a mapping
@@ -2043,7 +2125,7 @@ class ReflectType(ReflectObject):
 
         :returns: bool
         """
-        return self.is_type((str, bytes))
+        return self.is_str() or self.is_bytes()
 
     def is_tuple(self):
         """Returns True if .target is a tuple
@@ -2058,7 +2140,9 @@ class ReflectType(ReflectObject):
         :returns: bool
         """
         return (
-            not self.is_type((str, bytes))
+            not self.is_str()
+            and not self.is_bytes()
+            #not self.is_type((str, bytes))
             and self.is_type(Sequence)
         )
 
@@ -2077,6 +2161,12 @@ class ReflectType(ReflectObject):
             or self.is_numberish()
             or self.is_none()
             or self.is_bool()
+        )
+
+    def is_actionable(self):
+        return (
+            not self.is_any()
+            and not self.is_ellipsis()
         )
 
     def __instancecheck__(self, instance):

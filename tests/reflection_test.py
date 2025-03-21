@@ -607,20 +607,20 @@ class ReflectNameTest(TestCase):
 
 
 class ReflectTypeTest(TestCase):
-    def test_get_arg_types(self):
+    def test_get_actionable_types(self):
         rt = ReflectType(tuple[int, ...])
-        types = tuple(rt.get_arg_types())
+        types = tuple(rt.get_actionable_types())
         self.assertEqual(1, len(types))
         self.assertEqual(int, types[0])
 
         rt = ReflectType(list[int|float])
-        types = tuple(rt.get_arg_types())
+        types = tuple(rt.get_actionable_types())
         self.assertEqual(2, len(types))
         self.assertEqual(int, types[0])
         self.assertEqual(float, types[1])
 
         rt = ReflectType(list[int])
-        types = tuple(rt.get_arg_types())
+        types = tuple(rt.get_actionable_types())
         self.assertEqual(1, len(types))
         self.assertEqual(int, types[0])
 
@@ -677,7 +677,8 @@ class ReflectTypeTest(TestCase):
 
     def test_any_type(self):
         rt = ReflectType(list[Any])
-        self.assertEqual([], list(rt.get_arg_types()))
+        self.assertEqual([], list(rt.get_actionable_types()))
+        self.assertEqual([Any], list(rt.get_arg_types()))
 
         rt = ReflectType(Any)
         self.assertEqual(Any, rt.get_origin_type())
@@ -756,7 +757,7 @@ class ReflectTypeTest(TestCase):
         self.assertTrue(rts1[0].is_type(float))
         self.assertTrue(rts1[1].is_type(float))
 
-    def test_get_args(self):
+    def test_get_args_1(self):
         rt = ReflectType(dict|None)
         ts = list(rt.get_args())
         self.assertEqual(2, len(ts))
@@ -768,6 +769,26 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(tuple[list, dict, int, str])
         ts = list(rt.get_args())
         self.assertEqual(4, len(ts))
+
+    def test_reflect_arg_types_depth(self):
+        """Make sure depth works as expected"""
+        rt = ReflectType(dict[str, int|float]|list[dict[str, str|bytes]])
+        rts = list(rt.reflect_arg_types(depth=-1))
+        self.assertEqual(9, len(rts))
+
+        rts = list(rt.reflect_arg_types(depth=2))
+        self.assertEqual(5, len(rts))
+        self.assertTrue(rts[0].is_dictish())
+        self.assertTrue(rts[1].is_listish())
+        self.assertTrue(rts[2].is_str())
+        self.assertTrue(rts[3].is_int())
+        self.assertTrue(rts[3].is_floatish())
+        self.assertTrue(rts[4].is_dictish())
+
+        rts = list(rt.reflect_arg_types(depth=1))
+        self.assertEqual(2, len(rts))
+        self.assertTrue(rts[0].is_dictish())
+        self.assertTrue(rts[1].is_listish())
 
     def test_union_type(self):
         rt = ReflectType(bool|int)
@@ -806,6 +827,24 @@ class ReflectTypeTest(TestCase):
         ots = list(rt.reflect_origin_types())
         self.assertEqual(1, len(ots))
         self.assertTrue(ots[0].is_dictish())
+
+    def test_is_subclass(self):
+        rt = ReflectType(...)
+        self.assertTrue(rt.is_subclass(...))
+
+    def test_is_ellipsis(self):
+        rt = ReflectType(...)
+        self.assertTrue(rt.is_ellipsis())
+
+    def test_is_actionable(self):
+        rt = ReflectType(...)
+        self.assertFalse(rt.is_actionable())
+
+        rt = ReflectType(Any)
+        self.assertFalse(rt.is_actionable())
+
+        rt = ReflectType(str)
+        self.assertTrue(rt.is_actionable())
 
 
 class ReflectCallableTest(TestCase):
