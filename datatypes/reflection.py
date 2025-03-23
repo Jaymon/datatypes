@@ -1751,35 +1751,6 @@ class ReflectType(ReflectObject):
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
     """
-#     def _get_types(self, t):
-#         """Internal method. This breaks apart the argument types and iterates
-#         through them
-# 
-#         :param t: Any, the type, this could be a union (eg, `int|str`) or an
-#             alias (eg, `dict[str, int]`, `tuple[int, ...]`) or any other
-#             type
-#         :returns: generator[type], yields the argument sub types
-#         """
-#         if isinstance(t, types.UnionType):
-#             for at in get_args(t):
-#                 yield from self._get_types(at)
-# 
-#         elif isinstance(t, types.GenericAlias):
-#             yield t
-# 
-#         elif isinstance(t, types.EllipsisType):
-#             # we ignore the ellipses type because it is just saying more of
-#             # the previous type
-#             pass
-# 
-#         elif t is Any:
-#             # we ignore Any since it is equivalent to no check and we're only
-#             # really interested in "actionable" types
-#             pass
-# 
-#         else:
-#             yield t
-
     def reflect_types(self, depth=1):
         """This breaks apart the argument types and iterates through them
 
@@ -1881,21 +1852,6 @@ class ReflectType(ReflectObject):
         for rt in self.reflect_value_types():
             yield rt.get_origin_type()
 
-#     def _get_origin_types(self, t):
-#         """Internal method. This normalizes type t to get the actual types
-# 
-#         :param t: Any, the type, this could be a union (eg, int|str) or an
-#             alias (eg, dict[str, int], tuple[int, ...]) or other any other
-#             type
-#         :returns: generator[type], yields the actual raw types
-#         """
-#         for t in self._get_types(t):
-#             if isinstance(t, types.GenericAlias):
-#                 yield get_origin(t)
-# 
-#             else:
-#                 yield t
-
     def reflect_origin_types(self, depth=1):
         """Reflect all the origin types of the target type
 
@@ -1915,48 +1871,6 @@ class ReflectType(ReflectObject):
         """
         for rt in self.reflect_origin_types(depth=depth):
             yield rt.get_origin_type()
-
-
-#         for rt in self.reflect_types():
-# 
-#             if rt.is_alias():
-#                 yield rt.
-# 
-#         for t in self._get_types(t):
-#             if isinstance(t, types.GenericAlias):
-#                 yield get_origin(t)
-# 
-#             else:
-#                 yield t
-# 
-# 
-# 
-#         for t in self.get_origin_types():
-#             yield self.create_reflect_type(t)
-
-
-
-
-
-#     def get_origin_types(self):
-#         """Return all the origin types of the target type
-# 
-#         .. Example:
-#             rt = ReflectType(dict[str, int]|list[int])
-#             list(rt.get_args()) # [dict, list]
-# 
-#         :returns: Generator[type]
-#         """
-#         yield from self._get_origin_types(self.get_target())
-
-#     def reflect_origin_types(self):
-#         """Wrapper around `.get_origin_types` that returns ReflectType
-#         instances
-# 
-#         :returns: Generator[ReflectType]
-#         """
-#         for t in self.get_origin_types():
-#             yield self.create_reflect_type(t)
 
     def get_origin_type(self):
         """Get the raw type of .target, this will normalize the value a bit
@@ -2046,9 +1960,17 @@ class ReflectType(ReflectObject):
     def reflect_actionable_types(self, depth=1):
         """Yields all the arg types that are considered actionable
 
+        .. Example:
+            rt = ReflectType(Any)
+            list(rt.reflect_actionable_types()) # []
+
+            rt = ReflectType(str|list[int])
+            list(rt.reflect_actionable_types()) # [str, list[int]]
+            list(rt.reflect_actionable_types(depth=-1)) # [str, list[int], int]
+
         :returns: Generator[ReflectType]
         """
-        for rt in self.reflect_arg_types(depth=depth):
+        for rt in self.reflect_types(depth=depth):
             if rt.is_actionable():
                 yield rt
 
@@ -2240,9 +2162,11 @@ class ReflectType(ReflectObject):
         return (
             not self.is_str()
             and not self.is_bytes()
-            #not self.is_type((str, bytes))
             and self.is_type(Sequence)
         )
+
+    def is_list(self) -> bool:
+        return self.is_type(list)
 
     def is_setish(self) -> bool:
         """Returns True if .target looks like a set

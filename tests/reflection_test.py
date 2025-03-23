@@ -607,22 +607,33 @@ class ReflectNameTest(TestCase):
 
 
 class ReflectTypeTest(TestCase):
-    def test_get_actionable_types(self):
+    def test_reflect_actionable_types_1(self):
+        rt = ReflectType(str)
+        rts = list(rt.reflect_actionable_types())
+        self.assertEqual(1, len(rts))
+        self.assertTrue(rts[0].is_str())
+
+        rt = ReflectType(str|list[int]|float|None)
+        rts = list(rt.reflect_actionable_types())
+        self.assertEqual(4, len(rts))
+        self.assertTrue(rts[1].is_list())
+
         rt = ReflectType(tuple[int, ...])
-        types = tuple(rt.get_actionable_types())
-        self.assertEqual(1, len(types))
-        self.assertEqual(int, types[0])
+
+        rts = list(rt.reflect_actionable_types())
+        self.assertEqual(1, len(rts))
+        self.assertTrue(rts[0].is_tuple())
+
+        rts = list(rt.reflect_actionable_types(depth=-1))
+        self.assertEqual(2, len(rts))
+        self.assertTrue(rts[0].is_tuple())
+        self.assertTrue(rts[1].is_int())
 
         rt = ReflectType(list[int|float])
-        types = tuple(rt.get_actionable_types())
-        self.assertEqual(2, len(types))
-        self.assertEqual(int, types[0])
-        self.assertEqual(float, types[1])
-
-        rt = ReflectType(list[int])
-        types = tuple(rt.get_actionable_types())
-        self.assertEqual(1, len(types))
-        self.assertEqual(int, types[0])
+        types = tuple(rt.get_actionable_types(depth=-1))
+        self.assertEqual(3, len(types))
+        self.assertEqual(int, types[1])
+        self.assertEqual(float, types[2])
 
     def test_get_origin_type(self):
         rt = ReflectType(str)
@@ -677,7 +688,9 @@ class ReflectTypeTest(TestCase):
 
     def test_any_type(self):
         rt = ReflectType(list[Any])
-        self.assertEqual([], list(rt.get_actionable_types()))
+        rts = list(rt.reflect_actionable_types(depth=-1))
+        self.assertEqual(1, len(rts))
+        self.assertTrue(rts[0].is_list())
         self.assertEqual([Any], list(rt.get_arg_types()))
 
         rt = ReflectType(Any)
