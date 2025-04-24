@@ -2694,6 +2694,7 @@ class ReflectCallable(ReflectObject):
             - unknown_kwargs: dict[str, Any], all keywords that failed to
                 be bound
             - signature_info: dict, the .get_signature_info return value
+        :raises TypeError: any argument binding error
         """
         args = list(args) # we need args to be mutable
         param_args = []
@@ -2723,9 +2724,11 @@ class ReflectCallable(ReflectObject):
                     param_args.append(info["defaults"][name])
 
             else:
-                raise ValueError(
-                    f"Could not bind callable"
-                    " {self.callpath} param {index} {name}"
+                # this raises a TypeError since that is what would be raised
+                # if you tried to call the callable with bad arguments
+                raise TypeError(
+                    "Could not bind callable"
+                    f" {self.callpath} param {index} {name}"
                 )
 
         if info["positionals_name"]:
