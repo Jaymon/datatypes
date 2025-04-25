@@ -111,6 +111,7 @@ from .profile import (
 )
 from .reflection import (
     ClassFinder,
+    ClassKeyFinder,
     ClasspathFinder,
     Extend,
     OrderedSubclasses,

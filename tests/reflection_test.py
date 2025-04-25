@@ -15,6 +15,7 @@ from datatypes.reflection import (
     ReflectCallable,
     ClasspathFinder,
     ClassFinder,
+    ClassKeyFinder,
 )
 from datatypes.path import Dirpath
 from . import TestCase, testdata
@@ -381,6 +382,24 @@ class ClassFinderTest(TestCase):
         acs = list(cf.get_abs_classes(classes["GGC221"]))
         self.assertEqual(1, len(acs))
         self.assertTrue(classes["GGC221"] in acs)
+
+
+class ClassKeyFinderTest(TestCase):
+    def test_find_class(self):
+        classes = self.create_module_classes("""
+            class GP(object): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+        """)
+        cf = ClassKeyFinder()
+        cf.add_classes(classes.values())
+
+        p = cf.find_class("p_class")
+        c1 = cf.find_class("c1_class")
+        c2 = cf.find_class("c2_class")
+        self.assertTrue(issubclass(c1, p))
+        self.assertTrue(issubclass(c2, p))
 
 
 class ExtendTest(TestCase):

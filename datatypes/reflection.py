@@ -682,37 +682,43 @@ class ClassFinder(DictTree):
     See also:
         * inspect.getclasstree()
     """
-    def _get_node_items(self, klass):
+    def _get_node_items(self, klass, cutoff_class):
         keys = []
         for c in reversed(inspect.getmro(klass)):
-            if self._is_valid_subclass(c):
+            if self._is_valid_subclass(c, cutoff_class):
                 keys.append(c)
                 yield keys, c
 
-    def _is_valid_subclass(self, klass):
+    def _is_valid_subclass(self, klass, cutoff_class=None):
         """Internal method. check if klass should be considered a valid
         subclass for addition into the tree
 
         This is a hook to allow child classes to customize functionality
 
         :param klass: type, the class wanting to be added to the tree
+        :param cutoff_class: type, anything before this class will be ignored
         :returns: bool, True if klass is valid
         """
-        return not klass is object
+        if not cutoff_class:
+            cutoff_class = object
 
-    def add_class(self, klass):
+        return issubclass(klass, cutoff_class) and klass is not cutoff_class
+        #return not klass is cutoff_class
+
+    def add_class(self, klass, cutoff_class=None):
         """This is the method that should be used to add new classes to the
         tree
 
         :param klass: type, the class to add to the tree
+        :param cutoff_class: type, anything before this class will be ignored
         """
-        for keys, value in self._get_node_items(klass):
+        for keys, value in self._get_node_items(klass, cutoff_class):
             self.set(keys, value)
 
-    def add_classes(self, classes):
+    def add_classes(self, classes, cutoff_class=None):
         """Adds all the classes using .add_class"""
         for klass in classes:
-            self.add_class(klass)
+            self.add_class(klass, cutoff_class)
 
     def get_class_node(self, klass):
         """return klass's node in the tree
@@ -799,6 +805,48 @@ class ClassFinder(DictTree):
 
         except KeyError:
             pass
+
+
+class ClassKeyFinder(ClassFinder):
+    """ClassFinder that can find via "<CLASSNAME>_class" keys
+
+    :example:
+        class Foo(object): pass
+        class FooBar(Foo): pass
+
+        cf = ClassKeyFinder()
+        cf.add_classes([Foo, FooBar])
+        cf.find_class("foo_bar_class") # FooBar
+        cf.find_class("foo_class") # Foo
+    """
+    def get_class_key(self, klass):
+        """Uses `klass` to produce a string class key that can be passed to
+        `.find_class` to get klass back
+
+        :param klass: type
+        :returns: str, the class key, by default "<CLASSNAME>_class" all
+            lower case
+        """
+        return f"{NamingConvention(klass.__name__).varname()}_class"
+
+    def add_node(self, klass, node, value):
+        super().add_node(klass, node, value)
+
+        # this is the first time the root node is adding a node, so do some
+        # initialization
+        if not self.parent and len(self) == 1:
+            self.class_keys = {}
+
+        class_key = self.get_class_key(klass)
+        self.root.class_keys[class_key] = klass
+
+    def find_class(self, class_key):
+        """Returns the class (type instance) found at `class_key`
+
+        :param class_key: str
+        :returns: type
+        """
+        return self.root.class_keys[class_key]
 
 
 class Extend(object):
