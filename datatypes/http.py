@@ -653,7 +653,7 @@ class HTTPClient(object):
             )
 
         except HTTPError as e:
-            ret = HTTPResponse(
+            ret = response_class(
                 e.code,
                 # an HTTPError can also function as a non-exceptional file-like
                 # return value (the same thing that urlopen() returns).
