@@ -13,6 +13,7 @@ from datatypes.reflection import (
     ReflectPath,
     ReflectType,
     ReflectCallable,
+    ReflectDocblock,
     ClasspathFinder,
     ClassFinder,
     ClassKeyFinder,
@@ -2277,4 +2278,45 @@ class ReflectPathTest(TestCase):
         m1 = rp.exec_module()
         m2 = rp.exec_module()
         self.assertNotEqual(m1.foo, m2.foo)
+
+
+class ReflectDocblockTest(TestCase):
+    def test_parse(self):
+        db = "description\n:param foo: foo desc\n:returns: return desc\n"
+        rdb = ReflectDocblock(db)
+        self.assertTrue(rdb.info)
+
+    def test_parse_directive(self):
+        db = (
+            ".. note::\n"
+            "   directive desc line 1\n"
+            "   directive desc line 2\n"
+            "not directive description"
+        )
+        rdb = ReflectDocblock(db)
+        body = list(rdb.get_bodies("note"))[0]
+        self.assertTrue("desc line 1" in body)
+        self.assertTrue("desc line 2" in body)
+        self.assertFalse("not directive" in body)
+
+    def test_get_signature_info(self):
+        db = (
+            ":param one: desc one\n"
+            ":arg two: desc two\n"
+            ":arg three: desc three\n"
+            ":keyword four: desc four\n"
+        )
+        rdb = ReflectDocblock(db)
+        siginfo = rdb.get_signature_info()
+
+        for name in ["two", "three"]:
+            self.assertTrue(name in siginfo["positional_only_names"])
+            self.assertTrue(name in siginfo["descriptions"])
+
+        self.assertTrue("four" in siginfo["keyword_only_names"])
+        self.assertTrue("four" in siginfo["descriptions"])
+
+        self.assertFalse("one" in siginfo["keyword_only_names"])
+        self.assertFalse("one" in siginfo["positional_only_names"])
+        self.assertTrue("one" in siginfo["descriptions"])
 

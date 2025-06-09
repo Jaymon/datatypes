@@ -19,10 +19,10 @@ from typing import (
     Optional,
     Union,
 )
-from collections.abc import(
+from collections.abc import (
     Mapping,
     Sequence,
-    Set
+    Set,
 )
 
 from .compat import *
@@ -36,6 +36,7 @@ from .config import Config
 from .url import Url
 from .collections.mapping import DictTree
 from . import logging
+from .token.base import Scanner
 
 
 logger = logging.getLogger(__name__)
@@ -3298,7 +3299,7 @@ class ReflectModule(ReflectObject):
     @property
     def module_basename(self):
         """Return the modules basename (eg, if the module's name was
-        "foo.bar.che" then the module basename would be "che"
+        "foo.bar.che" then the module basename would be "che")
         """
         return self.name.split(".")[-1]
 
@@ -3812,4 +3813,151 @@ class ReflectModule(ReflectObject):
 
     def get_ast(self):
         return ast.parse(self.getsource())
+
+
+class ReflectDocblock(object):
+    """Information about a ReST docblock
+
+    https://www.sphinx-doc.org/en/master/usage/domains/python.html
+    """
+    def __init__(self, target, **kwargs):
+        self.target = target
+        self.info = self.parse()
+
+    def parse(self):
+        """Internal method. Called from the constructor to give structure to
+        the docblock
+
+        :returns: dict[str, list[str]|dict[str, str|list[str]]]
+        """
+        info = {}
+        delims = [":", ".."]
+
+        s = Scanner(self.target)
+        while s:
+            desc = s.read_to(delims=delims)
+            if desc:
+                info.setdefault("description", [])
+                info["description"].append(desc)
+
+            if not desc or desc[-1].isspace():
+                chars = s.read_thru(delims=delims)
+                if chars == ":":
+                    tagname, tagval, tagbody = self.parse_tag(s)
+                    info.setdefault(tagname, [])
+                    info[tagname].append({
+                        "value": tagval,
+                        "body": tagbody,
+                    })
+
+                elif chars == "..":
+                    dirname, dirbody = self.parse_directive(s)
+                    info.setdefault(dirname, [])
+                    info[dirname].append({
+                        "body": dirbody,
+                    })
+
+        return info
+
+    def parse_tag(self, s):
+        """Internal method. Called from `.parse()`. This handles parsing
+        `:tag:` syntax.
+
+        https://www.sphinx-doc.org/en/master/usage/domains/python.html#info-field-lists
+
+        :param s: Scanner
+        :returns: tuple[str, str, list[str]], tagname, value (the value is
+            is anything after the tagname but before the closing colon), and
+            the body lines
+        """
+        name = s.read_to(char=":", hspace=True)
+        s.read_thru(hspace=True)
+        value = s.read_to(char=":")
+        s.read_thru(char=":")
+        body = self.parse_body(s)
+        return name, value, body
+
+    def parse_directive(self, s):
+        """Internal method. Called from `.parse()`. This handles parsing
+        `.. directive::` syntax
+
+        :param s: Scanner
+        :returns: tuple[str, str, list[str]], directive name, and the
+            body lines
+        """
+        s.read_thru(hspace=True)
+        name = s.read_to(delim="::")
+        s.read_thru(delim="::")
+        body = self.parse_body(s)
+        return name, body
+
+    def parse_body(self, s):
+        """Internal method. Called from the sub parsing methods.
+
+        :param s: Scanner
+        :returns: list[str], each line in the body after the tag or directive
+        """
+        body = []
+
+        while True:
+            body.append(s.read_to(char="\n", include_delim=True))
+            indent = s.read_thru(hspace=True)
+            if not indent:
+                break
+
+        return body
+
+    def get_bodies(self, name):
+        """Get the bodies of `name`
+
+        :param name: str, the directive or tag name
+        :returns: Generator[str], the bodies of name
+        """
+        if name in self.info:
+            for row in self.info[name]:
+                if "body" in row:
+                    yield self._get_str_body(row["body"])
+
+    def get_signature_info(self):
+        """Get call signature information according to the docblock
+
+        :returns: dict[str, str|set|dict[str, str]]
+            - positional_only_names: set[str], the set of names that can
+                only be passed in as positionals
+            - keyword_only_names: set[str], the set of names taht can
+                only be passed in as keywords
+            - descriptions: dict[str, str], the descriptions for each param
+        """
+        siginfo = {
+            "positional_only_names": set(),
+            "keyword_only_names": set(),
+            "descriptions": {},
+        }
+
+        tagnames = [
+            "param",
+            "parameter",
+            "arg",
+            "argument",
+            "key",
+            "keyword",
+        ]
+
+        for tagname in tagnames:
+            if tagname in self.info:
+                for row in self.info[tagname]:
+                    name = row["value"]
+                    if desc := self._get_str_body(row["body"]):
+                        siginfo["descriptions"][name] = desc
+
+                    if tagname in set(["arg", "argument"]):
+                        siginfo["positional_only_names"].add(name)
+
+                    elif tagname in set(["key", "keyword"]):
+                        siginfo["keyword_only_names"].add(name)
+
+        return siginfo
+
+    def _get_str_body(self, lines):
+        return "".join(lines).strip()
 

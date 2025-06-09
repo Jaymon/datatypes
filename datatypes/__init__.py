@@ -117,6 +117,7 @@ from .reflection import (
     OrderedSubclasses,
     ReflectCallable,
     ReflectClass,
+    ReflectDocblock,
     ReflectModule,
     ReflectName,
     ReflectPath,
