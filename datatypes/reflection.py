@@ -18,6 +18,8 @@ from typing import (
     get_origin,
     Optional,
     Union,
+    Literal,
+    Annotated,
 )
 from collections.abc import (
     Mapping,
@@ -1810,6 +1812,20 @@ class ReflectType(ReflectObject):
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
     """
+    def __init__(self, target, **kwargs):
+        super().__init__(target, **kwargs)
+
+        self.metadata = []
+
+        # normalize an annotation to type and metadata
+        if self.is_type(Annotated):
+            for i, arg in enumerate(self.get_args()):
+                if i == 0:
+                    self.target = arg
+
+                else:
+                    self.metadata.append(arg)
+
     def reflect_types(self, depth=1):
         """This breaks apart the argument types and iterates through them
 
@@ -1836,7 +1852,7 @@ class ReflectType(ReflectObject):
             yield from self.reflect_arg_types(depth=depth-1)
 
     def get_types(self, depth=1):
-        """Wrapper around `.reflect_types()` that returns the raw origina
+        """Wrapper around `.reflect_types()` that returns the raw original
         type"""
         for rt in self.reflect_types(depth=depth):
             yield rt.get_origin_type()
@@ -1946,7 +1962,7 @@ class ReflectType(ReflectObject):
     def get_args(self):
         """wrapper around `typing.get_args`
 
-        .. Example:
+        :example:
             rt = ReflectType(str|int)
             list(rt.get_args()) # [str, int]
 
@@ -1956,11 +1972,14 @@ class ReflectType(ReflectObject):
             rt = ReflectType(dict[str, int])
             list(rt.get_args()) # [str, int]
 
+            rt = ReflectType(Literal[1, 2, 3])
+            list(rt.get_args()) # [1, 2, 3]
+
         This is different than `.get_arg_types` since it doesn't unwrap like
         that method does, this truly is just a wrapper around the
         typing function.
 
-        .. Example:
+        :example:
             rt = ReflectType(dict[str, int|float])
             list(rt.get_args()) # [str, int|float]
             list(rt.get_arg_types()) # [str, int, float]
@@ -2252,6 +2271,13 @@ class ReflectType(ReflectObject):
             not self.is_any()
             and not self.is_ellipsis()
         )
+
+    def is_literal(self) -> bool:
+        """Returns true if this is a literal type containing literal values
+
+        https://typing.python.org/en/latest/spec/literal.html
+        """
+        return self.is_type(Literal)
 
     def __instancecheck__(self, instance):
         """Returns True if instance is an instance of .target

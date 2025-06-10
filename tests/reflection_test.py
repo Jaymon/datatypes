@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import functools
-from typing import Any, Literal
+from typing import Any, Literal, Annotated
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -902,6 +902,17 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(dict[str, int]|list[str])
         rts = list(rt.reflect_types(depth=-1))
         self.assertEqual(5, len(rts)) # dict[...], list[...]
+
+    def test_literal(self):
+        t = Literal["a", "b", "c"]
+        rt = ReflectType(t)
+        self.assertTrue(rt.is_literal())
+        self.assertEqual(["a", "b", "c"], list(rt.get_args()))
+
+    def test_annotated(self):
+        rt = ReflectType(Annotated[str, {"foo": 1, "bar": 2}])
+        self.assertTrue(rt.is_str())
+        self.assertTrue(1, rt.metadata[0]["foo"])
 
 
 class ReflectCallableTest(TestCase):
