@@ -464,9 +464,16 @@ class Scanner(BaseTokenizer):
             for char in String.HORIZONTAL_SPACE:
                 delims[char] = len(char)
 
-        if kwargs.get(f"{prefix}newline", False):
-            delims["\n"] = 1
+        if kwargs.get(
+            f"{prefix}newline",
+            kwargs.get(
+                f"{prefix}vspace",
+                kwargs.get(f"{prefix}vertical_space", False)
+            )
+        ):
             #delims["\r\n"] = 2
+            delims["\n"] = 1
+            #delims["\r"] = 1
 
         return delims
 

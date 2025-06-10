@@ -2320,3 +2320,25 @@ class ReflectDocblockTest(TestCase):
         self.assertFalse("one" in siginfo["positional_only_names"])
         self.assertTrue("one" in siginfo["descriptions"])
 
+    def test_blank_lines(self):
+        db = (
+            "description line 1\n"
+            "\n"
+            ":example:\n"
+            "\n"
+            "    example line 1\n"
+            "    example line 2\n"
+            "    \n"
+            "    example line 3\n"
+            "\n"
+            "description line 2"
+        )
+        rdb = ReflectDocblock(db)
+
+        example = list(rdb.get_bodies("example"))[0]
+        self.assertTrue("example line 1" in example)
+        self.assertTrue("example line 2\n    \nexample line 3" in example)
+
+        desc = list(rdb.get_bodies("description"))[0]
+        self.assertTrue("description line 1\n\ndescription line 2" in desc)
+

@@ -1577,19 +1577,23 @@ class ReflectObject(object):
 
         return doc or ""
 
+    def reflect_docblock(self, inherit=False):
+        if doc := self.get_docblock(inherit=inherit):
+            return self.create_docblock_class(doc)
+
     def get_module(self):
         return self.reflect_module().get_module()
 
     def reflect_module(self):
         """Returns the reflected module"""
-        return ReflectModule(self.target.__module__)
+        return self.create_reflect_module(self.target.__module__)
 
     def get_class(self):
         raise NotImplementedError()
 
     def reflect_class(self):
         if klass := self.get_class():
-            return ReflectClass(klass)
+            return self.create_reflect_class(klass)
 
     def get_target(self):
         return self.target
@@ -1633,6 +1637,12 @@ class ReflectObject(object):
 
     def create_reflect_ast(self, *args, **kwargs):
         return kwargs.get("reflect_ast_class", ReflectAST)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_docblock(self, *args, **kwargs):
+        return kwargs.get("reflect_docblock_class", ReflectDocblock)(
             *args,
             **kwargs
         )
@@ -3901,11 +3911,34 @@ class ReflectDocblock(object):
 
         while True:
             body.append(s.read_to(char="\n", include_delim=True))
-            indent = s.read_thru(hspace=True)
+            indent, blanklines = self.parse_blanklines(s)
+            body.extend(blanklines)
             if not indent:
                 break
 
         return body
+
+    def parse_blanklines(self, s):
+        """Internal method. Called from `.parse_body()`. Get all the blank
+        lines between 2 populated lines in a body
+
+        :param s: Scanner
+        :returns: tuple[str, list[str]], the indent of the current line in `s`
+            and the blank lines that were found in a list
+        """
+        indent = ""
+        blanklines = []
+
+        while True:
+            indent = s.read_thru(hspace=True)
+            newline = s.read_thru(delims=["\n", "\r"])
+            if newline:
+                blanklines.append(indent + newline)
+
+            else:
+                break
+
+        return indent, blanklines
 
     def get_bodies(self, name):
         """Get the bodies of `name`
@@ -3914,9 +3947,13 @@ class ReflectDocblock(object):
         :returns: Generator[str], the bodies of name
         """
         if name in self.info:
-            for row in self.info[name]:
-                if "body" in row:
-                    yield self._get_str_body(row["body"])
+            if isinstance(self.info[name][0], dict):
+                for row in self.info[name]:
+                    if "body" in row:
+                        yield self._get_str_body(row["body"])
+
+            else:
+                yield self._get_str_body(self.info[name])
 
     def get_signature_info(self):
         """Get call signature information according to the docblock
