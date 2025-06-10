@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import functools
-from typing import Any
+from typing import Any, Literal
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -1652,6 +1652,26 @@ class ReflectCallableTest(TestCase):
         rc = ReflectCallable(foo_class.has_both, foo_class)
         self.assertTrue(rc.has_positionals_catchall())
         self.assertTrue(rc.has_keywords_catchall())
+
+    def test_get_signature_info_types(self):
+        class Foo(object):
+            def bar(
+                self,
+                one: Literal["a", "b", "c"],
+                two: bool = False,
+                /,
+                three: int = 1,
+                *,
+                four: str|None,
+                five: str = "d",
+                six,
+            ):
+                pass
+
+        rc = ReflectCallable(Foo.bar, Foo)
+        siginfo = rc.get_signature_info()
+        siginfo.pop("signature", None)
+        self.assertFalse("six" in siginfo["annotations"])
 
 
 class ReflectClassTest(TestCase):

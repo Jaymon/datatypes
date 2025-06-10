@@ -2833,9 +2833,12 @@ class ReflectCallable(ReflectObject):
                 captures all undefined positionals passed into the callable
             - keywords_name: str, the name of the **kwargs-like param that
                 captures all undefined keywords passed into the callable
+            - annotations: dict[str, type], the found types for any of the
+                names
         """
         names = []
         required = set()
+        annotations = {}
         defaults = {}
         positionals_name = ""
         keywords_name = ""
@@ -2849,7 +2852,6 @@ class ReflectCallable(ReflectObject):
         # non-bound version of the method though, so we also check 
         skip = self.is_unbound_method()
         signature = self.signature
-        #signature = inspect.signature(self.target)
         for name, param in signature.parameters.items():
             if skip:
                 skip = False
@@ -2876,6 +2878,9 @@ class ReflectCallable(ReflectObject):
                 names.append(name)
                 defaults[name] = param.default
 
+            if param.annotation is not param.empty:
+                annotations[name] = param.annotation
+
         return {
             "signature": signature,
             "names": names,
@@ -2883,6 +2888,7 @@ class ReflectCallable(ReflectObject):
             "keyword_only_names": keyword_only_names,
             "required": required,
             "defaults": defaults,
+            "annotations": annotations,
             "positionals_name": positionals_name,
             "*_name": positionals_name, # DEPRECATED?
             "keywords_name": keywords_name,
