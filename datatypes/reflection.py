@@ -1812,20 +1812,6 @@ class ReflectType(ReflectObject):
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
     """
-    def __init__(self, target, **kwargs):
-        super().__init__(target, **kwargs)
-
-        self.metadata = []
-
-        # normalize an annotation to type and metadata
-        if self.is_type(Annotated):
-            for i, arg in enumerate(self.get_args()):
-                if i == 0:
-                    self.target = arg
-
-                else:
-                    self.metadata.append(arg)
-
     def reflect_types(self, depth=1):
         """This breaks apart the argument types and iterates through them
 
@@ -1860,7 +1846,7 @@ class ReflectType(ReflectObject):
     def reflect_key_types(self):
         """Reflect the types for the key types in a mapping
 
-        :Example:
+        :example:
             rt = ReflectType(dict[str, int|bool])
             list(rt.get_key_types) # [str]
 
@@ -1880,7 +1866,7 @@ class ReflectType(ReflectObject):
     def get_key_types(self):
         """Get the raw types for the keys in a mapping
 
-        :Example:
+        :example:
             rt = ReflectType(dict[str, int|bool])
             list(rt.get_key_types) # [str]
 
@@ -1915,7 +1901,7 @@ class ReflectType(ReflectObject):
     def get_value_types(self):
         """Wrapper around `.reflect_value_types()` that returns the raw types
 
-        :Example:
+        :example:
             rt = ReflectType(dict[str, int|bool])
             list(rt.get_value_types) # [int, bool]
 
@@ -1938,7 +1924,7 @@ class ReflectType(ReflectObject):
         """Wrapper around `.reflect_origin_types()`. Return all the raw origin
         types of the target type
 
-        .. Example:
+        :example:
             rt = ReflectType(dict[str, int]|list[int])
             list(rt.get_origin_types()) # [dict, list]
 
@@ -2026,7 +2012,7 @@ class ReflectType(ReflectObject):
         """Get the raw types of .target's args (eg, the types wrapped in the
         [] of the type (eg, dict[str, int] would yield str and int))
 
-        :Example:
+        :example:
             rt = ReflectType(dict[str, int|bool])
             list(rt.get_arg_types) # [str, int, bool]
 
@@ -2038,7 +2024,7 @@ class ReflectType(ReflectObject):
     def reflect_actionable_types(self, depth=1):
         """Yields all the arg types that are considered actionable
 
-        .. Example:
+        :example:
             rt = ReflectType(Any)
             list(rt.reflect_actionable_types()) # []
 
@@ -2059,6 +2045,22 @@ class ReflectType(ReflectObject):
         """
         for rt in self.reflect_actionable_types(depth=depth):
             yield rt.get_origin_type()
+
+    def get_metadata(self):
+        """Returns the annotated metadata.
+
+        An annotated type looks like `Annotated[<TYPE>, <METADATA...>] and
+        so this will skip that first argument <TYPE> and return all the
+        other arguments after <TYPE>.
+
+        This has no idea what the metadata looks like
+
+        :returns: Generator[Any]
+        """
+        if self.is_annotated():
+            for i, arg in enumerate(self.get_args()):
+                if i > 0:
+                    yield arg
 
     def is_type(self, haystack) -> bool:
         """Returns True if .target's origin type is in haystack
@@ -2088,6 +2090,17 @@ class ReflectType(ReflectObject):
                         return True
 
                 return False
+
+        elif needle is Annotated:
+            if haystack is Annotated:
+                return True
+
+            else:
+                for rt in self.reflect_arg_types(depth=1):
+                    if rt.is_type(haystack):
+                        return True
+
+            return False
 
         else:
             if haystack is None:
@@ -2278,6 +2291,13 @@ class ReflectType(ReflectObject):
         https://typing.python.org/en/latest/spec/literal.html
         """
         return self.is_type(Literal)
+
+    def is_annotated(self) -> bool:
+        """Returns true if this type was annotated
+
+        https://docs.python.org/3/library/typing.html#typing.Annotated
+        """
+        return self.is_type(Annotated)
 
     def __instancecheck__(self, instance):
         """Returns True if instance is an instance of .target

@@ -911,8 +911,9 @@ class ReflectTypeTest(TestCase):
 
     def test_annotated(self):
         rt = ReflectType(Annotated[str, {"foo": 1, "bar": 2}])
+        self.assertTrue(rt.is_annotated())
         self.assertTrue(rt.is_str())
-        self.assertTrue(1, rt.metadata[0]["foo"])
+        self.assertTrue(1, list(rt.get_metadata())[0]["foo"])
 
 
 class ReflectCallableTest(TestCase):
