@@ -1588,7 +1588,7 @@ class ReflectObject(object):
 
     def reflect_module(self):
         """Returns the reflected module"""
-        return self.create_reflect_module(self.target.__module__)
+        return self.create_reflect_module(self.get_target().__module__)
 
     def get_class(self):
         raise NotImplementedError()
