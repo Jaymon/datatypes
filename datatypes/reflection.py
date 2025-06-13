@@ -2282,6 +2282,7 @@ class ReflectType(ReflectObject):
         """
         return (
             not self.is_any()
+            and not self.is_none()
             and not self.is_ellipsis()
         )
 
@@ -2336,6 +2337,23 @@ class ReflectType(ReflectObject):
     def __str__(self):
         return str(self.get_target())
 
+    def cast(self, value):
+        """Cast `value` to a type in self
+
+        This will move through the types from left to right and the first
+        type that succeeds wins
+
+        :param value: Any, this value will be cast to a type in self
+        :returns: Any, an instance of one of the types in self
+        """
+        for t in self.get_actionable_types(depth=1):
+            try:
+                return t(value)
+
+            except (ValueError, TypeError):
+                pass
+
+        raise ValueError(f"Could not cast value to {self}")
 
 class ReflectCallable(ReflectObject):
     """Reflect a callable

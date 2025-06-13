@@ -915,6 +915,17 @@ class ReflectTypeTest(TestCase):
         self.assertTrue(rt.is_str())
         self.assertTrue(1, list(rt.get_metadata())[0]["foo"])
 
+    def test_cast_union(self):
+        rt = ReflectType(int | None)
+
+        v = rt.cast("100")
+        self.assertEqual(100, v)
+        self.assertTrue(isinstance(v, int))
+
+        with self.assertRaises(ValueError):
+            rt.cast("dalfdfjl")
+
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
