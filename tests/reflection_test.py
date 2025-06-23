@@ -2,6 +2,7 @@
 import sys
 import functools
 from typing import Any, Literal, Annotated
+import runpy
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -192,7 +193,7 @@ class ClasspathFinderTest(TestCase):
         )
 
         m = modpath.get_module()
-        pf = ClasspathFinder([prefix], ignore_class_keys=["Default"])
+        pf = ClasspathFinder([prefix])
         pf.add_class(m.Foo)
         pf.add_class(m.CheBoo)
 
@@ -313,6 +314,38 @@ class ClasspathFinderTest(TestCase):
             node_classes.add(value["class"].__name__)
 
         self.assertEqual(pf_classes, node_classes)
+
+    def test_runpath_classes(self):
+        """Test a class that was loaded using something like `runpy.run_path`
+        """
+        modpath = self.create_module("""
+            class Foo(object):
+                class Bar(object):
+                    class Che(object):
+                        pass
+        """)
+
+        m = runpy.run_path(modpath.path)
+        pf = ClasspathFinder()
+        pf.add_class(m["Foo"].Bar.Che)
+
+        che_value = pf.get_node("Foo").get_node("Bar")["Che"]
+        self.assertEqual(3, len(che_value["class_keys"]))
+        self.assertEqual(0, len(che_value["module_keys"]))
+
+    def test_inaccessible_class(self):
+        """Make sure a class with a qualname containing parts like <locals>
+        fails"""
+        def foo_factory():
+            class Foo(object):
+                pass
+
+            return Foo
+
+        pf = ClasspathFinder()
+
+        with self.assertRaises(ValueError):
+            pf.add_class(foo_factory())
 
 
 class ClassFinderTest(TestCase):
@@ -924,7 +957,6 @@ class ReflectTypeTest(TestCase):
 
         with self.assertRaises(ValueError):
             rt.cast("dalfdfjl")
-
 
 
 class ReflectCallableTest(TestCase):

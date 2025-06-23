@@ -372,10 +372,10 @@ class ClasspathFinder(DictTree):
     """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
     a class added with .add_class
 
-    NOTE -- <MODULE_NAME> is only used if prefixes are present, if there are no
-    prefixes then the module path is ignored when adding classes. This means
-    the path for foo.bar:Che without prefixes would just be Che. If
-    prefixes=["foo"] then the path is bar:Che 
+    NOTE -- <MODULE_NAME> is only used if prefixes are passed into the
+    instance, if there are no prefixes then the module path is ignored when
+    adding classes. This means the path for foo.bar:Che without prefixes would
+    just be Che. If prefixes=["foo"] then the path is bar:Che 
 
     Like OrderedSubclasses, you'd think this would be a niche thing and not
     worth being in a common library but I do this exact thing in both Endpoints
@@ -557,12 +557,18 @@ class ClasspathFinder(DictTree):
         return None
 
     def _get_node_module_info(self, key, **kwargs):
-        """Get the module key and value for a node representing a module
+        """Get the module key and value for a node representing a module.
+
+        This is called for each module in the full classpath. So if the
+        full classpath was `foo.bar:Che.Baz` then this would be called for
+        `foo` and `bar`
 
         :param key: Hashable
         :param **kwargs:
             * module: types.ModuleType, the module
-        :returns: tuple[hashable, dict]
+        :returns: tuple[hashable|None, dict], index 0 is the key in the
+            tree, no key will be added if it is `None`, index 1 is the value
+            at that key in the tree
         """
         value = self._get_node_default_value(**kwargs) or {}
         value["module"] = kwargs["module"]
@@ -570,6 +576,10 @@ class ClasspathFinder(DictTree):
 
     def _get_node_class_info(self, key, **kwargs):
         """Get the key and value for a node representing a class
+
+        This is called for each class in the full classpath. So if the
+        full classpath was `foo.bar:Che.Baz` then this would be called for
+        `Che` and `Baz`
 
         :param key: Hashable
         :param **kwargs:
@@ -579,18 +589,21 @@ class ClasspathFinder(DictTree):
                 module portion of the path
             * class_keys: list[str], a list of all the keys used for the
                 class portion of the path
-        :returns: tuple[hashable, dict]
-            * class: this will be set for the final absolute class of the
-                path
-            * class_name: this will always be set
+        :returns: tuple[hashable|None, dict], index 0 is the key in the
+            tree, no key will be added if it is `None`, index 1 is the value
+            at that key in the tree, the keys it can have:
+                * class: this will be set for the final absolute class of the
+                    path
+                * class_name: this will always be set
         """
         value = self._get_node_default_value(**kwargs) or {}
-        value["class_name"] = kwargs["class_name"]
-        if "class" in kwargs:
-            value["class"] = kwargs["class"]
-            value["module_keys"] = kwargs["module_keys"]
 
-            value["class_keys"] = kwargs["class_keys"]
+        value["class_name"] = kwargs["class_name"]
+
+        if "class" in kwargs:
+            for k in ["class", "module_keys", "class_keys"]:
+                value[k] = kwargs[k]
+
             if key is not None:
                 value["class_keys"] = kwargs["class_keys"] + [key]
 
@@ -600,14 +613,23 @@ class ClasspathFinder(DictTree):
         """Internal method. This yields the keys and values that will be
         used to create new nodes in this tree
 
+        This is called for each value in the full classpath. So if the
+        full classpath was `foo.bar:Che.Baz` then this would yield `foo`,
+        `bar`, `Che`, and `Baz`
+
         :returns: generator[tuple(list[str], Any)], the keys and value for
-            a node in the tree
+            a node in the tree. Index 0 contains the key from root to the
+            node. Index 1 contains the value at that node, by default that
+            value is a dict which will contain the value returned from either
+            `._get_node_module_info`
         """
         rn = ReflectName(self._get_classpath(klass))
 
         module_keys = []
         class_keys = []
 
+        # these values are added to and passed into the child
+        # `._get_node_*_info` methods
         nkwargs = {
             "keys": [],
             "module_keys": [],
@@ -635,10 +657,13 @@ class ClasspathFinder(DictTree):
                 break
 
         # we can't use rn.get_classes() here because classpath could be
-        # something like: `<run_path>:ClassPrefix.Command` and so we can't
-        # actually get the module
-        class_i = len(rn.class_names) - 1
-        for i, class_name in enumerate(rn.class_names):
+        # something like: `<run_path>:ClassPrefix.ClassName` and so we can't
+        # actually get the module because `<run_path>` doesn't exist anywhere
+        # or `ClassPrefix`, we basically only have access to `klass`
+        # because it was passed in, and it corresponds to `ClassName`
+        class_names = rn.class_names
+        class_i = len(class_names) - 1
+        for i, class_name in enumerate(class_names):
             nkwargs["class_name"] = class_name
 
             if class_i == i:
@@ -2354,6 +2379,7 @@ class ReflectType(ReflectObject):
                 pass
 
         raise ValueError(f"Could not cast value to {self}")
+
 
 class ReflectCallable(ReflectObject):
     """Reflect a callable
