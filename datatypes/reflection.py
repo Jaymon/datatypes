@@ -2913,6 +2913,8 @@ class ReflectCallable(ReflectObject):
             - signature: the inspect signature
             - names: list[str], all the param names in the order they are
                 defined in the signature
+            - indexes: dict[int, str], the reverse of the `names` key, it
+                maps argument index to argument name
             - positional_only_names: set[str], the set of names that can
                 only be passed in as positionals
             - keyword_only_names: set[str], the set of names taht can
@@ -2932,6 +2934,9 @@ class ReflectCallable(ReflectObject):
         defaults = {}
         positionals_name = ""
         keywords_name = ""
+
+        indexes = {}
+        index = 0
 
         # https://peps.python.org/pep-0570/
         positional_only_names = set()
@@ -2964,9 +2969,15 @@ class ReflectCallable(ReflectObject):
                     names.append(name)
                     required.add(name)
 
+                    indexes[name] = index
+                    index += 1
+
             else:
                 names.append(name)
                 defaults[name] = param.default
+
+                indexes[name] = index
+                index += 1
 
             if param.annotation is not param.empty:
                 annotations[name] = param.annotation
@@ -2974,6 +2985,7 @@ class ReflectCallable(ReflectObject):
         return {
             "signature": signature,
             "names": names,
+            "indexes": indexes,
             "positional_only_names": positional_only_names,
             "keyword_only_names": keyword_only_names,
             "required": required,
