@@ -1834,6 +1834,20 @@ class ReflectType(ReflectObject):
     `dict`, and the value types would be `[int]`, the key types would be
     `[str]`. The arg types would be `[str, int]`
 
+    You have to be careful with encompassing types, since they can identify
+    as any of their sub types
+
+    :example:
+        rt = ReflectType(str|int)
+        rt.is_int() # True
+        rt.is_str() # True
+        rt.is_union() # True
+
+        rt = ReflectType(Annotated[str|int, None])
+        rt.is_union() # True
+        rt.is_str() # True
+        rt.is_annotated() # True
+
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
     """
@@ -1845,7 +1859,12 @@ class ReflectType(ReflectObject):
 
         :returns: generator[ReflectType]
         """
-        if self.is_union():
+        if self.is_annotated():
+            for rt in self.reflect_arg_types(depth=depth):
+                yield from rt.reflect_types(depth=depth)
+                break
+
+        elif self.is_union():
             yield from self.reflect_arg_types(depth=depth)
 
         elif self.is_any():
@@ -2309,6 +2328,7 @@ class ReflectType(ReflectObject):
             not self.is_any()
             and not self.is_none()
             and not self.is_ellipsis()
+            and not self.is_annotated()
         )
 
     def is_literal(self) -> bool:

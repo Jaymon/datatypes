@@ -668,7 +668,7 @@ class ReflectTypeTest(TestCase):
 
         rt = ReflectType(str|list[int]|float|None)
         rts = list(rt.reflect_actionable_types())
-        self.assertEqual(4, len(rts))
+        self.assertEqual(3, len(rts))
         self.assertTrue(rts[1].is_list())
 
         rt = ReflectType(tuple[int, ...])
@@ -918,7 +918,7 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(str)
         self.assertTrue(rt.is_actionable())
 
-    def test_reflect_types(self):
+    def test_reflect_types_1(self):
         rt = ReflectType(dict[str, int])
         rts = list(rt.reflect_types())
         self.assertEqual(1, len(rts))
@@ -935,6 +935,12 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(dict[str, int]|list[str])
         rts = list(rt.reflect_types(depth=-1))
         self.assertEqual(5, len(rts)) # dict[...], list[...]
+
+    def test_reflect_types_annotated(self):
+        rt = ReflectType(Annotated[int|float|str, None])
+        rts = list(rt.reflect_types())
+        self.assertEqual(3, len(rts))
+        self.assertTrue(rts[0].is_int())
 
     def test_literal(self):
         t = Literal["a", "b", "c"]
@@ -957,6 +963,13 @@ class ReflectTypeTest(TestCase):
 
         with self.assertRaises(ValueError):
             rt.cast("dalfdfjl")
+
+    def test_cast_annotated(self):
+        rt = ReflectType(Annotated[int, None])
+        self.assertEqual(100, rt.cast("100"))
+
+        rt = ReflectType(Annotated[int|str, None])
+        self.assertEqual("foo", rt.cast("foo"))
 
 
 class ReflectCallableTest(TestCase):
