@@ -971,6 +971,14 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(Annotated[int|str, None])
         self.assertEqual("foo", rt.cast("foo"))
 
+    def test_cast_listish(self):
+        rt = ReflectType(Annotated[list[int], None])
+        self.assertEqual([1, 2, 3], rt.cast(["1", "2", "3"]))
+
+
+        rt = ReflectType(list[int])
+        self.assertEqual([1, 2, 3], rt.cast(["1", "2", "3"]))
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):

@@ -2391,12 +2391,29 @@ class ReflectType(ReflectObject):
         :param value: Any, this value will be cast to a type in self
         :returns: Any, an instance of one of the types in self
         """
-        for t in self.get_actionable_types(depth=1):
-            try:
-                return t(value)
+        # we reflect all the actionable types to break apart special types
+        # like Union or Annotated
+        for rt in self.reflect_actionable_types(depth=1):
+            # broken special types can then have their types used for casting
+            for t in rt.get_actionable_types(depth=1):
+                try:
+                    r = t(value)
 
-            except (ValueError, TypeError):
-                pass
+                    if rt.is_listish():
+                        # if we have a value type then we want to cast all the
+                        # items in the list to that value type
+                        for rit in rt.reflect_value_types():
+                            try:
+                                for index in range(len(r)):
+                                    r[index] = rit.cast(r[index])
+
+                            except ValueError:
+                                pass
+
+                    return r
+
+                except (ValueError, TypeError):
+                    pass
 
         raise ValueError(f"Could not cast value to {self}")
 
