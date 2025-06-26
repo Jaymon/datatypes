@@ -975,9 +975,13 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(Annotated[list[int], None])
         self.assertEqual([1, 2, 3], rt.cast(["1", "2", "3"]))
 
-
         rt = ReflectType(list[int])
         self.assertEqual([1, 2, 3], rt.cast(["1", "2", "3"]))
+
+    def test_cast_none(self):
+        rt = ReflectType(int | None)
+        self.assertEqual(None, rt.cast(None))
+
 
 
 class ReflectCallableTest(TestCase):

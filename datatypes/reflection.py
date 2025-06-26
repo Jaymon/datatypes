@@ -2415,7 +2415,11 @@ class ReflectType(ReflectObject):
                 except (ValueError, TypeError):
                     pass
 
-        raise ValueError(f"Could not cast value to {self}")
+        if value is None and self.is_none():
+            return value
+
+        else:
+            raise ValueError(f"Could not cast value to {self}")
 
 
 class ReflectCallable(ReflectObject):
