@@ -983,7 +983,6 @@ class ReflectTypeTest(TestCase):
         self.assertEqual(None, rt.cast(None))
 
 
-
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
         m = self.create_module([
@@ -1311,6 +1310,10 @@ class ReflectCallableTest(TestCase):
         self.assertEqual("kwargs", sig["keywords_name"])
         self.assertEqual("", sig["positionals_name"])
 
+    def test_get_signature_info_pos_key(self):
+        def foo(foo, bar=1, *args, che=3, **kwargs): pass
+
+
     def test_is_bound_method(self):
         RC = ReflectCallable
         class Foo(object):
@@ -1356,21 +1359,39 @@ class ReflectCallableTest(TestCase):
         info = rf.get_signature_info()
         self.assertEqual(["bar"], info["names"])
 
-    def test_get_bind_info(self):
+    def test_get_bind_info_1(self):
         class Foo(object):
             def foo(self, foo, bar=2, che=3, **kwargs): pass
 
-        args = [1, 2, 3, 4]
         kwargs = {
             "foo": 10,
             "bar": 20,
             "che": 30,
             "boo": 40
         }
-        info = ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
-        self.assertEqual([10, 20, 30], info["args"])
-        self.assertEqual({"boo": 40}, info["kwargs"])
-        self.assertEqual(args, info["unknown_args"])
+
+        args = [1, 2, 3, 4]
+        with self.assertRaises(TypeError):
+            ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
+
+        info = ReflectCallable(Foo.foo, Foo).get_bind_info(**kwargs)
+        self.assertEqual(kwargs, info["bound"].kwargs)
+
+    def test_get_bind_info_missing(self):
+        def foo(bar, /, che):
+            pass
+
+        info = ReflectCallable(foo).get_bind_info(*[1], **{"boo": 2})
+        self.assertTrue("boo" in info["unknown_kwargs"])
+        self.assertTrue("che" in info["missing_names"])
+        self.assertTrue("bar" in info["bound"].arguments)
+
+    def test_bind_1(self):
+        def foo(bar, /, che):
+            pass
+
+        with self.assertRaises(TypeError):
+            ReflectCallable(foo).bind(*[1], **{"bar": 2})
 
     def test_reflect_ast_decorators_function(self):
         mp = self.create_module("""

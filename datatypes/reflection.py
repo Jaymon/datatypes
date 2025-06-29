@@ -1606,7 +1606,7 @@ class ReflectObject(object):
 
     def reflect_docblock(self, inherit=False):
         if doc := self.get_docblock(inherit=inherit):
-            return self.create_docblock_class(doc)
+            return self.create_reflect_docblock(doc)
 
     def get_module(self):
         return self.reflect_module().get_module()
@@ -2862,87 +2862,67 @@ class ReflectCallable(ReflectObject):
         """
         return self.is_instance_method() and not self.is_bound_method()
 
-    def get_bind_info(self, *args, **kwargs):
-        """Get information on how callable would bind *args and **kwargs
+#     def bind(self, *args, **kwargs):
+#         """Wrapper around `inspect.Signature.bind`
+# 
+#         https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
+#         """
+#         return self.signature.bind(*args, **kwargs)
 
-        This will favor keywords over positionals and checks for
-        positionals_name and keywords_name in kwargs and will move those into
-        the main namespaces
+    def get_bind_info(self, *args, **kwargs):
+        """Get information on how callable could bind *args and **kwargs
 
         https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
         https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
 
         :param *args: all the positional arguments for callable
         :param **kwargs: all the keyword arguments for callable
-        :returns: dict[str, dict[str, Any]|list[Any]]
-            - args: list[Any], all the successfully bound positionals
-                for callable
-            - kwargs: dict[str, Any], all the successfully bound keywords
-                for callable
+        :returns: dict[str, dict[str, Any]|list[Any]|set[str]]
+            - bound: BoundArguments, the arguments from args and kwargs that
+                were successfully bound using Signature.bind_partial
+            - signature_info: dict, the .get_signature_info return value
             - unknown_args: list[Any], all positionals that failed to be
                 bound
             - unknown_kwargs: dict[str, Any], all keywords that failed to
                 be bound
-            - signature_info: dict, the .get_signature_info return value
+            - missing_names: set[str], the required parameter names that
+                weren't found in args nor kwargs
         :raises TypeError: any argument binding error
         """
-        args = list(args) # we need args to be mutable
+        sig_info = self.get_signature_info()
+
         param_args = []
         param_kwargs = {}
-        info = self.get_signature_info()
 
-        for index, name in enumerate(info["names"]):
-            if name in kwargs:
-                if name in info["keyword_only_names"]:
-                    param_kwargs[name] = kwargs.pop(name)
+        unknown_args = []
+        unknown_kwargs = {}
+        missing_names = set([])
 
-                else:
-                    param_args.append(kwargs.pop(name))
+        if not sig_info["keywords_name"]:
+            for k in list(kwargs.keys()):
+                if k not in sig_info["indexes"]:
+                    unknown_kwargs[k] = kwargs.pop(k)
 
-            elif args:
-                if name in info["keyword_only_names"]:
-                    param_kwargs[name] = args.pop(0)
+        if not sig_info["positionals_name"]:
+            max_args = len(sig_info["names"])
+            if len(args) > max_args:
+                unknown_args = args[max_args:]
+                args = args[:max_args]
 
-                else:
-                    param_args.append(args.pop(0))
+        bound = sig_info["signature"].bind_partial(*args, **kwargs)
+        #bound.apply_defaults()
 
-            elif name in info["defaults"]:
-                if name in info["keyword_only_names"]:
-                    param_kwargs[name] = info["defaults"][name]
-
-                else:
-                    param_args.append(info["defaults"][name])
-
-            else:
-                # this raises a TypeError since that is what would be raised
-                # if you tried to call the callable with bad arguments
-                raise TypeError(
-                    "Could not bind callable"
-                    f" {self.callpath} param {index} {name}"
-                )
-
-        if info["positionals_name"]:
-            if info["positionals_name"] in kwargs:
-                param_args.extend(kwargs.pop(info["positionals_name"]))
-
-            if args:
-                param_args.extend(args)
-                args = []
-
-        if info["keywords_name"]:
-            if info["keywords_name"] in kwargs:
-                param_kwargs.update(kwargs.pop(info["keywords_name"]))
-
-            if kwargs:
-                param_kwargs.update(kwargs)
-                kwargs = {}
+        for name in sig_info["names"]:
+            if name not in bound.arguments:
+                if name in sig_info["required"]:
+                    missing_names.add(name)
 
         return {
-            "args": param_args,
-            "kwargs": param_kwargs,
-            "unknown_args": args,
-            "unknown_kwargs": kwargs,
-            "signature_info": info
+            "signature_info": sig_info,
+            "bound": bound,
+            "unknown_args": unknown_args,
+            "unknown_kwargs": unknown_kwargs,
+            "missing_names": missing_names,
         }
 
     def get_signature_info(self):
@@ -4120,6 +4100,51 @@ class ReflectDocblock(object):
             "descriptions": {},
         }
 
+        for name, ptype, pdesc in self._get_params():
+            if pdesc:
+                siginfo["descriptions"][name] = pdesc
+
+            if ptype == "positional":
+                siginfo["positional_only_names"].add(name)
+
+            elif ptype == "keyword":
+                siginfo["keyword_only_names"].add(name)
+
+        return siginfo
+
+    def get_docblock(self):
+        return self.get_target()
+
+    def get_description(self):
+        """Get the docblock description"""
+        return self._get_str_body(self.info.get("description", []))
+
+    def get_param_descriptions(self):
+        """Get all the callable's parameter descriptions
+
+        :returns: dict[str, str], the key is the parameter name and the
+            value is the parameter description
+        """
+        ret = {}
+        for name, ptype, desc in self._get_params():
+            ret[name] = desc
+
+        return ret
+
+    def _get_params(self):
+        """Internal method to get the parameters
+
+        This normalize all the different keywords a parameter can be defined
+        with to just:
+
+            * param - can either be positional or keyword
+            * positional - can only be passed in by value
+            * keyword - can only be passed in as key=value
+
+        :returns: tuple[str, str, str], index 0 is the param name, index 1
+            is the param type (param, positional, keyword), and index 2 is
+            the param description
+        """
         tagnames = [
             "param",
             "parameter",
@@ -4133,16 +4158,16 @@ class ReflectDocblock(object):
             if tagname in self.info:
                 for row in self.info[tagname]:
                     name = row["value"]
-                    if desc := self._get_str_body(row["body"]):
-                        siginfo["descriptions"][name] = desc
+                    param_type = "param"
 
                     if tagname in set(["arg", "argument"]):
-                        siginfo["positional_only_names"].add(name)
+                        param_type = "positional"
 
                     elif tagname in set(["key", "keyword"]):
-                        siginfo["keyword_only_names"].add(name)
+                        param_type = "keyword"
 
-        return siginfo
+                    desc = self._get_str_body(row["body"])
+                    yield name, param_type, desc
 
     def _get_str_body(self, lines):
         return "".join(lines).strip()
