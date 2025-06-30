@@ -5,13 +5,11 @@ import types
 import functools
 import os
 import importlib
-import importlib.util
-import importlib.machinery
 import ast
-import collections
 import pkgutil
 import re
 import decimal
+import itertools
 from typing import (
     Any, # https://docs.python.org/3/library/typing.html#the-any-type
     get_args, # https://stackoverflow.com/a/64643971
@@ -27,1665 +25,14 @@ from collections.abc import (
     Set,
 )
 
-from .compat import *
-from .decorators import (
+from ..compat import *
+from ..decorators import (
     cachedproperty,
-    classproperty,
 )
-from .string import String, NamingConvention
-from .path import Dirpath, Path
-from .config import Config
-from .url import Url
-from .collections.mapping import DictTree
-from . import logging
-from .token.base import Scanner
+from ..path import Dirpath
+from ..token.base import Scanner
 
-
-logger = logging.getLogger(__name__)
-
-
-class OrderedSubclasses(list):
-    """A list that maintains subclass order where subclasses always come before
-    their parents in the list
-
-    Basically, it makes sure all subclasses get placed before the parent class,
-    so if you want your ChildClass to be before ParentClass, you would just
-    have ChildClass extend ParentClass
-
-    You'd think this would be a niche thing and not worth being in a common
-    library but I've actually had to do this exact thing multiple times, so I'm
-    finally moving this from Pout and Bang into here so I can standardize it.
-    I'll admit me having to do this multiple times might be a quirk of my
-    personality and how I solve problems.
-
-    https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
-    """
-
-    insert_cutoff_classes = True
-    """True if cutoff classes should be included when inserting classes"""
-
-    def __init__(self, cutoff_classes=None, classes=None, **kwargs):
-        """
-        :param cutoff_classes: tuple[type, ...], you should ignore anything
-            before these classes when working out order
-        :param classes: list, any classes you want to insert right away
-        """
-        super().__init__()
-
-        if "insert_cutoff_classes" in kwargs:
-            self.insert_cutoff_classes = kwargs["insert_cutoff_classes"]
-
-        self.info = {}
-        self.set_cutoff(cutoff_classes)
-
-        if classes:
-            self.extend(classes)
-
-    def extend(self, classes):
-        for klass in classes:
-            self.insert(klass)
-
-    def _insert(self, klass, klass_info):
-        """Internal method called from .insert for the klass and all subclasses
-        when klass is being inserted
-
-        :param klass: type, the class being inserted
-        :param klass_info: dict
-            * index: int, klass should be inserted at or before this value in
-                order to make sure it comes before all its parents
-            * index_name: str, the full classpath of klass
-            * child_count: int, how many children this class should start with
-                if info is being added
-            * in_info: bool, True if klass info is already in .info
-            * edge: bool, True if klass is considered an edge class
-        """
-        if not klass_info["in_info"]:
-            self.info[klass_info["index_name"]] = {
-                # children should be inserted at least before this index
-                "index": klass_info["index"],
-                # how many children does klass have
-                "child_count": klass_info["child_count"],
-            }
-
-            for d_info in klass_info["descendants"]:
-                if d_info["in_info"]:
-                    self.info[d_info["index_name"]]["child_count"] += 1
-
-            super().insert(klass_info["index"], klass)
-
-    def insert(self, klass, cutoff_classes=None):
-        """Insert class into the ordered list
-
-        :param klass: the class to add to the ordered list, this klass will
-            come before all its parents in the list (this class and its parents
-            will be added to the list up to .cutoff_classes)
-        """
-        for klass, klass_info in self._subclasses(klass, cutoff_classes):
-            self._insert(klass, klass_info)
-
-    def insert_module(self, module, cutoff_classes=None):
-        """Insert any classes of module into the list
-
-        :param module: the module to check for subclasses of cutoff_classes
-        """
-        cutoff_classes = self.get_cutoff(cutoff_classes)
-
-        for name, klass in inspect.getmembers(module, inspect.isclass):
-            if self._is_valid_subclass(klass, cutoff_classes):
-                self.insert(klass)
-
-    def insert_modules(self, module, cutoff_classes=None):
-        """Runs through module and all submodules and inserts all classes
-        matching cutoff_classes
-
-        :param module: ModuleType|str, the module or module name (eg "foo.bar")
-        :param cutoff_classes: list[type], this will be combined with
-            .cutoff_classes
-        """
-        rm = ReflectModule(module)
-        for m in rm.get_modules():
-            self.insert_module(m, cutoff_classes)
-
-    def remove(self, klass, cutoff_classes=None):
-        """Remove an edge class from the list of classes
-
-        :param klass: type, currently you can only remove an edge class
-        """
-        rc = ReflectClass(klass)
-        index_name = rc.classpath
-
-        if index_name in self.info:
-            if self.info[index_name]["child_count"] == 0:
-                super().remove(klass)
-                info = self.info.pop(index_name)
-
-                subclasses = self._subclasses(klass, cutoff_classes)
-                for sc, sc_info in subclasses:
-                    if sc_info["index_name"] in self.info:
-                        self.info[sc_info["index_name"]]["child_count"] -= 1
-
-                for index_name in self.info.keys():
-                    if self.info[index_name]["index"] > info["index"]:
-                        self.info[index_name]["index"] -= 1
-
-            else:
-                raise TypeError(
-                    f"Cannot remove {index_name} because it is not an edge"
-                )
-
-        else:
-            raise ValueError(f"No {index_name} found")
-
-    def set_cutoff(self, cutoff_classes):
-        # make sure we have a tuple of type objects
-        if cutoff_classes:
-            if not isinstance(cutoff_classes, (Sequence, tuple)):
-                cutoff_classes = (cutoff_classes,)
-
-            else:
-                cutoff_classes = tuple(cutoff_classes)
-
-        else:
-            cutoff_classes = None
-
-        self.cutoff_classes = cutoff_classes
-
-    def get_cutoff(self, cutoff_classes):
-        if cutoff_classes:
-            if isinstance(cutoff_classes, type):
-                cutoff_classes = (cutoff_classes,)
-
-            else:
-                cutoff_classes = tuple(cutoff_classes)
-
-        elif self.cutoff_classes:
-            cutoff_classes = self.cutoff_classes
-
-        else:
-            cutoff_classes = self.default_cutoff()
-
-        return cutoff_classes
-
-    def default_cutoff(self):
-        """Turns out, many times when I use this class the cutoff class isn't
-        fully defined yet, I've ran into this problem a few times now.
-
-        This attempts to solve that issue by allowing a child class to override
-        this method and return the desired cutoff classes
-
-        :returns: tuple[type]
-        """
-        return (object,)
-
-    def edges(self, **kwargs):
-        """Iterate through the absolute children and only the absolute
-        children, no intermediate classes.
-
-        :Example:
-            class Foo(object): pass
-            class Bar(Foo): pass
-            class Che(object): pass
-
-            classes = OrderedSubclasses()
-            classes.extend([Foo, Bar, Che])
-
-            for c in classes.edges():
-                print(c)
-
-            # this would print out Bar and Che because object and Foo are
-            # parents
-
-        :param **kwargs:
-            - names: bool, True if you want a tuple[str, type] where index 0 is
-                the classpath of the edge and index 1 is the actual edge class
-        :returns: generator, only the absolute children who are not parents
-        """
-        names = kwargs.get("names", kwargs.get("name", False))
-        for index_name, klass in self.items(edges=True):
-            if names:
-                yield index_name, klass
-
-            else:
-                yield klass
-
-    def items(self, **kwargs):
-        """Iterate through all the classes, this is handy because it yields
-        tuple[str, type] where index 0 is the ful classpath and index 1 is the
-        actual class
-
-        :param **kwargs:
-            - edges: bool, True if you only want the edges (absolute children)
-                and not all classes
-        :returns: generator[tuple[str, type]]
-        """
-        edges = kwargs.get("edges", kwargs.get("edge", False))
-        for klass in self:
-            rc = ReflectClass(klass)
-            index_name = rc.classpath
-            if edges:
-                if self.info[index_name]["child_count"] == 0:
-                    yield index_name, klass
-
-            else:
-                yield index_name, klass
-
-    def _subclasses(self, klass, cutoff_classes=None):
-        """Internal method used in both .insert and .remove
-
-        :param klass: type, the class we want to get all the subclasses of
-        :returns: generator[type, dict], each item yielded is a tuple of the
-            the class object, and information about the class. That means
-            the edge (the tuple equivalent to passed in klass) will have a
-            child count of 0 and will be the last tuple yielded since we go
-            from earliest ancestor to current klass
-            """
-        ret = []
-        klasses = list(self.getmro(klass, cutoff_classes))
-        child_count = len(klasses)
-        index = len(self)
-        descendants = []
-
-        for offset, subclass in enumerate(reversed(klasses), 1):
-            rc = ReflectClass(subclass)
-            index_name = rc.classpath
-
-            d = {
-                "index_name": index_name,
-                "child_count": child_count - offset,
-                "in_info": index_name in self.info,
-                "edge": False,
-            }
-
-            if d["in_info"]:
-                index = min(index, self.info[index_name]["index"])
-
-            else:
-                d["descendants"] = list(descendants)
-
-            d["index"] = index
-
-            if not d["in_info"] and not d["child_count"]:
-                d["edge"] = True
-
-            yield subclass, d
-
-            descendants.append(d)
-
-    def _is_valid_subclass(self, klass, cutoff_classes):
-        """Return True if klass is a valid subclass that should be iterated
-        in ._subclasses
-
-        This is dependent on the value of .insert_cutoff_classes, if it is
-        True then True will be returned if klass is a subclass of the cutoff
-        classes. If it is False then True will only be returned if klass
-        is a subclass and it's not any of the cutoff classes
-
-        :param klass: type, the class to check
-        :param cutoff_classes: tuple[type], the cutoff classes returned from
-            .get_cutoff
-        :returns: bool, True if klass should be yield by ._subclasses
-        """
-        ret = False
-        if issubclass(klass, cutoff_classes):
-            ret = True
-            if not self.insert_cutoff_classes:
-                for cutoff_class in cutoff_classes:
-                    if klass is cutoff_class:
-                        ret = False
-                        break
-
-        return ret
-
-    def getmro(self, klass, cutoff_classes=None):
-        """Get the method resolution order of klass taking into account the
-        cutoff classes
-
-        :param klass: type, the class to get the method resolution order for
-        :param cutoff_classes: tuple[type], the cutoff classes returned from
-            .get_cutoff
-        :returns: generator[type]
-        """
-        cutoff_classes = self.get_cutoff(cutoff_classes)
-        klasses = inspect.getmro(klass)
-        for klass in klasses:
-            if self._is_valid_subclass(klass, cutoff_classes):
-                yield klass
-
-    def clear(self):
-        super().clear()
-        self.info = {}
-
-    def append(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def pop(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def sort(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def copy(self, *args, **kwargs):
-        raise NotImplementedError()
-
-
-class ClasspathFinder(DictTree):
-    """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
-    a class added with .add_class
-
-    NOTE -- <MODULE_NAME> is only used if prefixes are passed into the
-    instance, if there are no prefixes then the module path is ignored when
-    adding classes. This means the path for foo.bar:Che without prefixes would
-    just be Che. If prefixes=["foo"] then the path is bar:Che 
-
-    Like OrderedSubclasses, you'd think this would be a niche thing and not
-    worth being in a common library but I do this exact thing in both Endpoints
-    and Captain and rather than duplicate the code I've moved it here.
-
-    This code is based on similar code in Captain. I moved it here on 
-    August 29, 2024. The Captain code was based on similar code from Endpoints
-    and was my second stab at solving this problem, so this codebase is my
-    third stab at the problem. I've now integrated this version back into
-    Endpoints. So the circle of life continues
-    """
-    @classmethod
-    def find_modules(cls, prefixes=None, paths=None, fileroot=""):
-        """Tries to find modules to pass into .__init__ by first checking
-        prefixes, then paths using fileroot if applicable
-
-        :param prefixes: see .get_prefix_modules
-        :param paths: see .get_path_modules
-        :param fileroot: see .get_path_modules
-        :returns: see .get_prefix_modules return value
-        """
-        modules = {}
-
-        if prefixes:
-            modules = cls.get_prefix_modules(prefixes)
-
-        elif paths:
-            modules = cls.get_path_modules(
-                paths,
-                fileroot
-            )
-
-        return modules
-
-    @classmethod
-    def get_prefix_modules(cls, prefixes, **kwargs):
-        """Given a set of prefixes, find all the modules
-
-        This is a helper method that finds all the modules for further
-        processing or calls some class's .__init_subclass__ method when the
-        module is loaded
-
-        :param prefixes: iterator[str], module prefixes are basically module
-            paths (eg, "foo.bar")
-        :returns: dict[str, dict[str, types.ModuleType]], the top-level keys
-            are the prefixes, the value is a dict with module path keys and
-            the module found at the end of that module path
-        """
-        modules = collections.defaultdict(dict)
-        seen = set()
-        prefixes = prefixes or []
-
-        for prefix in prefixes:
-            logger.debug(f"Checking prefix: {prefix}")
-            rm = ReflectModule(prefix)
-            for m in rm.get_modules():
-                if m.__name__ not in seen:
-                    logger.debug(f"Found prefix module: {m.__name__}")
-                    modules[prefix][m.__name__] = m
-                    seen.add(m.__name__)
-
-        return modules
-
-    @classmethod
-    def get_path_modules(cls, paths, fileroot="", **kwargs):
-        """Given a set of paths, find all the modules
-
-        This is a helper method that finds all the modules for further
-        processing or calls some class's .__init_subclass__ method when the
-        module is loaded
-
-        :param paths: iterator[str|Path], if a path is a directory then
-            `fileroot` is needed to search the directory for matching modules,
-            if the path is a file then it is loaded as a python module
-        :param fileroot: see `fileroot` in `ReflectPath.find_modules`
-        :returns: see .get_prefix_modules since it's the same value
-        """
-        modules = collections.defaultdict(dict)
-        seen = set()
-        paths = paths or []
-
-        for path in paths:
-            logger.debug(f"Checking path: {path}")
-            rp = ReflectPath(path)
-            if rp.is_dir():
-                if fileroot:
-                    for m in rp.find_modules(fileroot):
-                        if m.__name__ not in seen:
-                            rn = ReflectName(m.__name__)
-                            prefix = rn.absolute_module_name(fileroot)
-
-                            logger.debug(
-                                f"Found dir module: {m.__name__}"
-                                f" with prefix: {prefix}"
-                            )
-
-                            modules[prefix][m.__name__] = m
-                            seen.add(m.__name__)
-
-            else:
-                if m := rp.get_module():
-                    if m.__name__ not in seen:
-                        logger.debug(f"Found file module: {m.__name__}")
-                        modules[""][m.__name__] = m
-                        seen.add(m.__name__)
-
-        return modules
-
-    def __init__(self, prefixes=None, **kwargs):
-        """
-        :param prefixes: list[str], passing in prefixes means the <MODULE-NAME>
-            will be used when adding the classpaths, if there are no prefixes
-            then the <MODULE-NAME> portion of a full class path (eg,
-            <MODULE-NAME>:<CLASS-QUALNAME>) will be ignored and only the
-            <CLASS-QUALNAME> will be used
-        """
-        super().__init__()
-
-        self.prefixes = prefixes or set()
-        self.find_keys = {}
-        self.kwargs = kwargs # convenience for default .create_instance
-        self.value = self._get_node_default_value(**kwargs)
-
-    def create_instance(self):
-        """Internal method that makes sure creating sub-instances of this
-        class when creating nodes doesn't error out"""
-        return type(self)(
-            prefixes=self.prefixes,
-            **self.kwargs,
-        )
-
-    def add_node(self, key, node, value):
-        """override parent to set find keys
-
-        Whenever a new node is created this will be called, it populates
-        the .find_keys used in .normalize_key
-        """
-        super().add_node(key, node, value)
-
-        if key not in self.find_keys:
-            self.find_keys[key] = key
-
-            nc = NamingConvention(key)
-            for vk in nc.variations():
-                self.find_keys[vk] = key
-
-    def update_node(self, key, node, value):
-        """Update the node only if value has a class (meaning it's a
-        destination value and not a waypoint value) or node doesn't already
-        have a value
-
-        Because of how ._get_node_items works, the parent nodes can be updated
-        multiple times as paths are added, but we don't want final paths
-        (paths that end with a class) to be overwritten later by route paths
-        (not final paths but just a waypoint towards our final destination).
-        """
-        if not node.value or "class" in value:
-            super().update_node(key, node, value)
-
-    def normalize_key(self, key):
-        """override parent to normalize key using .find_keys"""
-        return self.find_keys.get(key, key)
-
-    def _get_classpath(self, klass):
-        """Internal method. Get the classpath (<MODULE_NAME>:<CLASS_QUALNAME>)
-        for klass"""
-        if "<" in klass.__qualname__:
-            raise ValueError(
-                f"{klass.__qualname__} is programmatically inaccessible"
-            )
-
-        return f"{klass.__module__}:{klass.__qualname__}"
-
-    def _get_node_default_value(self, **kwargs):
-        """Get the default value for the node on creation
-
-        :returns: Any
-        """
-        return None
-
-    def _get_node_module_info(self, key, **kwargs):
-        """Get the module key and value for a node representing a module.
-
-        This is called for each module in the full classpath. So if the
-        full classpath was `foo.bar:Che.Baz` then this would be called for
-        `foo` and `bar`
-
-        :param key: Hashable
-        :param **kwargs:
-            * module: types.ModuleType, the module
-        :returns: tuple[hashable|None, dict], index 0 is the key in the
-            tree, no key will be added if it is `None`, index 1 is the value
-            at that key in the tree
-        """
-        value = self._get_node_default_value(**kwargs) or {}
-        value["module"] = kwargs["module"]
-        return key, value
-
-    def _get_node_class_info(self, key, **kwargs):
-        """Get the key and value for a node representing a class
-
-        This is called for each class in the full classpath. So if the
-        full classpath was `foo.bar:Che.Baz` then this would be called for
-        `Che` and `Baz`
-
-        :param key: Hashable
-        :param **kwargs:
-            * class_name: str, this class name, this will always be there
-            * class: type, this will only be here on the final class
-            * module_keys: list[str], a list of all the keys used for the
-                module portion of the path
-            * class_keys: list[str], a list of all the keys used for the
-                class portion of the path
-        :returns: tuple[hashable|None, dict], index 0 is the key in the
-            tree, no key will be added if it is `None`, index 1 is the value
-            at that key in the tree, the keys it can have:
-                * class: this will be set for the final absolute class of the
-                    path
-                * class_name: this will always be set
-        """
-        value = self._get_node_default_value(**kwargs) or {}
-
-        value["class_name"] = kwargs["class_name"]
-
-        if "class" in kwargs:
-            for k in ["class", "module_keys", "class_keys"]:
-                value[k] = kwargs[k]
-
-            if key is not None:
-                value["class_keys"] = kwargs["class_keys"] + [key]
-
-        return key, value
-
-    def _get_node_items(self, klass):
-        """Internal method. This yields the keys and values that will be
-        used to create new nodes in this tree
-
-        This is called for each value in the full classpath. So if the
-        full classpath was `foo.bar:Che.Baz` then this would yield `foo`,
-        `bar`, `Che`, and `Baz`
-
-        :returns: generator[tuple(list[str], Any)], the keys and value for
-            a node in the tree. Index 0 contains the key from root to the
-            node. Index 1 contains the value at that node, by default that
-            value is a dict which will contain the value returned from either
-            `._get_node_module_info`
-        """
-        rn = ReflectName(self._get_classpath(klass))
-
-        module_keys = []
-        class_keys = []
-
-        # these values are added to and passed into the child
-        # `._get_node_*_info` methods
-        nkwargs = {
-            "keys": [],
-            "module_keys": [],
-            "modules": [],
-            "class_keys": [],
-        }
-
-        for prefix in self.prefixes:
-            if rn.is_module_relative_to(prefix):
-                if modname := rn.relative_module_name(prefix):
-                    for rm in rn.reflect_modules(modname):
-                        m = rm.get_module()
-                        k, v = self._get_node_module_info(
-                            rm.module_basename,
-                            module=m,
-                            **nkwargs
-                        )
-                        if k is not None:
-                            nkwargs["keys"].append(k)
-                            nkwargs["module_keys"].append(k)
-                            nkwargs["modules"].append(m)
-
-                        yield nkwargs["keys"], v
-
-                break
-
-        # we can't use rn.get_classes() here because classpath could be
-        # something like: `<run_path>:ClassPrefix.ClassName` and so we can't
-        # actually get the module because `<run_path>` doesn't exist anywhere
-        # or `ClassPrefix`, we basically only have access to `klass`
-        # because it was passed in, and it corresponds to `ClassName`
-        class_names = rn.class_names
-        class_i = len(class_names) - 1
-        for i, class_name in enumerate(class_names):
-            nkwargs["class_name"] = class_name
-
-            if class_i == i:
-                nkwargs["class"] = klass
-
-            k, v = self._get_node_class_info(
-                class_name,
-                **nkwargs
-            )
-            if k is not None:
-                nkwargs["keys"].append(k)
-                nkwargs["class_keys"].append(k)
-
-            yield nkwargs["keys"], v
-
-    def add_class(self, klass):
-        """This is the method that should be used to add new classes to the
-        tree
-
-        :param klass: type, the class to add to the tree
-        """
-        for keys, value in self._get_node_items(klass):
-            self.set(keys, value)
-
-    def add_classes(self, classes):
-        """Adds all the classes using .add_class"""
-        for klass in classes:
-            self.add_class(klass)
-
-    def get_class_items(self):
-        """go through and return destination nodes keys and values"""
-        for keys, node in self.nodes():
-            if node.value and "class" in node.value:
-                yield keys, node.value
-
-
-class ClassFinder(DictTree):
-    """Keep a a class hierarchy tree so subclasses can be easily looked up
-    from a common parent
-
-    This is very similar to OrderedSubclasses but is a conceptually better
-    data structure for this type of class organization
-
-    See also:
-        * inspect.getclasstree()
-    """
-    def _get_node_items(self, klass, cutoff_class):
-        keys = []
-        for c in reversed(inspect.getmro(klass)):
-            if self._is_valid_subclass(c, cutoff_class):
-                keys.append(c)
-                yield keys, c
-
-    def _is_valid_subclass(self, klass, cutoff_class=None):
-        """Internal method. check if klass should be considered a valid
-        subclass for addition into the tree
-
-        This is a hook to allow child classes to customize functionality
-
-        :param klass: type, the class wanting to be added to the tree
-        :param cutoff_class: type, anything before this class will be ignored
-        :returns: bool, True if klass is valid
-        """
-        if not cutoff_class:
-            cutoff_class = object
-
-        return issubclass(klass, cutoff_class) and klass is not cutoff_class
-        #return not klass is cutoff_class
-
-    def add_class(self, klass, cutoff_class=None):
-        """This is the method that should be used to add new classes to the
-        tree
-
-        :param klass: type, the class to add to the tree
-        :param cutoff_class: type, anything before this class will be ignored
-        """
-        for keys, value in self._get_node_items(klass, cutoff_class):
-            self.set(keys, value)
-
-    def add_classes(self, classes, cutoff_class=None):
-        """Adds all the classes using .add_class"""
-        for klass in classes:
-            self.add_class(klass, cutoff_class)
-
-    def get_class_node(self, klass):
-        """return klass's node in the tree
-
-        :param klass: type
-        :returns: ClassFinder
-        """
-        if self.key is klass:
-            return self
-
-        else:
-            for _, n in self.nodes():
-                if klass in n:
-                    return n.get_node(klass)
-
-        raise KeyError(f"{klass} not found in tree")
-
-    def get_abs_class(self, klass, *default):
-        """Get the absolute edge subclass of klass
-
-        :Example:
-            # these were added to ClassFinder instance cf
-            class GP(object): pass
-            class P(GP): pass
-            class C(P): pass
-
-            cf.get_abs_class(P) # <type 'C'>
-
-        :param klass: type, the class to find the absolute child that extends
-            klass
-        :param *default: Any, return this instead of raising an exception
-            if the absolute class can't be inferred
-        :returns: type, the found subclass
-        :raises: ValueError, if an absolute child can't be inferred
-        """
-        try:
-            n = self.get_class_node(klass)
-            child_count = len(n)
-            if child_count == 0:
-                return n.key
-
-            elif child_count == 1:
-                for k in n.keys():
-                    return n.get_abs_class(k)
-
-            else:
-                raise ValueError(
-                    f"Cannot find absolute class because {klass} has"
-                    " multiple children"
-                )
-
-        except (ValueError, KeyError):
-            if default:
-                return default[0]
-
-            else:
-                raise
-
-    def get_abs_classes(self, klass):
-        """Get the absolute edge subclasses of klass
-
-        :Example:
-            # these were added to ClassFinder instance cf
-            class GP(object): pass
-            class P(GP): pass
-            class C1(P): pass
-            class C2(P): pass
-            class C3(C1): pass
-
-            list(cf.get_abs_classes(GP)) # [<type 'C2'>, <type 'C3'>]
-
-        :param klass: type, the parent class whose absolute children that
-            extend it we want
-        :returns: generator[type], the found absolute subclasses of klass
-        """
-        try:
-            n = self.get_class_node(klass)
-            if len(n) == 0:
-                yield klass
-
-            else:
-                for k in n.keys():
-                    yield from n.get_abs_classes(k)
-
-        except KeyError:
-            pass
-
-
-class ClassKeyFinder(ClassFinder):
-    """ClassFinder that can find via "<CLASSNAME>_class" keys
-
-    :example:
-        class Foo(object): pass
-        class FooBar(Foo): pass
-
-        cf = ClassKeyFinder()
-        cf.add_classes([Foo, FooBar])
-        cf.find_class("foo_bar_class") # FooBar
-        cf.find_class("foo_class") # Foo
-    """
-    def get_class_key(self, klass):
-        """Uses `klass` to produce a string class key that can be passed to
-        `.find_class` to get klass back
-
-        :param klass: type
-        :returns: str, the class key, by default "<CLASSNAME>_class" all
-            lower case
-        """
-        return f"{NamingConvention(klass.__name__).varname()}_class"
-
-    def add_node(self, klass, node, value):
-        super().add_node(klass, node, value)
-
-        # this is the first time the root node is adding a node, so do some
-        # initialization
-        if not self.parent and len(self) == 1:
-            self.class_keys = {}
-
-        class_key = self.get_class_key(klass)
-        self.root.class_keys[class_key] = klass
-
-    def find_class(self, class_key):
-        """Returns the class (type instance) found at `class_key`
-
-        :param class_key: str
-        :returns: type
-        """
-        return self.root.class_keys[class_key]
-
-
-class Extend(object):
-    """you can use this decorator to extend instances with custom functionality
-
-    Moved from bang.event.Extend on 1-18-2023
-
-    :Example:
-        extend = Extend()
-
-        class Foo(object): pass
-
-        @extend(Foo, "bar")
-        def bar(self, n1, n2):
-            return n1 + n2
-
-        f = Foo()
-        f.bar(1, 2) # 3
-
-        @extend(f, "che")
-        @property
-        def che(self):
-            return 42
-
-        f.che # 42
-    """
-    def property(self, o, name):
-        """decorator to extend o with a property at name
-
-        Using this property method is equivalent to:
-            @extend(o, "NAME")
-            @property
-            def name(self):
-                return 42
-
-        :param o: instance|class, the object being extended
-        :param name: string, the name of the property
-        :returns: callable wrapper
-        """
-        def wrap(callback):
-            if inspect.isclass(o):
-                self.patch_class(o, name, property(callback))
-
-            else:
-                #self.patch_class(o.__class__, name, property(callback))
-                self.patch_instance(o, name, property(callback))
-
-            return callback
-        return wrap
-
-    def method(self, o, name):
-        """decorator to extend o with method name
-
-        :param o: instance|class, the object being extended
-        :param name: string, the name of the method
-        :returns: callable wrapper
-        """
-        return self(o, name)
-
-    def __call__(self, o, name):
-        """shortcut to using .property() or .method() decorators"""
-        def wrap(callback):
-            if inspect.isclass(o):
-                self.patch_class(o, name, callback)
-
-            else:
-                self.patch_instance(o, name, callback)
-
-            return callback
-        return wrap
-
-    def patch_class(self, o, name, callback):
-        """internal method that patches a class o with a callback at name"""
-        setattr(o, name, callback)
-
-    def patch_instance(self, o, name, callback):
-        """internal method that patches an instance o with a callback at name
-        """
-        if isinstance(callback, property):
-            setattr(o.__class__, name, callback)
-        else:
-            setattr(o, name, types.MethodType(callback, o))
-
-
-class ReflectPath(Path):
-    """Reflect a path
-
-    This is just a set of helper methods to infer python specific information
-    from a path
-    """
-    @classproperty
-    def reflect_module_class(self):
-        return ReflectModule
-
-    def reflect_modules(self, depth=-1):
-        """Yield all the python modules found in this path
-
-        :param depth: int, how deep into the path you would like to go,
-            defaults to all depths
-        :returns: generator[ReflectModule], yields reflection instances for
-            every found python module
-        """
-        if not depth:
-            depth = -1
-
-        if self.is_file():
-            modname = self.fileroot
-            path = self.basedir
-            yield self.reflect_module_class(modname, path=path)
-
-        else:
-            path = self
-            for modname in self.reflect_module_class.find_module_names(path):
-                if depth <= 0 or modname.count(".") < depth:
-                    yield self.reflect_module_class(modname, path=path)
-
-    def get_modules(self, depth=-1, ignore_errors=False):
-        """Yield all the python modules found in this path
-
-        :param depth: int, how deep into the path you would like to go,
-            defaults to all depths
-        :param ignore_errors: bool, True if you would like to just ignore
-            errors when trying to load the module
-        :returns: generator[module], yields every found python module
-        """
-        for rm in self.reflect_modules(depth=depth):
-            try:
-                yield rm.get_module()
-
-            except (SyntaxError, ImportError):
-                if not ignore_errors:
-                    raise
-
-    def get_module(self):
-        if self.is_file():
-            if self.ext == "py":
-                parts = [self.fileroot]
-                p = self.parent
-                while p.has_file("__init__.py"):
-                    parts.append(p.fileroot)
-                    p = p.parent
-
-                rm = ReflectModule(
-                    ".".join(reversed(parts)),
-                    path=p
-                )
-
-            else:
-                # https://docs.python.org/3/library/exceptions.html#ModuleNotFoundError
-                raise ModuleNotFoundError(self.path)
-
-        elif self.is_dir():
-            p = self.as_dir()
-            if p.has_file("__init__.py"):
-                parts = []
-                while p.has_file("__init__.py"):
-                    parts.append(p.fileroot)
-                    p = p.parent
-
-                rm = ReflectModule(
-                    ".".join(reversed(parts)),
-                    path=p
-                )
-
-            else:
-                raise ModuleNotFoundError(
-                    f"{self.path} is not a python package"
-                )
-
-        return rm.get_module()
-
-    def exec_module(self, module_name=""):
-        """Implementation of imp.load_source with the change that it doesn't
-        cache the module in sys.modules
-
-        The python 2.7 imp.load_source doc says:
-
-            Load and initialize a module implemented as a Python source file
-            and return its module object. If the module was already
-            initialized, it will be initialized again.
-
-        This is based on:
-            * https://github.com/python/cpython/pull/105978/files
-            * https://github.com/python/cpython/issues/104212#issuecomment-1560813974
-            * https://stackoverflow.com/a/77401571
-
-        Discussion:
-            * https://docs.python.org/2.7/library/imp.html#imp.load_source
-            * https://github.com/python/cpython/issues/58756
-            * https://github.com/python/cpython/issues/104212#issuecomment-1599697511
-
-        :param module_name: str, the name you want for the module, if nothing
-            is passed in it will use self.fileroot
-        :returns: types.ModuleType
-        """
-        if self.is_dir():
-            fp = self.as_dir().get_file("__init__.py")
-
-        else:
-            fp = self
-
-        if not module_name:
-            module_name = self.fileroot
-
-        loader = importlib.machinery.SourceFileLoader(module_name, fp)
-        spec = importlib.util.spec_from_file_location(
-            module_name,
-            fp,
-            loader=loader
-        )
-        module = importlib.util.module_from_spec(spec)
-
-        # sys.modules[module.__name__] = module
-        loader.exec_module(module)
-        return module
-
-    def remote_repository_url(self):
-        """Return the remote repository url of this directory
-
-        For example, if this was ran in the datatypes repo directory, it would
-        return:
-
-            https://github.com/Jaymon/datatypes
-        """
-        if self.is_dir():
-            config_path = self.child(".git", "config")
-            if config_path.is_file():
-                c = Config(config_path)
-                for section in c.sections():
-                    if "url" in c[section]:
-                        gurl = c[section]["url"]
-                        if "github.com" in gurl:
-                            gurl = gurl.replace(":", "/")
-                            gurl = re.sub(r"\.git$", "", gurl)
-                            url = Url(
-                                gurl,
-                                username="",
-                                password="",
-                                scheme="https"
-                            )
-                            return url
-
-                        else:
-                            raise NotImplementedError(
-                                f"Not sure how to handle {gurl}"
-                            )
-
-        raise ""
-
-    def find_modules(self, fileroot, depth=3, submodules=True):
-        """Iterate any `fileroot` modules found in .path
-
-        This method incorporates this functionality:
-
-        * https://github.com/Jaymon/endpoints/issues/87
-        * https://github.com/Jaymon/endpoints/issues/123
-
-        It was moved here on 3-3-2024 because I wanted to use this in prom
-        also so I needed it in a common library
-
-        How this works is by finding sys.path (PYTHONPATH) paths that are
-        located in .path and then checking those to depth looking for fileroot
-
-        :param fileroot: str, the module name, this is using the fileroot
-            nomenclature because it can be module path (eg `foo.bar`) and it
-            shouldn't have an extension either (eg, `foo.py`)
-        :param depth: int, how many folders deep you want to look
-        :param submodules: bool, True if you want to iterate modules matching
-            fileroot and all their submodules also
-        :returns: generator[ModuleType]
-        """
-        path = self.path
-
-        if self.is_file() and self.fileroot == fileroot:
-            yield self.get_module()
-
-        else:
-            for p in (Dirpath(p) for p in sys.path):
-                if p.is_relative_to(path):
-                    dirparts = p.relative_parts(path)
-
-                    piter = p.iterator
-                    # we only want to look depth folders deep
-                    piter.depth(depth)
-                    # ignore any folders that begin with an underscore or
-                    # period
-                    piter.nin_basename(regex=r"^[_\.]")
-                    # we only want dir/file fileroots with this name
-                    piter.eq_fileroot(fileroot)
-
-                    for sp in piter:
-                        modparts = sp.parent.relative_parts(path)
-                        # trim the directory parts of our module path so we
-                        # have a real module path we can import
-                        modparts = modparts[len(dirparts):]
-                        modparts.append(sp.fileroot)
-                        prefix = ".".join(modparts)
-
-                        rm = ReflectModule(prefix)
-                        try:
-                            if submodules:
-                                for m in rm.get_modules():
-                                    yield m
-
-                            else:
-                                yield rm.get_module()
-
-                        except ModuleNotFoundError:
-                            # what we found wasn't actually a module
-                            pass
-
-
-class ReflectName(String):
-    r"""A reflection object similar to python's built-in resolve_name
-
-    take something like some.full.module:Classpath and return the actual Path
-    class object
-
-    https://docs.python.org/3/library/pkgutil.html#pkgutil.resolve_name
-
-    foo.bar.che:FooBar.baz
-    \_________/ \____/ \_/
-         |         |    |
-    module_name    |    |
-                   |    |
-            class_name  |
-                |       |
-                |  method_name
-                |      |
-    foo/bar.py:FooBar.baz
-    \________/
-        |
-      filepath
-
-    TODO -- add support for cwd, so this would be valid:
-
-        /some/base/directory:module.path:ClassName.method_name
-
-    and /some/base/directory would become .cwd
-
-    NOTE -- this will fail when the object isn't accessible from the module,
-    that means you can't define your class object in a function and expect
-    this function to work, the reason why this doesn't work is because the
-    class is on the local stack of the function, so it only exists when that
-    function is running, so there's no way to get the class object outside
-    of the function, and you can't really separate it from the class (like
-    using the code object to create the class object) because it might use
-    local variables and things like that
-
-    :Example:
-        # -- THIS IS BAD --
-        def foo():
-            class FooCannotBeFound(object): pass
-            # this will fail
-            get_class("path.to.module.FooCannotBeFound")
-
-    moved to ReflectClass.get_class from morp.reflection.get_class on 2-5-2023
-    and then moved to here on 7-31-2023
-
-    This is loosely based on pyt.path:PathGuesser.set_possible
-    """
-    @classproperty
-    def reflect_module_class(self):
-        return ReflectModule
-
-    @property
-    def module(self):
-        return self.get_module()
-
-    @property
-    def cls(self):
-        return self.get_class()
-
-    @property
-    def method(self):
-        return self.get_method()
-
-    @property
-    def module_parts(self):
-        return self.module_name.split(".")
-
-    def __new__(cls, name):
-        name, properties = cls.normalize(name)
-
-        instance = super().__new__(cls, name)
-
-        for k, v in properties.items():
-            setattr(instance, k, v)
-
-        return instance
-
-    @classmethod
-    def normalize(cls, name):
-        ret = ""
-        filepath = modpath = classname = methodname = ""
-        classnames = []
-        unresolvable = []
-
-        parts = name.split(":")
-        if len(parts) > 1:
-            if parts[0].endswith(".py") or "/" in parts[0]:
-                # foo/bar/che.py:Classname.methodname
-                filepath = parts[0]
-
-            else:
-                modpath = parts[0]
-
-            parts = parts[1].split(".")
-            for index, part in enumerate(parts):
-                if re.search(r'^[A-Z]', part):
-                    classnames.append(part)
-                    classname = part
-
-                elif part.startswith("<"):
-                    unresolvable = parts[index:]
-                    break
-
-                else:
-                    methodname = part
-
-        else:
-            # this is old syntax of module_name.class_name(s).method_name and
-            # so it will assume module_name is everything to the left of a part
-            # that starts with a capital letter, then every part that starts
-            # with a capital letter are the class_name(s) and a lowercase
-            # part after is the method_name
-            if name.endswith(".py") or "/" in name:
-                # foo/bar/che.py
-                filepath = name
-
-            else:
-                # this can be just module_name, module_name.class_name(s), and
-                # module_name.class_name(s).method_name
-                #
-                # TODO -- if everything is lowercase it now assumes everything
-                # is a module_name, but it should probably actually resolve it
-                # and find out if there is a class or method in there
-                parts = name.split(".")
-
-                modparts = []
-                while parts:
-                    if re.search(r'^[A-Z]', parts[0]):
-                        break
-
-                    else:
-                        modparts.append(parts[0])
-                        parts.pop(0)
-
-                modpath = ".".join(modparts)
-
-                classnames = []
-                while parts:
-                    if re.search(r'^[A-Z]', parts[0]):
-                        classname = parts.pop(0)
-                        classnames.append(classname)
-
-                    else:
-                        break
-
-                if parts:
-                    methodname = parts[0]
-
-        if filepath:
-            ret = filepath
-
-        elif modpath:
-            ret = modpath
-
-        if classnames:
-            if ret:
-                ret += ":"
-
-            ret += ".".join(classnames)
-
-        if methodname:
-            ret += f".{methodname}"
-
-        if unresolvable:
-            ret += ".".join(unresolvable)
-
-        return ret, {
-            "filepath": filepath,
-            "module_name": modpath,
-            "class_names": classnames,
-            "class_name": classname,
-            "method_name": methodname,
-            "unresolvable": unresolvable,
-        }
-
-    def reflect_module(self):
-        if not self.module_name:
-            return None
-
-        return self.reflect_module_class(self.module_name)
-
-    def reflect_class(self):
-        if self.class_names:
-            rm = self.reflect_module()
-            if rm:
-                o = rm.get_module()
-                for classname in self.class_names:
-                    o = getattr(o, classname)
-
-                return rm.create_reflect_class(o)
-
-    def reflect_method(self):
-        if not self.method_name:
-            return None
-
-        rc = self.reflect_class()
-        return rc.reflect_method(self.method_name)
-
-    def get_module(self):
-        rm = self.reflect_module()
-        if rm:
-            return rm.get_module()
-
-    def get_module_names(self, module_name=""):
-        """Get all the module names of the module name
-
-        :Example:
-            rn = ReflectName("foo.bar.che:FooBar")
-            list(rn.get_module_names()) # ["foo", "foo.bar", "foo.bar.che"]
-
-            list(rn.get_module_names("bar")) # ["foo.bar"]
-            list(rn.get_module_names("bar.che")) # ["foo.bar", "foo.bar.che"]
-
-            list(rn.get_module_names("moo")) # []
-
-        :param module_name: str, if this is passed in then only module names
-            that belong to this module_name in some way will be yielded
-        :returns: generator[str], each module path starting from the first
-            parent module and moving through the paths to the most child 
-            module
-        """
-        modname = ""
-
-        mparts = []
-        if module_name:
-            mparts = module_name.strip(".").split(".")
-
-        for p in self.module_parts:
-            if modname:
-                modname += "." + p
-
-            else:
-                modname = p
-
-            if mparts:
-                if p == mparts[0]:
-                    for mp in mparts[1:]:
-                        yield modname
-                        modname += "." + mp
-
-                    yield modname
-                    break
-
-            else:
-                yield modname
-
-    def get_modules(self, module_name=""):
-        """Similar to .reflect_modules but returns the actual module"""
-        for rm in self.reflect_modules(module_name):
-            yield rm.get_module()
-
-    def reflect_modules(self, module_name=""):
-        """Similar to .get_module_names but returns ReflectModule instances
-
-        :Example:
-            rn = ReflectName("foo.bar.che.bar")
-            mnames = [rm.module_name for rm in rn.reflect_modules("bar.che")]
-            print(mnames) # ["foo.bar", "foo.bar.che"]
-
-        :param module_name: see .get_module_names
-        :returns: generator[ReflectModule]
-        """
-        for modname in self.get_module_names(module_name):
-            if modname.startswith("<"):
-                # <run_path> module paths can't be reflected
-                break
-
-            else:
-                yield self.reflect_module_class(modname)
-
-    def get_class(self):
-        """Get the absolute child class for this name
-
-        :Example:
-            rn = ReflectName("<MODPATH>:Foo.Bar.Che.<METHOD>")
-            rn.get_class().__name__ # Che
-
-        :returns: type
-        """
-        rc = self.reflect_class()
-        if rc:
-            return rc.get_class()
-
-    def get_classes(self):
-        """Get all the classes for this name
-
-        :Example:
-            rn = ReflectName("<MODPATH>:Foo.Bar.Che")
-            classes = list(rn.get_classes())
-            classes[0].__name__ # Foo
-            classes[1].__name__ # Bar
-            classes[2].__name__ # Che
-
-        :returns: generator[type]
-        """
-        o = self.get_module()
-        for class_name in self.class_names:
-            o = getattr(o, class_name)
-            yield o
-
-    def get_method(self):
-        rm = self.reflect_method()
-        if rm:
-            return rm.get_method()
-
-    def has_class(self):
-        return bool(self.class_name)
-
-    def resolve(self):
-        return pkgutil.resolve_name(self)
-
-    def is_module_relative_to(self, other):
-        """Return whether or not self.module_name is relative to other"""
-        try:
-            self.relative_module_name(other)
-            return True
-
-        except ValueError:
-            return False
-
-    def relative_module_name(self, other):
-        """Return the relative module path relative to other. This is similar
-        to Path.relative_to except it allows a partial other
-
-        :Example:
-            rn = ReflectName("foo.bar.che.boo")
-            print(rn.relative_module_name("bar")) # che.boo
-            print(rn.relative_module_name("foo.bar")) # che.boo
-
-        :param other: str, the module path. This can either be the full module
-            prefix or a partial module prefix
-        :returns: str, the submodule path that comes after other
-        """
-        other = re.escape(other.strip("."))
-        parts = re.split(
-            rf"(?:^|\.){other}(?:\.|$)",
-            self.module_name,
-            maxsplit=1
-        )
-
-        if len(parts) > 1:
-            return parts[1]
-
-        raise ValueError(
-            f"{other} is not a parent module of {self.module_name}"
-        )
-
-    def relative_module_parts(self, other):
-        """Same as .relative_module but returns the remainder submodule as a
-        list of parts. Similar to Path.relative_parts
-
-        :param other: str, see .relative_module_name
-        :returns: list[str]
-        """
-        smpath = self.relative_module_name(other)
-        return smpath.split(".") if smpath else []
-
-    def absolute_module_parts(self, other):
-        """Same as .absolute_module but returns the remainder submodule as a
-        list of parts.
-
-        :param other: str, see .absolute_module_name
-        :returns: list[str]
-        """
-        smparts = self.relative_module_parts(other)
-        parts = self.module_parts
-        return parts[0:-len(smparts)] if smparts else parts
-
-    def absolute_module_name(self, other):
-        """The opposite of .relative_module, this returns the parent module
-        ending with other
-
-        :Example:
-            rn = ReflectName("foo.bar.che.boo")
-            print(rn.absolute_module_name("bar")) # foo.bar
-            print(rn.absolute_module_name("foo.bar")) # foo.bar
-
-        :param other: str, the module path. This will usually be a partial
-            module prefix
-        :returns: str, the parent module that ends with other
-        """
-        return ".".join(self.absolute_module_parts(other))
-
-
-class ReflectObject(object):
-    def __init__(self, target, **kwargs):
-        self.target = target
-
-    def get_docblock(self, inherit=False):
-        """Get the docblock comment for the callable
-
-        :param inherit: bool, if True then check parents for a docblock also,
-            if False then only check the immediate object
-        :returns: str
-        """
-        target = self.target
-
-        if inherit:
-            # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L844
-            doc = inspect.getdoc(target)
-
-        else:
-            doc = target.__doc__
-            if doc:
-                doc = inspect.cleandoc(doc)
-
-        if not doc:
-            # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L1119
-            doc = inspect.getcomments(target)
-            if doc:
-                doc = re.sub(r"^\s*#", "", doc, flags=re.MULTILINE).strip()
-                doc = inspect.cleandoc(doc)
-
-        return doc or ""
-
-    def reflect_docblock(self, inherit=False):
-        if doc := self.get_docblock(inherit=inherit):
-            return self.create_reflect_docblock(doc)
-
-    def get_module(self):
-        return self.reflect_module().get_module()
-
-    def reflect_module(self):
-        """Returns the reflected module"""
-        return self.create_reflect_module(self.get_target().__module__)
-
-    def get_class(self):
-        raise NotImplementedError()
-
-    def reflect_class(self):
-        if klass := self.get_class():
-            return self.create_reflect_class(klass)
-
-    def get_target(self):
-        return self.target
-
-    def has_definition(self, attr_name):
-        """Return True if attr_name is actually defined in this object, this
-        doesn't take into account inheritance, it has to be actually defined
-        on this object
-
-        https://stackoverflow.com/questions/5253397/
-
-        :param attr_name: str, the attribute's name that has to have a
-            definition on .get_target()
-        :returns: bool
-        """
-        return attr_name in vars(self.get_target())
-
-    def create_reflect_class(self, *args, **kwargs):
-        return kwargs.get("reflect_class_class", ReflectClass)(
-            *args,
-            **kwargs
-        )
-
-    def create_reflect_module(self, *args, **kwargs):
-        return kwargs.get("reflect_module_class", ReflectModule)(
-            *args,
-            **kwargs
-        )
-
-    def create_reflect_callable(self, *args, **kwargs):
-        return kwargs.get("reflect_callable_class", ReflectCallable)(
-            *args,
-            **kwargs
-        )
-
-    def create_reflect_type(self, *args, **kwargs):
-        return kwargs.get("reflect_type_class", ReflectType)(
-            *args,
-            **kwargs
-        )
-
-    def create_reflect_ast(self, *args, **kwargs):
-        return kwargs.get("reflect_ast_class", ReflectAST)(
-            *args,
-            **kwargs
-        )
-
-    def create_reflect_docblock(self, *args, **kwargs):
-        return kwargs.get("reflect_docblock_class", ReflectDocblock)(
-            *args,
-            **kwargs
-        )
-
-    def is_class(self):
-        """Returns True if target is considered a class"""
-        return isinstance(self, ReflectClass)
-
-    def is_module(self):
-        """Returns True if target is considered a module"""
-        return isinstance(self, ReflectModule)
-
-    def is_callable(self):
-        """Returns True if target is considered a callable (usually a function
-        or method)"""
-        return isinstance(self, ReflectCallable)
+from .base import ReflectObject
 
 
 class ReflectAST(ReflectObject):
@@ -2422,6 +769,17 @@ class ReflectType(ReflectObject):
             raise ValueError(f"Could not cast value to {self}")
 
 
+class ReflectArgument(ReflectObject):
+    @property
+    def name(self):
+        return self.get_target().name
+
+    def __init__(self, target, value, **kwargs):
+        super().__init__(target)
+
+        self.value = value
+
+
 class ReflectCallable(ReflectObject):
     """Reflect a callable
 
@@ -2869,6 +1227,83 @@ class ReflectCallable(ReflectObject):
 #         """
 #         return self.signature.bind(*args, **kwargs)
 
+#     def get_bind_info(self, *args, **kwargs):
+#         """Get information on how callable could bind *args and **kwargs
+# 
+#         https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
+#         https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
+# 
+#         :param *args: all the positional arguments for callable
+#         :param **kwargs: all the keyword arguments for callable
+#         :returns: dict[str, dict[str, Any]|list[Any]|set[str]]
+#             - bound: BoundArguments, the arguments from args and kwargs that
+#                 were successfully bound using Signature.bind_partial
+#             - signature_info: dict, the .get_signature_info return value
+#             - unknown_args: list[Any], all positionals that failed to be
+#                 bound
+#             - unknown_kwargs: dict[str, Any], all keywords that failed to
+#                 be bound
+#             - missing_names: set[str], the required parameter names that
+#                 weren't found in args nor kwargs
+#         :raises TypeError: any argument binding error
+#         """
+#         sig_info = self.get_signature_info()
+# 
+#         param_args = []
+#         param_kwargs = {}
+# 
+#         unknown_args = []
+#         unknown_kwargs = {}
+#         missing_names = set([])
+# 
+#         if not sig_info["keywords_name"]:
+#             for k in list(kwargs.keys()):
+#                 if k not in sig_info["indexes"]:
+#                     unknown_kwargs[k] = kwargs.pop(k)
+# 
+#         if not sig_info["positionals_name"]:
+#             max_args = len(sig_info["names"])
+#             if len(args) > max_args:
+#                 unknown_args = args[max_args:]
+#                 args = args[:max_args]
+# 
+#         bound = sig_info["signature"].bind_partial(*args, **kwargs)
+#         #bound.apply_defaults()
+# 
+#         for name in sig_info["names"]:
+#             if name not in bound.arguments:
+#                 if name in sig_info["required"]:
+#                     missing_names.add(name)
+# 
+#         return {
+#             "signature_info": sig_info,
+#             "bound": bound,
+#             "unknown_args": unknown_args,
+#             "unknown_kwargs": unknown_kwargs,
+#             "missing_names": missing_names,
+#         }
+
+    def create_reflect_argument(self, param, value, **kwargs):
+        ra_class = kwargs.pop("reflect_argument_class", ReflectArgument)
+        return ra_class(
+            param,
+            value,
+            **kwargs,
+        )
+
+    def get_params(self):
+        # we skip the first argument if it's a method that usually has self
+        # or cls as the first argument. This only applies if we passed in the
+        # non-bound version of the method though, so we also check 
+        skip = self.is_unbound_method()
+        signature = self.signature
+        for param in signature.parameters.values():
+            if skip:
+                skip = False
+                continue
+
+            yield param
+
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable could bind *args and **kwargs
 
@@ -2889,41 +1324,252 @@ class ReflectCallable(ReflectObject):
                 weren't found in args nor kwargs
         :raises TypeError: any argument binding error
         """
-        sig_info = self.get_signature_info()
-
-        param_args = []
-        param_kwargs = {}
-
-        unknown_args = []
-        unknown_kwargs = {}
-        missing_names = set([])
-
-        if not sig_info["keywords_name"]:
-            for k in list(kwargs.keys()):
-                if k not in sig_info["indexes"]:
-                    unknown_kwargs[k] = kwargs.pop(k)
-
-        if not sig_info["positionals_name"]:
-            max_args = len(sig_info["names"])
-            if len(args) > max_args:
-                unknown_args = args[max_args:]
-                args = args[:max_args]
-
-        bound = sig_info["signature"].bind_partial(*args, **kwargs)
-        #bound.apply_defaults()
-
-        for name in sig_info["names"]:
-            if name not in bound.arguments:
-                if name in sig_info["required"]:
-                    missing_names.add(name)
-
-        return {
-            "signature_info": sig_info,
-            "bound": bound,
-            "unknown_args": unknown_args,
-            "unknown_kwargs": unknown_kwargs,
-            "missing_names": missing_names,
+        ret = {
+            "args": [],
+            "kwargs": {},
+            "unbound_args": [],
+            "unbound_kwargs": {},
+            "missing_names": set([]),
+            "multiple_names": set([]),
+            "bound_names": set([]),
         }
+
+        for p, v in self.bind_params(*args, **kwargs):
+            if p.name:
+                if v is p.empty:
+                    ret["missing_names"].add(p.name)
+
+                else:
+                    if p.name in ret["bound_names"]:
+                        ret["multiple_names"].add(p.name)
+
+                    else:
+                        ret["bound_names"].add(p.name)
+
+                        if (p.kind == p.KEYWORD_ONLY) or (p.name in kwargs):
+                            ret["kwargs"][p.name] = v
+
+                        elif p.kind == p.VAR_KEYWORD:
+                            ret["kwargs"].update(v)
+
+                        else:
+                            ret["args"].append(v)
+
+            else:
+                if p.kind == p.VAR_POSITIONAL:
+                    ret["unbound_args"] = v
+
+                elif p.kind == p.VAR_KEYWORD:
+                    ret["unbound_kwargs"] = v
+
+        return ret
+#         return {
+#             "bound": bound,
+#             "unknown_args": unknown_args,
+#             "unknown_kwargs": unknown_kwargs,
+#             "missing_names": missing_names,
+#         }
+
+    def bind_params(self, *args, **kwargs):
+        arg_vals = iter(args)
+        #params = iter(self.signature.parameters.values())
+        params = iter(self.get_params())
+
+        def create_unbound_param(kind):
+            unbound_param = inspect.Parameter(
+                "__", # we need a name that can get passed __init__ checks
+                kind,
+            )
+            unbound_param._name = "" # clear the name once passed checks
+            return unbound_param
+
+        while True:
+            # Let's iterate through the positional arguments and corresponding
+            # parameters
+            try:
+                arg_val = next(arg_vals)
+
+            except StopIteration:
+                # No more positional arguments
+                break
+
+            else:
+                # We have a positional argument to process
+                try:
+                    param = next(params)
+
+                except StopIteration:
+                    # we have a positional value but no more signature params
+                    # so all the remaining values are unbound
+                    yield self.create_reflect_argument(
+                        None,
+                        [arg_val] + list(arg_vals)a,
+                        positional=True,
+                    )
+
+                    param = None
+                    break
+
+                else:
+                    if param.kind == param.VAR_POSITIONAL:
+                        # we've found the *args param
+                        yield self.create_reflect_argument(
+                            param,
+                            [arg_val] + list(arg_vals),
+                            positional=True,
+                        )
+
+                    elif param.kind in (param.VAR_KEYWORD, param.KEYWORD_ONLY):
+                        # we've hit the keywords so all remaining positionals
+                        # are unbound
+                        yield self.create_reflect_argument(
+                            None,
+                            [arg_val] + list(arg_vals),
+                            positional=True,
+                        )
+                        break
+
+                    else:
+                        ra_kwargs = {
+                            "positional": True,
+                        }
+
+                        # value was passed as both an arg and kwarg
+                        if param.name in kwargs:
+                            ra_kwargs["keyword_value"] = kwargs.pop(param.name)
+
+                        yield self.create_reflect_argument(
+                            param,
+                            arg_val,
+                            **ra_kwargs,
+                        )
+
+        keywords_param = None
+
+        if param:
+            params = itertools.chain([param], params)
+
+        for param in params:
+            if param.kind == param.VAR_KEYWORD:
+                # found the **kwargs param
+                keywords_param = param
+                continue
+
+            elif param.kind == param.VAR_POSITIONAL:
+                # we ignore the *arg param since we consumed all the args
+                continue
+
+            elif param.kind == param.POSITIONAL_ONLY:
+                yield param, param.empty
+
+            try:
+                arg_val = kwargs.pop(param.name)
+
+            except KeyError:
+                yield param, param.empty
+
+            else:
+                yield self.create_reflect_argument(
+                    param,
+                    arg_val,
+                    keyword=True,
+                )
+
+        if kwargs:
+            if keywords_param is None:
+                yield self.create_reflect_argument(
+                    None,
+                    arg_val,
+                    keyword=True,
+                )
+
+            else:
+                yield self.create_reflect_argument(
+                    keywords_param,
+                    kwargs,
+                    keyword=True,
+                )
+
+    def bind_positionals(self, args):
+
+        bound_args = []
+        unbound_args = []
+
+        arg_vals = iter(args)
+        params = iter(self.signature.parameters.values())
+
+        while True:
+            # Let's iterate through the positional arguments and corresponding
+            # parameters
+            try:
+                arg_val = next(arg_vals)
+
+            except StopIteration:
+                # No more positional arguments
+                break
+
+            else:
+                # We have a positional argument to process
+                try:
+                    param = next(parameters)
+
+                except StopIteration:
+                    # we are out of parameters so just add the rest of the
+                    # values to the unbound list
+                    unbound_args = [arg_val] + list(arg_vals)
+
+                else:
+                    if param.kind in (param.VAR_KEYWORD, param.KEYWORD_ONLY):
+                        # we've hit the keywords so all remaining positionals
+                        # are unbound
+                        unbound_args = [arg_val] + list(arg_vals)
+
+                    if param.kind == param.VAR_POSITIONAL:
+                        # we've found the *args param
+                        unbound_args = [arg_val] + list(arg_vals)
+
+                    else:
+                        bound_args.append(arg_val)
+
+        return bound_args, unbound_args
+
+    def bind_keywords(self, kwargs):
+        bound_kwargs = {}
+        unbound_kwargs = {}
+        keywords_param = None
+
+        for param in self.signature.parameters.values():
+            if param.kind == param.VAR_KEYWORD:
+                # found the **kwargs param
+                keywords_param = param
+                continue
+
+            if param.kind in (param.POSITIONAL_ONLY, param.VAR_POSITIONAL):
+                # we ignore arg specific params since we can't do anything with
+                # them
+                continue
+
+            param_name = param.name
+
+            try:
+                arg_val = kwargs.pop(param_name)
+
+            except KeyError:
+                pass
+
+            else:
+                bound_kwargs[param_name] = arg_val
+
+
+        if kwargs:
+            if keywords_param is not None:
+                bound_kwargs.update(kwargs)
+
+            else:
+                unbound_kwargs = kwargs
+
+        return bound_kwargs, unbound_kwargs
+
 
     def get_signature_info(self):
         """Get call signature information of the reflected function
@@ -2963,15 +1609,9 @@ class ReflectCallable(ReflectObject):
         positional_only_names = set()
         keyword_only_names = set()
 
-        # we skip the first argument if it's a method that usually has self
-        # or cls as the first argument. This only applies if we passed in the
-        # non-bound version of the method though, so we also check 
-        skip = self.is_unbound_method()
-        signature = self.signature
-        for name, param in signature.parameters.items():
-            if skip:
-                skip = False
-                continue
+        for param in self.get_params():
+            name = param.name
+            check_required = True
 
             if param.kind is param.POSITIONAL_ONLY:
                 positional_only_names.add(name)
@@ -2979,29 +1619,27 @@ class ReflectCallable(ReflectObject):
             elif param.kind is param.KEYWORD_ONLY:
                 keyword_only_names.add(name)
 
-            if param.default is param.empty:
-                if param.kind is param.VAR_POSITIONAL:
-                    positionals_name = name
+            elif param.kind is param.VAR_POSITIONAL:
+                positionals_name = name
+                check_required = False
 
-                elif param.kind is param.VAR_KEYWORD:
-                    keywords_name = name
+            elif param.kind is param.VAR_KEYWORD:
+                keywords_name = name
+                check_required = False
 
-                else:
-                    names.append(name)
+            if check_required:
+                if param.default is param.empty:
                     required.add(name)
 
-                    indexes[name] = index
-                    index += 1
-
-            else:
-                names.append(name)
-                defaults[name] = param.default
-
-                indexes[name] = index
-                index += 1
+                else:
+                    defaults[name] = param.default
 
             if param.annotation is not param.empty:
                 annotations[name] = param.annotation
+
+            names.append(name)
+            indexes[name] = index
+            index += 1
 
         return {
             "signature": signature,

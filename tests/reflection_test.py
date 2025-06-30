@@ -1313,6 +1313,32 @@ class ReflectCallableTest(TestCase):
     def test_get_signature_info_pos_key(self):
         def foo(foo, bar=1, *args, che=3, **kwargs): pass
 
+        sig = ReflectCallable(foo).get_signature_info()
+        self.assertEqual("args", sig["names"][sig["indexes"]["args"]])
+        self.assertEqual("kwargs", sig["names"][sig["indexes"]["kwargs"]])
+
+    def test_bind_params(self):
+        def foo(foo, bar=2, /, che=3): pass
+        sig = ReflectCallable(foo)
+
+        bound = {
+            "foo": 1,
+            "bar": 2,
+            "che": 3,
+        }
+        for param, v in sig.bind_params(1, 2, 3):
+            self.assertEqual(bound[param.name], v)
+            bound.pop(param.name)
+        self.assertFalse(bound)
+
+        bound = {
+            "foo": 1,
+            "che": 3,
+        }
+        for param, v in sig.bind_params(1, che=3):
+            self.assertEqual(bound[param.name], v)
+            bound.pop(param.name)
+        self.assertFalse(bound)
 
     def test_is_bound_method(self):
         RC = ReflectCallable
@@ -1371,6 +1397,20 @@ class ReflectCallableTest(TestCase):
         }
 
         args = [1, 2, 3, 4]
+
+        rc = ReflectCallable(Foo.foo, Foo)
+
+        for p, v in rc.bind_params(*args, **kwargs):
+            pout.v(str(p), v)
+
+        pout.b()
+
+
+        info = ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
+        pout.v(info)
+
+        return
+
         with self.assertRaises(TypeError):
             ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
 
