@@ -11,6 +11,9 @@ from ..string import NamingConvention
 from ..collections.mapping import DictTree
 from .. import logging
 
+from .inspect import ReflectClass, ReflectModule
+from .path import ReflectName, ReflectPath
+
 
 logger = logging.getLogger(__name__)
 

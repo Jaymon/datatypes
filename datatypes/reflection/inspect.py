@@ -32,7 +32,123 @@ from ..decorators import (
 from ..path import Dirpath
 from ..token.base import Scanner
 
-from .base import ReflectObject
+
+class ReflectObject(object):
+    """Internal base class for the common inter-related object/instance
+    inspection classes like ReflectClass, ReflectCallable, and ReflectModule
+    """
+    def __init__(self, target, **kwargs):
+        self.target = target
+
+    def get_docblock(self, inherit=False):
+        """Get the docblock comment for the callable
+
+        :param inherit: bool, if True then check parents for a docblock also,
+            if False then only check the immediate object
+        :returns: str
+        """
+        target = self.target
+
+        if inherit:
+            # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L844
+            doc = inspect.getdoc(target)
+
+        else:
+            doc = target.__doc__
+            if doc:
+                doc = inspect.cleandoc(doc)
+
+        if not doc:
+            # https://github.com/python/cpython/blob/3.11/Lib/inspect.py#L1119
+            doc = inspect.getcomments(target)
+            if doc:
+                doc = re.sub(r"^\s*#", "", doc, flags=re.MULTILINE).strip()
+                doc = inspect.cleandoc(doc)
+
+        return doc or ""
+
+    def reflect_docblock(self, inherit=False):
+        if doc := self.get_docblock(inherit=inherit):
+            return self.create_reflect_docblock(doc)
+
+    def get_module(self):
+        return self.reflect_module().get_module()
+
+    def reflect_module(self):
+        """Returns the reflected module"""
+        return self.create_reflect_module(self.get_target().__module__)
+
+    def get_class(self):
+        raise NotImplementedError()
+
+    def reflect_class(self):
+        if klass := self.get_class():
+            return self.create_reflect_class(klass)
+
+    def get_target(self):
+        return self.target
+
+    def has_definition(self, attr_name):
+        """Return True if attr_name is actually defined in this object, this
+        doesn't take into account inheritance, it has to be actually defined
+        on this object
+
+        https://stackoverflow.com/questions/5253397/
+
+        :param attr_name: str, the attribute's name that has to have a
+            definition on .get_target()
+        :returns: bool
+        """
+        return attr_name in vars(self.get_target())
+
+    def create_reflect_class(self, *args, **kwargs):
+        return kwargs.get("reflect_class_class", ReflectClass)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_module(self, *args, **kwargs):
+        return kwargs.get("reflect_module_class", ReflectModule)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_callable(self, *args, **kwargs):
+        return kwargs.get("reflect_callable_class", ReflectCallable)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_type(self, *args, **kwargs):
+        return kwargs.get("reflect_type_class", ReflectType)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_ast(self, *args, **kwargs):
+        return kwargs.get("reflect_ast_class", ReflectAST)(
+            *args,
+            **kwargs
+        )
+
+    def create_reflect_docblock(self, *args, **kwargs):
+        return kwargs.get("reflect_docblock_class", ReflectDocblock)(
+            *args,
+            **kwargs
+        )
+
+    def is_class(self):
+        """Returns True if target is considered a class"""
+        return isinstance(self, ReflectClass)
+
+    def is_module(self):
+        """Returns True if target is considered a module"""
+        return isinstance(self, ReflectModule)
+
+    def is_callable(self):
+        """Returns True if target is considered a callable (usually a function
+        or method)"""
+        return isinstance(self, ReflectCallable)
 
 
 class ReflectAST(ReflectObject):
@@ -770,14 +886,261 @@ class ReflectType(ReflectObject):
 
 
 class ReflectArgument(ReflectObject):
+    """Internal class. Reflect a passed in argument to a method
+
+    This will almost always be used through calling
+    `ReflectCallable.reflect_arguments()`
+
+    This is used to represent both bound and unbound arguments.
+
+    `inspect.Parameter.empty` is used to represent a missing value.
+
+    If it represents a missing argument, it will be unbound with an empty
+    value.
+
+    If it represents unmatched positionals, its value will be the remaining
+    passed in positional arguments that weren't consumed and `.get_target()`
+    will return None.
+
+    If it represents unmatched keywords, its value will be a dict of the
+    passed in keyword arguments that weren't consumed and `.get_target()` will
+    return None.
+    """
+    @property
+    def param(self):
+        return self.get_target()
+
     @property
     def name(self):
-        return self.get_target().name
+        """This will be an empty string if it represents an unbound remainder
+        otherwise it will be the name of the parameter"""
+        name = ""
+        if target := self.get_target():
+            name = target.name
 
-    def __init__(self, target, value, **kwargs):
+        return name
+
+    def __init__(self, target, value, reflect_callable, **kwargs):
+        """
+        :param target: inspect.Parameter|None, if a Parameter instance then
+            `value` was successfully bound (unless it's empty). If None then
+            `value` is unbounded
+        :param value: Any, the value to bind. `inspect.Parameter.empty` means
+            the value doesn't exist. So if target is not None it means that
+            parameter wasn't found when binding the arguments
+        :param reflect_callable: ReflectCallable, the callable that is binding
+            the arguments
+        :keyword positional: bool, True if `target` was bound as a positional
+            argument
+        :keyword keyword: bool, True if `target` was bound as a keyword
+            argument
+        :keyword keyword_value: Any, if `target` is being bound as a
+            positional but there was also a keyword value this will be passed
+            in, if this key is not passed in then there are not multiple
+            values for the target param
+        """
         super().__init__(target)
 
+        self._reflect_callable = reflect_callable
         self.value = value
+        self.kwargs = kwargs
+
+    def get_class(self):
+        return self.reflect_callable().get_class()
+
+    def reflect_callable(self):
+        return self._reflect_callable
+
+    def get_docblock(self):
+        if rdb := self.reflect_callable().reflect_docblock():
+            descs = rdb.get_param_descriptions()
+            return descs.get(self.name, None)
+
+    def is_bound_positional(self) -> bool:
+        """True if a bound positional argument is represented"""
+        return self.is_bound() and self.kwargs.get("positional", False)
+
+    def is_bound_keyword(self) -> bool:
+        """True if a bound keyword argument is represented"""
+        return self.is_bound() and self.kwargs.get("keyword", False)
+
+    def is_bound(self) -> bool:
+        """True if this instance is a bound argument"""
+        return (
+            self.get_target() is not None
+            and self.has_value()
+        )
+
+    def is_unbound_positionals(self) -> bool:
+        """True if this instance are the leftover positionals that weren't
+        bound and there is no catch-all argument like `*args` in the
+        signature"""
+        return (
+            self.get_target() is None
+            and self.kwargs.get("positional", False)
+        )
+
+    def is_unbound_keywords(self) -> bool:
+        """True if this instance are the leftover keywords that weren't
+        bound and there is no catch-all argument like `**kwargs` in the
+        signature"""
+        return (
+            self.get_target() is None
+            and self.kwargs.get("keyword", False)
+        )
+
+    def is_unbound(self) -> bool:
+        """True if this instance is unbound"""
+        return (
+            not self.is_bound()
+            or self.is_unbound_positionals()
+            or self.is_unbound_keywords()
+        )
+
+    def is_catchall(self) -> bool:
+        """True if this is a bound or unbound catch-all"""
+        kinds = (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        )
+
+        return (
+            self.is_unbound()
+            or self.get_target().kind in kinds
+        )
+
+    def is_positional(self) -> bool:
+        """True if the parameter can be passed in as a positional
+
+        Both this and `.is_keyword()` can be True
+        """
+        ret = False
+
+        if param := self.get_target():
+            kinds = (
+                param.POSITIONAL_ONLY,
+                param.VAR_POSITIONAL,
+                param.POSITIONAL_OR_KEYWORD,
+            )
+            ret = param.kind in kinds
+
+        else:
+            ret = self.is_unbound_positionals()
+
+        return ret
+
+    def is_keyword(self) -> bool:
+        """True if the parameter can be passed in as a keyword
+
+        Both this and `.is_positional()` can be True
+        """
+        ret = False
+
+        if param := self.get_target():
+            kinds = (
+                param.KEYWORD_ONLY,
+                param.VAR_KEYWORD,
+                param.POSITIONAL_OR_KEYWORD,
+            )
+            ret = param.kind in kinds
+
+        else:
+            ret = self.is_unbound_keywords()
+
+        return ret
+
+    def has_bound_value(self) -> bool:
+        """True if this argument has a bound value
+
+        This does not take into account default values
+        """
+        return self.value is not inspect.Parameter.empty
+
+    def has_value(self) -> bool:
+        """True if this argument has a value, taking into account default
+        values also"""
+        ret = self.has_bound_value()
+        if not ret:
+            if param := self.get_target():
+                if param.default is not param.empty:
+                    ret = True
+
+        return ret
+
+    def has_positional_value(self) -> bool:
+        """True if the value is from a positional argument"""
+        return self.has_value() and self.is_bound_positional()
+
+    def has_keyword_value(self) -> bool:
+        """True if the value is from a keyword argument
+
+        This can be True even if `.has_positional_value()` is also True and
+        would represent a "too many arguments" TypeError
+        """
+        return (
+            self.has_value()
+            and (
+                self.is_bound_keyword()
+                or "keyword_value" in self.kwargs
+            )
+        )
+
+    def has_multiple_values(self) -> bool:
+        """True if multiple values for this argument were passed in"""
+        return (
+            self.has_value()
+            and "keyword_value" in self.kwargs
+        )
+
+    def get_keyword_value(self):
+        """Return the keyword value or `inspect.Parameter.empty` if it doesn't
+        exist"""
+        if self.is_bound_keyword():
+            return self.value
+
+        else:
+            return self.kwargs.get("keyword_value", inspect.Parameter.empty)
+
+    def get_positional_value(self):
+        """Return the positional value or `inspect.Parameter.empty` if it
+        doesn't exist"""
+        if self.is_bound_positional():
+            return self.value
+
+        return inspect.Parameter.empty
+
+    def get_value(self):
+        """Return the value of this argument, this will return the default
+        value if it exists"""
+        empty = inspect.Parameter.empty
+        v = self.value
+        if v is empty:
+            v = self.get_keyword_value()
+
+        if v is empty:
+            if param := self.get_target():
+                if param.default is not empty:
+                    v = param.default
+
+        return v
+
+    def has_default_value(self) -> bool:
+        """True if a default parameter exists"""
+        ret = False
+
+        if param := self.get_target():
+            ret = param.default is not param.empty
+
+        return ret
+
+    def has_annotation(self) -> bool:
+        """True if the parameter has a type annotation"""
+        ret = False
+
+        if param := self.get_target():
+            ret = param.annotation is not param.empty
+
+        return ret
 
 
 class ReflectCallable(ReflectObject):
@@ -1220,78 +1583,26 @@ class ReflectCallable(ReflectObject):
         """
         return self.is_instance_method() and not self.is_bound_method()
 
-#     def bind(self, *args, **kwargs):
-#         """Wrapper around `inspect.Signature.bind`
-# 
-#         https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
-#         """
-#         return self.signature.bind(*args, **kwargs)
-
-#     def get_bind_info(self, *args, **kwargs):
-#         """Get information on how callable could bind *args and **kwargs
-# 
-#         https://docs.python.org/3/library/inspect.html#inspect.Signature.bind
-#         https://docs.python.org/3/library/inspect.html#inspect.BoundArguments
-# 
-#         :param *args: all the positional arguments for callable
-#         :param **kwargs: all the keyword arguments for callable
-#         :returns: dict[str, dict[str, Any]|list[Any]|set[str]]
-#             - bound: BoundArguments, the arguments from args and kwargs that
-#                 were successfully bound using Signature.bind_partial
-#             - signature_info: dict, the .get_signature_info return value
-#             - unknown_args: list[Any], all positionals that failed to be
-#                 bound
-#             - unknown_kwargs: dict[str, Any], all keywords that failed to
-#                 be bound
-#             - missing_names: set[str], the required parameter names that
-#                 weren't found in args nor kwargs
-#         :raises TypeError: any argument binding error
-#         """
-#         sig_info = self.get_signature_info()
-# 
-#         param_args = []
-#         param_kwargs = {}
-# 
-#         unknown_args = []
-#         unknown_kwargs = {}
-#         missing_names = set([])
-# 
-#         if not sig_info["keywords_name"]:
-#             for k in list(kwargs.keys()):
-#                 if k not in sig_info["indexes"]:
-#                     unknown_kwargs[k] = kwargs.pop(k)
-# 
-#         if not sig_info["positionals_name"]:
-#             max_args = len(sig_info["names"])
-#             if len(args) > max_args:
-#                 unknown_args = args[max_args:]
-#                 args = args[:max_args]
-# 
-#         bound = sig_info["signature"].bind_partial(*args, **kwargs)
-#         #bound.apply_defaults()
-# 
-#         for name in sig_info["names"]:
-#             if name not in bound.arguments:
-#                 if name in sig_info["required"]:
-#                     missing_names.add(name)
-# 
-#         return {
-#             "signature_info": sig_info,
-#             "bound": bound,
-#             "unknown_args": unknown_args,
-#             "unknown_kwargs": unknown_kwargs,
-#             "missing_names": missing_names,
-#         }
-
-    def create_reflect_argument(self, param, value, **kwargs):
+    def create_reflect_argument(self, *args, **kwargs):
+        """Internal method to create ReflectArgument instances"""
         ra_class = kwargs.pop("reflect_argument_class", ReflectArgument)
         return ra_class(
-            param,
-            value,
+            *args,
+            reflect_callable=self,
             **kwargs,
         )
 
     def get_params(self):
+        """This gets the params that can be bounded
+
+        This method ignores `self` or `cls` as the first argument when it
+        looks to be present so all callables will have the same signature
+        that lines up with passed in `*args` and `**kwargs`. The bound class
+        or instance argument is ignored because it is automatically bound
+        by python when the method is called
+
+        :returns: Generator[inspect.Parameter]
+        """
         # we skip the first argument if it's a method that usually has self
         # or cls as the first argument. This only applies if we passed in the
         # non-bound version of the method though, so we also check 
@@ -1313,79 +1624,92 @@ class ReflectCallable(ReflectObject):
         :param *args: all the positional arguments for callable
         :param **kwargs: all the keyword arguments for callable
         :returns: dict[str, dict[str, Any]|list[Any]|set[str]]
-            - bound: BoundArguments, the arguments from args and kwargs that
-                were successfully bound using Signature.bind_partial
-            - signature_info: dict, the .get_signature_info return value
-            - unknown_args: list[Any], all positionals that failed to be
+            - reflect_arguments: list[ReflectArgument], the RefelctArgument
+                instances used to gather the info
+            - unbound_args: list[Any], all positional values that failed to be
                 bound
-            - unknown_kwargs: dict[str, Any], all keywords that failed to
+            - unbound_kwargs: dict[str, Any], all keywords that failed to
                 be bound
             - missing_names: set[str], the required parameter names that
-                weren't found in args nor kwargs
-        :raises TypeError: any argument binding error
+                weren't found in the passed in arguments
+            - multiple_names: set[str], any param names that received multiple
+                values
+            - bound_names: set[str], all the param names that were
+                successfully bound
+            - bound_args: list[Any], the successfully bound argument values
+                from the passed in `args`
+            - bound_kwargs: dict[str, Any], the successfully bound keyword
+                values from the passed in `kwargs`
         """
         ret = {
-            "args": [],
-            "kwargs": {},
+            "reflect_arguments": [],
             "unbound_args": [],
             "unbound_kwargs": {},
             "missing_names": set([]),
             "multiple_names": set([]),
             "bound_names": set([]),
+            "bound_args": [],
+            "bound_kwargs": {},
         }
 
-        for p, v in self.bind_params(*args, **kwargs):
-            if p.name:
-                if v is p.empty:
-                    ret["missing_names"].add(p.name)
+        for ra in self.reflect_arguments(*args, **kwargs):
+            ret["reflect_arguments"].append(ra)
 
-                else:
-                    if p.name in ret["bound_names"]:
-                        ret["multiple_names"].add(p.name)
+            if ra.is_bound():
+                if ra.is_bound_positional():
+                    if ra.is_catchall():
+                        ret["bound_args"].extend(ra.value)
 
                     else:
-                        ret["bound_names"].add(p.name)
+                        ret["bound_names"].add(ra.name)
+                        ret["bound_args"].append(ra.value)
 
-                        if (p.kind == p.KEYWORD_ONLY) or (p.name in kwargs):
-                            ret["kwargs"][p.name] = v
+                elif ra.is_bound_keyword():
+                    if ra.is_catchall():
+                        ret["bound_kwargs"].update(ra.value)
 
-                        elif p.kind == p.VAR_KEYWORD:
-                            ret["kwargs"].update(v)
+                    else:
+                        ret["bound_names"].add(ra.name)
+                        ret["bound_kwargs"][ra.name] = ra.value
 
-                        else:
-                            ret["args"].append(v)
+                if ra.has_multiple_values():
+                    ret["multiple_names"].add(ra.name)
 
             else:
-                if p.kind == p.VAR_POSITIONAL:
-                    ret["unbound_args"] = v
+                if ra.is_unbound_positionals():
+                    ret["unbound_args"] = ra.value
 
-                elif p.kind == p.VAR_KEYWORD:
-                    ret["unbound_kwargs"] = v
+                elif ra.is_unbound_keywords():
+                    ret["unbound_kwargs"] = ra.value
+
+                else:
+                    ret["missing_names"].add(ra.name)
 
         return ret
-#         return {
-#             "bound": bound,
-#             "unknown_args": unknown_args,
-#             "unknown_kwargs": unknown_kwargs,
-#             "missing_names": missing_names,
-#         }
 
-    def bind_params(self, *args, **kwargs):
+    def reflect_arguments(self, *args, **kwargs):
+        """Reflect the bindings for `*args` and `**kwargs`
+
+        The functionality of this method is based on the source of
+        `inspect.Signature._bind`
+
+        :arguments *args: these are bound to the method's params
+        :keyword **kwargs: these are bound to the method's params
+        :returns: Generator[ReflectArgument], each param in the signature
+            will be yielded as will any remaining positionals and keywords.
+            This allows custom interfaces to move through argument binding
+            without worrying about TypeErrors being raised so the custom
+            interface can decide what to do with invalid input like multiple
+            arguments or missing arguments
+        """
         arg_vals = iter(args)
-        #params = iter(self.signature.parameters.values())
         params = iter(self.get_params())
-
-        def create_unbound_param(kind):
-            unbound_param = inspect.Parameter(
-                "__", # we need a name that can get passed __init__ checks
-                kind,
-            )
-            unbound_param._name = "" # clear the name once passed checks
-            return unbound_param
 
         while True:
             # Let's iterate through the positional arguments and corresponding
             # parameters
+            param = None
+
             try:
                 arg_val = next(arg_vals)
 
@@ -1403,11 +1727,11 @@ class ReflectCallable(ReflectObject):
                     # so all the remaining values are unbound
                     yield self.create_reflect_argument(
                         None,
-                        [arg_val] + list(arg_vals)a,
+                        [arg_val] + list(arg_vals),
                         positional=True,
                     )
 
-                    param = None
+                    #param = None
                     break
 
                 else:
@@ -1460,13 +1784,21 @@ class ReflectCallable(ReflectObject):
                 continue
 
             elif param.kind == param.POSITIONAL_ONLY:
-                yield param, param.empty
+                yield self.create_reflect_argument(
+                    param,
+                    param.empty,
+                    positional=True,
+                )
 
             try:
                 arg_val = kwargs.pop(param.name)
 
             except KeyError:
-                yield param, param.empty
+                yield self.create_reflect_argument(
+                    param,
+                    param.empty,
+                    keyword=True,
+                )
 
             else:
                 yield self.create_reflect_argument(
@@ -1476,100 +1808,11 @@ class ReflectCallable(ReflectObject):
                 )
 
         if kwargs:
-            if keywords_param is None:
-                yield self.create_reflect_argument(
-                    None,
-                    arg_val,
-                    keyword=True,
-                )
-
-            else:
-                yield self.create_reflect_argument(
-                    keywords_param,
-                    kwargs,
-                    keyword=True,
-                )
-
-    def bind_positionals(self, args):
-
-        bound_args = []
-        unbound_args = []
-
-        arg_vals = iter(args)
-        params = iter(self.signature.parameters.values())
-
-        while True:
-            # Let's iterate through the positional arguments and corresponding
-            # parameters
-            try:
-                arg_val = next(arg_vals)
-
-            except StopIteration:
-                # No more positional arguments
-                break
-
-            else:
-                # We have a positional argument to process
-                try:
-                    param = next(parameters)
-
-                except StopIteration:
-                    # we are out of parameters so just add the rest of the
-                    # values to the unbound list
-                    unbound_args = [arg_val] + list(arg_vals)
-
-                else:
-                    if param.kind in (param.VAR_KEYWORD, param.KEYWORD_ONLY):
-                        # we've hit the keywords so all remaining positionals
-                        # are unbound
-                        unbound_args = [arg_val] + list(arg_vals)
-
-                    if param.kind == param.VAR_POSITIONAL:
-                        # we've found the *args param
-                        unbound_args = [arg_val] + list(arg_vals)
-
-                    else:
-                        bound_args.append(arg_val)
-
-        return bound_args, unbound_args
-
-    def bind_keywords(self, kwargs):
-        bound_kwargs = {}
-        unbound_kwargs = {}
-        keywords_param = None
-
-        for param in self.signature.parameters.values():
-            if param.kind == param.VAR_KEYWORD:
-                # found the **kwargs param
-                keywords_param = param
-                continue
-
-            if param.kind in (param.POSITIONAL_ONLY, param.VAR_POSITIONAL):
-                # we ignore arg specific params since we can't do anything with
-                # them
-                continue
-
-            param_name = param.name
-
-            try:
-                arg_val = kwargs.pop(param_name)
-
-            except KeyError:
-                pass
-
-            else:
-                bound_kwargs[param_name] = arg_val
-
-
-        if kwargs:
-            if keywords_param is not None:
-                bound_kwargs.update(kwargs)
-
-            else:
-                unbound_kwargs = kwargs
-
-        return bound_kwargs, unbound_kwargs
-
+            yield self.create_reflect_argument(
+                keywords_param,
+                kwargs,
+                keyword=True,
+            )
 
     def get_signature_info(self):
         """Get call signature information of the reflected function
@@ -1642,7 +1885,6 @@ class ReflectCallable(ReflectObject):
             index += 1
 
         return {
-            "signature": signature,
             "names": names,
             "indexes": indexes,
             "positional_only_names": positional_only_names,
@@ -1651,9 +1893,7 @@ class ReflectCallable(ReflectObject):
             "defaults": defaults,
             "annotations": annotations,
             "positionals_name": positionals_name,
-            "*_name": positionals_name, # DEPRECATED?
             "keywords_name": keywords_name,
-            "**_name": keywords_name, # DEPRECATED?
         }
 
     def has_positionals_catchall(self) -> bool:

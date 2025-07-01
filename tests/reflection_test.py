@@ -1263,7 +1263,7 @@ class ReflectCallableTest(TestCase):
         rf = ReflectCallable(foo)
         info = rf.get_signature_info()
 
-        self.assertEqual(3, len(info["names"]))
+        self.assertEqual(5, len(info["names"]))
         for name in ["one", "two", "three"]:
             self.assertTrue(name in info["names"])
 
@@ -1285,7 +1285,7 @@ class ReflectCallableTest(TestCase):
         rf = ReflectCallable(Foo.foo, Foo)
         info = rf.get_signature_info()
 
-        self.assertEqual(3, len(info["names"]))
+        self.assertEqual(5, len(info["names"]))
         for name in ["one", "two", "three"]:
             self.assertTrue(name in info["names"])
 
@@ -1305,7 +1305,7 @@ class ReflectCallableTest(TestCase):
 
         sig = ReflectCallable(Foo.foo, Foo).get_signature_info()
         self.assertEqual(set(["foo"]), sig["required"])
-        self.assertEqual(["foo", "bar", "che"], sig["names"])
+        self.assertEqual(["foo", "bar", "che", "kwargs"], sig["names"])
         self.assertEqual(1, sig["defaults"]["bar"])
         self.assertEqual("kwargs", sig["keywords_name"])
         self.assertEqual("", sig["positionals_name"])
@@ -1316,29 +1316,6 @@ class ReflectCallableTest(TestCase):
         sig = ReflectCallable(foo).get_signature_info()
         self.assertEqual("args", sig["names"][sig["indexes"]["args"]])
         self.assertEqual("kwargs", sig["names"][sig["indexes"]["kwargs"]])
-
-    def test_bind_params(self):
-        def foo(foo, bar=2, /, che=3): pass
-        sig = ReflectCallable(foo)
-
-        bound = {
-            "foo": 1,
-            "bar": 2,
-            "che": 3,
-        }
-        for param, v in sig.bind_params(1, 2, 3):
-            self.assertEqual(bound[param.name], v)
-            bound.pop(param.name)
-        self.assertFalse(bound)
-
-        bound = {
-            "foo": 1,
-            "che": 3,
-        }
-        for param, v in sig.bind_params(1, che=3):
-            self.assertEqual(bound[param.name], v)
-            bound.pop(param.name)
-        self.assertFalse(bound)
 
     def test_is_bound_method(self):
         RC = ReflectCallable
@@ -1385,53 +1362,121 @@ class ReflectCallableTest(TestCase):
         info = rf.get_signature_info()
         self.assertEqual(["bar"], info["names"])
 
-    def test_get_bind_info_1(self):
-        class Foo(object):
-            def foo(self, foo, bar=2, che=3, **kwargs): pass
+    def test_reflect_arguments_1(self):
+        def foo(bar, che): pass
+        rc = ReflectCallable(foo)
 
+        ras = iter(rc.reflect_arguments(che=1))
+
+        ra = next(ras)
+        self.assertEqual("bar", ra.name)
+        self.assertFalse(ra.is_bound())
+        self.assertTrue(ra.is_unbound())
+        self.assertFalse(ra.has_value())
+        self.assertFalse(ra.is_unbound_positionals())
+        self.assertFalse(ra.is_unbound_keywords())
+
+        ra = next(ras)
+        self.assertEqual("che", ra.name)
+        self.assertTrue(ra.is_bound())
+        self.assertTrue(ra.has_value())
+        self.assertEqual(1, ra.value)
+
+        ras = iter(rc.reflect_arguments(1, 2, 3, 4))
+        next(ras) # bar
+        next(ras) # che
+        ra = next(ras) # unbound
+        self.assertTrue(ra.is_unbound_positionals())
+        self.assertTrue(ra.is_unbound())
+        self.assertTrue(ra.is_catchall())
+        self.assertEqual([3, 4], ra.value)
+
+    def test_reflect_arguments_2(self):
+        def foo(foo, bar=2, /, che=3): pass
+        sig = ReflectCallable(foo)
+
+        bound = {
+            "foo": 1,
+            "bar": 2,
+            "che": 3,
+        }
+        for ra in sig.reflect_arguments(1, 2, 3):
+            self.assertEqual(bound[ra.name], ra.value)
+            bound.pop(ra.name)
+        self.assertFalse(bound)
+
+        bound = {
+            "foo": 1,
+            "che": 3,
+        }
+        for ra in sig.reflect_arguments(1, che=3):
+            if ra.name != "bar":
+                self.assertEqual(bound[ra.name], ra.value)
+                bound.pop(ra.name)
+        self.assertFalse(bound)
+
+    def test_reflect_arguments_value(self):
+        def foo(bar): pass
+        rc = ReflectCallable(foo)
+
+        ras = iter(rc.reflect_arguments(1, bar=2))
+        ra = next(ras)
+        self.assertTrue(ra.has_value())
+        self.assertTrue(ra.has_positional_value())
+        self.assertTrue(ra.has_keyword_value())
+        self.assertTrue(ra.has_multiple_values())
+        self.assertEqual(1, ra.value)
+        self.assertEqual(2, ra.get_keyword_value())
+        self.assertEqual(1, ra.get_value())
+
+    def test_reflect_arguments_unbound_kwargs(self):
+        def foo(): pass
+        rc = ReflectCallable(foo)
+
+        kwargs = {"bar": 1, "che": 2}
+        ras = iter(rc.reflect_arguments(**kwargs))
+        ra = next(ras)
+        self.assertEqual(kwargs, ra.value)
+
+    def test_reflect_arguments_unbound_param(self):
+        def foo(bar, /, che): pass
+        rc = ReflectCallable(foo)
+
+#         for ra in rc.reflect_arguments(*[1], **{"boo": 2}):
+#             pout.v(ra)
+#         return
+
+        ras = iter(rc.reflect_arguments(*[1], **{"boo": 2}))
+        ra = next(ras) # bar
+        ra = next(ras)
+        self.assertEqual("che", ra.name)
+        self.assertTrue(ra.is_unbound())
+
+    def test_get_bind_info_1(self):
+        def foo(foo, bar=2, che=3, **kwargs): pass
+        args = [1, 2, 3, 4]
         kwargs = {
             "foo": 10,
             "bar": 20,
             "che": 30,
             "boo": 40
         }
+        rc = ReflectCallable(foo)
 
-        args = [1, 2, 3, 4]
+        info = rc.get_bind_info(*args, **kwargs)
+        self.assertEqual([4], info["unbound_args"])
 
-        rc = ReflectCallable(Foo.foo, Foo)
-
-        for p, v in rc.bind_params(*args, **kwargs):
-            pout.v(str(p), v)
-
-        pout.b()
-
-
-        info = ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
-        pout.v(info)
-
-        return
-
-        with self.assertRaises(TypeError):
-            ReflectCallable(Foo.foo, Foo).get_bind_info(*args, **kwargs)
-
-        info = ReflectCallable(Foo.foo, Foo).get_bind_info(**kwargs)
-        self.assertEqual(kwargs, info["bound"].kwargs)
+        info = rc.get_bind_info(**kwargs)
+        self.assertEqual(kwargs, info["bound_kwargs"])
 
     def test_get_bind_info_missing(self):
-        def foo(bar, /, che):
-            pass
+        def foo(bar, /, che): pass
+        rc = ReflectCallable(foo)
 
-        info = ReflectCallable(foo).get_bind_info(*[1], **{"boo": 2})
-        self.assertTrue("boo" in info["unknown_kwargs"])
+        info = rc.get_bind_info(*[1], **{"boo": 2})
+        self.assertTrue("boo" in info["unbound_kwargs"])
         self.assertTrue("che" in info["missing_names"])
-        self.assertTrue("bar" in info["bound"].arguments)
-
-    def test_bind_1(self):
-        def foo(bar, /, che):
-            pass
-
-        with self.assertRaises(TypeError):
-            ReflectCallable(foo).bind(*[1], **{"bar": 2})
+        self.assertTrue("bar" in info["bound_names"])
 
     def test_reflect_ast_decorators_function(self):
         mp = self.create_module("""

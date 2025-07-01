@@ -16,6 +16,8 @@ from ..path import Dirpath, Path
 from ..config import Config
 from ..url import Url
 
+from .inspect import ReflectModule
+
 
 class ReflectPath(Path):
     """Reflect a path
