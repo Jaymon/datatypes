@@ -1452,6 +1452,13 @@ class ReflectCallableTest(TestCase):
         self.assertEqual("che", ra.name)
         self.assertTrue(ra.is_unbound())
 
+    def test_reflect_arguments_misbind(self):
+        def foo(bar=1, che=100): pass
+        rc = ReflectCallable(foo)
+
+        for ra in rc.reflect_arguments(ignored=2):
+            self.assertFalse(ra.is_bound())
+
     def test_get_bind_info_1(self):
         def foo(foo, bar=2, che=3, **kwargs): pass
         args = [1, 2, 3, 4]
@@ -1477,6 +1484,17 @@ class ReflectCallableTest(TestCase):
         self.assertTrue("boo" in info["unbound_kwargs"])
         self.assertTrue("che" in info["missing_names"])
         self.assertTrue("bar" in info["bound_names"])
+
+    def test_get_bind_info_misbind(self):
+        class Foo(object):
+            def foo(self, bar=1, che=100): pass
+        rc = ReflectCallable(Foo.foo, Foo)
+
+        info = rc.get_bind_info(ignored=2)
+        self.assertTrue("bar" in info["missing_names"])
+        self.assertTrue("che" in info["missing_names"])
+        self.assertFalse(info["bound_args"])
+        self.assertFalse(info["bound_kwargs"])
 
     def test_reflect_ast_decorators_function(self):
         mp = self.create_module("""

@@ -968,7 +968,7 @@ class ReflectArgument(ReflectObject):
         """True if this instance is a bound argument"""
         return (
             self.get_target() is not None
-            and self.has_value()
+            and self.has_bound_value()
         )
 
     def is_unbound_positionals(self) -> bool:
@@ -1784,28 +1784,40 @@ class ReflectCallable(ReflectObject):
                 continue
 
             elif param.kind == param.POSITIONAL_ONLY:
+                ra_kwargs = {
+                    "positional": True,
+                }
+
+                # value was passed as a keyword but it needed to be a
+                # positional and we've run out of positionals
+                if param.name in kwargs:
+                    ra_kwargs["keyword_value"] = kwargs.pop(param.name)
+                    ra_kwargs["positional"] = False
+                    ra_kwargs["keyword"] = True
+
                 yield self.create_reflect_argument(
                     param,
                     param.empty,
-                    positional=True,
-                )
-
-            try:
-                arg_val = kwargs.pop(param.name)
-
-            except KeyError:
-                yield self.create_reflect_argument(
-                    param,
-                    param.empty,
-                    keyword=True,
+                    **ra_kwargs,
                 )
 
             else:
-                yield self.create_reflect_argument(
-                    param,
-                    arg_val,
-                    keyword=True,
-                )
+                try:
+                    arg_val = kwargs.pop(param.name)
+
+                except KeyError:
+                    yield self.create_reflect_argument(
+                        param,
+                        param.empty,
+                        keyword=True,
+                    )
+
+                else:
+                    yield self.create_reflect_argument(
+                        param,
+                        arg_val,
+                        keyword=True,
+                    )
 
         if kwargs:
             yield self.create_reflect_argument(
