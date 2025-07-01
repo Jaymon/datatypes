@@ -1838,63 +1838,56 @@ class ReflectCallable(ReflectObject):
             - annotations: dict[str, type], the found types for any of the
                 names
         """
-        names = []
-        required = set()
-        annotations = {}
-        defaults = {}
-        positionals_name = ""
-        keywords_name = ""
+        ret = {
+            "names": [],
+            "indexes": {},
 
-        indexes = {}
+            # https://peps.python.org/pep-0570/
+            "positional_only_names": set(),
+            "keyword_only_names": set(),
+
+            "required": set(),
+            "defaults": {},
+            "annotations": {},
+            "positionals_name": "",
+            "keywords_name": "",
+        }
+
         index = 0
-
-        # https://peps.python.org/pep-0570/
-        positional_only_names = set()
-        keyword_only_names = set()
 
         for param in self.get_params():
             name = param.name
             check_required = True
 
             if param.kind is param.POSITIONAL_ONLY:
-                positional_only_names.add(name)
+                ret["positional_only_names"].add(name)
 
             elif param.kind is param.KEYWORD_ONLY:
-                keyword_only_names.add(name)
+                ret["keyword_only_names"].add(name)
 
             elif param.kind is param.VAR_POSITIONAL:
-                positionals_name = name
+                ret["positionals_name"] = name
                 check_required = False
 
             elif param.kind is param.VAR_KEYWORD:
-                keywords_name = name
+                ret["keywords_name"] = name
                 check_required = False
 
             if check_required:
                 if param.default is param.empty:
-                    required.add(name)
+                    ret["required"].add(name)
 
                 else:
-                    defaults[name] = param.default
+                    ret["defaults"][name] = param.default
 
             if param.annotation is not param.empty:
-                annotations[name] = param.annotation
+                ret["annotations"][name] = param.annotation
 
-            names.append(name)
-            indexes[name] = index
+            ret["names"].append(name)
+            ret["indexes"][name] = index
             index += 1
 
-        return {
-            "names": names,
-            "indexes": indexes,
-            "positional_only_names": positional_only_names,
-            "keyword_only_names": keyword_only_names,
-            "required": required,
-            "defaults": defaults,
-            "annotations": annotations,
-            "positionals_name": positionals_name,
-            "keywords_name": keywords_name,
-        }
+        return ret
 
     def has_positionals_catchall(self) -> bool:
         """returns True if the callable signature contains a positional
