@@ -982,6 +982,15 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(int | None)
         self.assertEqual(None, rt.cast(None))
 
+    def test_cast_annotated_list(self):
+        rt = ReflectType(Annotated[list[int], None])
+        self.assertEqual([12, 34], rt.cast(["12", "34"]))
+
+    def test_cast_any(self):
+        rt = ReflectType(Any)
+        v = "foo"
+        self.assertEqual(v, rt.cast(v))
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):

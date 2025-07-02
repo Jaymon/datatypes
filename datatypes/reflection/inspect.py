@@ -854,6 +854,12 @@ class ReflectType(ReflectObject):
         :param value: Any, this value will be cast to a type in self
         :returns: Any, an instance of one of the types in self
         """
+        if self.is_any():
+            return value
+
+        if value is None and self.is_none():
+            return value
+
         # we reflect all the actionable types to break apart special types
         # like Union or Annotated
         for rt in self.reflect_actionable_types(depth=1):
@@ -878,11 +884,7 @@ class ReflectType(ReflectObject):
                 except (ValueError, TypeError):
                     pass
 
-        if value is None and self.is_none():
-            return value
-
-        else:
-            raise ValueError(f"Could not cast value to {self}")
+        raise ValueError(f"Could not cast value to {self}")
 
 
 class ReflectArgument(ReflectObject):
