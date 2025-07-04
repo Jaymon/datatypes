@@ -991,6 +991,15 @@ class ReflectTypeTest(TestCase):
         v = "foo"
         self.assertEqual(v, rt.cast(v))
 
+    def test_cast_literal(self):
+        rt = ReflectType(Literal["one", "two"])
+        self.assertEqual("one", rt.cast("one"))
+        with self.assertRaises(ValueError):
+            r = rt.cast("three")
+
+        rt = ReflectType(Literal[1])
+        self.assertEqual(1, rt.cast("1"))
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
