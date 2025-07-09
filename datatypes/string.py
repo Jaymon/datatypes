@@ -207,6 +207,24 @@ class String(Str, StringMixin):
         # http://stackoverflow.com/a/5297483/5006
         return hashlib.md5(self.bytes()).hexdigest()
 
+    def md5_uuid(self):
+        """Returns an md5 hash of self formatted like a uuid
+
+        Sometimes you need a non-secure identifier of something and you want
+        it to look like a UUID, I have my reasons!
+
+        :returns: str, formatted like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        """
+        h = self.md5()
+        # 8-4-4-4-12
+        return (
+            h[0:8]
+            + "-" + h[8:12]
+            + "-" + h[12:16]
+            + "-" + h[16:20]
+            + "-" + h[20:]
+        )
+
     def sha256(self):
         """64 character sh256 hash of the string"""
         return hashlib.sha256(self.bytes()).hexdigest()

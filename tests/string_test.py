@@ -171,6 +171,21 @@ class StringTest(TestCase):
         self.assertTrue(s.startswith("foo"))
         self.assertTrue(s.endswith("    che"))
 
+    def test_md5_uuid(self):
+        s = String("id1")
+
+        uuid = s.md5_uuid()
+        self.assertEqual(36, len(uuid))
+
+        parts = iter(uuid.split("-"))
+        self.assertEqual(8, len(next(parts)))
+        self.assertEqual(4, len(next(parts)))
+        self.assertEqual(4, len(next(parts)))
+        self.assertEqual(4, len(next(parts)))
+        self.assertEqual(12, len(next(parts)))
+
+        self.assertEqual(s.md5(), "".join(uuid.split("-")))
+
 
 class NamingConventionTest(TestCase):
     def test_camelcase(self):
