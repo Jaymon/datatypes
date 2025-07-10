@@ -8,9 +8,17 @@ from datatypes.command import (
     ModuleCommand,
     FileCommand,
     CalledProcessError,
+    SimpleCommand,
 )
 
 from . import TestCase
+
+
+class SimpleCommandTest(TestCase):
+    def test_std_output(self):
+        with self.assertRaises(Exception):
+            c = SimpleCommand(">&2 echo foo stderr; echo bar stdout; false")
+            r = c.run()
 
 
 class CommandTest(TestCase):
