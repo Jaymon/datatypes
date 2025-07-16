@@ -174,7 +174,7 @@ class StringTest(TestCase):
     def test_md5_uuid(self):
         s = String("id1")
 
-        uuid = s.md5_uuid()
+        uuid = str(s.md5_uuid())
         self.assertEqual(36, len(uuid))
 
         parts = iter(uuid.split("-"))

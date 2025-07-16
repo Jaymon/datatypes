@@ -3,6 +3,55 @@
 Dict and Map like objects
 
 https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping
+https://docs.python.org/3/library/stdtypes.html#dict
+
+class Dictionary(dict):
+    def __init__(self, iterable_or_mapping=None, **kwargs):
+        if iterable_or_mapping:
+            super().__init__(iterable_or_mapping, **kwargs)
+
+        else:
+            super().__init__(**kwargs)
+
+    def clear(self):
+        return super().clear()
+
+    def copy(self):
+        return super().copy()
+
+    def get(key, default=None, /):
+        return super().get(key, default)
+
+    def items(self):
+        return super().items()
+
+    def keys(self):
+        return super().keys()
+
+    def values(self):
+        return super().values()
+
+    def pop(self, key, *default):
+        return super().pop(key, *default)
+
+    def popitem(self):
+        return super().popitem()
+
+    def setdefault(self, key, default=None, /):
+        return super().setdefault(key, default)
+
+    def update(self, *args, **kwargs):
+        super().update(*args, **kwargs)
+
+    def __setitem__(self, key, value, /):
+        return super().__setitem__(key, value)
+
+    def __getitem__(self, key, /):
+        return super().__getitem__(key)
+
+    def __delitem__(self, key, /):
+        return super().__delitem__(key)
+
 """
 from contextlib import contextmanager
 

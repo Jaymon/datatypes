@@ -22,6 +22,8 @@ class AppendList(list):
         """
         https://docs.python.org/3/library/stdtypes.html?highlight=list#list
         """
+        super().__init__()
+
         if iterable:
             self.extend(iterable)
 

@@ -8,6 +8,7 @@ import unicodedata
 from distutils.fancy_getopt import wrap_text
 import secrets
 import textwrap
+import uuid
 
 from .compat import *
 from .config.environ import environ
@@ -213,11 +214,11 @@ class String(Str, StringMixin):
         Sometimes you need a non-secure identifier of something and you want
         it to look like a UUID, I have my reasons!
 
-        :returns: str, formatted like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        :returns: UUID, formatted like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
         """
         h = self.md5()
         # 8-4-4-4-12
-        return (
+        return uuid.UUID(
             h[0:8]
             + "-" + h[8:12]
             + "-" + h[12:16]
