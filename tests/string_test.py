@@ -186,6 +186,16 @@ class StringTest(TestCase):
 
         self.assertEqual(s.md5(), "".join(uuid.split("-")))
 
+    def test_uuid(self):
+        s = String("12345678-9abc-defg-hijk-lmnopqrstuvw")
+        self.assertEqual(s.md5_uuid(), s.uuid())
+
+        s = String("foo")
+        self.assertNotEqual(s, str(s.uuid()))
+
+        s = String("a633ce9c-bf50-9309-b9fa-3c9fb0735467")
+        self.assertEqual(s, str(s.uuid()))
+
 
 class NamingConventionTest(TestCase):
     def test_camelcase(self):

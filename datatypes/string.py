@@ -226,6 +226,25 @@ class String(Str, StringMixin):
             + "-" + h[20:]
         )
 
+    def uuid(self):
+        """Get the string value as a uuid
+
+        If the string isn't already a uuid then it will use `.md5_uuid()` to
+        turn self into a uuid
+
+        :returns: UUID
+        """
+        if len(self) == 36:
+            if re.match(r"^\w{8}-\w{4}-\w{4}-\w{4}-\w{12}", self):
+                try:
+                    return uuid.UUID(self)
+
+                except ValueError:
+                    # it looked like a UUID but didn't fully quack like one
+                    pass
+
+        return self.md5_uuid()
+
     def sha256(self):
         """64 character sh256 hash of the string"""
         return hashlib.sha256(self.bytes()).hexdigest()
