@@ -234,16 +234,14 @@ class String(Str, StringMixin):
 
         :returns: UUID
         """
-        if len(self) == 36:
-            if re.match(r"^\w{8}-\w{4}-\w{4}-\w{4}-\w{12}", self):
-                try:
-                    return uuid.UUID(self)
+        try:
+            r = uuid.UUID(self)
 
-                except ValueError:
-                    # it looked like a UUID but didn't fully quack like one
-                    pass
+        except ValueError:
+            # it looked like a UUID but didn't fully quack like one
+            r = self.md5_uuid()
 
-        return self.md5_uuid()
+        return r
 
     def sha256(self):
         """64 character sh256 hash of the string"""

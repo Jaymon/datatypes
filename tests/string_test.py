@@ -186,7 +186,7 @@ class StringTest(TestCase):
 
         self.assertEqual(s.md5(), "".join(uuid.split("-")))
 
-    def test_uuid(self):
+    def test_uuid_1(self):
         s = String("12345678-9abc-defg-hijk-lmnopqrstuvw")
         self.assertEqual(s.md5_uuid(), s.uuid())
 
@@ -195,6 +195,10 @@ class StringTest(TestCase):
 
         s = String("a633ce9c-bf50-9309-b9fa-3c9fb0735467")
         self.assertEqual(s, str(s.uuid()))
+
+    def test_uuid_2(self):
+        s = String("urn:uuid:5730e1fb-647d-4c7b-8f0d-04e70dc1682b")
+        self.assertEqual("5730e1fb-647d-4c7b-8f0d-04e70dc1682b", str(s.uuid()))
 
 
 class NamingConventionTest(TestCase):
