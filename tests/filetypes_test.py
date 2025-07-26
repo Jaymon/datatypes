@@ -5,12 +5,28 @@ from datatypes.filetypes.html import (
     HTML,
     HTMLCleaner,
     HTMLTagTokenizer,
+    HTMLTagParser,
 )
 from datatypes.filetypes.toml import (
     TOML,
 )
 
 from . import TestCase, testdata
+
+
+class HTMLTagParserTest(TestCase):
+    def test_empty_tag(self):
+        html = """
+            before
+            <img recindex="1"></img>
+            middle
+            <img recindex="2"></img>
+            end
+        """
+
+        parser = HTMLTagParser(["img"])
+        tags = parser.feed(html)
+        self.assertEqual(2, len(tags))
 
 
 class HTMLTest(TestCase):
@@ -197,6 +213,10 @@ class HTMLCleanerTest(TestCase):
 
 
 class HTMLTagTokenizerTest(TestCase):
+    def test_no_newlines(self):
+        html = HTML("<p class=\"one\">1 body</p><p class=\"two\">2 body</p>")
+        self.assertEqual(2, len(list(html.tags("p"))))
+
     def test_tags(self):
         html = HTML("""
             <p class="one">one body</p>

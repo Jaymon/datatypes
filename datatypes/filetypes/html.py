@@ -395,9 +395,9 @@ class HTMLTagParser(HTMLParser):
         # tag is found
         self.tag_stack = []
 
-        # once the tag stack is completely depleted the main tag is placed
+        # once the tag stack is completely depleted the main tag is appended
         # into this property, this is returned in `.feed()` and `.close()`
-        self.closed_tag = None
+        self.closed_tags = []
 
     def _include_tag(self, tagname, attrs) -> bool:
         """Returns True if tagname is one of the tags that should be parsed
@@ -415,22 +415,22 @@ class HTMLTagParser(HTMLParser):
             self.tag_stack[-1]["body"].append(tag)
 
         else:
-            self.closed_tag = tag
+            self.closed_tags.append(tag)
 
     def feed(self, data) -> dict|None:
         """This reaturns the tag info dict or None if no tag was found. this
         method is called in `HTMLTokenizer.next()`"""
-        self.closed_tag = None
+        self.closed_tags = []
 
         super().feed(data)
 
-        return self.closed_tag
+        return self.closed_tags
 
     def close(self) -> dict|None:
         """This reaturns the tag info dict or None if no straggler tag was
         found. this method is called in `HTMLTokenizer.next()` if the buffer
         is depleted"""
-        self.closed_tag = None
+        self.closed_tags = []
 
         super().close()
 
@@ -443,7 +443,7 @@ class HTMLTagParser(HTMLParser):
 
             self._add_tag(tag)
 
-        return self.closed_tag
+        return self.closed_tags
 
     def handle_starttag(self, tagname, attrs):
         """
@@ -606,6 +606,7 @@ class HTMLTagTokenizer(Tokenizer):
         super().__init__(buffer)
 
         self.parser = HTMLTagParser(tagnames=tagnames)
+        self.buffered_tags = []
 
     def create_token(self, taginfo):
         return self.token_class(self, taginfo)
@@ -613,18 +614,27 @@ class HTMLTagTokenizer(Tokenizer):
     def next(self):
         tag = None
 
-        # we keep reading chunks of buffer until the html parser returns
-        # something we can use
-        while tag is None:
-            if line := self.buffer.readline():
-                if taginfo := self.parser.feed(line):
-                    tag = self.create_token(taginfo)
+        if self.buffered_tags:
+            taginfo = self.buffered_tags.pop(0)
+            tag = self.create_token(taginfo)
 
-            else:
-                if taginfo := self.parser.close():
-                    tag = self.create_token(taginfo)
+        else:
+            # we keep reading chunks of buffer until the html parser returns
+            # something we can use
+            while tag is None:
+                if line := self.buffer.readline():
+                    if taginfos := self.parser.feed(line):
+                        self.buffered_tags.extend(taginfos)
+                        tag = self.next()
+                        #tag = self.create_token(taginfo)
 
-                break
+                else:
+                    if taginfos := self.parser.close():
+                        self.buffered_tags.extend(taginfos)
+                        #tag = self.create_token(taginfo)
+                        tag = self.next()
+
+                    break
 
         return tag
 
