@@ -620,3 +620,12 @@ class DatetimeTest(TestCase):
         useconds = d.isomicroseconds()[:-1]
         self.assertTrue(useconds.startswith(mseconds))
 
+    def test___init___keywords(self):
+        pt = 0x7FFFFFFF + 20
+        td = datetime.timedelta(seconds=pt)
+        dt1 = datetime.datetime(year=1904, month=1, day=1) + td
+        dt2 = Datetime(year=1904, month=1, day=1, seconds=pt)
+        dt3 = Datetime(year=1904, month=1, day=1) + td
+        self.assertTrue(dt1.date() == dt2.date() == dt3.date())
+        self.assertEqual(dt1, dt2.datetime().replace(tzinfo=None))
+

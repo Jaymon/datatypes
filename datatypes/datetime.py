@@ -258,8 +258,21 @@ class Datetime(datetime.datetime):
             if tzinfo := kwargs.pop("tzinfo", None):
                 replace_kwargs["tzinfo"] = tzinfo
 
-        if not args and "now" in kwargs:
-            args = [kwargs.pop("now")]
+        if not args:
+            if "now" in kwargs:
+                args = [kwargs.pop("now")]
+
+            elif (
+                "year" in replace_kwargs
+                and "month" in replace_kwargs
+                and "day" in replace_kwargs
+            ):
+                # these are the minimum args needed
+                args = [
+                    replace_kwargs.pop("year"),
+                    replace_kwargs.pop("month"),
+                    replace_kwargs.pop("day"),
+                ]
 
         return args, replace_kwargs, timedelta_kwargs
 
@@ -421,7 +434,6 @@ class Datetime(datetime.datetime):
             instance = super().__new__(cls, *args, **replace_kwargs)
             replace_kwargs = {} # we've consumed them
 
-        #instance = instance.replace_timedelta(**kw)
         if replace_kwargs or timedelta_kwargs:
             instance = instance.replace(**replace_kwargs, **timedelta_kwargs)
 
@@ -610,8 +622,8 @@ class Datetime(datetime.datetime):
 
         This is based on Plancast's Formatting.php timeSince method
 
-        NOTE -- this can drift since it uses 30 days for the months, you can
-        see this by doing:
+        .. note:: this can drift since it uses 30 days for the months, you can
+            see this by doing:
 
             d = Datetime(months=-5, days=-3)
             d.since(now=Datetime(month=8, day=1, year=2023)) # 5 months, 6 days
