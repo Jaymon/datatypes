@@ -241,7 +241,8 @@ class Event(object):
         # this isn't really a decorator, but decorators need to return a
         # callable that takes the wrapped callable, so this does that and
         # the wrap function gets called right away and binds the wrapped
-        # callable to the event names and then returns the callable
+        # callable to the event names and then returns the callable so it
+        # doesn't actually wrap the callback
         def wrap(callback):
             for en in event_names:
                 self.bind(en, callback)
