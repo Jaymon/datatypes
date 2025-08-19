@@ -11,6 +11,115 @@ from ..token import Token, Tokenizer, Scanner
 
 class HTML(String):
     """Adds HTML specific methods on top of the String class"""
+
+    # https://developer.mozilla.org/en-US/docs/Glossary/Void_element
+    # https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
+    # void, or empty, elements are elements that don't have a body
+    VOID_TAGNAMES = set([
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "keygen",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    ])
+
+    # https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
+    # https://www.w3schools.com/html/html_blocks.asp
+    BLOCK_TAGNAMES = set([
+        "article",
+        "aside",
+        "blockquote",
+        "body",
+        "br",
+        "button",
+        "canvas",
+        "caption",
+        "col",
+        "colgroup",
+        "dd",
+        "div",
+        "dl",
+        "dt",
+        "embed",
+        "fieldset",
+        "figcaption",
+        "figure",
+        "footer",
+        "form",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "header",
+        "hgroup",
+        "hr",
+        "li",
+        "map",
+        "object",
+        "ol",
+        "output",
+        "p",
+        "pre",
+        "progress",
+        "section",
+        "table",
+        "tbody",
+        "textarea",
+        "tfoot",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+        "video",
+    ])
+
+    # https://www.w3schools.com/html/html_blocks.asp
+    # NOTE: an inline element cannot contain a block-level element
+    INLINE_TAGNAMES = set([
+        "a",
+        "abbr",
+        "acronym",
+        "b",
+        "bdo",
+        "big",
+        "cite",
+        "code",
+        "dfn",
+        "em",
+        "i",
+        "img",
+        "input",
+        "kbd",
+        "label",
+        "map",
+        "object",
+        "output",
+        "q",
+        "samp",
+        "script",
+        "select",
+        "small",
+        "span",
+        "strong",
+        "sub",
+        "sup",
+        "time",
+        "tt",
+        "var",
+    ])
+
     def plain(self, **kwargs):
         hc = kwargs.pop("cleaner_class", HTMLCleaner)(**kwargs)
         return hc.feed(self)
@@ -90,66 +199,6 @@ class HTML(String):
 
 class HTMLParser(HTMLParser):
     """Internal parent class. Used by other more specialized HTML parsers"""
-
-    # https://developer.mozilla.org/en-US/docs/Glossary/Empty_element
-    EMPTY_TAGNAMES = set([
-        "area",
-        "base",
-        "br",
-        "col",
-        "embed",
-        "hr",
-        "img",
-        "input",
-        "keygen",
-        "link",
-        "meta",
-        "param",
-        "source",
-        "track",
-        "wbr",
-    ])
-
-    # https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
-    BLOCK_TAGNAMES = set([
-        "address",
-        "article",
-        "aside",
-        "blockquote",
-        "br",
-        "canvas",
-        "dd",
-        "div",
-        "dl",
-        "fieldset", 
-        "figcaption",
-        "figure",
-        "footer",
-        "form",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "header", 
-        "hgroup", 
-        "hr",
-        "li",
-        "main",
-        "nav",
-        "noscript",
-        "ol",
-        "output",
-        "p",
-        "pre",
-        "section",
-        "table",
-        "tfoot",
-        "ul",
-        "video",
-    ])
-
     def _normalize_tagnames(self, tagnames) -> set[str]:
         tnames = set()
 
@@ -355,7 +404,7 @@ class HTMLCleaner(HTMLParser):
                 self.cleaned_html += f"</{tagname}>"
 
             else:
-                if tagname in self.BLOCK_TAGNAMES:
+                if tagname in HTML.BLOCK_TAGNAMES:
                     self.cleaned_html += self.block_sep
 
                 else:
@@ -466,7 +515,7 @@ class HTMLTagParser(HTMLParser):
             "start_line": start_line,
         }
 
-        if tagname in self.EMPTY_TAGNAMES:
+        if tagname in HTML.VOID_TAGNAMES:
             tag["stop"] = start_ch
             tag["stop_line"] = start_line
             self._add_tag(tag)
