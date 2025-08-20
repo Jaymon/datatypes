@@ -63,7 +63,7 @@ from .enum import (
     Enum,
 )
 from .event import (
-    Event,
+    Events,
 )
 from .filetypes import (
     HTML,

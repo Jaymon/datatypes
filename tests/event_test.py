@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from datatypes.compat import *
-from datatypes.event import Event
+from datatypes.event import Events
 from . import TestCase
 
 
-class EventTest(TestCase):
+class EventsTest(TestCase):
     def test_push_and_bind(self):
-        ev = Event()
+        ev = Events()
 
         @ev("push_and_bind")
         def push1(event):
@@ -29,7 +29,7 @@ class EventTest(TestCase):
         self.assertEqual("2123", r2.text)
 
     def test_broadcast(self):
-        ev = Event()
+        ev = Events()
 
         r = ev.broadcast("foo", count=0)
         self.assertEqual(0, r.count)
@@ -45,7 +45,7 @@ class EventTest(TestCase):
         self.assertEqual(2, r.count)
 
     def test_once(self):
-        ev = Event()
+        ev = Events()
 
         @ev("once")
         def once1(event):
@@ -81,4 +81,17 @@ class EventTest(TestCase):
             ev.once("once")
         logs = "\n".join(c[1])
         self.assertTrue("ignored" in logs)
+
+    def test_bound_params(self):
+        ev = Events()
+
+        @ev("foo")
+        def once1(event):
+            event.foo
+
+        with ev.bound_params(foo=1):
+            ev.broadcast("foo")
+
+        with self.assertRaises(AttributeError):
+            ev.broadcast("foo")
 

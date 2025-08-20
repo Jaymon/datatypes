@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from collections import defaultdict
+from contextlib import contextmanager
 
 from .compat import *
 
@@ -8,7 +9,7 @@ from .compat import *
 logger = logging.getLogger(__name__)
 
 
-class BroadcastEvent(object):
+class Event(object):
     """An instance of this class is passed as the first argument to any
     callback when an event is broadcast"""
     def __init__(self, event, event_name, **kwargs):
@@ -37,7 +38,7 @@ class BroadcastEvent(object):
         return getattr(self, name, default)
 
 
-class Event(object):
+class Events(object):
     """The main interface for interacting with events
 
     you add events with .bind() and run events using either .broadcast() or
@@ -45,26 +46,38 @@ class Event(object):
 
     Moved from bang.event.Events on 1-18-2023
 
-    :Example:
-        event = Event()
+    :example:
+        events = Events()
 
         # bind a callable to an event using the `.bind` method
 
         def callback1(bc_event):
             # every callback takes a BroadbacastEvent instance
             pass
-        event.bind("EVENT_NAME", callback1)
+        events.bind("EVENT_NAME", callback1)
 
         # bind a callable to an event using decorator syntax
 
-        @event("EVENT_NAME")
+        @events("EVENT_NAME")
         def callback2(bc_event):
             pass
 
-        event.broadcast("EVENT_NAME", foo=1)
+        events.broadcast("EVENT_NAME", foo=1)
         # `foo` will be accessible in the bound callables through `event.foo`
+
+        # bind param for one broadcast
+        with events.bound_params(foo=1):
+            events.broadcast("EVENT_NAME")
+
+        # manipulate a value and get it back
+        @events("EVENT_NAME")
+        def callback3(event):
+            event.bar += 1
+
+        event = events.broadcast("EVENT_NAME", bar=1)
+        print(event.bar) # 2
     """
-    broadcast_class = BroadcastEvent
+    event_class = Event
 
     def __init__(self):
         self.reset()
@@ -78,7 +91,7 @@ class Event(object):
         """
         # these are populated through .bind_event_params and will be present
         # in all events
-        self.event_kwargs = {}
+        self.event_params = {}
 
         # this will hold any callbacks bound to an event_name through .bind
         self.bound = defaultdict(list)
@@ -91,11 +104,11 @@ class Event(object):
         # broadcast through the .once() method
         self.onced = defaultdict(list)
 
-    def create_broadcast_event(self, event_name, **kwargs):
-        return self.broadcast_class(
+    def create_event(self, event_name, **kwargs):
+        return self.event_class(
             self,
             event_name,
-            **self.event_kwargs,
+            **self.event_params,
             **kwargs
         )
 
@@ -145,7 +158,7 @@ class Event(object):
             instance passed to the callbacks
         :returns: BroadcastEvent, the ran Event instance
         """
-        event = self.create_broadcast_event(event_name, **kwargs)
+        event = self.create_event(event_name, **kwargs)
         callbacks = self.bound.get(event_name, [])
         if len(callbacks) > 0:
             logger.info("Event [{}] broadcasting to {} callbacks".format(
@@ -154,14 +167,14 @@ class Event(object):
             ))
 
             for callback in callbacks:
-                self.run(event, callback)
+                self.emit(event, callback)
 
         else:
             logger.debug("Event [{}] ignored".format(event_name))
 
         return event
 
-    def run(self, event, callback):
+    def emit(self, event, callback):
         """Internal method used by .broadcast, etc.. Runs callback with the
         event instance
 
@@ -212,42 +225,75 @@ class Event(object):
                 )
             )
             for event in self.pushed[event_name]:
-                self.run(event, callback)
+                self.emit(event, callback)
 
-    def bind_event_params(self, **kwargs):
-        """Anything you pass into this will be passed to every event
+    def bind_params(self, **kwargs):
+        """Anything you pass into this will be passed to every event in
+        this instance
 
-        :Example:
-            event = Event()
-            event.bind_event_params(foo=1)
+        :example:
+            events = Events()
+            events.bind_event_params(foo=1)
 
-            @event("<EVENT-NAME>")
+            @events("<EVENT-NAME>")
             def event_handler(event):
                 print(event.foo) # 1
         """
-        self.event_kwargs.update(kwargs)
+        self.event_params.update(kwargs)
+    bind_event_params = bind_params # deprecated name
+
+    @contextmanager
+    def bound_params(self, **kwargs):
+        """Temporar bind params to the events while in this context
+
+        :example:
+            events = Events()
+
+            @events("<EVENT-NAME>")
+            def event_handler(event):
+                print(event.foo)
+
+            with events.bound_params(foo=1):
+                events.broadcast("<EVENT-NAME>") # event.foo=1
+
+            events.broadcast("<EVENT-NAME>") # event.foo does not exist
+        """
+        try:
+            self.bind_params(**kwargs)
+            yield self
+
+        finally:
+            self.unbind_params(*kwargs.keys())
+
+    def unbind_params(self, *keys):
+        """Remove instance bound params from the global event params
+
+        :argument *keys: str, one or more key names to remove
+        """
+        for key in keys:
+            self.event_params.pop(key, None)
 
     def __call__(self, *event_names):
         """decorator that wraps the bind() method to make it easier to bind
         functions to an event
 
-        :Example:
-            event = Event()
+        :example:
+            event = Events()
 
-            @event("event_name")
+            @events("event_name")
             def callback(event):
                 pass
         """
         # this isn't really a decorator, but decorators need to return a
         # callable that takes the wrapped callable, so this does that and
         # the wrap function gets called right away and binds the wrapped
-        # callable to the event names and then returns the callable so it
+        # callable to the event names and then returns the raw callable so it
         # doesn't actually wrap the callback
-        def wrap(callback):
+        def bind_to_callable(callback):
             for en in event_names:
                 self.bind(en, callback)
 
             return callback
 
-        return wrap
+        return bind_to_callable
 
