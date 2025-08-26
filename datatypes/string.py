@@ -196,7 +196,10 @@ class String(Str, StringMixin):
         return self
 
     def bytes(self):
-        s = self.encode(self.encoding)
+        # sometimes, string subclasses will customize `.encoding` so it's
+        # better to use the actual `str.encode` method instead of relying
+        # on the child to be a good citizen
+        s = super().encode(self.encoding)
         return ByteString(s, self.encoding, self.errors)
 
     def raw(self):
@@ -1025,16 +1028,12 @@ class Character(String):
 
     def repr_bytes(self):
         ret = ""
-        if is_py2:
-            for cp in self.encode(self.encoding):
-                ret += "\\x{:0>2x}".format(ord(cp))
 
-        else:
-            # and to think I thought I was starting to understand unicode!
-            # https://stackoverflow.com/a/54549874/5006
-            s = self.encode("utf-16", "surrogatepass").decode("utf-16")
-            for cp in s.encode(self.encoding):
-                ret += "\\x{:0>2x}".format(cp)
+        # and to think I thought I was starting to understand unicode!
+        # https://stackoverflow.com/a/54549874/5006
+        s = super().encode("utf-16", "surrogatepass").decode("utf-16")
+        for cp in s.encode(self.encoding):
+            ret += "\\x{:0>2x}".format(cp)
 
         return ret
 
@@ -1166,7 +1165,7 @@ class Codepoint(String):
         else:
             raise ValueError("codepoint is bigger than 8")
 
-        instance = super(Codepoint, cls).__new__(cls, s)
+        instance = super().__new__(cls, s)
         instance.hex = h
         return instance
 
@@ -1193,7 +1192,7 @@ class Codepoint(String):
 
     def repr_bytes(self):
         ret = ""
-        for cp in self.encode(self.encoding):
+        for cp in super().encode(self.encoding):
             ret += "\\x{:0>2x}".format(ord(cp))
         return ret
 
