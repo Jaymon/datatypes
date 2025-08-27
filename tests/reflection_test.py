@@ -660,33 +660,33 @@ class ReflectNameTest(TestCase):
 
 
 class ReflectTypeTest(TestCase):
-    def test_reflect_actionable_types_1(self):
+    def test_reflect_cast_types_1(self):
         rt = ReflectType(str)
-        rts = list(rt.reflect_actionable_types())
+        rts = list(rt.reflect_cast_types())
         self.assertEqual(1, len(rts))
         self.assertTrue(rts[0].is_str())
 
         rt = ReflectType(str|list[int]|float|None)
-        rts = list(rt.reflect_actionable_types())
+        rts = list(rt.reflect_cast_types())
         self.assertEqual(3, len(rts))
         self.assertTrue(rts[1].is_list())
 
         rt = ReflectType(tuple[int, ...])
 
-        rts = list(rt.reflect_actionable_types())
+        rts = list(rt.reflect_cast_types())
         self.assertEqual(1, len(rts))
         self.assertTrue(rts[0].is_tuple())
 
-        rts = list(rt.reflect_actionable_types(depth=-1))
+        rts = list(rt.reflect_cast_types(depth=-1))
         self.assertEqual(2, len(rts))
         self.assertTrue(rts[0].is_tuple())
         self.assertTrue(rts[1].is_int())
 
         rt = ReflectType(list[int|float])
-        types = tuple(rt.get_actionable_types(depth=-1))
-        self.assertEqual(3, len(types))
-        self.assertEqual(int, types[1])
-        self.assertEqual(float, types[2])
+        rts = tuple(rt.reflect_cast_types(depth=-1))
+        self.assertEqual(3, len(rts))
+        self.assertTrue(rts[1].is_int())
+        self.assertTrue(rts[2].is_float())
 
     def test_get_origin_type(self):
         rt = ReflectType(str)
@@ -741,7 +741,8 @@ class ReflectTypeTest(TestCase):
 
     def test_any_type(self):
         rt = ReflectType(list[Any])
-        rts = list(rt.reflect_actionable_types(depth=-1))
+        rts = list(rt.reflect_types(depth=1))
+
         self.assertEqual(1, len(rts))
         self.assertTrue(rts[0].is_list())
         self.assertEqual([Any], list(rt.get_arg_types()))
@@ -769,6 +770,10 @@ class ReflectTypeTest(TestCase):
         self.assertFalse(rt.is_dictish())
         self.assertFalse(rt.is_stringish())
         self.assertFalse(rt.is_any())
+
+    def test_str_type(self):
+        rt = ReflectType(str)
+        self.assertTrue(rt.is_str())
 
     def test_get_key_types(self):
         rt = ReflectType(dict[str, int])
@@ -908,16 +913,6 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(...)
         self.assertTrue(rt.is_ellipsis())
 
-    def test_is_actionable(self):
-        rt = ReflectType(...)
-        self.assertFalse(rt.is_actionable())
-
-        rt = ReflectType(Any)
-        self.assertFalse(rt.is_actionable())
-
-        rt = ReflectType(str)
-        self.assertTrue(rt.is_actionable())
-
     def test_reflect_types_1(self):
         rt = ReflectType(dict[str, int])
         rts = list(rt.reflect_types())
@@ -936,11 +931,31 @@ class ReflectTypeTest(TestCase):
         rts = list(rt.reflect_types(depth=-1))
         self.assertEqual(5, len(rts)) # dict[...], list[...]
 
-    def test_reflect_types_annotated(self):
+    def test_reflect_types_annotated_1(self):
         rt = ReflectType(Annotated[int|float|str, None])
-        rts = list(rt.reflect_types())
+        rts = list(rt.reflect_arg_types())
         self.assertEqual(3, len(rts))
         self.assertTrue(rts[0].is_int())
+
+    def test_reflect_types_annotated_2(self):
+        rt = ReflectType(Annotated[int|str, None])
+        self.assertTrue(rt.is_union())
+        self.assertTrue(rt.is_annotated())
+
+        rts = list(rt.reflect_types(depth=-1))
+        self.assertEqual(3, len(rts))
+        self.assertTrue(rts[0].is_annotated())
+        self.assertTrue(rts[1].is_int())
+        self.assertTrue(rts[2].is_str())
+
+    def test_reflect_types_2(self):
+        rt = ReflectType(
+            Annotated[str, "foo"]|Annotated[int|None, "bar"]
+        )
+        rts = list(rt.reflect_types(depth=1))
+        self.assertEqual(2, len(rts))
+        self.assertEqual("foo", list(rts[0].get_metadata())[0])
+        self.assertEqual("bar", list(rts[1].get_metadata())[0])
 
     def test_literal(self):
         t = Literal["a", "b", "c"]

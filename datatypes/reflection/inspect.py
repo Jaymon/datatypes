@@ -297,19 +297,29 @@ class ReflectType(ReflectObject):
     `dict`, and the value types would be `[int]`, the key types would be
     `[str]`. The arg types would be `[str, int]`
 
-    You have to be careful with encompassing types, since they can identify
-    as any of their sub types
+    .. note:: You have to be careful with encompassing types, since they can
+        identify as any of their sub types
 
-    :example:
-        rt = ReflectType(str|int)
-        rt.is_int() # True
-        rt.is_str() # True
-        rt.is_union() # True
+        :example:
+            rt = ReflectType(str|int)
+            rt.is_int() # True
+            rt.is_str() # True
+            rt.is_union() # True
 
-        rt = ReflectType(Annotated[str|int, None])
-        rt.is_union() # True
-        rt.is_str() # True
-        rt.is_annotated() # True
+            rt = ReflectType(Annotated[str|int, None])
+            rt.is_union() # True
+            rt.is_str() # True
+            rt.is_annotated() # True
+
+    .. note:: Annotations seem to be internally cached by python and so you
+        can get different results with things like
+
+        :example:
+            rt1 = ReflectType(Annotated[str|int, None])
+
+            # this one can switch `int|str` to `str|int` since it pulls the
+            # type from cache since it matches its heuristic
+            rt2 = ReflectType(Annotated[int|str, None])
 
     https://docs.python.org/3/library/typing.html
     https://docs.python.org/3/library/collections.abc.html
@@ -323,9 +333,8 @@ class ReflectType(ReflectObject):
         :returns: generator[ReflectType]
         """
         if self.is_annotated():
-            for rt in self.reflect_arg_types(depth=depth):
-                yield from rt.reflect_types(depth=depth)
-                break
+            yield self
+            yield from self.reflect_arg_types(depth=depth)
 
         elif self.is_union():
             yield from self.reflect_arg_types(depth=depth)
@@ -340,6 +349,11 @@ class ReflectType(ReflectObject):
             # the previous type
             pass
 
+#         elif self.is_annotated():
+#             for rt in self.reflect_arg_types(depth=depth):
+#                 yield from rt.reflect_types(depth=depth)
+#                 break
+
         else:
             yield self
             yield from self.reflect_arg_types(depth=depth-1)
@@ -349,6 +363,108 @@ class ReflectType(ReflectObject):
         type"""
         for rt in self.reflect_types(depth=depth):
             yield rt.get_origin_type()
+
+    def reflect_arg_types(self, depth=-1):
+        targets = []
+        prt = self
+
+        while depth < 0 or depth > 0:
+            depth = depth - 1
+
+            for at in prt.get_args():
+                rt = self.create_reflect_type(at)
+                targets.append((depth, rt))
+                if rt.is_union():
+                    if depth == 0:
+                        # we only yield unions if we are at the end, if we
+                        # aren't then they will get yielded when they are
+                        # split apart
+                        yield rt
+
+                else:
+                    yield rt
+
+                if prt.is_annotated():
+                    # only the first arg is a type in an Annotated
+                    break
+
+            if targets:
+                depth, prt = targets.pop(0)
+
+            else:
+                break
+
+#     def xreflect_arg_types(self, depth=-1):
+#         target = self.get_target()
+#         targets = []
+# 
+#         # certain types should only include certain arguments when
+#         # iterating their types
+#         indexes = set()
+#         if self.is_annotated():
+#             indexes.add(0)
+# 
+#         while depth < 0 or depth > 0:
+#             depth = depth - 1
+# 
+#             for i, at in enumerate(get_args(target)):
+#                 pout.v(i, at, indexes, depth)
+#                 if i not in indexes:
+#                     continue
+# 
+#                 targets.append((depth, at))
+#                 rt = self.create_reflect_type(at)
+#                 if rt.is_union():
+#                     if depth == 0:
+#                         # we only yield unions if we are at the end, if we
+#                         # aren't then they will get yielded when they are
+#                         # split apart
+#                         yield rt
+# 
+#                 else:
+#                     yield rt
+# 
+#             if targets:
+#                 depth, target = targets.pop(0)
+# 
+#             else:
+#                 break
+
+    def get_arg_types(self, depth=-1):
+        """Get the raw types of .target's args (eg, the types wrapped in the
+        [] of the type (eg, dict[str, int] would yield str and int))
+
+        :example:
+            rt = ReflectType(dict[str, int|bool])
+            list(rt.get_arg_types) # [str, int, bool]
+
+        :returns: generator[type]
+        """
+        for rt in self.reflect_arg_types(depth=depth):
+            yield rt.get_origin_type()
+
+    def reflect_cast_types(self, depth=1):
+        """Yields all the arg types that are considered castable
+
+        :example:
+            rt = ReflectType(Any)
+            list(rt.reflect_cast_types()) # []
+
+            rt = ReflectType(str|list[int])
+            list(rt.reflect_cast_types()) # [str, list[int]]
+            list(rt.reflect_cast_types(depth=-1)) # [str, list[int], int]
+
+        :returns: Generator[ReflectType]
+        """
+        if self.is_annotated():
+            for rt in self.reflect_arg_types(depth=depth):
+                if rt.is_castable():
+                    yield rt
+
+        else:
+            for rt in self.reflect_types(depth=depth):
+                if rt.is_castable():
+                    yield rt
 
     def reflect_key_types(self):
         """Reflect the types for the key types in a mapping
@@ -489,70 +605,6 @@ class ReflectType(ReflectObject):
         for t in self.get_args():
             yield self.create_reflect_type(t)
 
-    def reflect_arg_types(self, depth=-1):
-        target = self.get_target()
-        targets = []
-
-        while depth < 0 or depth > 0:
-            depth = depth - 1
-
-            for at in get_args(target):
-                targets.append((depth, at))
-                rt = self.create_reflect_type(at)
-                if rt.is_union():
-                    if depth == 0:
-                        # we only yield unions if we are at the end, if we
-                        # aren't then they will get yielded when they are
-                        # split apart
-                        yield rt
-
-                else:
-                    yield rt
-
-            if targets:
-                depth, target = targets.pop(0)
-
-            else:
-                break
-
-    def get_arg_types(self, depth=-1):
-        """Get the raw types of .target's args (eg, the types wrapped in the
-        [] of the type (eg, dict[str, int] would yield str and int))
-
-        :example:
-            rt = ReflectType(dict[str, int|bool])
-            list(rt.get_arg_types) # [str, int, bool]
-
-        :returns: generator[type]
-        """
-        for rt in self.reflect_arg_types(depth=depth):
-            yield rt.get_origin_type()
-
-    def reflect_actionable_types(self, depth=1):
-        """Yields all the arg types that are considered actionable
-
-        :example:
-            rt = ReflectType(Any)
-            list(rt.reflect_actionable_types()) # []
-
-            rt = ReflectType(str|list[int])
-            list(rt.reflect_actionable_types()) # [str, list[int]]
-            list(rt.reflect_actionable_types(depth=-1)) # [str, list[int], int]
-
-        :returns: Generator[ReflectType]
-        """
-        for rt in self.reflect_types(depth=depth):
-            if rt.is_actionable():
-                yield rt
-
-    def get_actionable_types(self, depth=1):
-        """Yields all the raw types that are considered actionable
-
-        :returns: Generator[type]
-        """
-        for rt in self.reflect_actionable_types(depth=depth):
-            yield rt.get_origin_type()
-
     def get_metadata(self):
         """Returns the annotated metadata.
 
@@ -569,6 +621,209 @@ class ReflectType(ReflectObject):
                 if i > 0:
                     yield arg
 
+    def get_metadata_info(self) -> dict:
+        """Normalize the metadata to positionals and keywords for easier
+        processing"""
+        info = {
+            "positionals": [],
+            "keywords": {},
+        }
+        for arg in self.get_metadata():
+            if isinstance(arg, Mapping):
+                info["keywords"].update(arg)
+
+            else:
+                info["positionals"].append(arg)
+
+        return info
+
+#     def is_type(self, haystack) -> bool:
+#         """Returns True if .target's origin type is in haystack
+# 
+#         https://docs.python.org/3/library/functions.html#issubclass
+# 
+#         :param haystack: type|UnionType|tuple[type, ...]
+#         :returns: bool
+#         """
+#         ret = False
+#         check_subtypes = False
+#         needle = self.get_origin_type()
+# 
+#         pout.v(needle, haystack)
+# 
+#         if needle is None or needle is Optional:
+#             ret = haystack is None
+# 
+#         elif needle is Any:
+#             ret = haystack is Any
+# 
+#         if not ret:
+#             if haystack is Union or haystack is types.UnionType:
+#                 ret = (
+#                     needle is Union
+#                     or self._is_subclass(needle, types.UnionType)
+#                 )
+# 
+#             elif haystack is Annotated:
+#                 ret = needle is Annotated
+# 
+#             else:
+#                 check_subtypes = True
+# 
+# #             if needle is Union or self._is_subclass(needle, types.UnionType):
+# #                 ret = haystack is Union or haystack is types.UnionType
+# #                 check_subtypes = not ret
+# # 
+# #         if not ret:
+# #             if needle is Annotated:
+# #                 ret = haystack is Annotated
+# #                 check_subtypes = not ret
+# 
+#         if not ret:
+#             if check_subtypes:
+#                 # if we make it to here we need to check all the arg types and see
+#                 # if they match because we're dealing with a wrapper type that wraps
+#                 # other types
+#                 for rt in self.reflect_arg_types(depth=1):
+#                     if rt.is_type(haystack):
+#                         ret = True
+#                         break
+# 
+#             else:
+#                 if haystack is None:
+#                     if needle is None:
+#                         ret = True
+# 
+#                     else:
+#                         if isinstance(needle, type):
+#                             ret = isinstance(None, needle)
+# 
+#                 elif haystack is Any:
+#                     ret = needle is Any
+# 
+#                 else:
+#                     ret = self._is_subclass(needle, haystack)
+# 
+# #         if not ret and check_subtypes:
+# #             # if we make it to here we need to check all the arg types and see
+# #             # if they match because we're dealing with a wrapper type that wraps
+# #             # other types
+# #             for rt in self.reflect_arg_types(depth=1):
+# #                 if rt.is_type(haystack):
+# #                     ret = True
+# #                     break
+# 
+#         return ret
+
+#     def is_type(self, haystack) -> bool:
+#         """Returns True if .target's origin type is in haystack
+# 
+#         https://docs.python.org/3/library/functions.html#issubclass
+# 
+#         :param haystack: type|UnionType|tuple[type, ...]
+#         :returns: bool
+#         """
+#         needle = self.get_origin_type()
+# 
+#         #pout.v(needle, haystack)
+# 
+#         if needle is None or needle is Optional:
+#             return haystack is None
+# 
+#         elif needle is Any:
+#             return haystack is Any
+# 
+#         elif needle is Union or self._is_subclass(needle, types.UnionType):
+#             if haystack is Union or haystack is types.UnionType:
+#                 return True
+# 
+#             else:
+#                 for rt in self.reflect_arg_types(depth=1):
+#                     if rt.is_type(haystack):
+#                         return True
+# 
+#                 return False
+# 
+#         elif needle is Annotated:
+#             if haystack is Annotated:
+#                 return True
+# 
+#             else:
+#                 for rt in self.reflect_arg_types(depth=1):
+#                     if rt.is_type(haystack):
+#                         return True
+# 
+#             return False
+# 
+#         else:
+#             if haystack is None:
+#                 if needle is None:
+#                     return True
+# 
+#                 else:
+#                     if isinstance(needle, type):
+#                         return isinstance(None, needle)
+# 
+#             elif haystack is Any:
+#                 return needle is Any
+# 
+#             else:
+#                 return self._is_subclass(needle, haystack)
+
+#     def is_type(self, haystack) -> bool:
+#         """Returns True if .target's origin type is in haystack
+# 
+#         https://docs.python.org/3/library/functions.html#issubclass
+# 
+#         :param haystack: type|UnionType|tuple[type, ...]
+#         :returns: bool
+#         """
+#         needle = self.get_origin_type()
+# 
+#         #pout.v(needle, haystack)
+# 
+#         def is_subtypes(haystack):
+#             for rt in self.reflect_arg_types(depth=1):
+#                 if rt.is_type(haystack):
+#                     return True
+# 
+#             return False
+# 
+#         if haystack is None:
+#             return needle is None or needle is Optional
+# 
+#         elif haystack is Any:
+#             return needle is Any
+# 
+#         elif haystack is Union or haystack is types.UnionType:
+#             if needle is Union or self._is_subclass(needle, types.UnionType):
+#                 return True
+# 
+#             else:
+#                 return is_subtypes(haystack)
+# 
+#         elif haystack is Annotated:
+#             if needle is Annotated:
+#                 return True
+# 
+#             else:
+#                 return is_subtypes(haystack)
+# 
+#         else:
+#             if haystack is None:
+#                 if needle is None:
+#                     return True
+# 
+#                 else:
+#                     if isinstance(needle, type):
+#                         return isinstance(None, needle)
+# 
+#             elif haystack is Any:
+#                 return needle is Any
+# 
+#             else:
+#                 return self._is_subclass(needle, haystack)
+
     def is_type(self, haystack) -> bool:
         """Returns True if .target's origin type is in haystack
 
@@ -581,6 +836,13 @@ class ReflectType(ReflectObject):
 
         #pout.v(needle, haystack)
 
+        def is_subtype(haystack):
+            for rt in self.reflect_arg_types(depth=1):
+                if rt.is_type(haystack):
+                    return True
+
+            return False
+
         if needle is None or needle is Optional:
             return haystack is None
 
@@ -591,23 +853,18 @@ class ReflectType(ReflectObject):
             if haystack is Union or haystack is types.UnionType:
                 return True
 
-            else:
-                for rt in self.reflect_arg_types(depth=1):
-                    if rt.is_type(haystack):
-                        return True
-
+            elif haystack is Annotated:
                 return False
+
+            else:
+                return is_subtype(haystack)
 
         elif needle is Annotated:
             if haystack is Annotated:
                 return True
 
             else:
-                for rt in self.reflect_arg_types(depth=1):
-                    if rt.is_type(haystack):
-                        return True
-
-            return False
+                return is_subtype(haystack)
 
         else:
             if haystack is None:
@@ -783,17 +1040,6 @@ class ReflectType(ReflectObject):
             or self.is_bool()
         )
 
-    def is_actionable(self) -> bool:
-        """Returns True if this type is an actionable type that can be used
-        for some type of comparison
-        """
-        return (
-            not self.is_any()
-            and not self.is_none()
-            and not self.is_ellipsis()
-            and not self.is_annotated()
-        )
-
     def is_literal(self) -> bool:
         """Returns true if this is a literal type containing literal values
 
@@ -809,6 +1055,17 @@ class ReflectType(ReflectObject):
         https://docs.python.org/3/library/typing.html#typing.Annotated
         """
         return self.is_type(Annotated)
+
+    def is_castable(self) -> bool:
+        """Returns True if this type is a castable type, meaning `self.cast`
+        could work
+        """
+        return (
+            not self.is_any()
+            and not self.is_none()
+            and not self.is_ellipsis()
+            and not self.is_annotated()
+        )
 
     def __instancecheck__(self, instance):
         """Returns True if instance is an instance of .target
@@ -877,10 +1134,10 @@ class ReflectType(ReflectObject):
         else:
             # we reflect all the actionable types to break apart special types
             # like Union or Annotated
-            for rt in self.reflect_actionable_types(depth=1):
+            for rt in self.reflect_cast_types(depth=1):
                 # broken special types can then have their types used
                 # for casting
-                for t in rt.get_actionable_types(depth=1):
+                for t in rt.get_types(depth=1):
                     try:
                         r = t(value)
 
