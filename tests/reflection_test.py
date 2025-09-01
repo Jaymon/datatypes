@@ -24,12 +24,6 @@ from . import TestCase, testdata
 
 
 class OrderedSubclassesTest(TestCase):
-    """
-    NOTE -- I've learned that this is now an incredibly difficult class to test
-    because it is a vital class to testdata, so if it starts failing then you
-    can't even get to the test because testdata will raise an error as it
-    starts up
-    """
     def test_edges_1(self):
         class Base(object): pass
         class Foo(Base): pass
@@ -349,6 +343,11 @@ class ClasspathFinderTest(TestCase):
 
 
 class ClassFinderTest(TestCase):
+    """
+    .. note:: This is an incredibly difficult class to test because it is a vital
+    class to testdata, so if it starts failing then you can't even get to the
+    test because testdata will raise an error as it starts up
+    """
     def test_add_class(self):
         classes = self.create_module_classes("""
             class GGP(object): pass
@@ -416,6 +415,51 @@ class ClassFinderTest(TestCase):
         acs = list(cf.get_abs_classes(classes["GGC221"]))
         self.assertEqual(1, len(acs))
         self.assertTrue(classes["GGC221"] in acs)
+
+    def test_delete_class(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+        """)
+
+        cf = ClassFinder()
+        cf.add_classes(classes.values())
+
+        cf.delete_class(classes["C1"])
+
+        with self.assertRaises(KeyError):
+            cf.delete_class(classes["C1"])
+
+        with self.assertRaises(TypeError):
+            cf.delete_class(classes["P"])
+
+    def test_delete_mro(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class GGP2(object): pass
+        """)
+
+        cf = ClassFinder()
+        cf.add_classes(classes.values())
+        self.assertEqual(2, len(cf.find_class_node(object)))
+
+        cf.delete_mro(classes["P"])
+        self.assertEqual(1, len(cf.find_class_node(object)))
+
+        cf = ClassFinder()
+        classes.pop("GGP2")
+        cf.add_classes(classes.values())
+        self.assertEqual(2, len(cf.find_class_node(classes["P"])))
+
+        cf.delete_mro(classes["C2"])
+        self.assertEqual(1, len(cf.find_class_node(classes["P"])))
 
 
 class ClassKeyFinderTest(TestCase):

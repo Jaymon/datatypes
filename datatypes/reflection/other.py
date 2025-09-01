@@ -342,25 +342,7 @@ class OrderedSubclasses(list):
         raise NotImplementedError()
 
 
-class ClasspathFinder(DictTree):
-    """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
-    a class added with .add_class
-
-    NOTE -- <MODULE_NAME> is only used if prefixes are passed into the
-    instance, if there are no prefixes then the module path is ignored when
-    adding classes. This means the path for foo.bar:Che without prefixes would
-    just be Che. If prefixes=["foo"] then the path is bar:Che 
-
-    Like OrderedSubclasses, you'd think this would be a niche thing and not
-    worth being in a common library but I do this exact thing in both Endpoints
-    and Captain and rather than duplicate the code I've moved it here.
-
-    This code is based on similar code in Captain. I moved it here on 
-    August 29, 2024. The Captain code was based on similar code from Endpoints
-    and was my second stab at solving this problem, so this codebase is my
-    third stab at the problem. I've now integrated this version back into
-    Endpoints. So the circle of life continues
-    """
+class BaseClassFinder(DictTree):
     @classmethod
     def find_modules(cls, prefixes=None, paths=None, fileroot=""):
         """Tries to find modules to pass into .__init__ by first checking
@@ -458,6 +440,26 @@ class ClasspathFinder(DictTree):
 
         return modules
 
+
+class ClasspathFinder(BaseClassFinder):
+    """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
+    a class added with .add_class
+
+    NOTE -- <MODULE_NAME> is only used if prefixes are passed into the
+    instance, if there are no prefixes then the module path is ignored when
+    adding classes. This means the path for foo.bar:Che without prefixes would
+    just be Che. If prefixes=["foo"] then the path is bar:Che 
+
+    Like OrderedSubclasses, you'd think this would be a niche thing and not
+    worth being in a common library but I do this exact thing in both Endpoints
+    and Captain and rather than duplicate the code I've moved it here.
+
+    This code is based on similar code in Captain. I moved it here on 
+    August 29, 2024. The Captain code was based on similar code from Endpoints
+    and was my second stab at solving this problem, so this codebase is my
+    third stab at the problem. I've now integrated this version back into
+    Endpoints. So the circle of life continues
+    """
     def __init__(self, prefixes=None, **kwargs):
         """
         :param prefixes: list[str], passing in prefixes means the <MODULE-NAME>
@@ -674,7 +676,7 @@ class ClasspathFinder(DictTree):
                 yield keys, node.value
 
 
-class ClassFinder(DictTree):
+class ClassFinder(BaseClassFinder):
     """Keep a a class hierarchy tree so subclasses can be easily looked up
     from a common parent
 
@@ -684,14 +686,19 @@ class ClassFinder(DictTree):
     See also:
         * inspect.getclasstree()
     """
-    def _get_node_items(self, klass, cutoff_class):
+    cutoff_class = None
+
+    def set_cutoff_class(self, cutoff_class: type):
+        self.cutoff_class = cutoff_class
+
+    def _get_node_items(self, klass: type):
         keys = []
         for c in reversed(inspect.getmro(klass)):
-            if self._is_valid_subclass(c, cutoff_class):
+            if self._is_valid_subclass(c):
                 keys.append(c)
                 yield keys, c
 
-    def _is_valid_subclass(self, klass, cutoff_class=None):
+    def _is_valid_subclass(self, klass: type, cutoff_class=None):
         """Internal method. check if klass should be considered a valid
         subclass for addition into the tree
 
@@ -701,29 +708,73 @@ class ClassFinder(DictTree):
         :param cutoff_class: type, anything before this class will be ignored
         :returns: bool, True if klass is valid
         """
-        if not cutoff_class:
-            cutoff_class = object
+        if cutoff_class is None:
+            cutoff_class = self.cutoff_class
 
-        return issubclass(klass, cutoff_class) and klass is not cutoff_class
-        #return not klass is cutoff_class
+        if cutoff_class is None:
+            return True
 
-    def add_class(self, klass, cutoff_class=None):
+        else:
+            return (
+                issubclass(klass, cutoff_class)
+                and klass is not cutoff_class
+            )
+
+    def add_class(self, klass: type):
         """This is the method that should be used to add new classes to the
         tree
 
         :param klass: type, the class to add to the tree
-        :param cutoff_class: type, anything before this class will be ignored
         """
-        for keys, value in self._get_node_items(klass, cutoff_class):
+        for keys, value in self._get_node_items(klass):
             self.set(keys, value)
 
-    def add_classes(self, classes, cutoff_class=None):
+    def add_classes(self, classes: Sequence[type]):
         """Adds all the classes using .add_class"""
         for klass in classes:
-            self.add_class(klass, cutoff_class)
+            self.add_class(klass)
 
-    def get_class_node(self, klass):
+    def delete_class(self, klass: type):
+        """Remove edge class `klass`"""
+        n = self.find_class_node(klass)
+        if n:
+            raise TypeError(
+                f"Cannot remove {klass} because it is not a leaf/edge"
+            )
+
+        else:
+            del n.parent[klass]
+
+    def delete_mro(self, klass: type):
+        """This prunes or trims the tree from `klass` down, any tree that only
+        is an ancestor to `klass` and nothing else will be pruned. So if a tree
+        has more "branches" that is where the pruning will stop
+        """
+        n = self.find_class_node(klass)
+        while True:
+            np = n.parent
+            if np is None:
+                break
+
+            if len(np) > 1:
+                break
+
+            else:
+                n = np
+
+        if n.key is None:
+            # root node
+            n.clear()
+
+        else:
+            del n.parent[n.key]
+
+    def find_class_node(self, klass: type):
         """return klass's node in the tree
+
+        This is different than `.get_node` because it's not a straight
+        lookup like `.get_node` but will actually find the class in the
+        tree
 
         :param klass: type
         :returns: ClassFinder
@@ -738,7 +789,7 @@ class ClassFinder(DictTree):
 
         raise KeyError(f"{klass} not found in tree")
 
-    def get_abs_class(self, klass, *default):
+    def get_abs_class(self, klass: type, *default):
         """Get the absolute edge subclass of klass
 
         :Example:
@@ -757,7 +808,7 @@ class ClassFinder(DictTree):
         :raises: ValueError, if an absolute child can't be inferred
         """
         try:
-            n = self.get_class_node(klass)
+            n = self.find_class_node(klass)
             child_count = len(n)
             if child_count == 0:
                 return n.key
@@ -779,7 +830,7 @@ class ClassFinder(DictTree):
             else:
                 raise
 
-    def get_abs_classes(self, klass):
+    def get_abs_classes(self, klass: type):
         """Get the absolute edge subclasses of klass
 
         :Example:
@@ -797,7 +848,7 @@ class ClassFinder(DictTree):
         :returns: generator[type], the found absolute subclasses of klass
         """
         try:
-            n = self.get_class_node(klass)
+            n = self.find_class_node(klass)
             if len(n) == 0:
                 yield klass
 
