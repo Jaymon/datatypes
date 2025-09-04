@@ -653,6 +653,14 @@ class ReflectType(ReflectObject):
             else:
                 return self._is_subclass(needle, haystack)
 
+    def _is_instance(self, needle, haystack) -> bool:
+        """Internal method. Checks if needle is an instance of haystack"""
+        try:
+            return isinstance(needle, haystack)
+
+        except TypeError:
+            return False
+
     def _is_subclass(self, needle, haystack) -> bool:
         """Internal method. Checks if needle is a subclass of haystack
 
@@ -911,7 +919,11 @@ class ReflectType(ReflectObject):
                 # for casting
                 for t in rt.get_types(depth=1):
                     try:
-                        r = t(value)
+                        if self._is_instance(value, t):
+                            r = value
+
+                        else:
+                            r = t(value)
 
                         if rt.is_listish():
                             # if we have a value type then we want to cast

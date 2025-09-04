@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import io
 import sys
 import functools
 from typing import Any, Literal, Annotated
@@ -1058,6 +1059,20 @@ class ReflectTypeTest(TestCase):
 
         rt = ReflectType(Literal[1])
         self.assertEqual(1, rt.cast("1"))
+
+    def test_cast_bytesio(self):
+        rt = ReflectType(io.BytesIO)
+        fp = io.BytesIO(b"1234567890")
+        fp2 = rt.cast(fp)
+        self.assertTrue(fp is fp2)
+
+    def test_cast_annotated_function(self):
+        def parse(v):
+            return int(v)
+
+        rt = ReflectType(Annotated[parse, {}])
+        v = rt.cast("100")
+        self.assertEqual(100, v)
 
 
 class ReflectCallableTest(TestCase):
