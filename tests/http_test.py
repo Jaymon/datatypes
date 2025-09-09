@@ -8,7 +8,7 @@ from datatypes.http import (
     HTTPClient,
     HTTPResponse,
     UserAgent,
-    Multipart,
+    MultipartEncode,
 )
 from datatypes.string import String, ByteString
 from datatypes.config.environ import environ
@@ -254,6 +254,11 @@ class HTTPHeadersTest(TestCase):
         for k in ["foo", "bar", "che"]:
             self.assertTrue(k in cs)
 
+    def test_get_media_type(self):
+        hs = HTTPHeaders()
+        hs["Content-Type"] = "foo/bar;charset=BooBoo"
+        self.assertEqual("foo/bar", hs.get_media_type())
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):
@@ -446,35 +451,52 @@ class UserAgentTest(TestCase):
 
 
 class MultipartTest(TestCase):
-    def test_get_media_type(self):
-        self.assertEqual("multipart/form-data", Multipart.get_media_type())
-
     def test_encode_decode(self):
+        mt = MultipartEncode("form-data")
         p = self.create_file("this is the file body", ext="txt")
 
         fields = {
             "foo": "1",
             "bar": "2"
         }
+        mt.add_fields(fields)
 
         files = {
             "file1": p
         }
+        mt.add_file("file1", p)
 
-        headers, body = Multipart.encode(fields, files)
 
-        fields2, files2 = Multipart.decode(headers, body)
-
-        self.assertEqual(fields, fields2)
-        self.assertEqual(p.read_bytes(), files2["file1"].read())
+        for count, part in enumerate(mt, 1):
+            continue
+        self.assertEqual(3, count)
 
     def test_encode_io(self):
+        mt = MultipartEncode("form-data")
         p = self.create_file("io file body", ext="txt")
         with p.open() as fp:
-            headers, body = Multipart.encode({}, {"file1": fp})
+            mt.add_file("file1", fp)
 
-        fields2, files2 = Multipart.decode(headers, body)
+        for count, part in enumerate(mt, 1):
+            self.assertEqual(p.read_bytes(), part.body)
+        self.assertEqual(1, count)
 
-        self.assertEqual({}, fields2)
-        self.assertEqual(p.read_bytes(), files2["file1"].read())
+    def test_add(self):
+        mt = MultipartEncode("related")
+        mt.add_field("foo", "bar")
+
+        p = self.create_file("io file body", ext="txt")
+        mt.add_file("che", p)
+
+        d = {"boo": 1, "baz": 2}
+        mt.add_json(d)
+
+        self.assertTrue(b"/related" in bytes(mt.headers))
+        self.assertTrue(b"io file body" in mt.body)
+        self.assertTrue(b"\"boo\"" in mt.body)
+        self.assertTrue(b"foo" in mt.body)
+
+        for count, part in enumerate(mt, 1):
+            continue
+        self.assertEqual(3, count)
 

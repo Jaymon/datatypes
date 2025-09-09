@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from wsgiref.headers import Headers as BaseHeaders
+from wsgiref.headers import Headers
 import itertools
 import base64
 import socket
@@ -14,15 +14,16 @@ import email.mime.base
 import mimetypes
 import io
 import os
+import base64
 
 from .compat import *
 from .compat import cookies as httpcookies
 from .copy import Deepcopy
-from .string import String, ByteString, Base64
+from .string import String, ByteString
 from .config.environ import environ
 
 
-class HTTPHeaders(BaseHeaders, Mapping):
+class HTTPHeaders(Headers, Mapping):
     """handles headers, see wsgiref.Headers link for method and use information
 
     Handles normalizing of header names, the problem with headers is they can
@@ -182,6 +183,10 @@ class HTTPHeaders(BaseHeaders, Mapping):
 
         else:
             return "", {}
+
+    def get_params(self, name: str) -> Mapping:
+        """Return just the params of the header `name`"""
+        return self.parse(name)[1]
 
     def __delitem__(self, name):
         name = self._convert_string_name(name)
@@ -367,6 +372,34 @@ class HTTPHeaders(BaseHeaders, Mapping):
             encoding = em.get_content_charset()
 
         return encoding
+
+    def get_media_type(self) -> str:
+        """Get the media type (eg, text/plain) from the Content-Type header
+        """
+        media_type = ""
+
+        if ct := self.get("Content-Type"):
+            em = email.message.Message()
+            em.add_header("content-type", ct)
+            media_type = em.get_content_type()
+
+        return media_type
+
+    def get_media_maintype(self) -> str:
+        """Return the `<MAINTYPE>` of `<MAINTYPE>/<SUBTYPE>` of the
+        Content-Type header"""
+        maintype = ""
+        if media_type := self.get_media_type():
+            maintype = media_type.split("/", 1)[0]
+        return maintype
+
+    def get_media_subtype(self) -> str:
+        """Return the `<SUBTYPE>` of `<MAINTYPE>/<SUBTYPE>` of the 
+        Content-Type header"""
+        subtype = ""
+        if media_type := self.get_media_type():
+            subtype = media_type.split("/", 1)[1]
+        return subtype
 
     def get_cookies(self):
         """Return all the cookie values
@@ -580,10 +613,11 @@ class HTTPClient(object):
         :param username: str
         :param password: str
         """
-        credentials = Base64.encode("{}:{}".format(username, password))
+        credentials = base64.b64encode(
+            "{}:{}".format(username, password)
+        ).strip()
+        #credentials = Base64.encode("{}:{}".format(username, password))
         auth_string = "Basic {}".format(credentials)
-        #credentials = base64.b64encode('{}:{}'.format(username, password)).strip()
-        #auth_string = 'Basic {}'.format(credentials())
         self.headers["Authorization"] = auth_string
 
     def token_auth(self, token):
@@ -596,6 +630,9 @@ class HTTPClient(object):
     def remove_auth(self):
         """Get rid of the internal Authorization header"""
         self.headers.pop("Authorization", None)
+
+    def has_auth(self) -> bool:
+        return "Authorization" in self.headers
 
     def fetch(self, method, uri, query=None, body=None, files=None, **kwargs):
         """wrapper method that all the top level methods (get, post, etc.) use
@@ -616,23 +653,6 @@ class HTTPClient(object):
             **kwargs
         )
 
-        res = self._fetch(fetch_url, **fetch_kwargs)
-        return res
-
-    def _fetch(self, fetch_url, **kwargs):
-        """Internal method called from self.fetch that performs the actual
-        request
-
-        If you wanted to switch out the backend to actually use requests then
-        this should be the only method you would need to override
-
-        :param method: str, the http method (eg, GET, POST)
-        :param fetch_url: str, the full url requested
-        :keyword request_class: Optional[Request]
-        :keyword response_class: Optional[HTTPResponse]
-        :param **kwargs: arguments passed through to the backend client
-        :returns: HTTPResponse, a response instance
-        """
         timeout = kwargs.pop("timeout", self.timeout)
         request_class = kwargs.pop("request_class", Request)
         response_class = kwargs.pop("response_class", HTTPResponse)
@@ -644,7 +664,7 @@ class HTTPClient(object):
         try:
             # https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
             res = urlopen(req, timeout=timeout)
-            ret = response_class(
+            res = response_class(
                 res.code,
                 res.read(),
                 res.headers,
@@ -653,7 +673,7 @@ class HTTPClient(object):
             )
 
         except HTTPError as e:
-            ret = response_class(
+            res = response_class(
                 e.code,
                 # an HTTPError can also function as a non-exceptional file-like
                 # return value (the same thing that urlopen() returns).
@@ -667,7 +687,60 @@ class HTTPClient(object):
         except URLError as e:
             raise
 
-        return ret
+        return res
+
+#         res = self._fetch(fetch_url, **fetch_kwargs)
+#         return res
+# 
+#     def _fetch(self, fetch_url, **kwargs):
+#         """Internal method called from self.fetch that performs the actual
+#         request
+# 
+#         If you wanted to switch out the backend to actually use requests then
+#         this should be the only method you would need to override
+# 
+#         :param method: str, the http method (eg, GET, POST)
+#         :param fetch_url: str, the full url requested
+#         :keyword request_class: Optional[Request]
+#         :keyword response_class: Optional[HTTPResponse]
+#         :keyword **kwargs: arguments passed through to the backend client
+#         :returns: HTTPResponse, a response instance
+#         """
+#         timeout = kwargs.pop("timeout", self.timeout)
+#         request_class = kwargs.pop("request_class", Request)
+#         response_class = kwargs.pop("response_class", HTTPResponse)
+# 
+#         # https://stackoverflow.com/a/48144049
+#          # default Request is from `compat *` import
+#         req = request_class(fetch_url, **kwargs)
+# 
+#         try:
+#             # https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
+#             res = urlopen(req, timeout=timeout)
+#             ret = response_class(
+#                 res.code,
+#                 res.read(),
+#                 res.headers,
+#                 req,
+#                 res
+#             )
+# 
+#         except HTTPError as e:
+#             ret = response_class(
+#                 e.code,
+#                 # an HTTPError can also function as a non-exceptional file-like
+#                 # return value (the same thing that urlopen() returns).
+#                 # If you don't read the error it will leave a dangling socket
+#                 e.read(),
+#                 {},
+#                 req,
+#                 e
+#             )
+# 
+#         except URLError as e:
+#             raise
+# 
+#         return ret
 
     def get_base_url(self, base_url):
         """Internal method. Normalizes the base_url before setting it into
@@ -872,9 +945,6 @@ class HTTPClient(object):
             "method": method.upper() # https://stackoverflow.com/a/48144049
         }
 
-        if "timeout" in kwargs:
-            fetch_kwargs["timeout"] = kwargs["timeout"]
-
         if "Content-Type" in headers:
             if headers.is_json():
                 dhs, data = self.get_request_json(body)
@@ -916,7 +986,7 @@ class HTTPClient(object):
         return fetch_kwargs
 
     def get_request_multipart(self, body, files, **kwargs):
-        return Multipart.encode(
+        return MultipartForm.encode(
             body,
             files,
             kwargs.get("encoding", environ.ENCODING)
@@ -1128,4 +1198,205 @@ class Multipart(object):
                     fields[params["name"]] = String(data)
 
         return fields, files
+
+
+class MultipartPart(object):
+    @property
+    def headers(self):
+        return HTTPHeaders(self.part.items())
+
+    @property
+    def body(self):
+        return self.part.get_payload(decode=True)
+
+    def __init__(self, part):
+        self.part = part
+
+    def get_media_type(self):
+        return self.headers.get_media_type()
+
+#     def get_params(self):
+#         params = {}
+#         for header_name in self.part.keys():
+#             for k, v in self.part.get_params(header=header_name)[1:]:
+#                 params[k] = v
+# 
+#         return params
+
+    def get_field(self) -> tuple[str, str|io.BytesIO]|None:
+        value, params = self.headers.parse("Content-Disposition")
+        if value == "form-data":
+            if "name" not in params:
+                raise IOError("Bad field data")
+
+            if "filename" in params:
+                body = self.get_file()
+                body.filename = params["filename"]
+                body.name = params["filename"]
+
+            else:
+                body = str(self.body, self.part.get_charset())
+
+            return params["name"], body
+
+    def get_file(self) -> io.BytesIO:
+        fp = io.BytesIO(self.body)
+        fp.media_type = self.get_media_type()
+        return fp
+
+
+class BaseMultipart(object):
+    headers = None
+
+    body = None
+
+    @classmethod
+    def get_file_media_types(cls, path):
+        """Internal method. given path give the best main and sub types for
+        the media type
+
+        :param path: str, the file path
+        :returns: tuple[str, str], the maintype and subtype
+        """
+        if mimetype := mimetypes.guess_type(path)[0]:
+            maintype, subtype = mimetype.split("/", maxsplit=1)
+
+        else:
+            maintype = "application"
+            subtype = "octet-stream"
+
+        return maintype, subtype
+
+    def create_part(
+        self,
+        part: email.message.Message,
+        **kwargs
+    ) -> MultipartPart:
+        return kwargs.get("part_class", MultipartPart)(part)
+
+    def __iter__(self):
+        body = bytes(self.headers) + self.body
+        em = email.message_from_bytes(body)
+        for part in em.walk():
+            # when walking the message, the first part is the whole part,
+            # then it yields the subparts of the whole part, we only care
+            # about the subparts
+            if not part.is_multipart():
+                yield self.create_part(part)
+
+#     @classmethod
+#     def decode(self, headers, body):
+#         pass
+
+
+class MultipartEncode(BaseMultipart):
+    @property
+    def headers(self):
+        headers, _ = self.encode()
+        return headers
+
+    @property
+    def body(self):
+        _, body = self.encode()
+        return body
+
+    @classmethod
+    def get_file_media_type(cls, path) -> str:
+        """Internal method. given path give the best main and sub types for
+        the media type
+
+        :param path: str, the file path
+        """
+        if media_type := mimetypes.guess_type(path)[0]:
+            return media_type
+
+        else:
+            return "application/octet-stream"
+
+    def __init__(self, subtype: str = "form-data"):
+        self.parts = email.mime.multipart.MIMEMultipart(subtype)
+        self._clear_cache()
+
+    def _clear_cache(self):
+        self._headers = None
+        self._body = None
+
+    def add_field(self, name: str, value):
+        self._clear_cache()
+        part = email.mime.text.MIMEText(
+            value,
+            "plain",
+            _charset=None,
+        )
+        part.add_header(
+            "Content-Disposition",
+            f"form-data; name=\"{name}\""
+        )
+        self.parts.attach(part)
+
+    def add_fields(self, fields: Mapping):
+        for k, v in fields.items():
+            self.add_field(k, v)
+
+    def add_file(self, name: str, path: str|io.IOBase):
+        if isinstance(path, io.IOBase):
+            basename = os.path.basename(path.name)
+            media_type = self.get_file_media_type(basename)
+            body = path.read()
+
+        else:
+            media_type = self.get_file_media_type(path)
+            basename = os.path.basename(path)
+            with open(path, "rb") as fp:
+                body = fp.read()
+
+        self.add_part(
+            {
+                "Content-Type": media_type,
+                "Content-Disposition": (
+                    f"form-data; name=\"{name}\";"
+                    f" filename=\"{basename}\""
+                )
+            },
+            body,
+        )
+
+    def add_json(self, data: Mapping, media_type: str = "application/json"):
+        self.add_part({"Content-Type": media_type}, json.dumps(data))
+
+    def add_part(self, headers: Mapping, body: bytes):
+        self._clear_cache()
+        headers = HTTPHeaders(headers)
+        media_type = headers.get_media_type()
+        headers.pop("Content-Type", None)
+        maintype, subtype = media_type.split("/", 1)
+        part = email.mime.base.MIMEBase(maintype, subtype)
+        part.set_payload(body)
+        self.parts.attach(part)
+
+    def encode(self) -> tuple[HTTPHeaders, bytes]:
+        headerbytes, body = self.parts.as_bytes().split(b"\n\n", 1)
+        hp = email.parser.BytesParser().parsebytes(
+            headerbytes,
+            headersonly=True
+        )
+
+        self._headers = HTTPHeaders(hp._headers)
+        self._body = body
+
+        return self._headers, self._body
+
+
+class MultipartDecode(BaseMultipart):
+    def __init__(self, headers: HTTPHeaders, body: bytes):
+        """decode the body using the headers
+
+        This is based on endpoints's BaseApplication.get_request_multipart
+        and was moved here on 11-12-2024
+
+        :param headers: HTTPHeaders
+        :param body: bytes
+        """
+        self.headers = headers
+        self.body = body
 
