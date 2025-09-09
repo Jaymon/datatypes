@@ -345,6 +345,16 @@ class HTTPHeaders(Headers, Mapping):
         """Return True if this set of headers is chunked"""
         return self.get('transfer-encoding', "").lower().startswith("chunked")
 
+    def is_form_data(self) -> bool:
+        """Return True if these headers represent form-data"""
+        value, params = self.parse("Content-Disposition")
+        return value == "form-data"
+
+    def is_attachment(self) -> bool:
+        """Return True if these headers represent an attachment"""
+        value, params = self.parse("Content-Disposition")
+        return value == "attachment"
+
     def get_user_agent(self):
         """Return the parsed user-agent string if it exists, empty string if it
         doesn't exist
@@ -564,7 +574,8 @@ class HTTPClient(object):
         self.query = {}
 
         self.headers = HTTPHeaders(kwargs.get("headers", None))
-        self.json = kwargs.get("json", False)
+        if kwargs.get("json", False):
+            self.headers.set_header("Content-Type", "application/json")
 
     def get(self, uri, query=None, **kwargs):
         """make a GET request"""
@@ -614,7 +625,7 @@ class HTTPClient(object):
         :param password: str
         """
         credentials = base64.b64encode(
-            "{}:{}".format(username, password)
+            "{}:{}".format(username, password).encode(),
         ).strip()
         #credentials = Base64.encode("{}:{}".format(username, password))
         auth_string = "Basic {}".format(credentials)
@@ -645,6 +656,12 @@ class HTTPClient(object):
             cookies=kwargs.pop("cookies", {}),
         )
 
+        timeout = kwargs.pop("timeout", self.timeout)
+        # https://stackoverflow.com/a/48144049
+        # default Request is from `compat *` import
+        request_class = kwargs.pop("request_class", Request)
+        response_class = kwargs.pop("response_class", HTTPResponse)
+
         fetch_kwargs = self.get_fetch_request_kwargs(
             method=method,
             body=body,
@@ -652,14 +669,7 @@ class HTTPClient(object):
             headers=headers,
             **kwargs
         )
-
-        timeout = kwargs.pop("timeout", self.timeout)
-        request_class = kwargs.pop("request_class", Request)
-        response_class = kwargs.pop("response_class", HTTPResponse)
-
-        # https://stackoverflow.com/a/48144049
-         # default Request is from `compat *` import
-        req = request_class(fetch_url, **kwargs)
+        req = request_class(fetch_url, **fetch_kwargs)
 
         try:
             # https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
@@ -941,75 +951,84 @@ class HTTPClient(object):
         https://docs.python.org/3/library/urllib.request.html#urllib.request.Request
         """
         fetch_kwargs = {
-            "headers": headers,
             "method": method.upper() # https://stackoverflow.com/a/48144049
         }
 
-        if "Content-Type" in headers:
-            if headers.is_json():
-                dhs, data = self.get_request_json(body)
+        data = None
 
-            elif headers.is_multipart():
-                dhs, data = self.get_request_multipart(body, files)
+        if body:
+            if headers.is_json():
+                headers, data = self.get_request_json(body, headers)
 
             elif headers.is_urlencoded():
-                dhs, data = self.get_request_urlencoded(body)
-
-            elif headers.is_plain():
-                dhs, data = self.get_request_plain(body)
+                headers, data = self.get_request_urlencoded(body, headers)
 
             else:
-                raise ValueError("Unknown request content-type: {}".format(
-                    headers["Content-Type"]
-                ))
-
-        elif body or files:
-            body = body or {}
-
-            if files:
-                dhs, data = self.get_request_multipart(body, files)
-
-            else:
-                if self.json:
-                    dhs, data = self.get_request_json(body)
+                if isinstance(body, Mapping):
+                    headers, data = self.get_request_urlencoded(body, headers)
 
                 else:
-                    dhs, data = self.get_request_urlencoded(body)
+                    headers, data = self.get_request_any(body, headers)
 
-        else:
-            dhs = {}
-            data = None
+        if files:
+            headers, data = self.get_request_multipart(data, files, headers)
 
-        fetch_kwargs["headers"].update(dhs)
+        fetch_kwargs["headers"] = headers
         fetch_kwargs["data"] = data
 
         return fetch_kwargs
 
-    def get_request_multipart(self, body, files, **kwargs):
-        return MultipartForm.encode(
-            body,
-            files,
-            kwargs.get("encoding", environ.ENCODING)
-        )
+    def get_request_multipart(self, body, files, headers, **kwargs):
+        if headers.has_header("Content-Type"):
+            subtype = "related"
 
-    def get_request_json(self, body, **kwargs):
-        ct = kwargs.get("content_type", "application/json")
-        headers = {"Content-Type": ct}
+        else:
+            subtype = "form-data"
+
+        mt = Multipart.encode(subtype)
+
+        if isinstance(files, Mapping):
+            for name, fp in files.items():
+                mt.add_file(fp, name=name)
+
+        else:
+            for fp in files:
+                mt.add_file(fp)
+
+        if body:
+            if isinstance(body, Mapping):
+                for k, v in body.items():
+                    mt.add_field(k, v)
+
+            elif isinstance(body, bytes):
+                media_type = headers.get_media_type()
+                mt.add_part(media_type, body)
+
+            else:
+                raise TypeError("Not sure how to handle multipart body")
+
+        headers.update(mt.headers)
+        return headers, mt.body
+
+    def get_request_json(self, body, headers, **kwargs):
+        ct = kwargs.get("media_type", "application/json")
+        headers.set_header("Content-Type", ct)
         data = json.dumps(body)
         data = data.encode(kwargs.get("encoding", environ.ENCODING))
         return headers, data
 
-    def get_request_urlencoded(self, body, **kwargs):
-        ct = kwargs.get("content_type", "x-www-form-urlencoded")
-        headers = {"Content-Type": ct}
+    def get_request_urlencoded(self, body, headers, **kwargs):
+        ct = kwargs.get("media_type", "application/x-www-form-urlencoded")
+        headers.set_header("Content-Type", ct)
         data = urlencode(body, doseq=True)
         data = data.encode(kwargs.get("encoding", environ.ENCODING))
         return headers, data
 
-    def get_request_plain(self, body, **kwargs):
-        if not isinstance(body, str):
+    def get_request_any(self, body, headers, **kwargs):
+        if not isinstance(body, bytes):
             body = str(body)
-        return {}, body.encode(kwargs.get("encoding", environ.ENCODING))
+            body = body.encode(kwargs.get("encoding", environ.ENCODING))
+        return headers, body
 
 
 class UserAgent(String):
@@ -1071,157 +1090,19 @@ class UserAgent(String):
         return d
 
 
-class XMultipart(object):
-    """Handles encoding and decoding a multipart/form-data body"""
-    @classmethod
-    def get_media_type(cls):
-        """Return the default content type"""
-        return "multipart/form-data"
-
-    @classmethod
-    def get_file_media_types(cls, path):
-        """Internal method. given path give the best main and sub types for
-        the media type
-
-        :param path: str, the file path
-        :returns: tuple[str, str], the maintype and subtype
-        """
-        if mimetype := mimetypes.guess_type(path)[0]:
-            maintype, subtype = mimetype.split("/", maxsplit=1)
-
-        else:
-            maintype = "application"
-            subtype = "octet-stream"
-
-        return maintype, subtype
-
-    @classmethod
-    def encode(cls, fields, files, encoding=None):
-        """Encode fields and files into body
-
-        This return tuple should be able to be passed into .decode to get
-        the values back out
-
-        :param fields: dict[str, str], the fields of the request
-        :param files: dict[str, IOBase|str], the key is the field name
-            for this file in the form and the value is either an open file
-            pointer or a path to the file
-        :param encoding: Optional[str], the charset to use
-        :returns: tuple[HTTPHeaders, bytes]
-        """
-        multipart_data = email.mime.multipart.MIMEMultipart("form-data")
-
-        # Add form fields
-        for key, value in fields.items():
-            part = email.mime.text.MIMEText(
-                value,
-                "plain",
-                _charset=encoding
-            )
-            part.add_header(
-                "Content-Disposition",
-                f"form-data; name=\"{key}\""
-            )
-            multipart_data.attach(part)
-
-        # Add files
-        for key, path in files.items():
-            if isinstance(path, io.IOBase):
-                maintype, subtype = cls.get_file_media_types(path.name)
-                basename = os.path.basename(path.name)
-                part = email.mime.base.MIMEBase(maintype, subtype)
-                part.set_payload(path.read())
-
-            else:
-                maintype, subtype = cls.get_file_media_types(path)
-                part = email.mime.base.MIMEBase(maintype, subtype)
-                basename = os.path.basename(path)
-                with open(path, "rb") as fp:
-                    part.set_payload(fp.read())
-
-            part.add_header(
-                "Content-Disposition",
-                (
-                    f"form-data; name=\"{key}\";"
-                    f" filename=\"{basename}\""
-                )
-            )
-            email.encoders.encode_base64(part)
-            multipart_data.attach(part)
-
-        headerbytes, body = multipart_data.as_bytes().split(b"\n\n", 1)
-
-        hp = email.parser.BytesParser().parsebytes(
-            headerbytes,
-            headersonly=True
-        )
-
-        return HTTPHeaders(hp._headers), body
-
-    @classmethod
-    def decode(cls, headers, body):
-        """decode the body using the headers
-
-        The return tuple can be passed to .encode to get headers and body
-        back.
-
-        This is based on endpoints's BaseApplication.get_request_multipart
-        and was moved here on 11-12-2024
-
-        :param headers: HTTPHeaders
-        :param body: bytes
-        :returns: tuple[dict[str, str], dict[str, IOBase]]
-        """
-        fields = {}
-        files = {}
-        body = bytes(headers) + body
-
-        em = email.message_from_bytes(body)
-        for part in em.walk():
-            if not part.is_multipart():
-                data = part.get_payload(decode=True)
-                params = {}
-                for header_name in part:
-                    for k, v in part.get_params(header=header_name)[1:]:
-                        params[k] = v
-
-                if "name" not in params:
-                    raise IOError("Bad body data")
-
-                if "filename" in params:
-                    fp = io.BytesIO(data)
-                    fp.filename = params["filename"]
-                    fp.name = params["filename"]
-                    files[params["name"]] = fp
-
-                else:
-                    fields[params["name"]] = String(data)
-
-        return fields, files
-
-
 class MultipartPart(object):
+    """Internal class. Used in Multipart.__iter__ to return sections of the
+    body"""
     @property
-    def headers(self):
+    def headers(self) -> HTTPHeaders:
         return HTTPHeaders(self.part.items())
 
     @property
-    def body(self):
+    def body(self) -> bytes:
         return self.part.get_payload(decode=True)
 
     def __init__(self, part):
         self.part = part
-
-    def get_media_type(self):
-        return self.headers.get_media_type()
-
-#     def get_params(self):
-#         params = {}
-#         for header_name in self.part.keys():
-#             for k, v in self.part.get_params(header=header_name)[1:]:
-#                 params[k] = v
-# 
-#         return params
 
     def get_field(self) -> tuple[str, str|io.BytesIO]|None:
         value, params = self.headers.parse("Content-Disposition")
@@ -1231,8 +1112,6 @@ class MultipartPart(object):
 
             if "filename" in params:
                 body = self.get_file()
-                body.filename = params["filename"]
-                body.name = params["filename"]
 
             else:
                 body = str(self.body, self.part.get_charset())
@@ -1241,62 +1120,49 @@ class MultipartPart(object):
 
     def get_file(self) -> io.BytesIO:
         fp = io.BytesIO(self.body)
-        fp.media_type = self.get_media_type()
+        fp.media_type = self.headers.get_media_type()
+        value, params = self.headers.parse("Content-Disposition")
+        if "filename" in params:
+            fp.filename = params["filename"]
+            fp.name = params["filename"]
+
         return fp
 
 
-# class BaseMultipart(object):
-#     headers = None
-# 
-#     body = None
-# 
-#     @classmethod
-#     def get_file_media_types(cls, path):
-#         """Internal method. given path give the best main and sub types for
-#         the media type
-# 
-#         :param path: str, the file path
-#         :returns: tuple[str, str], the maintype and subtype
-#         """
-#         if mimetype := mimetypes.guess_type(path)[0]:
-#             maintype, subtype = mimetype.split("/", maxsplit=1)
-# 
-#         else:
-#             maintype = "application"
-#             subtype = "octet-stream"
-# 
-#         return maintype, subtype
-# 
-#     def create_part(
-#         self,
-#         part: email.message.Message,
-#         **kwargs
-#     ) -> MultipartPart:
-#         return kwargs.get("part_class", MultipartPart)(part)
-# 
-#     def __iter__(self):
-#         body = bytes(self.headers) + self.body
-#         em = email.message_from_bytes(body)
-#         for part in em.walk():
-#             # when walking the message, the first part is the whole part,
-#             # then it yields the subparts of the whole part, we only care
-#             # about the subparts
-#             if not part.is_multipart():
-#                 yield self.create_part(part)
-# 
-#     @classmethod
-#     def decode(self, headers, body):
-#         pass
-
-
 class Multipart(object):
+    """Handles encoding and decoding a multipart/form-data body
+
+    :example:
+        # multipart/related request
+        m = Multipart.encode("related")
+
+        m.add_file(open("<PATH 1>"))
+        m.add_file(open("<PATH 2>"), name="<NAME>")
+        m.add_part("application/json", json.dumps({"<KEY>": "<VALUE>"}))
+
+        print(m.headers)
+        print(m.body)
+
+        # mutlipart/form-data
+        m = Multipart.encode("form-data")
+        m.add_field("<NAME>", "<VALUE>")
+        m.add_file("<PATH>", name="<NAME>")
+
+        # decoding
+        m = Multipart.decode(headers, body)
+        for part in m:
+            print(p.headers)
+            print(p.body)
+    """
     @property
     def headers(self) -> HTTPHeaders:
+        """Return the headers needed for the entire multipart body"""
         self._add_added_parts()
         return self._headers
 
     @property
     def body(self) -> bytes:
+        """Return the multipart body"""
         self._add_added_parts()
         return self._body
 
@@ -1315,10 +1181,16 @@ class Multipart(object):
 
     @classmethod
     def encode(cls, subtype: str = "form-data") -> object:
+        """Create a Multipart object that is ready to have parts added to
+        it to be encoded
+
+        :params subtype: defaults to `form-data` but can be `related`
+        :returns: Multipart
+        """
         return cls(subtype)
 
     @classmethod
-    def decode(cls, headers: HTTPHeaders, body: bytes) -> object:
+    def decode(cls, headers: Mapping, body: bytes) -> object:
         """decode the body using the headers
 
         This is based on endpoints's BaseApplication.get_request_multipart
@@ -1326,7 +1198,12 @@ class Multipart(object):
 
         :param headers: HTTPHeaders
         :param body: bytes
+        :returns: Multipart, an instance with the headers and body set that
+            can be iterated to get the body parts
         """
+        if not isinstance(headers, HTTPHeaders):
+            headers = HTTPHeaders(headers)
+
         parts = headers.parse("Content-Type")
         maintype, subtype = parts[0].split("/", 1)
         boundary = parts[1].get("boundary", None)
@@ -1345,17 +1222,30 @@ class Multipart(object):
         body: bytes|None = None,
         boundary: str|None = None,
     ):
+        """Semi-internal method. This should really only ever be called
+        by `.encode` or `.decode`
+
+        :param subtype: the `multipart/<SUBTYPE>`, passed in via both
+            `.encode` and `.decode`
+        :keyword headers: passed in via `.decode`
+        :keyword body: passed in via `.decode`
+        :keyword boundary: passed in via `.decode`
+        """
         self.subtype = subtype
         self.boundary = boundary
         self._headers = HTTPHeaders(headers) if headers else None
         self._body = body
         self.parts = None
 
-#     def _clear_cache(self):
-#         self._headers = None
-#         self._body = None
-
     def add_field(self, name: str, value):
+        """Add a form-data field with `name` and `value` that will be added
+        to the body
+
+        :param name: the name of the form field
+        :param value: the value of the form field, this will be cast to a
+            str so if you need advanced decoding then cast it before calling
+            this method
+        """
         part = email.mime.text.MIMEText(
             String(value),
             "plain",
@@ -1369,23 +1259,19 @@ class Multipart(object):
             },
         )
 
-#         self._clear_cache()
-#         part = email.mime.text.MIMEText(
-#             value,
-#             "plain",
-#             _charset=None,
-#         )
-#         part.add_header(
-#             "Content-Disposition",
-#             f"form-data; name=\"{name}\""
-#         )
-#         self.parts.attach(part)
-
     def add_fields(self, fields: Mapping):
+        """Add a mapping of fields"""
         for k, v in fields.items():
             self.add_field(k, v)
 
     def add_file(self, path: str|io.IOBase, *, name: str = ""):
+        """Add a file to the body
+
+        :param path: the file to add
+        :param name: if passed in then the file part will be treated like
+            a form-data submission, otherwise it will be treated like an
+            attachment
+        """
         if isinstance(path, io.IOBase):
             basename = os.path.basename(path.name)
             media_type = self.get_file_media_type(basename)
@@ -1416,29 +1302,6 @@ class Multipart(object):
             headers,
         )
 
-# def add_file(self, name: str, path: str|io.IOBase):
-#         if isinstance(path, io.IOBase):
-#             basename = os.path.basename(path.name)
-#             media_type = self.get_file_media_type(basename)
-#             body = path.read()
-# 
-#         else:
-#             media_type = self.get_file_media_type(path)
-#             basename = os.path.basename(path)
-#             with open(path, "rb") as fp:
-#                 body = fp.read()
-# 
-#         self.add_part(
-#             {
-#                 "Content-Type": media_type,
-#                 "Content-Disposition": (
-#                     f"form-data; name=\"{name}\";"
-#                     f" filename=\"{basename}\""
-#                 )
-#             },
-#             body,
-#         )
-
 #     def add_json(self, data: Mapping, media_type: str = "application/json"):
 #         self.add_part({"Content-Type": media_type}, json.dumps(data))
 
@@ -1448,12 +1311,28 @@ class Multipart(object):
         body: bytes,
         headers: Mapping|None = None,
     ):
+        """Since only a limited amount of parts have `.add_*` methods, this
+        allows any part to be added to the body
+
+        :param media_type: the media type of the part
+        :param body: the body of the part
+        :param headers: any additional headers that should be added to
+            the part
+        """
         maintype, subtype = media_type.split("/", 1)
         part = email.mime.base.MIMEBase(maintype, subtype)
         part.set_payload(body)
         self._add_part(part, headers or {})
 
-    def _add_part(self, part, headers: Mapping):
+    def _add_part(self, part: email.message.Message, headers: Mapping):
+        """Internal method. Used by `.add_*` when they need to customize
+        what part instance is created, `.add_*` methods can use this method
+        like `.add_field` does or use `.add_part` like `.add_file` does
+
+        :param part: the part instance that will be added to the parts
+        :param headers: any additional headers that should be attached
+            to the part instance before it is attached to the parts
+        """
         if not self.parts:
             self.parts = email.mime.multipart.MIMEMultipart(
                 self.subtype,
@@ -1465,18 +1344,9 @@ class Multipart(object):
 
         self.parts.attach(part)
 
-#     def xadd_part(self, headers: Mapping, body: bytes):
-#         self._clear_cache()
-#         headers = HTTPHeaders(headers)
-#         media_type = headers.get_media_type()
-#         headers.pop("Content-Type", None)
-#         maintype, subtype = media_type.split("/", 1)
-#         part = email.mime.base.MIMEBase(maintype, subtype)
-#         part.set_payload(body)
-#         self.parts.attach(part)
-
-
     def _add_added_parts(self):
+        """Internal method. called by the wrapping properties to set or
+        add to the internal properties"""
         if self.parts:
             headerbytes, body = self.parts.as_bytes().split(b"\n\n", 1)
             hp = email.parser.BytesParser().parsebytes(
@@ -1506,11 +1376,12 @@ class Multipart(object):
         part: email.message.Message,
         **kwargs
     ) -> MultipartPart:
+        """Internal method. Used to create consumable parts when iterating
+        through the body"""
         return kwargs.get("part_class", MultipartPart)(part)
 
     def __iter__(self):
-        body = bytes(self.headers) + self.body
-        em = email.message_from_bytes(body)
+        em = email.message_from_bytes(self.as_bytes())
         for part in em.walk():
             # when walking the message, the first part is the whole part,
             # then it yields the subparts of the whole part, we only care
@@ -1518,17 +1389,10 @@ class Multipart(object):
             if not part.is_multipart():
                 yield self.create_part(part)
 
+    def as_bytes(self) -> bytes:
+        """matches a similar method in the email.message.Message class"""
+        return bytes(self.headers) + self.body
 
-class MultipartDecode(BaseMultipart):
-    def __init__(self, headers: HTTPHeaders, body: bytes):
-        """decode the body using the headers
-
-        This is based on endpoints's BaseApplication.get_request_multipart
-        and was moved here on 11-12-2024
-
-        :param headers: HTTPHeaders
-        :param body: bytes
-        """
-        self.headers = headers
-        self.body = body
+    def __bytes__(self) -> bytes:
+        return self.as_bytes()
 
