@@ -178,10 +178,27 @@ class BaseServer(HTTPServer):
                 if "json" in ct:
                     body = json.loads(body)
 
-                elif "multipart/form-data" in ct:
-                    body, files = Multipart.decode(handler.headers, body)
-                    if files:
-                        body.update(files)
+                elif "multipart" in ct:
+                    fs = []
+                    b = {}
+                    for p in Multipart.decode(handler.headers, body):
+                        if p.headers.is_json():
+                            b.update(json.loads(p.body))
+
+                        elif p.headers.is_urlencoded():
+                            b.update(Url.parse_query(p.body))
+
+                        else:
+                            if field := p.get_field():
+                                b[field[0]] = field[1]
+
+                            else:
+                                fs.append(p.get_file())
+
+                    body = b
+
+                    if fs:
+                        body["_files"] = fs
 
                 else:
                     body = Url.parse_query(body)
