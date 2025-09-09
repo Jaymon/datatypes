@@ -8,7 +8,7 @@ from datatypes.http import (
     HTTPClient,
     HTTPResponse,
     UserAgent,
-    MultipartEncode,
+    Multipart,
 )
 from datatypes.string import String, ByteString
 from datatypes.config.environ import environ
@@ -452,51 +452,66 @@ class UserAgentTest(TestCase):
 
 class MultipartTest(TestCase):
     def test_encode_decode(self):
-        mt = MultipartEncode("form-data")
-        p = self.create_file("this is the file body", ext="txt")
+        me = Multipart.encode("form-data")
 
         fields = {
             "foo": "1",
             "bar": "2"
         }
-        mt.add_fields(fields)
+        me.add_fields(fields)
 
-        files = {
-            "file1": p
-        }
-        mt.add_file("file1", p)
+        p = self.create_file("this is the file body", ext="txt")
+        me.add_file(p, name="file1")
 
-
-        for count, part in enumerate(mt, 1):
+        for count, part in enumerate(me, 1):
             continue
         self.assertEqual(3, count)
 
+        md = Multipart.decode(me.headers, me.body)
+
+        p = self.create_file("file body 2", ext="txt")
+        md.add_file(p)
+
+        for count, part in enumerate(md, 1):
+            continue
+        self.assertEqual(4, count)
+
+    def test_boundary(self):
+        me = Multipart.encode("form-data")
+        me.add_field("foo", 1)
+
+        self.assertIsNone(me.boundary)
+
+        # set cache
+        me.body
+        boundary = me.boundary
+
+        me.add_field("bar", 2)
+        self.assertEqual(boundary, me.boundary)
+
     def test_encode_io(self):
-        mt = MultipartEncode("form-data")
+        mt = Multipart("form-data")
         p = self.create_file("io file body", ext="txt")
         with p.open() as fp:
-            mt.add_file("file1", fp)
+            mt.add_file(fp)
 
         for count, part in enumerate(mt, 1):
             self.assertEqual(p.read_bytes(), part.body)
         self.assertEqual(1, count)
 
-    def test_add(self):
-        mt = MultipartEncode("related")
+    def test_related(self):
+        mt = Multipart.encode("related")
+
         mt.add_field("foo", "bar")
 
         p = self.create_file("io file body", ext="txt")
-        mt.add_file("che", p)
-
-        d = {"boo": 1, "baz": 2}
-        mt.add_json(d)
+        mt.add_file(p)
 
         self.assertTrue(b"/related" in bytes(mt.headers))
         self.assertTrue(b"io file body" in mt.body)
-        self.assertTrue(b"\"boo\"" in mt.body)
         self.assertTrue(b"foo" in mt.body)
 
         for count, part in enumerate(mt, 1):
             continue
-        self.assertEqual(3, count)
+        self.assertEqual(2, count)
 

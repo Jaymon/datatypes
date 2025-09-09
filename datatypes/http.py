@@ -1071,7 +1071,7 @@ class UserAgent(String):
         return d
 
 
-class Multipart(object):
+class XMultipart(object):
     """Handles encoding and decoding a multipart/form-data body"""
     @classmethod
     def get_media_type(cls):
@@ -1245,27 +1245,261 @@ class MultipartPart(object):
         return fp
 
 
-class BaseMultipart(object):
-    headers = None
+# class BaseMultipart(object):
+#     headers = None
+# 
+#     body = None
+# 
+#     @classmethod
+#     def get_file_media_types(cls, path):
+#         """Internal method. given path give the best main and sub types for
+#         the media type
+# 
+#         :param path: str, the file path
+#         :returns: tuple[str, str], the maintype and subtype
+#         """
+#         if mimetype := mimetypes.guess_type(path)[0]:
+#             maintype, subtype = mimetype.split("/", maxsplit=1)
+# 
+#         else:
+#             maintype = "application"
+#             subtype = "octet-stream"
+# 
+#         return maintype, subtype
+# 
+#     def create_part(
+#         self,
+#         part: email.message.Message,
+#         **kwargs
+#     ) -> MultipartPart:
+#         return kwargs.get("part_class", MultipartPart)(part)
+# 
+#     def __iter__(self):
+#         body = bytes(self.headers) + self.body
+#         em = email.message_from_bytes(body)
+#         for part in em.walk():
+#             # when walking the message, the first part is the whole part,
+#             # then it yields the subparts of the whole part, we only care
+#             # about the subparts
+#             if not part.is_multipart():
+#                 yield self.create_part(part)
+# 
+#     @classmethod
+#     def decode(self, headers, body):
+#         pass
 
-    body = None
+
+class Multipart(object):
+    @property
+    def headers(self) -> HTTPHeaders:
+        self._add_added_parts()
+        return self._headers
+
+    @property
+    def body(self) -> bytes:
+        self._add_added_parts()
+        return self._body
 
     @classmethod
-    def get_file_media_types(cls, path):
-        """Internal method. given path give the best main and sub types for
-        the media type
+    def get_file_media_type(cls, path: str) -> str:
+        """Internal method. given path give the best media_type for
+        the file
 
         :param path: str, the file path
-        :returns: tuple[str, str], the maintype and subtype
         """
-        if mimetype := mimetypes.guess_type(path)[0]:
-            maintype, subtype = mimetype.split("/", maxsplit=1)
+        if media_type := mimetypes.guess_type(path)[0]:
+            return media_type
 
         else:
-            maintype = "application"
-            subtype = "octet-stream"
+            return "application/octet-stream"
 
-        return maintype, subtype
+    @classmethod
+    def encode(cls, subtype: str = "form-data") -> object:
+        return cls(subtype)
+
+    @classmethod
+    def decode(cls, headers: HTTPHeaders, body: bytes) -> object:
+        """decode the body using the headers
+
+        This is based on endpoints's BaseApplication.get_request_multipart
+        and was moved here on 11-12-2024
+
+        :param headers: HTTPHeaders
+        :param body: bytes
+        """
+        parts = headers.parse("Content-Type")
+        maintype, subtype = parts[0].split("/", 1)
+        boundary = parts[1].get("boundary", None)
+        return cls(
+            subtype,
+            headers=headers,
+            body=body,
+            boundary=boundary,
+        )
+
+    def __init__(
+        self,
+        subtype: str = "form-data",
+        *,
+        headers: Mapping|None = None,
+        body: bytes|None = None,
+        boundary: str|None = None,
+    ):
+        self.subtype = subtype
+        self.boundary = boundary
+        self._headers = HTTPHeaders(headers) if headers else None
+        self._body = body
+        self.parts = None
+
+#     def _clear_cache(self):
+#         self._headers = None
+#         self._body = None
+
+    def add_field(self, name: str, value):
+        part = email.mime.text.MIMEText(
+            String(value),
+            "plain",
+            _charset=None,
+        )
+
+        self._add_part(
+            part,
+            headers={
+                "Content-Disposition": f"form-data; name=\"{name}\"",
+            },
+        )
+
+#         self._clear_cache()
+#         part = email.mime.text.MIMEText(
+#             value,
+#             "plain",
+#             _charset=None,
+#         )
+#         part.add_header(
+#             "Content-Disposition",
+#             f"form-data; name=\"{name}\""
+#         )
+#         self.parts.attach(part)
+
+    def add_fields(self, fields: Mapping):
+        for k, v in fields.items():
+            self.add_field(k, v)
+
+    def add_file(self, path: str|io.IOBase, *, name: str = ""):
+        if isinstance(path, io.IOBase):
+            basename = os.path.basename(path.name)
+            media_type = self.get_file_media_type(basename)
+            body = path.read()
+
+        else:
+            media_type = self.get_file_media_type(path)
+            basename = os.path.basename(path)
+            with open(path, "rb") as fp:
+                body = fp.read()
+
+        if name:
+            headers = {
+                "Content-Disposition": (
+                    f"form-data; name=\"{name}\";"
+                    f" filename=\"{basename}\""
+                )
+            }
+
+        else:
+            headers = {
+                "Content-Disposition": f"attachment; filename=\"{basename}\""
+            }
+
+        self.add_part(
+            media_type,
+            body,
+            headers,
+        )
+
+# def add_file(self, name: str, path: str|io.IOBase):
+#         if isinstance(path, io.IOBase):
+#             basename = os.path.basename(path.name)
+#             media_type = self.get_file_media_type(basename)
+#             body = path.read()
+# 
+#         else:
+#             media_type = self.get_file_media_type(path)
+#             basename = os.path.basename(path)
+#             with open(path, "rb") as fp:
+#                 body = fp.read()
+# 
+#         self.add_part(
+#             {
+#                 "Content-Type": media_type,
+#                 "Content-Disposition": (
+#                     f"form-data; name=\"{name}\";"
+#                     f" filename=\"{basename}\""
+#                 )
+#             },
+#             body,
+#         )
+
+#     def add_json(self, data: Mapping, media_type: str = "application/json"):
+#         self.add_part({"Content-Type": media_type}, json.dumps(data))
+
+    def add_part(
+        self,
+        media_type: str,
+        body: bytes,
+        headers: Mapping|None = None,
+    ):
+        maintype, subtype = media_type.split("/", 1)
+        part = email.mime.base.MIMEBase(maintype, subtype)
+        part.set_payload(body)
+        self._add_part(part, headers or {})
+
+    def _add_part(self, part, headers: Mapping):
+        if not self.parts:
+            self.parts = email.mime.multipart.MIMEMultipart(
+                self.subtype,
+                boundary=self.boundary,
+            )
+
+        for header_name, header_value in headers.items():
+            part.add_header(header_name, header_value)
+
+        self.parts.attach(part)
+
+#     def xadd_part(self, headers: Mapping, body: bytes):
+#         self._clear_cache()
+#         headers = HTTPHeaders(headers)
+#         media_type = headers.get_media_type()
+#         headers.pop("Content-Type", None)
+#         maintype, subtype = media_type.split("/", 1)
+#         part = email.mime.base.MIMEBase(maintype, subtype)
+#         part.set_payload(body)
+#         self.parts.attach(part)
+
+
+    def _add_added_parts(self):
+        if self.parts:
+            headerbytes, body = self.parts.as_bytes().split(b"\n\n", 1)
+            hp = email.parser.BytesParser().parsebytes(
+                headerbytes,
+                headersonly=True,
+            )
+
+            self.boundary = self.parts.get_boundary()
+
+            if self._headers:
+                self._headers.update(hp._headers)
+
+            else:
+                self._headers = HTTPHeaders(hp._headers)
+
+            if self._body:
+                cutoff = len(self.boundary) + 5
+                self._body = self._body[:-cutoff] + body
+
+            else:
+                self._body = body
+
+        self.parts = None
 
     def create_part(
         self,
@@ -1283,108 +1517,6 @@ class BaseMultipart(object):
             # about the subparts
             if not part.is_multipart():
                 yield self.create_part(part)
-
-#     @classmethod
-#     def decode(self, headers, body):
-#         pass
-
-
-class MultipartEncode(BaseMultipart):
-    @property
-    def headers(self):
-        headers, _ = self.encode()
-        return headers
-
-    @property
-    def body(self):
-        _, body = self.encode()
-        return body
-
-    @classmethod
-    def get_file_media_type(cls, path) -> str:
-        """Internal method. given path give the best main and sub types for
-        the media type
-
-        :param path: str, the file path
-        """
-        if media_type := mimetypes.guess_type(path)[0]:
-            return media_type
-
-        else:
-            return "application/octet-stream"
-
-    def __init__(self, subtype: str = "form-data"):
-        self.parts = email.mime.multipart.MIMEMultipart(subtype)
-        self._clear_cache()
-
-    def _clear_cache(self):
-        self._headers = None
-        self._body = None
-
-    def add_field(self, name: str, value):
-        self._clear_cache()
-        part = email.mime.text.MIMEText(
-            value,
-            "plain",
-            _charset=None,
-        )
-        part.add_header(
-            "Content-Disposition",
-            f"form-data; name=\"{name}\""
-        )
-        self.parts.attach(part)
-
-    def add_fields(self, fields: Mapping):
-        for k, v in fields.items():
-            self.add_field(k, v)
-
-    def add_file(self, name: str, path: str|io.IOBase):
-        if isinstance(path, io.IOBase):
-            basename = os.path.basename(path.name)
-            media_type = self.get_file_media_type(basename)
-            body = path.read()
-
-        else:
-            media_type = self.get_file_media_type(path)
-            basename = os.path.basename(path)
-            with open(path, "rb") as fp:
-                body = fp.read()
-
-        self.add_part(
-            {
-                "Content-Type": media_type,
-                "Content-Disposition": (
-                    f"form-data; name=\"{name}\";"
-                    f" filename=\"{basename}\""
-                )
-            },
-            body,
-        )
-
-    def add_json(self, data: Mapping, media_type: str = "application/json"):
-        self.add_part({"Content-Type": media_type}, json.dumps(data))
-
-    def add_part(self, headers: Mapping, body: bytes):
-        self._clear_cache()
-        headers = HTTPHeaders(headers)
-        media_type = headers.get_media_type()
-        headers.pop("Content-Type", None)
-        maintype, subtype = media_type.split("/", 1)
-        part = email.mime.base.MIMEBase(maintype, subtype)
-        part.set_payload(body)
-        self.parts.attach(part)
-
-    def encode(self) -> tuple[HTTPHeaders, bytes]:
-        headerbytes, body = self.parts.as_bytes().split(b"\n\n", 1)
-        hp = email.parser.BytesParser().parsebytes(
-            headerbytes,
-            headersonly=True
-        )
-
-        self._headers = HTTPHeaders(hp._headers)
-        self._body = body
-
-        return self._headers, self._body
 
 
 class MultipartDecode(BaseMultipart):
