@@ -1129,7 +1129,7 @@ class MultipartPart(object):
         return fp
 
 
-class Multipart(object):
+class Multipart(Iterable):
     """Handles encoding and decoding a multipart/form-data body
 
     :example:
@@ -1180,7 +1180,7 @@ class Multipart(object):
             return "application/octet-stream"
 
     @classmethod
-    def encode(cls, subtype: str = "form-data") -> object:
+    def encode(cls, subtype: str = "form-data") -> Iterable[MultipartPart]:
         """Create a Multipart object that is ready to have parts added to
         it to be encoded
 
@@ -1190,7 +1190,7 @@ class Multipart(object):
         return cls(subtype)
 
     @classmethod
-    def decode(cls, headers: Mapping, body: bytes) -> object:
+    def decode(cls, headers: Mapping, body: bytes) -> Iterable[MultipartPart]:
         """decode the body using the headers
 
         This is based on endpoints's BaseApplication.get_request_multipart
