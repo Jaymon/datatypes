@@ -573,9 +573,11 @@ class HTTPClient(object):
         self.base_url = self.get_base_url(base_url)
         self.query = {}
 
-        self.headers = HTTPHeaders(kwargs.get("headers", None))
+        self.headers = HTTPHeaders()
         if kwargs.get("json", False):
-            self.headers.set_header("Content-Type", "application/json")
+            self.headers.add_header("Content-Type", "application/json")
+
+        self.headers.update(kwargs.get("headers", None))
 
     def get(self, uri, query=None, **kwargs):
         """make a GET request"""
