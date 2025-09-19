@@ -693,7 +693,7 @@ class ReflectType(ReflectObject):
         if not isinstance(haystack, type):
             if isinstance(haystack, tuple):
                 def get_type(h):
-                    return h if isinstance(h, type) else type(t)
+                    return h if isinstance(h, type) else type(h)
 
                 haystack = tuple(get_type(h) for h in haystack)
 

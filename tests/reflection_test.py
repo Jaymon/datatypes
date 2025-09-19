@@ -1086,6 +1086,13 @@ class ReflectTypeTest(TestCase):
         self.assertTrue(rt.is_dictish())
         self.assertFalse(rt.is_none())
 
+    def test__is_subclass_instance_tuple(self):
+        """I had a typo in the internal get_type method that puts a tuple
+        together inside ._is_subclass that none of the other tests caught,
+        this makes sure that bug is fixed and it doesn't crop up again"""
+        rt = ReflectType(str)
+        self.assertTrue(rt._is_subclass(str, ("foo", "bar")))
+
 
 class ReflectCallableTest(TestCase):
     def test_get_docblock_comment(self):
