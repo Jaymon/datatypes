@@ -697,15 +697,6 @@ class ReflectType(ReflectObject):
 
                 haystack = tuple(get_type(h) for h in haystack)
 
-#                 hs = haystack
-#                 haystack = []
-#                 for h in hs:
-#                     if not isinstance(h, type):
-#                         h = type(h)
-#                     haystack.append(h)
-# 
-#                 haystack = tuple(haystack)
-
             else:
                 haystack = type(haystack)
 
