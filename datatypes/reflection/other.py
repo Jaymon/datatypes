@@ -675,28 +675,6 @@ class ClasspathFinder(BaseClassFinder):
             if node.value and "class" in node.value:
                 yield keys, node.value
 
-#     def find_longest_path(self, keys: list[str]):
-#         nodes = []
-#         keys = self.normalize_keys(keys)
-# 
-#         if keys:
-#             try:
-#                 node = self.get_node(keys[0])
-# 
-#             except KeyError:
-#                 pass
-# 
-#             else:
-#                 nodes.append(node)
-#                 if len(keys) > 1:
-#                     ns, keys = node.find_longest_path(keys[1:])
-#                     nodes.extend(ns)
-# 
-#         else:
-#             nodes.append(self)
-# 
-#         return nodes, keys
-
 
 class ClassFinder(BaseClassFinder):
     """Keep a a class hierarchy tree so subclasses can be easily looked up

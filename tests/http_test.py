@@ -146,7 +146,7 @@ class HTTPHeadersTest(TestCase):
         h.update({"foo": "2"})
         self.assertEqual("2", h["foo"])
 
-    def test_parse(self):
+    def test_parse_1(self):
         h = HTTPHeaders()
         h["foo-bar"] = "application/json; charset=\"utf8\"; che=1; bar=2"
         main, params = h.parse("foo-BAR")
@@ -167,6 +167,21 @@ class HTTPHeadersTest(TestCase):
         main, params = h.parse("Does-Not-Exist")
         self.assertEqual("", main)
         self.assertEqual(0, len(params))
+
+    def test_parse_2(self):
+        h = HTTPHeaders()
+
+        h["Accept"] = (
+            "text/*;q=0.3, text/plain;q=0.7, text/plain;format=flowed,"
+            "text/plain;format=fixed;q=0.4, */*;q=0.5"
+        )
+
+        r = h.parse_weighted("Accept")
+        self.assertEqual("flowed", r[0][1]["format"])
+
+        h["Accept-Charset"] = "windows-1252,utf-8;q=0.7,*;q=0.3"
+        r = h.parse_weighted("Accept-Charset")
+        self.assertEqual("windows-1252", r[0][0])
 
     def test_is_methods(self):
         h = HTTPHeaders()

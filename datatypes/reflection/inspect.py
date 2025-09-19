@@ -14,10 +14,13 @@ from typing import (
     Any, # https://docs.python.org/3/library/typing.html#the-any-type
     get_args, # https://stackoverflow.com/a/64643971
     get_origin,
+    get_type_hints,
     Optional,
     Union,
     Literal,
     Annotated,
+    TypedDict,
+    _TypedDictMeta, # actual type of TypedDict
 )
 from collections.abc import (
     Mapping,
@@ -564,6 +567,16 @@ class ReflectType(ReflectObject):
         for t in self.get_args():
             yield self.create_reflect_type(t)
 
+    def get_type_hints(self):
+        return get_type_hints(self.get_target())
+
+    def reflect_type_hints(self):
+        type_hints = self.get_type_hints()
+        for k in type_hints.keys():
+            type_hints[k] = self.create_reflect_type(type_hints[k])
+
+        return type_hints
+
     def get_metadata(self):
         """Returns the annotated metadata.
 
@@ -644,11 +657,18 @@ class ReflectType(ReflectObject):
                     return True
 
                 else:
-                    if isinstance(needle, type):
-                        return isinstance(None, needle)
+                    try:
+                        if isinstance(needle, type):
+                            return isinstance(None, needle)
+
+                    except TypeError:
+                        return False
 
             elif haystack is Any:
                 return needle is Any
+
+            elif haystack is TypedDict:
+                return self._is_instance(needle, _TypedDictMeta)
 
             else:
                 return self._is_subclass(needle, haystack)
@@ -672,14 +692,33 @@ class ReflectType(ReflectObject):
 
         if not isinstance(haystack, type):
             if isinstance(haystack, tuple):
-                for i in range(len(haystack)):
-                    if not isinstance(haystack[i], type):
-                        haystack[i] = type(haystack[i])
+                def get_type(h):
+                    return h if isinstance(h, type) else type(t)
+
+                haystack = tuple(get_type(h) for h in haystack)
+
+#                 hs = haystack
+#                 haystack = []
+#                 for h in hs:
+#                     if not isinstance(h, type):
+#                         h = type(h)
+#                     haystack.append(h)
+# 
+#                 haystack = tuple(haystack)
 
             else:
                 haystack = type(haystack)
 
-        return issubclass(needle, haystack)
+        #return issubclass(needle, haystack)
+        try:
+            return issubclass(needle, haystack)
+
+        except TypeError:
+            if self._is_instance(haystack, _TypedDictMeta):
+                return self._is_instance(needle, _TypedDictMeta)
+
+            else:
+                return False
 
     def is_subclass(self, haystack) -> bool:
         """Checks if `.get_target()` is a subclass of haystack

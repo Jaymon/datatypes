@@ -2,7 +2,7 @@
 import io
 import sys
 import functools
-from typing import Any, Literal, Annotated
+from typing import Any, Literal, Annotated, TypedDict
 import runpy
 
 from datatypes.compat import *
@@ -341,30 +341,6 @@ class ClasspathFinderTest(TestCase):
 
         with self.assertRaises(ValueError):
             pf.add_class(foo_factory())
-
-#     def test_find_longest_path(self):
-#         prefix = self.create_module({
-#             "foo": {
-#                 "boo": "class Boo: pass",
-#             },
-#             "bar": {
-#                 "": "class Bar: pass",
-#                 "che": "class Che: pass",
-#             },
-#         })
-# 
-#         pout.v(prefix.path)
-#         pf = ClasspathFinder([prefix])
-#         for klass in prefix.get_classes():
-#             pf.add_class(klass)
-#         pout.v(pf)
-# 
-#         nodes, keys = pf.find_longest_path(["foo", "boo", "Boo", "1", "2"])
-#         pout.v(nodes, keys)
-#         for n in nodes:
-#             pout.v(n.key)
-#             pout.v(n.value)
-
 
 
 class ClassFinderTest(TestCase):
@@ -1097,6 +1073,18 @@ class ReflectTypeTest(TestCase):
         rt = ReflectType(Annotated[parse, {}])
         v = rt.cast("100")
         self.assertEqual(100, v)
+
+    def test_typed_dict(self):
+        class TD(TypedDict):
+            foo: str
+            bar: int
+
+        rt = ReflectType(TD)
+
+        self.assertTrue(rt.is_type(TypedDict))
+        self.assertTrue(rt.is_type(TD))
+        self.assertTrue(rt.is_dictish())
+        self.assertFalse(rt.is_none())
 
 
 class ReflectCallableTest(TestCase):

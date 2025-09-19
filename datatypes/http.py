@@ -184,6 +184,45 @@ class HTTPHeaders(Headers, Mapping):
         else:
             return "", {}
 
+    def parse_weighted(
+        self,
+        name: str
+    ) -> list[tuple[str, dict[str, str|float]]]:
+        """Parse `name` header's value and return a list of the values
+        and params according to the q value, the q value closest to 1 will
+        be the first value
+
+        https://www.rfc-editor.org/rfc/rfc9110#name-quality-values
+        """
+        ret = []
+
+        if h := self.get(name, ""):
+            parts = h.split(",")
+            for part in parts:
+                part = part.strip()
+                ps = part.split(";")
+
+                # all other items should be in key=val so let's add them to a
+                # dict:
+                params = {}
+                q = 1.0 # default according to spec
+                for p in ps[1:]:
+                    pk, pv = p.strip().split("=", 1)
+                    if pk == "q":
+                        q = float(pv)
+
+                    else:
+                        params[pk] = pv
+
+                params["q"] = q
+                ret.append((ps[0], params))
+
+            # https://docs.python.org/3/library/functions.html#sorted
+            # https://docs.python.org/3/howto/sorting.html#sortinghowto
+            ret.sort(key=lambda x: x[1]["q"], reverse=True)
+
+        return ret
+
     def get_params(self, name: str) -> Mapping:
         """Return just the params of the header `name`"""
         return self.parse(name)[1]
