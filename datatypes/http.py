@@ -38,6 +38,10 @@ class HTTPHeaders(Headers, Mapping):
 
     http headers spec:
         https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+        https://www.rfc-editor.org/rfc/rfc9110
+
+    HTTP headers ABNF:
+        https://www.rfc-editor.org/rfc/rfc9110#appendix-A
 
     wsgiref class docs:
         https://docs.python.org/3/library/wsgiref.html#module-wsgiref.headers

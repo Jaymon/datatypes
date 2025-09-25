@@ -195,6 +195,16 @@ class SettingsTest(TestCase):
         with self.assertRaises(KeyError):
             s.Common["library_dir"]
 
+    def test_get(self):
+        with self.environ(FOO_BAR=5):
+            s = Settings(prefix="FOO_")
+            v1 = s.get("BAR", "bah")
+            v2 = s["BAR"]
+            self.assertEqual(v1, v2)
+
+            self.assertIsNone(s.get("klsfjdkfl"))
+
+
 
 class MultiSettingsTest(TestCase):
     def test_multi(self):
@@ -266,4 +276,12 @@ class MultiSettingsTest(TestCase):
 
         s = MultiSettings(settings=[FooSettings()])
         self.assertTrue(s.is_working())
+
+    def test_get(self):
+        with self.environ(FOO_BAR=5):
+            environs = [Environ("FOO_")]
+            s = MultiSettings(environs=environs)
+            v1 = s.get("BAR", "bah")
+            v2 = s["BAR"]
+            self.assertEqual(v1, v2)
 

@@ -18,7 +18,7 @@ class Settings(Namespace):
         4. Environ.namespace
         5. Config.path.fileroot
 
-    :Example:
+    :example:
         environ = Environ("<PREFIX>")
         config = Config("<CONFIG-FILE-PATH>")
         local = {
@@ -178,6 +178,13 @@ class Settings(Namespace):
                             return config
 
             raise
+
+    def get(self, k, default=None):
+        try:
+            return self.__getitem__(k)
+
+        except KeyError:
+            return default
 
 
 class MultiSettings(Settings):
