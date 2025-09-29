@@ -104,6 +104,7 @@ from .path import (
     Sentinel,
     UrlFilepath,
     SitePackagesDirpath,
+    DataDirpath,
 )
 from .profile import (
     Profiler,

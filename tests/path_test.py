@@ -15,6 +15,7 @@ from datatypes.path import (
     Sentinel,
     UrlFilepath,
     PathIterator,
+    DataDirpath,
 )
 
 from . import TestCase, testdata
@@ -2333,4 +2334,40 @@ class PathIteratorTest(TestCase):
         paths = list(dp.iterator.nin_hidden())
         for p in paths:
             self.assertFalse(p.isdir() and p.is_hidden(), p)
+
+
+class DataDirpathTest(TestCase):
+    def test_discovery_success(self):
+        basedir = self.create_modules({
+            "foos": {
+                "bar": {
+                    "che": "",
+                },
+            },
+        })
+
+        basedir.add_file(["foos", "bar", "che", "data", "1.txt"])
+        basedir.add_file(["foos", "bar", "data", "2.txt"])
+        basedir.add_file(["foos", "data", "3.txt"])
+
+        dp = DataDirpath("foos.bar.che")
+        self.assertTrue(dp.endswith("/foos/bar/data"))
+
+        dp = DataDirpath("foos.bar")
+        self.assertTrue(dp.endswith("/foos/bar/data"))
+
+        dp = DataDirpath("foos")
+        self.assertTrue(dp.endswith("/foos/data"))
+
+    def test_discovery_failure(self):
+        basedir = self.create_modules({
+            "foof": {
+                "bar": {
+                    "che": "",
+                },
+            },
+        })
+
+        with self.assertRaises(NotADirectoryError):
+            dp = DataDirpath("foof.bar.che")
 

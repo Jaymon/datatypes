@@ -17,6 +17,7 @@ import random
 import struct
 import imghdr
 from pathlib import Path as Pathlib
+import importlib
 import pickle
 from contextlib import contextmanager
 import errno
@@ -4310,9 +4311,22 @@ class DataDirpath(Dirpath):
     * https://setuptools.pypa.io/en/latest/userguide/datafiles.html
     * https://stackoverflow.com/questions/779495/access-data-in-package-subdirectory
     """
-    def __new__(cls, modpath=""):
-        if not modpath:
-            modpath = __name__.split(".")[0]
-        base_dir = os.path.dirname(sys.modules[modpath].__file__)
-        return super().__new__(cls, base_dir, "data")
+    def __new__(cls, modpath):
+        parts = modpath.split(".")
+        while parts:
+            mp = ".".join(parts)
+            if mp not in sys.modules:
+                importlib.import_module(mp)
+
+            base_dir = os.path.dirname(sys.modules[mp].__file__)
+            data_dir = os.path.join(base_dir, "data")
+            if os.path.isdir(data_dir):
+                return super().__new__(cls, data_dir)
+
+            # strip off rightmost module and try again
+            parts.pop(-1)
+
+        raise NotADirectoryError(
+            f"Could not find a data directory in {modpath}"
+        )
 
