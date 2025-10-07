@@ -3,7 +3,6 @@
 from .html import (
     HTML,
     HTMLCleaner,
-    HTMLTagTokenizer,
 )
 from .toml import (
     TOML,

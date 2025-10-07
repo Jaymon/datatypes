@@ -6,7 +6,7 @@ import re
 
 from ..compat import *
 from ..string import String
-from ..token import Token, Tokenizer, Scanner
+from ..token import Scanner
 
 
 class HTML(String):
@@ -124,15 +124,6 @@ class HTML(String):
         hc = kwargs.pop("cleaner_class", HTMLCleaner)(**kwargs)
         return hc.feed(self)
 
-    def tags(self, tagnames=None, **kwargs):
-        """Return only the tags in `tagnames`
-
-        :param tagnames: list[str], the tags to return
-        :returns: HTMLTokenizer[HTMLToken]
-        """
-        tokenizer_class = kwargs.get("tokenizer_class", HTMLTagTokenizer)
-        return tokenizer_class(self, tagnames)
-
     def inject_into_head(self, html):
         """Inject passed in html into head
 
@@ -195,52 +186,6 @@ class HTML(String):
         """
         tokenizer_class = kwargs.get("tokenizer_class", HTMLBlockTokenizer)
         return tokenizer_class(self, ignore_tagnames=ignore_tagnames)
-
-
-class HTMLParser(HTMLParser):
-    """Internal parent class. Used by other more specialized HTML parsers"""
-    def _normalize_tagnames(self, tagnames) -> set[str]:
-        tnames = set()
-
-        if tagnames:
-            tnames.update(map(lambda s: s.lower(), tagnames))
-
-        return tnames
-
-    def _in_tagnames(self, tagname, attrs, tagnames) -> bool:
-        """Check if `tagnames` is in `tagnames`.
-
-        Uses `attrs` for simple css selector support (eg, `div.foo` to match
-        div tags with the `foo` class, and `div#foo` to match div tags with
-        the `foo` id)
-
-        :param tagname: str
-        :param attrs: list[tuple[str, str]]
-        :param tagnames: set, usually the value returned from
-            `._normalize_tagnames()`
-        """
-        ret = False
-
-        if tagnames:
-            if tagname in tagnames:
-                ret = True
-
-            else:
-                # really basic css selector support
-                for k, v in attrs:
-                    if k == "class":
-                        selector = "{}.{}".format(tagname, v)
-                        if selector in tagnames:
-                            ret = True
-                            break
-
-                    elif k == "id":
-                        selector = "{}#{}".format(tagname, v)
-                        if selector in tagnames:
-                            ret = True
-                            break
-
-        return ret
 
 
 class HTMLCleaner(HTMLParser):
@@ -337,6 +282,49 @@ class HTMLCleaner(HTMLParser):
 
         return self.cleaned_html
 
+    def _normalize_tagnames(self, tagnames) -> set[str]:
+        tnames = set()
+
+        if tagnames:
+            tnames.update(map(lambda s: s.lower(), tagnames))
+
+        return tnames
+
+    def _in_tagnames(self, tagname, attrs, tagnames) -> bool:
+        """Check if `tagnames` is in `tagnames`.
+
+        Uses `attrs` for simple css selector support (eg, `div.foo` to match
+        div tags with the `foo` class, and `div#foo` to match div tags with
+        the `foo` id)
+
+        :param tagname: str
+        :param attrs: list[tuple[str, str]]
+        :param tagnames: set, usually the value returned from
+            `._normalize_tagnames()`
+        """
+        ret = False
+
+        if tagnames:
+            if tagname in tagnames:
+                ret = True
+
+            else:
+                # really basic css selector support
+                for k, v in attrs:
+                    if k == "class":
+                        selector = "{}.{}".format(tagname, v)
+                        if selector in tagnames:
+                            ret = True
+                            break
+
+                    elif k == "id":
+                        selector = "{}#{}".format(tagname, v)
+                        if selector in tagnames:
+                            ret = True
+                            break
+
+        return ret
+
     def _is_ignored(self, tagname, attrs=None) -> bool:
         """Return True if tagname should be ignored"""
         if self.ignore_tagnames is True:
@@ -413,279 +401,6 @@ class HTMLCleaner(HTMLParser):
 
                     else:
                         self.cleaned_html += self.inline_sep
-
-
-class HTMLTagParser(HTMLParser):
-    """Internal class. This is the parser used by HTMLTagTokenizer.
-
-    This is not a general purpose parser, it's purpose is only to find the
-    tagnames passed into it, for example, if you pass into a website's html
-    and don't specify the tags you want (like "a"), then it will return you
-    one tag info dict, the top level "html" tag, all the other tags will be
-    in the "body" keys.
-
-    If you need something more full featured you should use BeautifulSoup or
-    the like.
-
-    https://docs.python.org/3/library/html.parser.html
-    """
-    def __init__(self, tagnames=None):
-        """
-        :param tagnames: Collection[str], the list of wanted tag names
-        """
-        super().__init__()
-
-        self.tagnames = self._normalize_tagnames(tagnames)
-
-    def reset(self):
-        super().reset()
-
-        # as child tags are parsed they are placed in here until the closing
-        # tag is found
-        self.tag_stack = []
-
-        # once the tag stack is completely depleted the main tag is appended
-        # into this property, this is returned in `.feed()` and `.close()`
-        self.closed_tags = []
-
-    def _include_tag(self, tagname, attrs) -> bool:
-        """Returns True if tagname is one of the tags that should be parsed
-
-        :param tagname: str, lowercase tagname
-        :returns: True if tagname should be parsed, False otherwise
-        """
-        return (
-            not self.tagnames
-            or self._in_tagnames(tagname, attrs, self.tagnames)
-        )
-
-    def _add_tag(self, tag):
-        if self.tag_stack:
-            self.tag_stack[-1]["body"].append(tag)
-
-        else:
-            self.closed_tags.append(tag)
-
-    def feed(self, data) -> dict|None:
-        """This reaturns the tag info dict or None if no tag was found. this
-        method is called in `HTMLTokenizer.next()`"""
-        self.closed_tags = []
-
-        super().feed(data)
-
-        return self.closed_tags
-
-    def close(self) -> dict|None:
-        """This reaturns the tag info dict or None if no straggler tag was
-        found. this method is called in `HTMLTokenizer.next()` if the buffer
-        is depleted"""
-        self.closed_tags = []
-
-        super().close()
-
-        while self.tag_stack:
-            tag = self.tag_stack.pop(-1)
-
-            stop_line, stop_ch = self.getpos()
-            tag["stop"] = stop_ch
-            tag["stop_line"] = stop_line
-
-            self._add_tag(tag)
-
-        return self.closed_tags
-
-    def handle_starttag(self, tagname, attrs):
-        """
-        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_starttag
-        """
-        # we add the tag if it is in the wanted tag list or if it is part of
-        # the body of another tag
-        #pout.b(tagname)
-
-        if not self._include_tag(tagname, attrs) and not self.tag_stack:
-            return
-
-        start_line, start_ch = self.getpos()
-
-        tag = {
-            "tagname": tagname,
-            "attrs": attrs,
-            "body": [],
-            "start": start_ch,
-            "start_line": start_line,
-        }
-
-        if tagname in HTML.VOID_TAGNAMES:
-            tag["stop"] = start_ch
-            tag["stop_line"] = start_line
-            self._add_tag(tag)
-
-        else:
-            self.tag_stack.append(tag)
-
-
-    def handle_data(self, data):
-        """
-        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_data
-        """
-        if not self.tag_stack:
-            return
-
-        start_line, start_ch = self.getpos()
-
-        self.tag_stack[-1]["body"].append({
-            "body": [data],
-            "start": start_ch,
-            "start_line": start_line,
-            "stop": start_ch + len(data),
-        })
-
-    def handle_endtag(self, tagname):
-        """
-        https://docs.python.org/3/library/html.parser.html#html.parser.HTMLParser.handle_starttag
-        """
-        if not self.tag_stack or (self.tag_stack[-1]["tagname"] != tagname):
-            return
-
-        stop_line, stop_ch = self.getpos()
-
-        tag = self.tag_stack.pop(-1)
-
-        tag["stop"] = stop_ch
-        tag["stop_line"] = stop_line
-
-        self._add_tag(tag)
-
-
-class HTMLTagToken(Token):
-    """This is what is returned from the HTMLTokenizer
-
-        .tagname - the name of the tag
-        .text - the body of the tag
-        .attrs - the attributes
-    """
-    @cached_property
-    def text(self):
-        text = ""
-        for d in self.taginfo.get("body", []):
-            if "tagname" in d:
-                t = type(self)(self.tokenizer, d)
-                text += t.__str__()
-
-            else:
-                text += "".join(d["body"])
-
-        return text
-
-    @cached_property
-    def attrs(self):
-        attrs = {}
-        for attr_name, attr_val in self.taginfo.get("attrs", []):
-            attrs[attr_name] = attr_val
-
-        return attrs
-
-    def __init__(self, tokenizer, taginfo):
-        self.tagname = taginfo.get("tagname", "")
-        self.taginfo = taginfo
-
-        super().__init__(
-            tokenizer,
-            taginfo.get("start", -1),
-            taginfo.get("stop", -1)
-        )
-
-    def __getattr__(self, key):
-        if key in self.taginfo:
-            return self.taginfo[key]
-
-        else:
-            # support foo-bar and foo_bar attribute fetching
-            for k in [key.replace("-", "_"), key.replace("_", "-")]:
-                if k in self.attrs:
-                    return self.attrs[k]
-
-        raise AttributeError(key)
-
-    def __getitem__(self, key):
-        try:
-            return self.__getattr__(key)
-
-        except AttributeError as e:
-            raise KeyError(key) from e
-
-    def tags(self, tagnames=None):
-        """Returns the matching subtags of this tag"""
-        tagnames = set(t.lower() for t in tagnames) if tagnames else set()
-
-        for d in self.taginfo.get("body", []):
-            if "tagname" in d:
-                if not tagnames or d["tagname"] in tagnames:
-                    t = type(self)(self.tokenizer, d)
-                    yield t
-                    yield from t.tags(tagnames)
-
-    def __str__(self):
-        attrs = ""
-        for ak, av in self.attrs.items():
-            attrs += ' {}="{}"'.format(ak, av)
-
-        s = "<{}{}>{}</{}>".format(
-            self.tagname,
-            attrs,
-            self.text,
-            self.tagname
-        )
-        return s
-
-
-class HTMLTagTokenizer(Tokenizer):
-    """Tokenize HTML and only yield asked for tagnames
-
-    This is the public interface for HTMLParser. It is primarily used via
-    `HTML.tags`
-    """
-    token_class = HTMLTagToken
-
-    def __init__(self, buffer, tagnames=None):
-        """
-        :param buffer: str|io.IOBase, this is the html that will be tokenized
-        :param tagnames: Collection[str], the tags to be parsed
-        """
-        super().__init__(buffer)
-
-        self.parser = HTMLTagParser(tagnames=tagnames)
-        self.buffered_tags = []
-
-    def create_token(self, taginfo):
-        return self.token_class(self, taginfo)
-
-    def next(self):
-        tag = None
-
-        if self.buffered_tags:
-            taginfo = self.buffered_tags.pop(0)
-            tag = self.create_token(taginfo)
-
-        else:
-            # we keep reading chunks of buffer until the html parser returns
-            # something we can use
-            while tag is None:
-                if line := self.buffer.readline():
-                    if taginfos := self.parser.feed(line):
-                        self.buffered_tags.extend(taginfos)
-                        tag = self.next()
-                        #tag = self.create_token(taginfo)
-
-                else:
-                    if taginfos := self.parser.close():
-                        self.buffered_tags.extend(taginfos)
-                        #tag = self.create_token(taginfo)
-                        tag = self.next()
-
-                    break
-
-        return tag
 
 
 class HTMLBlockTokenizer(Iterable):
