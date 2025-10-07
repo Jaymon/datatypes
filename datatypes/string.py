@@ -5,7 +5,6 @@ import re
 import string
 import binascii
 import unicodedata
-from distutils.fancy_getopt import wrap_text
 import secrets
 import textwrap
 import uuid
@@ -343,17 +342,23 @@ class String(Str, StringMixin):
         and is sometimes handy"""
         return type(self)(textwrap.dedent(self))
 
-    def wrap(self, size):
+    def wrap(self, width: int) -> str:
         """Wraps text to less than width wide
 
-        https://docs.python.org/3/distutils/apiref.html#distutils.fancy_getopt.wrap_text
+        https://docs.python.org/3/library/textwrap.html#textwrap.wrap
 
-        :param size: int, the width you want
+        :param width: int, the line width you want
         :returns: str, all text wrapped to no more than size, if there isn't a
             space or linebreak then the middle of the word will get broken on
         """
-        s = "\n".join(wrap_text(self, size))
-        return type(self)(s)
+        s = textwrap.wrap(
+            self,
+            width=width,
+            replace_whitespace=False,
+            #break_long_words=False,
+            expand_tabs=False
+        )
+        return type(self)("\n".join(s))
 
     def stripall(self, chars):
         """Similar to the builtin .strip() but will strip chars from anywhere
