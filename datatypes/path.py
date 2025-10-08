@@ -15,7 +15,6 @@ import datetime
 import string
 import random
 import struct
-import imghdr
 from pathlib import Path as Pathlib
 import importlib
 import pickle
@@ -3582,9 +3581,35 @@ class Imagepath(Filepath):
             if len(head) != 24:
                 raise ValueError("Could not understand image")
 
-            # https://docs.python.org/2.7/library/imghdr.html
-            what = imghdr.what(None, head)
-            if what is None:
+            # ripped from the previous imghdr standard library module that was
+            # removed in 3.13
+            # https://github.com/python/cpython/blob/3.12/Lib/imghdr.py
+            # https://docs.python.org/3.12/library/imghdr.html
+            if head[6:10] in (b"JFIF", b"Exif"):
+                what = "jpeg"
+
+            elif head[:4] == b"\xff\xd8\xff\xdb":
+                what = "jpeg"
+
+            elif head.startswith(b"\211PNG\r\n\032\n"):
+                what = "png"
+
+            elif head[:6] in (b"GIF87a", b"GIF89a"):
+                what = "gif"
+
+            elif head.startswith(b"RIFF") and head[8:12] == b"WEBP":
+                what = "webp"
+                # TODO -- add dimensions support
+
+            elif head[:2] in (b"MM", b"II"):
+                what = "tiff"
+                # TODO -- add dimensions support
+
+            elif head.startswith(b"BM"):
+                what = "bmp"
+                # TODO -- add dimensions support
+
+            else:
                 what = self.extension
 
             if what == 'png':
@@ -4106,7 +4131,7 @@ class Sentinel(Cachepath):
             hourly: bool, create the file once per hour
             ttl: bool, create the file every ttl seconds
         """
-        now = datetime.datetime.utcnow()
+        now = Datetime()
         year = now.strftime("%Y")
         month = now.strftime("%m")
         day = now.strftime("%d")
