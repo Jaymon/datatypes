@@ -238,14 +238,8 @@ class ReflectAST(ReflectObject):
             raise TypeError(f"get_expr_value with {type(na)}")
 
         ret = None
-        if isinstance(na, ast.Num):
-            repr_n = repr(na.n)
-            val = na.n
-            vtype = float if '.' in repr_n else int
-            ret = vtype(val)
-
-        elif isinstance(na, ast.Str):
-            ret = str(na.s)
+        if isinstance(na, ast.Constant):
+            ret = ast.literal_eval(na)
 
         elif isinstance(na, ast.Name):
             # http://stackoverflow.com/questions/12700893/
@@ -2576,13 +2570,17 @@ class ReflectModule(ReflectObject):
                 if not part.startswith("__") and not part.endswith("__"):
                     return True
 
-    def is_package(self):
+    def is_package(self) -> bool:
+        """Return True if this module is a package, meaning it's a folder
+        with an __init__.py file in it"""
         if self.target:
             # if path attr exists then this is a package
             return hasattr(self.target, "__path__")
 
         else:
-            p = pkgutil.get_loader(self.name)
+            #p = pkgutil.get_loader(self.name) # deprecated 3.12
+            s = importlib.util.find_spec(self.name)
+            p = s.loader
             return p.path.endswith("__init__.py")
 
     def reflect_module(self, *parts):

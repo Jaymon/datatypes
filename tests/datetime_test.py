@@ -206,8 +206,9 @@ class DatetimeTest(TestCase):
         )
 
     def test_timestamp_2(self):
-        epoch = datetime.datetime(1970, 1, 1)
-        timestamp = (datetime.datetime.utcnow() - epoch).total_seconds()
+        epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+        td = datetime.datetime.now(datetime.timezone.utc) - epoch
+        timestamp = td.total_seconds()
 
         dt = Datetime(timestamp)
         self.assertEqual(timestamp, dt.timestamp())

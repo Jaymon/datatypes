@@ -4,6 +4,7 @@ import sys
 import functools
 from typing import Any, Literal, Annotated, TypedDict
 import runpy
+import ast
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -20,6 +21,7 @@ from datatypes.reflection import (
     ClassFinder,
     ClassKeyFinder,
 )
+from datatypes.reflection.inspect import ReflectAST
 from datatypes.path import Dirpath
 from . import TestCase, testdata
 
@@ -2316,6 +2318,11 @@ class ReflectModuleTest(TestCase):
         dirpath = Dirpath(m.directory, m)
         self.assertEqual(set(), ReflectModule.find_module_names(dirpath))
 
+    def test_is_package(self):
+        m = testdata.create_package(data="class Foo(object): pass")
+        rm = ReflectModule(m)
+        self.assertTrue(rm.is_package())
+
     def test_find_module_import_path(self):
         modpath = testdata.create_module(modpath="foo.bar.che")
         rm = ReflectModule(modpath)
@@ -2676,4 +2683,21 @@ class ReflectDocblockTest(TestCase):
 
         desc = list(rdb.get_bodies("description"))[0]
         self.assertTrue("description line 1\n\ndescription line 2" in desc)
+
+
+class ReflectASTTest(TestCase):
+    def test_get_expr_value(self):
+        n = ast.parse("1234")
+        ra = ReflectAST(n.body[0].value)
+        self.assertTrue(isinstance(ra.get_expr_value(), int))
+
+        n = ast.parse("\"one two three four\"")
+        ra = ReflectAST(n.body[0].value)
+        self.assertTrue(isinstance(ra.get_expr_value(), str))
+
+        n = ast.parse("12.34")
+        ra = ReflectAST(n.body[0].value)
+        self.assertTrue(isinstance(ra.get_expr_value(), float))
+
+
 
