@@ -562,7 +562,18 @@ class ReflectType(ReflectObject):
             yield self.create_reflect_type(t)
 
     def get_type_hints(self):
-        return get_type_hints(self.get_target())
+        """
+        https://docs.python.org/3/library/typing.html#typing.get_type_hints
+        """
+        try:
+            return get_type_hints(self.get_target())
+
+        except TypeError:
+            # return an empty dict if call fails, similar to 3.10
+            # functionality. Python 3.12+ raise this type error with invalid
+            # targets: TypeError: <TYPE> is not a module, class, method, or
+            # function
+            return {}
 
     def reflect_type_hints(self):
         type_hints = self.get_type_hints()
@@ -2014,7 +2025,18 @@ class ReflectCallable(ReflectObject):
 
         :returns: ast.AST
         """
-        class _Finder(inspect._ClassFinder):
+        class _Finder(ast.NodeVisitor):
+            """Find the actual callable by unrolling any decorators
+
+            This used to extend `inspect._ClassFinder` but that class was
+            removed in 3.13. So I've copied the missing methods as of 3.12
+            into here so I can continue to use this functionality
+            """
+            def __init__(self, qualname):
+                """From python 3.12"""
+                self.stack = []
+                self.qualname = qualname
+
             node = None
             def visit_FunctionDef(self, node):
                 self.stack.append(node.name)
@@ -2024,8 +2046,8 @@ class ReflectCallable(ReflectObject):
                     raise StopIteration()
 
                 else:
-                    # These checks aren't 100% sure so we set it but don't stop
-                    # checking looking for a more definitive check
+                    # These checks aren't 100% sure so we set it but don't
+                    # stop checking looking for a more definitive check
                     if qualname in self.qualname:
                         self.node = node
 
@@ -2033,9 +2055,35 @@ class ReflectCallable(ReflectObject):
                         for qn in self.qualname:
                             if qn.endswith("." + qualname):
                                 self.node = node
+
                     self.stack.pop()
-                    super().visit_FunctionDef(node)
+                    #super().visit_FunctionDef(node)
+
+                    # python 3.12 visit_FunctionDef method
+                    self.stack.append(node.name)
+                    self.stack.append('<locals>')
+                    self.generic_visit(node)
+                    self.stack.pop()
+                    self.stack.pop()
+
             visit_AsyncFunctionDef = visit_FunctionDef
+
+            def visit_ClassDef(self, node):
+                """From python 3.12"""
+                self.stack.append(node.name)
+                if self.qualname == '.'.join(self.stack):
+                    # Return the decorator for the class if present
+                    if node.decorator_list:
+                        line_number = node.decorator_list[0].lineno
+
+                    else:
+                        line_number = node.lineno
+
+                    # lines starts with indexing by zero
+                    raise inspect.ClassFoundException(line_number - 1)
+
+                self.generic_visit(node)
+                self.stack.pop()
 
         qualnames = [
             self.infer_qualname(),

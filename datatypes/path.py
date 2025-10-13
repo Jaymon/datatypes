@@ -3585,6 +3585,7 @@ class Imagepath(Filepath):
             # removed in 3.13
             # https://github.com/python/cpython/blob/3.12/Lib/imghdr.py
             # https://docs.python.org/3.12/library/imghdr.html
+            # https://peps.python.org/pep-0594/#imghdr
             if head[6:10] in (b"JFIF", b"Exif"):
                 what = "jpeg"
 
