@@ -6,6 +6,7 @@ import re
 import time
 import math
 import calendar
+from collections.abc import Iterable
 
 from .compat import *
 from .string import String
@@ -206,9 +207,9 @@ class Datetime(datetime.datetime):
         timedelta_names = {
             "years": ["years", "yrs"],
             "months": ["months"],
-            "weeks": ["weeks", "week"],
+            "weeks": ["weeks", "wks"],
             "days": ["days"],
-            "hours": ["hours"],
+            "hours": ["hours", "hrs"],
             "minutes": ["minutes", "mins"],
             "seconds": ["seconds", "secs"],
             "microseconds": ["microseconds", "usecs"],
@@ -235,6 +236,7 @@ class Datetime(datetime.datetime):
         replace_names = {
             "year": ["year", "yr", "y", "Y"],
             "month": ["month", "m"],
+            "week": ["week", "wk"],
             "day": ["day", "d"],
             "hour": ["hour", "hr", "H"],
             "minute": ["minute", "min", "M"],
@@ -278,7 +280,8 @@ class Datetime(datetime.datetime):
 
     @classmethod
     def parse_subseconds(cls, subseconds):
-        r"""Parse the value to the right of the period on a floating point number
+        r"""Parse the value to the right of the period on a floating
+        point number
 
         123456
         \ /\ /
@@ -431,8 +434,13 @@ class Datetime(datetime.datetime):
                     instance = cls.now(datetime.timezone.utc)
 
         else:
+            week = replace_kwargs.pop("week", None)
+
             instance = super().__new__(cls, *args, **replace_kwargs)
+
             replace_kwargs = {} # we've consumed them
+            if week is not None:
+                replace_kwargs["week"] = week
 
         if replace_kwargs or timedelta_kwargs:
             instance = instance.replace(**replace_kwargs, **timedelta_kwargs)
@@ -856,7 +864,7 @@ class Datetime(datetime.datetime):
 
         # this was moved here on 2021-5-5 from prom.config.Field.jsonable
         try:
-            val = super(Datetime, self).strftime(*args, **kwargs)
+            val = super().strftime(*args, **kwargs)
 
         except ValueError as e:
             # strftime can fail on dates <1900
@@ -915,7 +923,16 @@ class Datetime(datetime.datetime):
         args, replace_kwargs, timedelta_kwargs = self.parse_args(args, kwargs)
 
         if replace_kwargs:
+            week = replace_kwargs.pop("week", None)
+
             dt = super().replace(*args, **replace_kwargs)
+
+            # https://docs.python.org/3/library/datetime.html#datetime.date.fromisocalendar
+            # https://stackoverflow.com/a/59200842
+            if week is not None:
+                wdt = self.fromisocalendar(dt.year, week, 1)
+                dt = dt.replace(wdt.year, wdt.month, wdt.day)
+                #args = [dt.year, dt.month, dt.day, *args[3:]]
 
         else:
             dt = super().replace(*args)
@@ -946,23 +963,10 @@ class Datetime(datetime.datetime):
 
         return dt
 
-    def datetime(self):
-        """Similar to .date() but returns vanilla datetime instance"""
-        return datetime.datetime(
-            self.year,
-            self.month,
-            self.day,
-            self.hour,
-            self.minute,
-            self.second,
-            self.microsecond,
-            tzinfo=self.tzinfo,
-        )
-
     def days_in_month(self):
         """Return how many days there are in self.month
 
-        Months with 28 or 20 days:
+        Months with 28 or 29 days:
             * February
 
         Months with 30 days:
@@ -983,7 +987,7 @@ class Datetime(datetime.datetime):
         _, monthlen = calendar.monthrange(self.year, self.month)
         return monthlen
 
-    def next_month(self):
+    def next_month(self) -> datetime.date:
         """Returns the first day of the next month from self"""
         month = self.month
         year = self.year
@@ -996,7 +1000,7 @@ class Datetime(datetime.datetime):
 
         return Datetime(year, month, 1)
 
-    def prev_month(self):
+    def prev_month(self) -> datetime.date:
         """Returns the first day of the previous month from self"""
         month = self.month
         year = self.year
@@ -1009,11 +1013,11 @@ class Datetime(datetime.datetime):
 
         return Datetime(year, month, 1)
 
-    def current_month(self):
+    def current_month(self) -> datetime.date:
         """Returns the first day of the current month from self"""
         return Datetime(self.year, self.month, 1)
 
-    def months(self, now=None, inclusive=True):
+    def months(self, now=None, inclusive=True) -> Iterable[datetime.date]:
         """Returns all the months between self and now
 
         :param now: datetime, if None then defaults to now
@@ -1038,4 +1042,98 @@ class Datetime(datetime.datetime):
                 month = month.next_month()
 
             yield month
+
+    @classmethod
+    def itermonthdays(cls, year: int, month: int) -> Iterable[datetime.date]:
+        """Return all the days for the passed in year and month
+
+        https://docs.python.org/3/library/calendar.html#calendar.Calendar.itermonthdays
+        """
+        cal = calendar.Calendar()
+        for day in cal.itermonthdays(year, month):
+            if day > 0:
+                yield cls(year, month, day)
+
+    @classmethod
+    def iteryeardays(cls, year: int) -> Iterable[datetime.date]:
+        """Return all the days for the passed in year
+
+        The calendar module doesn't expose a method like this, closest would
+        be `yeardatescalendar` but I figured I would keep a similar name
+        to `itermonthdays` since they have similar functionality
+        """
+        for month in range(1, 13):
+            yield from cls.itermonthdays(year, month)
+
+    @classmethod
+    def iterdays(cls, *args, **kwargs) -> Iterable[datetime.date]:
+        """Iterate the days
+
+        Iterate all the days in a year:
+
+            for dt in Datetime.iterdays(2025):
+                print(dt)
+
+        Iterate all the days in a month:
+
+            for dt in Datetime.iterdays(2025, 10):
+                print(dt)
+
+        Iterate all the days of a specific week:
+
+            for dt in Datetime.iterdays(2025, week=6):
+                print(dt)
+
+        :param year: Optional[int]
+        :param month: Optional[int]
+        :keyword week: Optional[int]
+        """
+        args, replace_kwargs, _ = cls.parse_args(args, kwargs)
+
+        for index, key in enumerate(["year", "month", "day"]):
+            if key not in replace_kwargs:
+                if index < len(args):
+                    replace_kwargs[key] = args[index]
+
+        if "week" in replace_kwargs:
+            for day_index in range(1, 8):
+                d = cls.fromisocalendar(
+                    replace_kwargs["year"],
+                    replace_kwargs["week"],
+                    day_index
+                )
+                yield cls(d)
+
+        elif "day" in replace_kwargs:
+            yield cls(
+                replace_kwargs["year"],
+                replace_kwargs["month"],
+                replace_kwargs["day"],
+            )
+
+        elif "month" in replace_kwargs:
+            yield from cls.itermonthdays(
+                replace_kwargs["year"],
+                replace_kwargs["month"],
+            )
+
+        else:
+            yield from cls.iteryeardays(replace_kwargs["year"])
+
+    def datetime(self):
+        """Similar to .date() but returns vanilla datetime instance
+
+        For annotation (type hints) purposes this needs to be at the bottom
+        since it overrides the class scope for `datetime`
+        """
+        return datetime.datetime(
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.microsecond,
+            tzinfo=self.tzinfo,
+        )
 

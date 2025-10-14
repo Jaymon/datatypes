@@ -630,3 +630,36 @@ class DatetimeTest(TestCase):
         self.assertTrue(dt1.date() == dt2.date() == dt3.date())
         self.assertEqual(dt1, dt2.datetime().replace(tzinfo=None))
 
+    def test_itermonthdays(self):
+        for total, dt in enumerate(Datetime.itermonthdays(2025, 10), 1):
+            self.assertTrue(1 <= dt.day <= 31)
+
+        self.assertEqual(31, total)
+
+    def test_iteryeardays(self):
+        for total, dt in enumerate(Datetime.iteryeardays(2025), 1):
+            self.assertTrue(1 <= dt.month <= 12)
+            self.assertTrue(1 <= dt.day <= 31)
+
+        self.assertEqual(365, total)
+
+    def test_iterdays(self):
+        for total, dt in enumerate(Datetime.iterdays(2025, week=2), 1):
+            if total == 1:
+                self.assertEqual("2025-01-06", str(dt))
+
+            if total == 7:
+                self.assertEqual("2025-01-12", str(dt))
+
+        self.assertEqual(7, total)
+
+        self.assertEqual(31, len([dt for dt in Datetime.iterdays(2025, 10)]))
+        self.assertEqual(365, len([dt for dt in Datetime.iterdays(2025)]))
+
+    def test_week_1(self):
+        dt = Datetime(2025, 1, 1, 0, 0, 0, week=1)
+        self.assertEqual("2024-12-30", str(dt))
+
+        dt = Datetime(2025, 1, 1, 0, 0, 0, week=2)
+        self.assertEqual("2025-01-06", str(dt))
+
