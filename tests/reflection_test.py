@@ -2,7 +2,7 @@
 import io
 import sys
 import functools
-from typing import Any, Literal, Annotated, TypedDict
+from typing import Any, Literal, Annotated, TypedDict, Type
 import runpy
 import ast
 
@@ -481,6 +481,18 @@ class ClassKeyFinderTest(TestCase):
         c2 = cf.find_class("c2_class")
         self.assertTrue(issubclass(c1, p))
         self.assertTrue(issubclass(c2, p))
+
+    def test_get_abs_classes(self):
+        classes = self.create_module_classes("""
+            class GP(object): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+        """)
+        cf = ClassKeyFinder()
+        cf.add_classes(classes.values())
+        for klass in cf.get_abs_classes():
+            self.assertTrue(isinstance(klass, Type))
 
 
 class ExtendTest(TestCase):

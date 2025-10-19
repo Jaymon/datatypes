@@ -693,10 +693,14 @@ class ClassFinder(BaseClassFinder):
 
     def _get_node_items(self, klass: type):
         keys = []
-        for c in reversed(inspect.getmro(klass)):
-            if self._is_valid_subclass(c):
-                keys.append(c)
-                yield keys, c
+        for c in self.getmro(klass, reverse=True):
+            keys.append(c)
+            yield keys, c
+
+#         for c in reversed(inspect.getmro(klass)):
+#             if self._is_valid_subclass(c):
+#                 keys.append(c)
+#                 yield keys, c
 
     def _is_valid_subclass(self, klass: type, cutoff_class=None):
         """Internal method. check if klass should be considered a valid
@@ -769,6 +773,24 @@ class ClassFinder(BaseClassFinder):
         else:
             del n.parent[n.key]
 
+    def getmro(self, klass: type, reverse: bool = False):
+        """Get the method resolution order of klass taking into account the
+        cutoff classes
+
+        :param klass: type, the class to get the method resolution order for
+        :param cutoff_classes: tuple[type], the cutoff classes returned from
+            .get_cutoff
+        :returns: generator[type]
+        """
+        klasses = inspect.getmro(klass)
+
+        if reverse:
+            klasses = reversed(klasses)
+
+        for klass in klasses:
+            if self._is_valid_subclass(klass):
+                yield klass
+
     def find_class_node(self, klass: type):
         """return klass's node in the tree
 
@@ -830,7 +852,7 @@ class ClassFinder(BaseClassFinder):
             else:
                 raise
 
-    def get_abs_classes(self, klass: type):
+    def get_abs_classes(self, klass: type|None = None):
         """Get the absolute edge subclasses of klass
 
         :Example:
@@ -843,21 +865,26 @@ class ClassFinder(BaseClassFinder):
 
             list(cf.get_abs_classes(GP)) # [<type 'C2'>, <type 'C3'>]
 
-        :param klass: type, the parent class whose absolute children that
-            extend it we want
+        :param klass: type|None, the parent class whose absolute children that
+            extend it we want. If klass isn't passed in then it will yield
+            all absolute subclasses
         :returns: generator[type], the found absolute subclasses of klass
         """
-        try:
-            n = self.find_class_node(klass)
-            if len(n) == 0:
-                yield klass
+        if klass is None:
+            yield from (t[1].key for t in self.leaves())
 
-            else:
-                for k in n.keys():
-                    yield from n.get_abs_classes(k)
+        else:
+            try:
+                n = self.find_class_node(klass)
+                if len(n) == 0:
+                    yield klass
 
-        except KeyError:
-            pass
+                else:
+                    for k in n.keys():
+                        yield from n.get_abs_classes(k)
+
+            except KeyError:
+                pass
 
 
 class ClassKeyFinder(ClassFinder):
@@ -872,15 +899,25 @@ class ClassKeyFinder(ClassFinder):
         cf.find_class("foo_bar_class") # FooBar
         cf.find_class("foo_class") # Foo
     """
-    def get_class_key(self, klass):
-        """Uses `klass` to produce a string class key that can be passed to
+#     def get_class_key(self, klass):
+#         """Uses `klass` to produce a string class key that can be passed to
+#         `.find_class` to get klass back
+# 
+#         :param klass: type
+#         :returns: str, the class key, by default "<CLASSNAME>_class" all
+#             lower case
+#         """
+#         return f"{NamingConvention(klass.__name__).varname()}_class"
+
+    def get_class_keys(self, klass):
+        """Uses `klass` to produce string class keys that can be passed to
         `.find_class` to get klass back
 
         :param klass: type
-        :returns: str, the class key, by default "<CLASSNAME>_class" all
-            lower case
+        :returns: list[str], the class keys, by default a list with 
+            "<CLASSNAME>_class" all lower case
         """
-        return f"{NamingConvention(klass.__name__).varname()}_class"
+        return [f"{NamingConvention(klass.__name__).varname()}_class"]
 
     def add_node(self, klass, node, value):
         super().add_node(klass, node, value)
@@ -890,8 +927,9 @@ class ClassKeyFinder(ClassFinder):
         if not self.parent and len(self) == 1:
             self.class_keys = {}
 
-        class_key = self.get_class_key(klass)
-        self.root.class_keys[class_key] = klass
+        #class_key = self.get_class_key(klass)
+        for class_key in self.get_class_keys(klass):
+            self.root.class_keys[class_key] = klass
 
     def find_class(self, class_key):
         """Returns the class (type instance) found at `class_key`
@@ -899,7 +937,39 @@ class ClassKeyFinder(ClassFinder):
         :param class_key: str
         :returns: type
         """
-        return self.root.class_keys[class_key]
+        try:
+            return self.root.class_keys[class_key]
+
+        except AttributeError as e:
+            raise KeyError(class_key) from e
+
+    def __contains__(self, class_key_or_klass):
+        if isinstance(class_key_or_klass, str):
+            try:
+                return class_key_or_klass in self.root.class_keys
+
+            except AttributeError:
+                return False
+
+        else:
+            return super().__contains__(class_key_or_klass)
+
+    def getmro(self, class_key_or_klass, reverse: bool = False):
+        """Get the method resolution order of klass taking into account the
+        cutoff classes
+
+        :param klass: type, the class to get the method resolution order for
+        :param cutoff_classes: tuple[type], the cutoff classes returned from
+            .get_cutoff
+        :returns: generator[type]
+        """
+        if isinstance(class_key_or_klass, str):
+            klass = self.find_class(class_key_or_klass)
+
+        else:
+            klass = class_key_or_klass
+
+        yield from super().getmro(klass, reverse)
 
 
 class Extend(object):
