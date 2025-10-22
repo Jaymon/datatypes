@@ -10,7 +10,6 @@ from .other import (
     ClassFinder,
     ClassKeyFinder,
     ClasspathFinder,
-    Extend,
 )
 from .path import (
     ReflectName,
