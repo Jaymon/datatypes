@@ -642,6 +642,14 @@ class ClassKeyFinder(ClassFinder):
         except AttributeError as e:
             raise KeyError(class_key) from e
 
+    def get_class(self, class_key: str) -> type:
+        """Alias for `.find_class` since all the other methods that return
+        classes start with `.get_` except `.find_class`. I know why I called
+        it that because it uses the `.root` property, but it still felt
+        strange using `.find_class` for a single class and then using
+        `.get_*` for everything else"""
+        return self.find_class(class_key)
+
     def __contains__(self, class_key_or_klass):
         if isinstance(class_key_or_klass, str):
             try:
