@@ -12,7 +12,6 @@ from datatypes.reflection import (
     ReflectName,
     ReflectModule,
     ReflectClass,
-    OrderedSubclasses,
     ReflectPath,
     ReflectType,
     ReflectCallable,
@@ -24,158 +23,6 @@ from datatypes.reflection import (
 from datatypes.reflection.inspect import ReflectAST
 from datatypes.path import Dirpath
 from . import TestCase, testdata
-
-
-class OrderedSubclassesTest(TestCase):
-    def test_edges_1(self):
-        class Base(object): pass
-        class Foo(Base): pass
-        class Bar(Base): pass
-        class Che(Foo): pass
-
-        scs = OrderedSubclasses(classes=[Che, Foo, Base, Bar])
-
-        r = set([Bar, Che])
-        for count, c in enumerate(scs.edges(), 1):
-            self.assertTrue(c in r)
-        self.assertEqual(2, count)
-
-    def test_edges_2(self):
-        class Base(object): pass
-        class Foo(Base): pass
-        class Bar(Base): pass
-        class Che(Foo): pass
-        class Baz(Foo, Bar): pass
-
-        scs = OrderedSubclasses(classes=[Che, Foo, Base, Bar, Baz])
-
-        r = set([Baz, Che])
-        for count, c in enumerate(scs.edges(), 1):
-            self.assertTrue(c in r)
-        self.assertEqual(2, count)
-
-    def test_edges_3(self):
-        class Base1(object): pass
-        class Base2(Base1): pass
-        class Base3(Base2): pass
-        class Foo(Base2): pass
-        class Bar(Base3): pass
-        class Che(Base3): pass
-
-        scs = OrderedSubclasses(classes=[Base2, Base3, Foo, Bar, Che])
-
-        r = set([Che, Bar, Foo])
-        for count, c in enumerate(scs.edges(), 1):
-            self.assertTrue(c in r)
-        self.assertEqual(3, count)
-
-    def test_edges_4(self):
-        class Foo(object): pass
-        class Bar(Foo): pass
-
-        scs = OrderedSubclasses(classes=[Bar])
-        self.assertEqual([Bar], list(scs.edges()))
-
-    def test_remove(self):
-        class Base1(object): pass
-        class Base2(Base1): pass
-        class Base3(Base2): pass
-        class Foo(Base2): pass
-        class Bar(Base3): pass
-        class Che(Base3): pass
-
-        scs = OrderedSubclasses(classes=[Base2, Base3, Foo, Bar, Che])
-
-        edges = set(scs.edges())
-        self.assertEqual(3, len(edges))
-        self.assertTrue(Bar in edges)
-
-        scs.remove(Bar)
-        edges = set(scs.edges())
-        self.assertEqual(2, len(edges))
-        self.assertFalse(Bar in edges)
-
-    def test_insert_1(self):
-        class Base(object): pass
-        class Foo(Base): pass
-        class Bar(Foo): pass
-        class Che(Bar): pass
-
-        called = {
-            "_insert_sub": 0,
-            "_insert_edge": 0
-        }
-
-        class MockSubclasses(OrderedSubclasses):
-            def _insert(self, klass, klass_info):
-                super()._insert(klass, klass_info)
-                if klass_info["edge"]:
-                    called["_insert_edge"] += 1 
-
-                else:
-                    called["_insert_sub"] += 1 
-
-        scs = MockSubclasses()
-        scs.insert(Bar)
-        scs.insert(Foo)
-        scs.insert(Che)
-        scs.insert(Bar)
-
-        self.assertEqual(2, called["_insert_edge"])
-
-    def test_insert_2(self):
-        class Base(object): pass
-        class Foo(Base): pass
-        class Bar(Foo): pass
-        class Che(Bar): pass
-
-        class MockSubclasses(OrderedSubclasses):
-            def get_child_counts(self):
-                d = {}
-                for classpath, info in self.info.items():
-                    d[classpath] = info["child_count"]
-                return d
-
-        ocs = MockSubclasses(
-            classes=[Base, Foo, Bar, Che],
-            cutoff_classes=(Base,)
-        )
-        info = ocs.get_child_counts()
-
-        ocs.insert(Bar)
-        info2 = ocs.get_child_counts()
-        self.assertEqual(info, info2)
-
-    def test_order(self):
-        class Base(object): pass
-        class Foo(Base): pass
-        class Bar(Foo): pass
-        class Che(Bar): pass
-
-        order = [Che, Bar, Foo, Base, object]
-
-        ocs = OrderedSubclasses(classes=[Base, Foo, Bar, Che])
-        self.assertEqual(order, list(ocs))
-
-        ocs = OrderedSubclasses(classes=[Che, Bar, Foo, Base])
-        self.assertEqual(order, list(ocs))
-
-    def test_getmro(self):
-        class Base(object): pass
-        class Foo(Base): pass
-        class Bar(Foo): pass
-        class Che(Bar): pass
-
-        ocs = OrderedSubclasses(
-            cutoff_classes=[Base],
-            classes=[Base, Foo, Bar, Che],
-            insert_cutoff_classes=False,
-        )
-
-        orders = []
-        for c in ocs.getmro(Bar):
-            orders.append(c)
-        self.assertEqual([Bar, Foo], orders)
 
 
 class ClasspathFinderTest(TestCase):
@@ -463,6 +310,109 @@ class ClassFinderTest(TestCase):
 
         cf.delete_mro(classes["C2"])
         self.assertEqual(1, len(cf.find_class_node(classes["P"])))
+
+    def test_get_mro_classes(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class GGP2(object): pass
+        """)
+
+        cf = ClassFinder()
+        cf.add_classes(classes.values())
+
+        subclasses = []
+        for count, c in enumerate(cf.get_mro_classes(), 1):
+            for sc in subclasses:
+                self.assertFalse(issubclass(c, sc))
+        self.assertEqual(7, count)
+
+    def test_edges_1(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Base): pass
+        class Che(Foo): pass
+
+        cf = ClassFinder()
+        cf.add_classes([Che, Foo, Base, Bar])
+
+        r = set([Bar, Che])
+        for count, c in enumerate(cf.get_abs_classes(), 1):
+            self.assertTrue(c in r)
+        self.assertEqual(2, count)
+
+    def test_edges_2(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Base): pass
+        class Che(Foo): pass
+        class Baz(Foo, Bar): pass
+
+        cf = ClassFinder()
+        cf.add_classes([Che, Foo, Base, Bar, Baz])
+
+        r = set([Baz, Che])
+        for count, c in enumerate(cf.get_abs_classes(), 1):
+            self.assertTrue(c in r)
+        self.assertEqual(2, count)
+
+    def test_edges_3(self):
+        class Base1(object): pass
+        class Base2(Base1): pass
+        class Base3(Base2): pass
+        class Foo(Base2): pass
+        class Bar(Base3): pass
+        class Che(Base3): pass
+
+        cf = ClassFinder()
+        cf.add_classes([Base2, Base3, Foo, Bar, Che])
+
+        r = set([Che, Bar, Foo])
+        for count, c in enumerate(cf.get_abs_classes(), 1):
+            self.assertTrue(c in r)
+        self.assertEqual(3, count)
+
+    def test_edges_4(self):
+        class Foo(object): pass
+        class Bar(Foo): pass
+
+        cf = ClassFinder()
+        cf.add_classes([Bar])
+        self.assertEqual([Bar], list(cf.get_abs_classes()))
+
+    def test_order(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Foo): pass
+        class Che(Bar): pass
+
+        order = [Che, Bar, Foo, Base, object]
+
+        cf = ClassFinder()
+        cf.add_classes([Base, Foo, Bar, Che])
+        self.assertEqual(order, list(cf.get_mro_classes()))
+
+        cf = ClassFinder()
+        cf.add_classes([Che, Bar, Foo, Base])
+        self.assertEqual(order, list(cf.get_mro_classes()))
+
+    def test_getmro(self):
+        class Base(object): pass
+        class Foo(Base): pass
+        class Bar(Foo): pass
+        class Che(Bar): pass
+
+        cf = ClassFinder()
+        cf.add_classes([Base, Foo, Bar, Che])
+        cf.set_cutoff_class(Base)
+
+        orders = []
+        for c in cf.getmro(Bar):
+            orders.append(c)
+        self.assertEqual([Bar, Foo], orders)
 
 
 class ClassKeyFinderTest(TestCase):

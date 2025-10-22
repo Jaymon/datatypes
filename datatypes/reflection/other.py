@@ -4,6 +4,7 @@ import types
 import collections
 from collections.abc import (
     Sequence,
+    Generator,
 )
 
 from ..compat import *
@@ -16,330 +17,6 @@ from .path import ReflectName, ReflectPath
 
 
 logger = logging.getLogger(__name__)
-
-
-class OrderedSubclasses(list):
-    """A list that maintains subclass order where subclasses always come before
-    their parents in the list
-
-    Basically, it makes sure all subclasses get placed before the parent class,
-    so if you want your ChildClass to be before ParentClass, you would just
-    have ChildClass extend ParentClass
-
-    You'd think this would be a niche thing and not worth being in a common
-    library but I've actually had to do this exact thing multiple times, so I'm
-    finally moving this from Pout and Bang into here so I can standardize it.
-    I'll admit me having to do this multiple times might be a quirk of my
-    personality and how I solve problems.
-
-    https://docs.python.org/3/tutorial/datastructures.html#more-on-lists
-    """
-
-    insert_cutoff_classes = True
-    """True if cutoff classes should be included when inserting classes"""
-
-    def __init__(self, cutoff_classes=None, classes=None, **kwargs):
-        """
-        :param cutoff_classes: tuple[type, ...], you should ignore anything
-            before these classes when working out order
-        :param classes: list, any classes you want to insert right away
-        """
-        super().__init__()
-
-        if "insert_cutoff_classes" in kwargs:
-            self.insert_cutoff_classes = kwargs["insert_cutoff_classes"]
-
-        self.info = {}
-        self.set_cutoff(cutoff_classes)
-
-        if classes:
-            self.extend(classes)
-
-    def extend(self, classes):
-        for klass in classes:
-            self.insert(klass)
-
-    def _insert(self, klass, klass_info):
-        """Internal method called from .insert for the klass and all subclasses
-        when klass is being inserted
-
-        :param klass: type, the class being inserted
-        :param klass_info: dict
-            * index: int, klass should be inserted at or before this value in
-                order to make sure it comes before all its parents
-            * index_name: str, the full classpath of klass
-            * child_count: int, how many children this class should start with
-                if info is being added
-            * in_info: bool, True if klass info is already in .info
-            * edge: bool, True if klass is considered an edge class
-        """
-        if not klass_info["in_info"]:
-            self.info[klass_info["index_name"]] = {
-                # children should be inserted at least before this index
-                "index": klass_info["index"],
-                # how many children does klass have
-                "child_count": klass_info["child_count"],
-            }
-
-            for d_info in klass_info["descendants"]:
-                if d_info["in_info"]:
-                    self.info[d_info["index_name"]]["child_count"] += 1
-
-            super().insert(klass_info["index"], klass)
-
-    def insert(self, klass, cutoff_classes=None):
-        """Insert class into the ordered list
-
-        :param klass: the class to add to the ordered list, this klass will
-            come before all its parents in the list (this class and its parents
-            will be added to the list up to .cutoff_classes)
-        """
-        for klass, klass_info in self._subclasses(klass, cutoff_classes):
-            self._insert(klass, klass_info)
-
-    def insert_module(self, module, cutoff_classes=None):
-        """Insert any classes of module into the list
-
-        :param module: the module to check for subclasses of cutoff_classes
-        """
-        cutoff_classes = self.get_cutoff(cutoff_classes)
-
-        for name, klass in inspect.getmembers(module, inspect.isclass):
-            if self._is_valid_subclass(klass, cutoff_classes):
-                self.insert(klass)
-
-    def insert_modules(self, module, cutoff_classes=None):
-        """Runs through module and all submodules and inserts all classes
-        matching cutoff_classes
-
-        :param module: ModuleType|str, the module or module name (eg "foo.bar")
-        :param cutoff_classes: list[type], this will be combined with
-            .cutoff_classes
-        """
-        rm = ReflectModule(module)
-        for m in rm.get_modules():
-            self.insert_module(m, cutoff_classes)
-
-    def remove(self, klass, cutoff_classes=None):
-        """Remove an edge class from the list of classes
-
-        :param klass: type, currently you can only remove an edge class
-        """
-        rc = ReflectClass(klass)
-        index_name = rc.classpath
-
-        if index_name in self.info:
-            if self.info[index_name]["child_count"] == 0:
-                super().remove(klass)
-                info = self.info.pop(index_name)
-
-                subclasses = self._subclasses(klass, cutoff_classes)
-                for sc, sc_info in subclasses:
-                    if sc_info["index_name"] in self.info:
-                        self.info[sc_info["index_name"]]["child_count"] -= 1
-
-                for index_name in self.info.keys():
-                    if self.info[index_name]["index"] > info["index"]:
-                        self.info[index_name]["index"] -= 1
-
-            else:
-                raise TypeError(
-                    f"Cannot remove {index_name} because it is not an edge"
-                )
-
-        else:
-            raise ValueError(f"No {index_name} found")
-
-    def set_cutoff(self, cutoff_classes):
-        # make sure we have a tuple of type objects
-        if cutoff_classes:
-            if not isinstance(cutoff_classes, (Sequence, tuple)):
-                cutoff_classes = (cutoff_classes,)
-
-            else:
-                cutoff_classes = tuple(cutoff_classes)
-
-        else:
-            cutoff_classes = None
-
-        self.cutoff_classes = cutoff_classes
-
-    def get_cutoff(self, cutoff_classes):
-        if cutoff_classes:
-            if isinstance(cutoff_classes, type):
-                cutoff_classes = (cutoff_classes,)
-
-            else:
-                cutoff_classes = tuple(cutoff_classes)
-
-        elif self.cutoff_classes:
-            cutoff_classes = self.cutoff_classes
-
-        else:
-            cutoff_classes = self.default_cutoff()
-
-        return cutoff_classes
-
-    def default_cutoff(self):
-        """Turns out, many times when I use this class the cutoff class isn't
-        fully defined yet, I've ran into this problem a few times now.
-
-        This attempts to solve that issue by allowing a child class to override
-        this method and return the desired cutoff classes
-
-        :returns: tuple[type]
-        """
-        return (object,)
-
-    def edges(self, **kwargs):
-        """Iterate through the absolute children and only the absolute
-        children, no intermediate classes.
-
-        :Example:
-            class Foo(object): pass
-            class Bar(Foo): pass
-            class Che(object): pass
-
-            classes = OrderedSubclasses()
-            classes.extend([Foo, Bar, Che])
-
-            for c in classes.edges():
-                print(c)
-
-            # this would print out Bar and Che because object and Foo are
-            # parents
-
-        :param **kwargs:
-            - names: bool, True if you want a tuple[str, type] where index 0 is
-                the classpath of the edge and index 1 is the actual edge class
-        :returns: generator, only the absolute children who are not parents
-        """
-        names = kwargs.get("names", kwargs.get("name", False))
-        for index_name, klass in self.items(edges=True):
-            if names:
-                yield index_name, klass
-
-            else:
-                yield klass
-
-    def items(self, **kwargs):
-        """Iterate through all the classes, this is handy because it yields
-        tuple[str, type] where index 0 is the ful classpath and index 1 is the
-        actual class
-
-        :param **kwargs:
-            - edges: bool, True if you only want the edges (absolute children)
-                and not all classes
-        :returns: generator[tuple[str, type]]
-        """
-        edges = kwargs.get("edges", kwargs.get("edge", False))
-        for klass in self:
-            rc = ReflectClass(klass)
-            index_name = rc.classpath
-            if edges:
-                if self.info[index_name]["child_count"] == 0:
-                    yield index_name, klass
-
-            else:
-                yield index_name, klass
-
-    def _subclasses(self, klass, cutoff_classes=None):
-        """Internal method used in both .insert and .remove
-
-        :param klass: type, the class we want to get all the subclasses of
-        :returns: generator[type, dict], each item yielded is a tuple of the
-            the class object, and information about the class. That means
-            the edge (the tuple equivalent to passed in klass) will have a
-            child count of 0 and will be the last tuple yielded since we go
-            from earliest ancestor to current klass
-            """
-        ret = []
-        klasses = list(self.getmro(klass, cutoff_classes))
-        child_count = len(klasses)
-        index = len(self)
-        descendants = []
-
-        for offset, subclass in enumerate(reversed(klasses), 1):
-            rc = ReflectClass(subclass)
-            index_name = rc.classpath
-
-            d = {
-                "index_name": index_name,
-                "child_count": child_count - offset,
-                "in_info": index_name in self.info,
-                "edge": False,
-            }
-
-            if d["in_info"]:
-                index = min(index, self.info[index_name]["index"])
-
-            else:
-                d["descendants"] = list(descendants)
-
-            d["index"] = index
-
-            if not d["in_info"] and not d["child_count"]:
-                d["edge"] = True
-
-            yield subclass, d
-
-            descendants.append(d)
-
-    def _is_valid_subclass(self, klass, cutoff_classes):
-        """Return True if klass is a valid subclass that should be iterated
-        in ._subclasses
-
-        This is dependent on the value of .insert_cutoff_classes, if it is
-        True then True will be returned if klass is a subclass of the cutoff
-        classes. If it is False then True will only be returned if klass
-        is a subclass and it's not any of the cutoff classes
-
-        :param klass: type, the class to check
-        :param cutoff_classes: tuple[type], the cutoff classes returned from
-            .get_cutoff
-        :returns: bool, True if klass should be yield by ._subclasses
-        """
-        ret = False
-        if issubclass(klass, cutoff_classes):
-            ret = True
-            if not self.insert_cutoff_classes:
-                for cutoff_class in cutoff_classes:
-                    if klass is cutoff_class:
-                        ret = False
-                        break
-
-        return ret
-
-    def getmro(self, klass, cutoff_classes=None):
-        """Get the method resolution order of klass taking into account the
-        cutoff classes
-
-        :param klass: type, the class to get the method resolution order for
-        :param cutoff_classes: tuple[type], the cutoff classes returned from
-            .get_cutoff
-        :returns: generator[type]
-        """
-        cutoff_classes = self.get_cutoff(cutoff_classes)
-        klasses = inspect.getmro(klass)
-        for klass in klasses:
-            if self._is_valid_subclass(klass, cutoff_classes):
-                yield klass
-
-    def clear(self):
-        super().clear()
-        self.info = {}
-
-    def append(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def pop(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def sort(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def copy(self, *args, **kwargs):
-        raise NotImplementedError()
 
 
 class BaseClassFinder(DictTree):
@@ -450,9 +127,9 @@ class ClasspathFinder(BaseClassFinder):
     adding classes. This means the path for foo.bar:Che without prefixes would
     just be Che. If prefixes=["foo"] then the path is bar:Che 
 
-    Like OrderedSubclasses, you'd think this would be a niche thing and not
-    worth being in a common library but I do this exact thing in both Endpoints
-    and Captain and rather than duplicate the code I've moved it here.
+    You'd think this would be a niche thing and not worth being in a common
+    library but I do this exact thing in both Endpoints and Captain and rather
+    than duplicate the code I've moved it here.
 
     This code is based on similar code in Captain. I moved it here on 
     August 29, 2024. The Captain code was based on similar code from Endpoints
@@ -680,9 +357,6 @@ class ClassFinder(BaseClassFinder):
     """Keep a a class hierarchy tree so subclasses can be easily looked up
     from a common parent
 
-    This is very similar to OrderedSubclasses but is a conceptually better
-    data structure for this type of class organization
-
     See also:
         * inspect.getclasstree()
     """
@@ -696,11 +370,6 @@ class ClassFinder(BaseClassFinder):
         for c in self.getmro(klass, reverse=True):
             keys.append(c)
             yield keys, c
-
-#         for c in reversed(inspect.getmro(klass)):
-#             if self._is_valid_subclass(c):
-#                 keys.append(c)
-#                 yield keys, c
 
     def _is_valid_subclass(self, klass: type, cutoff_class=None):
         """Internal method. check if klass should be considered a valid
@@ -852,7 +521,7 @@ class ClassFinder(BaseClassFinder):
             else:
                 raise
 
-    def get_abs_classes(self, klass: type|None = None):
+    def get_abs_classes(self, klass: type|None = None) -> Generator[type]:
         """Get the absolute edge subclasses of klass
 
         :Example:
@@ -865,10 +534,10 @@ class ClassFinder(BaseClassFinder):
 
             list(cf.get_abs_classes(GP)) # [<type 'C2'>, <type 'C3'>]
 
-        :param klass: type|None, the parent class whose absolute children that
+        :param klass: the parent class whose absolute children that
             extend it we want. If klass isn't passed in then it will yield
             all absolute subclasses
-        :returns: generator[type], the found absolute subclasses of klass
+        :returns: the found absolute subclasses of klass
         """
         if klass is None:
             yield from (t[1].key for t in self.leaves())
@@ -886,6 +555,50 @@ class ClassFinder(BaseClassFinder):
             except KeyError:
                 pass
 
+    def get_mro_classes(self, klass: type|None = None) -> Generator[type]:
+        """Get all the classes in method resolution order (mro)
+
+        Children will always come before parents. This does not guarrantee
+        the classes will be in mro order for any specific class, only that
+        the order will always have children before any of their parents
+
+        Perform a postorder traversal of the tree, this makes sure
+        all classes are returned in an order guarranteeing no parents
+        appear before their children, this is handy to get the ordered
+        subclasses
+
+        This functionality is equivalent to the OrderedSubclasses class
+        that was removed on 2025-10-22. This yields subclasses in an order
+        where subclasses always come before their parents
+
+        You'd think this would be a niche thing and not worth being in a
+        common library but I've actually had to do this exact thing
+        multiple times
+
+        :param klass: the parent class, the tree will be postordered traversed
+            with nothing before this class yielded
+        :returns: the found classes with children appearing before parents
+        """
+        if klass is None:
+            if len(self) > 0:
+                for v in self.values():
+                    yield from v.get_mro_classes()
+
+                if self.key:
+                    yield self.key
+
+            else:
+                if self.key:
+                    yield self.key
+
+        else:
+            try:
+                n = self.find_class_node(klass)
+                yield from n.get_mro_classes()
+
+            except KeyError:
+                pass
+
 
 class ClassKeyFinder(ClassFinder):
     """ClassFinder that can find via "<CLASSNAME>_class" keys
@@ -899,16 +612,6 @@ class ClassKeyFinder(ClassFinder):
         cf.find_class("foo_bar_class") # FooBar
         cf.find_class("foo_class") # Foo
     """
-#     def get_class_key(self, klass):
-#         """Uses `klass` to produce a string class key that can be passed to
-#         `.find_class` to get klass back
-# 
-#         :param klass: type
-#         :returns: str, the class key, by default "<CLASSNAME>_class" all
-#             lower case
-#         """
-#         return f"{NamingConvention(klass.__name__).varname()}_class"
-
     def get_class_keys(self, klass):
         """Uses `klass` to produce string class keys that can be passed to
         `.find_class` to get klass back
@@ -931,12 +634,8 @@ class ClassKeyFinder(ClassFinder):
         for class_key in self.get_class_keys(klass):
             self.root.class_keys[class_key] = klass
 
-    def find_class(self, class_key):
-        """Returns the class (type instance) found at `class_key`
-
-        :param class_key: str
-        :returns: type
-        """
+    def find_class(self, class_key: str) -> type:
+        """Returns the class (type instance) found at `class_key`"""
         try:
             return self.root.class_keys[class_key]
 

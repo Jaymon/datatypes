@@ -11,7 +11,6 @@ from .other import (
     ClassKeyFinder,
     ClasspathFinder,
     Extend,
-    OrderedSubclasses,
 )
 from .path import (
     ReflectName,
