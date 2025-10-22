@@ -96,7 +96,8 @@ class CSVRow(Mapping):
         self.columns[i] = None
 
     def __iter__(self):
-        yield from self.lookup
+        if self.columns:
+            yield from self.lookup
 
     def __len__(self):
         return len(self.lookup)
@@ -115,15 +116,8 @@ class CSVRow(Mapping):
 
         return v
 
-#     def __contains__(self, k):
-#         return k in self.lookup
-# 
-#     def get(self, k, default=None):
-#         try:
-#             return self[k]
-# 
-#         except (KeyError, IndexError):
-#             return default
+    def __bool__(self):
+        return bool(self.columns)
 
     def popitem(self):
         self._make_mutable()

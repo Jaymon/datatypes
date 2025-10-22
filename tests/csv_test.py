@@ -129,6 +129,25 @@ class CSVRowTest(TestCase):
         row.clear()
         self.assertEqual(0, len(row))
 
+    def test_list_index_range_error(self):
+        """The CSVRow was giving a different value than the CSVRowDict when
+        the row was empty, this makes sure they act similar
+        """
+        csvfile = testdata.create_csv([{"foo": 1, "bar": 2}])
+        csvfile.path.append_text("\n")
+
+        csv1 = CSV(csvfile.path, reader_row_class=CSVRowDict)
+        csv2 = CSV(csvfile.path)
+        for rows in zip(csv1, csv2):
+            self.assertEqual(bool(rows[0]), bool(rows[1]))
+
+        csv3 = CSV(csvfile.path)
+        for row in csv3:
+            d1 = dict(row)
+            d2 = {**row}
+            self.assertEqual(d1, d2)
+            self.assertEqual(bool(row), bool(d1))
+
 
 class CSVTest(TestCase):
     def test_header_1(self):
