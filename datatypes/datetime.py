@@ -16,7 +16,22 @@ logger = logging.getLogger(__name__)
 
 
 class ISO8601(str):
+    """Parse an ISO 8601 datetime string
 
+    This currently only parses ISO 8601 dates in the format:
+
+        YYYY-MM-DD<DELIM>HH:MM:SS.MS<TIMEZONE>
+
+    This will parse strings in that format from YYYY onward, so "2025" would
+    be a valid ISO 8601 date string
+
+    ISO 8601 is not very strict with the date format and this tries to
+    capture most of that leniency
+
+    The properties correspond to the field names in `datetime.datetime`
+
+    https://en.wikipedia.org/wiki/ISO_8601
+    """
     year: int|None = None
     month: int|None = None
     day: int|None = None
@@ -28,61 +43,11 @@ class ISO8601(str):
 
     tzinfo: datetime.timezone|None = None
 
-#     @property
-#     def year(self) -> int|None:
-#         return self[0]
-# 
-#     @property
-#     def month(self) -> int|None:
-#         return self[1]
-# 
-#     @property
-#     def day(self) -> int|None:
-#         return self[2]
-# 
-#     @property
-#     def hour(self) -> int|None:
-#         return self[3]
-# 
-#     @property
-#     def minute(self) -> int|None:
-#         return self[4]
-# 
-#     @property
-#     def second(self) -> int|None:
-#         return self[5]
-# 
-#     @property
-#     def microsecond(self) -> int|None:
-#         return self[6]
-# 
-#     @property
-#     def tzinfo(self) -> datetime.timezone|None:
-#         return self[7]
-
-#     @classmethod
-#     def keys(cls):
-#         return (
-#             "year",
-#             "month",
-#             "day",
-#             "hour",
-#             "minute",
-#             "second",
-#             "microsecond",
-#             "tzinfo",
-#         )
-
     def __new__(cls, value: str):
         instance = super().__new__(cls, value)
 
         # in 3.11+ we can maybe replace this with:
         #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
-        #
-        # ISO 8601 is not very strict with the date format and this tries to
-        # capture most of that leniency, with the one exception that the
-        # date must be in UTC
-        # https://en.wikipedia.org/wiki/ISO_8601
         regex = r"""
             ^               # match from the beginning of the string
             (\d{4})         # 0 - YYYY (year)
@@ -157,14 +122,18 @@ class ISO8601(str):
 
         return instance
 
-    def datetuple(self):
+    def datetuple(self) -> tuple[int, int, int]:
+        """Return a tuple that can be passed to a `datetime.date` constructor
+        """
         return (
             self.year or 0,
             self.month or 0,
             self.day or 0,
         )
 
-    def datetimetuple(self):
+    def datetimetuple(self) -> tuple[int, int, int, int, int, int, int, datetime.timezone|None]:
+        """Return a tuple that can be passed to a `datetime.datetime`
+        constructor"""
         return (
             self.year or 0,
             self.month or 0,
@@ -278,14 +247,13 @@ class Datetime(datetime.datetime):
 
         else:
             iso = ISO8601(d)
-            if dateparts := iso.datetimetuple():
-                dt = cls(*dateparts)
-                if dt.tzinfo:
-                    # we want the datetime to be UTC and have UTC values
-                    dt = dt.tzinfo.fromutc(dt)
+            dt = cls(*iso.datetimetuple())
+            if dt.tzinfo:
+                # we want the datetime to be UTC and have UTC values
+                dt = dt.tzinfo.fromutc(dt)
 
-                    # switch timezone to UTC
-                    dt = dt.replace(tzinfo=datetime.timezone.utc)
+                # switch timezone to UTC
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
 
         return dt
 
