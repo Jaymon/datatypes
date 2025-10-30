@@ -15,6 +15,161 @@ from .string import String
 logger = logging.getLogger(__name__)
 
 
+# TODO -- make this a str instead?
+class ISO8601(tuple):
+
+    @property
+    def year(self) -> int|None:
+        return self[0]
+
+    @property
+    def month(self) -> int|None:
+        return self[1]
+
+    @property
+    def day(self) -> int|None:
+        return self[2]
+
+    @property
+    def hour(self) -> int|None:
+        return self[3]
+
+    @property
+    def minute(self) -> int|None:
+        return self[4]
+
+    @property
+    def second(self) -> int|None:
+        return self[5]
+
+    @property
+    def microsecond(self) -> int|None:
+        return self[6]
+
+    @property
+    def tzinfo(self) -> datetime.timezone|None:
+        return self[7]
+
+    def __new__(cls, dt: str):
+        # in 3.11+ we can maybe replace this with:
+        #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
+        #
+        # ISO 8601 is not very strict with the date format and this tries to
+        # capture most of that leniency, with the one exception that the
+        # date must be in UTC
+        # https://en.wikipedia.org/wiki/ISO_8601
+        regex = r"""
+            ^               # match from the beginning of the string
+            (\d{4})         # 0 - YYYY (year)
+            .?              # deliminator
+            (\d{2})?         # 1 - MM (month)
+            .?              # deliminator
+            (\d{2})?         # 2 - DD (day)
+            .?               # Date and time separator (usually T)
+            (\d{2})?         # 3 - HH (hour)
+            (?::?(\d{2}))?  # 4 - MM (minute)
+            (?::?(\d{2}))?  # 5 - SS (second)
+            (?:\.(\d+))?    # 6 - MS (milliseconds)
+        """
+        m = re.match(regex, dt, flags=re.X)
+
+        tzinfo = None
+        if m:
+            logger.debug("Date: {} parsed with ISO8601 regex".format(dt))
+
+            parsed_dateparts = m.groups()
+
+            td = None
+
+            # account for ms with leading zeros
+            if parsed_dateparts[6]:
+                millis, micros, _, _ = Datetime.parse_subseconds(
+                    parsed_dateparts[6]
+                )
+                td = datetime.timedelta(
+                    milliseconds=millis,
+                    microseconds=micros
+                )
+#                 dt += datetime.timedelta(
+#                     milliseconds=millis,
+#                     microseconds=micros
+#                 )
+
+            parsed_dateparts = list(map(
+                lambda x: int(x) if x else x, parsed_dateparts[:6]
+            ))
+
+            if td:
+                parsed_dateparts.append(td.microseconds)
+
+            else:
+                parsed_dateparts.append(None)
+
+            tz = dt[m.regs[m.lastindex][1]:]
+            if tz:
+                # https://en.wikipedia.org/wiki/ISO_8601#Time_zone_designators
+                if tz == "Z":
+                    tzinfo = datetime.timezone.utc
+
+                else:
+                    regex = r"""
+                        ([+-])         # 1 - positive or negative offset
+                        (\d{2})        # 2 - HH (hour)
+                        (?::?(\d{2}))? # 3 - MM (minute)
+                        $
+                    """
+                    moffset = re.match(regex, tz, flags=re.X)
+
+                    if moffset:
+                        sign = moffset.group(1)
+                        tzoffset = 0
+                        if hours := moffset.group(2):
+                            tzoffset += int(hours) * 3600
+
+                        if minutes := moffset.group(3):
+                            tzoffset += int(minutes) * 60
+
+                        if sign == "+":
+                            tzoffset = -tzoffset
+
+                        # https://docs.python.org/3/library/datetime.html#timezone-objects
+                        tzinfo = datetime.timezone(
+                            datetime.timedelta(seconds=tzoffset)
+                        )
+
+        else:
+            parsed_dateparts = [None] * 7
+
+        parsed_dateparts.append(tzinfo)
+        instance = super().__new__(cls, parsed_dateparts)
+        instance.dt = dt
+        return instance
+
+    def datetuple(self):
+        return (
+            self.year or 0,
+            self.month or 0,
+            self.day or 0,
+        )
+#         return tuple(filter(None, self[:3]))
+
+    def datetimetuple(self):
+        return (
+            self.year or 0,
+            self.month or 0,
+            self.day or 0,
+            self.hour or 0,
+            self.minute or 0,
+            self.second or 0,
+            self.microsecond or 0,
+            self.tzinfo,
+        )
+#         return tuple(map(
+#             lambda x: x if x is not None else 0, self
+#         ))
+#         return tuple(filter(lambda x: x is not None, self))
+
+
 class Datetime(datetime.datetime):
     """Wrapper around standard datetime.datetime class that assures UTC time and
     full ISO8601 date strings with Z timezone.
@@ -115,6 +270,16 @@ class Datetime(datetime.datetime):
             dt = cls.fromtimestamp(val, tz=datetime.timezone.utc)
 
         else:
+            iso = ISO8601(d)
+            if dateparts := iso.datetimetuple():
+                dt = cls(*dateparts)
+                if dt.tzinfo:
+                    # we want the datetime to be UTC and have UTC values
+                    dt = dt.tzinfo.fromutc(dt)
+
+                    # switch timezone to UTC
+                    dt = dt.replace(tzinfo=datetime.timezone.utc)
+
             # in 3.11+ we can maybe replace this with:
             #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
             #
@@ -122,73 +287,67 @@ class Datetime(datetime.datetime):
             # capture most of that leniency, with the one exception that the
             # date must be in UTC
             # https://en.wikipedia.org/wiki/ISO_8601
-            m = re.match(
-                r"""
-                    ^               # match from the beginning of the string
-                    (\d{4})         # 0 - YYYY (year)
-                    .?              # deliminator
-                    (\d{2})         # 1 - MM (month)
-                    .?              # deliminator
-                    (\d{2})         # 2 - DD (day)
-                    .               # Date and time separator (usually T)
-                    (\d{2})         # 3 - HH (hour)
-                    (?::?(\d{2}))?  # 4 - MM (minute)
-                    (?::?(\d{2}))?  # 5 - SS (second)
-                    (?:\.(\d+))?    # 6 - MS (milliseconds)
-                """,
-                d,
-                flags=re.X
-            )
-
-            if m:
-                logger.debug("Date: {} parsed with ISO regex".format(d))
-
-                parsed_dateparts = m.groups()
-                dateparts = list(map(
-                    lambda x: int(x) if x else 0, parsed_dateparts[:6]
-                ))
-                dt = cls(*dateparts, tzinfo=datetime.timezone.utc)
-
-                # account for ms with leading zeros
-                if parsed_dateparts[6]:
-                    millis, micros, _, _ = cls.parse_subseconds(
-                        parsed_dateparts[6]
-                    )
-                    dt += datetime.timedelta(
-                        milliseconds=millis,
-                        microseconds=micros
-                    )
-
-                tzoffset = d[m.regs[m.lastindex][1]:]
-                if tzoffset:
-                    # https://en.wikipedia.org/wiki/ISO_8601#Time_zone_designators
-                    if tzoffset != "Z":
-                        moffset = re.match(
-                            r"""
-                                ([+-])         # 1 - positive or negative offset
-                                (\d{2})        # 2 - HH (hour)
-                                (?::?(\d{2}))? # 3 - MM (minute)
-                                $
-                            """,
-                            tzoffset,
-                            flags=re.X
-                        )
-
-                        if moffset:
-                            sign = moffset.group(1)
-                            seconds = 0
-                            if hours := moffset.group(2):
-                                seconds += int(hours) * 3600
-
-                            if minutes := moffset.group(3):
-                                seconds += int(minutes) * 60
-
-                            if seconds:
-                                if sign == "+":
-                                    dt -= datetime.timedelta(seconds=seconds)
-
-                                else:
-                                    dt += datetime.timedelta(seconds=seconds)
+#             regex = r"""
+#                 ^               # match from the beginning of the string
+#                 (\d{4})         # 0 - YYYY (year)
+#                 .?              # deliminator
+#                 (\d{2})         # 1 - MM (month)
+#                 .?              # deliminator
+#                 (\d{2})         # 2 - DD (day)
+#                 .               # Date and time separator (usually T)
+#                 (\d{2})         # 3 - HH (hour)
+#                 (?::?(\d{2}))?  # 4 - MM (minute)
+#                 (?::?(\d{2}))?  # 5 - SS (second)
+#                 (?:\.(\d+))?    # 6 - MS (milliseconds)
+#             """
+#             m = re.match(regex, d, flags=re.X)
+# 
+#             if m:
+#                 logger.debug("Date: {} parsed with ISO regex".format(d))
+# 
+#                 parsed_dateparts = m.groups()
+#                 dateparts = list(map(
+#                     lambda x: int(x) if x else 0, parsed_dateparts[:6]
+#                 ))
+#                 dt = cls(*dateparts, tzinfo=datetime.timezone.utc)
+# 
+#                 # account for ms with leading zeros
+#                 if parsed_dateparts[6]:
+#                     millis, micros, _, _ = cls.parse_subseconds(
+#                         parsed_dateparts[6]
+#                     )
+#                     dt += datetime.timedelta(
+#                         milliseconds=millis,
+#                         microseconds=micros
+#                     )
+# 
+#                 tzoffset = d[m.regs[m.lastindex][1]:]
+#                 if tzoffset:
+#                     # https://en.wikipedia.org/wiki/ISO_8601#Time_zone_designators
+#                     if tzoffset != "Z":
+#                         regex = r"""
+#                             ([+-])         # 1 - positive or negative offset
+#                             (\d{2})        # 2 - HH (hour)
+#                             (?::?(\d{2}))? # 3 - MM (minute)
+#                             $
+#                         """
+#                         moffset = re.match(regex, tzoffset, flags=re.X)
+# 
+#                         if moffset:
+#                             sign = moffset.group(1)
+#                             seconds = 0
+#                             if hours := moffset.group(2):
+#                                 seconds += int(hours) * 3600
+# 
+#                             if minutes := moffset.group(3):
+#                                 seconds += int(minutes) * 60
+# 
+#                             if seconds:
+#                                 if sign == "+":
+#                                     dt -= datetime.timedelta(seconds=seconds)
+# 
+#                                 else:
+#                                     dt += datetime.timedelta(seconds=seconds)
 
         return dt
 

@@ -6,10 +6,46 @@ import time
 from datatypes.compat import *
 from datatypes.datetime import (
     Datetime,
+    ISO8601,
 )
 from datatypes.string import String
 
 from . import TestCase, testdata
+
+
+class ISO8601Test(TestCase):
+    def test_year_month(self):
+        d = ISO8601("2024-12")
+        self.assertEqual(2024, d.year)
+        self.assertEqual(12, d.month)
+
+        d = ISO8601("2024")
+        self.assertEqual(2024, d.year)
+
+    def test_tzoffset_1(self):
+        d = ISO8601("2011-11-04T00:05:23+00")
+        self.assertEqual(2011, d.year)
+        self.assertEqual(0, d.hour)
+        self.assertEqual(None, d.microsecond)
+        self.assertEqual("UTC", d.tzinfo.tzname(None))
+
+    def test_tzoffset_2(self):
+        d = ISO8601("2011-11-04T01:30+05")
+        td = d.tzinfo.utcoffset(None)
+        self.assertEqual(-1, td.days)
+        self.assertEqual(68400, td.seconds)
+
+    def test_datetimetuple(self):
+        d = ISO8601("2019-11-05T23:35:04Z")
+        t = d.datetimetuple()
+        self.assertEqual(0, t[6])
+        self.assertEqual("UTC", t[7].tzname(None))
+
+        d = ISO8601("2011-11-04T00:05:23+00")
+        t = d.datetimetuple()
+        self.assertEqual(8, len(t))
+        self.assertEqual(0, t[3])
+        self.assertEqual(0, t[6])
 
 
 class DatetimeTest(TestCase):
