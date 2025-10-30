@@ -15,42 +15,67 @@ from .string import String
 logger = logging.getLogger(__name__)
 
 
-# TODO -- make this a str instead?
-class ISO8601(tuple):
+class ISO8601(str):
 
-    @property
-    def year(self) -> int|None:
-        return self[0]
+    year: int|None = None
+    month: int|None = None
+    day: int|None = None
 
-    @property
-    def month(self) -> int|None:
-        return self[1]
+    hour: int|None = None
+    minute: int|None = None
+    second: int|None = None
+    microsecond: int|None = None
 
-    @property
-    def day(self) -> int|None:
-        return self[2]
+    tzinfo: datetime.timezone|None = None
 
-    @property
-    def hour(self) -> int|None:
-        return self[3]
+#     @property
+#     def year(self) -> int|None:
+#         return self[0]
+# 
+#     @property
+#     def month(self) -> int|None:
+#         return self[1]
+# 
+#     @property
+#     def day(self) -> int|None:
+#         return self[2]
+# 
+#     @property
+#     def hour(self) -> int|None:
+#         return self[3]
+# 
+#     @property
+#     def minute(self) -> int|None:
+#         return self[4]
+# 
+#     @property
+#     def second(self) -> int|None:
+#         return self[5]
+# 
+#     @property
+#     def microsecond(self) -> int|None:
+#         return self[6]
+# 
+#     @property
+#     def tzinfo(self) -> datetime.timezone|None:
+#         return self[7]
 
-    @property
-    def minute(self) -> int|None:
-        return self[4]
+#     @classmethod
+#     def keys(cls):
+#         return (
+#             "year",
+#             "month",
+#             "day",
+#             "hour",
+#             "minute",
+#             "second",
+#             "microsecond",
+#             "tzinfo",
+#         )
 
-    @property
-    def second(self) -> int|None:
-        return self[5]
+    def __new__(cls, value: str):
+        instance = super().__new__(cls, value)
 
-    @property
-    def microsecond(self) -> int|None:
-        return self[6]
-
-    @property
-    def tzinfo(self) -> datetime.timezone|None:
-        return self[7]
-
-    def __new__(cls, dt: str):
         # in 3.11+ we can maybe replace this with:
         #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
         #
@@ -71,45 +96,38 @@ class ISO8601(tuple):
             (?::?(\d{2}))?  # 5 - SS (second)
             (?:\.(\d+))?    # 6 - MS (milliseconds)
         """
-        m = re.match(regex, dt, flags=re.X)
+        m = re.match(regex, value, flags=re.X)
 
-        tzinfo = None
         if m:
-            logger.debug("Date: {} parsed with ISO8601 regex".format(dt))
+            logger.debug("Date: {} parsed with ISO8601 regex".format(value))
 
-            parsed_dateparts = m.groups()
+            parts = m.groups()
+
+            instance.year = None if parts[0] is None else int(parts[0])
+            instance.month = None if parts[1] is None else int(parts[1])
+            instance.day = None if parts[2] is None else int(parts[2])
+
+            instance.hour = None if parts[3] is None else int(parts[3])
+            instance.minute = None if parts[4] is None else int(parts[4])
+            instance.second = None if parts[5] is None else int(parts[5])
 
             td = None
 
-            # account for ms with leading zeros
-            if parsed_dateparts[6]:
-                millis, micros, _, _ = Datetime.parse_subseconds(
-                    parsed_dateparts[6]
-                )
+            if parts[6] is not None:
+                # account for ms with leading zeros
+                millis, micros, _, _ = Datetime.parse_subseconds(parts[6])
                 td = datetime.timedelta(
                     milliseconds=millis,
                     microseconds=micros
                 )
-#                 dt += datetime.timedelta(
-#                     milliseconds=millis,
-#                     microseconds=micros
-#                 )
 
-            parsed_dateparts = list(map(
-                lambda x: int(x) if x else x, parsed_dateparts[:6]
-            ))
+                instance.microsecond = td.microseconds
 
-            if td:
-                parsed_dateparts.append(td.microseconds)
-
-            else:
-                parsed_dateparts.append(None)
-
-            tz = dt[m.regs[m.lastindex][1]:]
+            tz = value[m.regs[m.lastindex][1]:]
             if tz:
                 # https://en.wikipedia.org/wiki/ISO_8601#Time_zone_designators
                 if tz == "Z":
-                    tzinfo = datetime.timezone.utc
+                    instance.tzinfo = datetime.timezone.utc
 
                 else:
                     regex = r"""
@@ -133,16 +151,10 @@ class ISO8601(tuple):
                             tzoffset = -tzoffset
 
                         # https://docs.python.org/3/library/datetime.html#timezone-objects
-                        tzinfo = datetime.timezone(
+                        instance.tzinfo = datetime.timezone(
                             datetime.timedelta(seconds=tzoffset)
                         )
 
-        else:
-            parsed_dateparts = [None] * 7
-
-        parsed_dateparts.append(tzinfo)
-        instance = super().__new__(cls, parsed_dateparts)
-        instance.dt = dt
         return instance
 
     def datetuple(self):
@@ -151,7 +163,6 @@ class ISO8601(tuple):
             self.month or 0,
             self.day or 0,
         )
-#         return tuple(filter(None, self[:3]))
 
     def datetimetuple(self):
         return (
@@ -164,10 +175,6 @@ class ISO8601(tuple):
             self.microsecond or 0,
             self.tzinfo,
         )
-#         return tuple(map(
-#             lambda x: x if x is not None else 0, self
-#         ))
-#         return tuple(filter(lambda x: x is not None, self))
 
 
 class Datetime(datetime.datetime):
@@ -279,75 +286,6 @@ class Datetime(datetime.datetime):
 
                     # switch timezone to UTC
                     dt = dt.replace(tzinfo=datetime.timezone.utc)
-
-            # in 3.11+ we can maybe replace this with:
-            #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
-            #
-            # ISO 8601 is not very strict with the date format and this tries to
-            # capture most of that leniency, with the one exception that the
-            # date must be in UTC
-            # https://en.wikipedia.org/wiki/ISO_8601
-#             regex = r"""
-#                 ^               # match from the beginning of the string
-#                 (\d{4})         # 0 - YYYY (year)
-#                 .?              # deliminator
-#                 (\d{2})         # 1 - MM (month)
-#                 .?              # deliminator
-#                 (\d{2})         # 2 - DD (day)
-#                 .               # Date and time separator (usually T)
-#                 (\d{2})         # 3 - HH (hour)
-#                 (?::?(\d{2}))?  # 4 - MM (minute)
-#                 (?::?(\d{2}))?  # 5 - SS (second)
-#                 (?:\.(\d+))?    # 6 - MS (milliseconds)
-#             """
-#             m = re.match(regex, d, flags=re.X)
-# 
-#             if m:
-#                 logger.debug("Date: {} parsed with ISO regex".format(d))
-# 
-#                 parsed_dateparts = m.groups()
-#                 dateparts = list(map(
-#                     lambda x: int(x) if x else 0, parsed_dateparts[:6]
-#                 ))
-#                 dt = cls(*dateparts, tzinfo=datetime.timezone.utc)
-# 
-#                 # account for ms with leading zeros
-#                 if parsed_dateparts[6]:
-#                     millis, micros, _, _ = cls.parse_subseconds(
-#                         parsed_dateparts[6]
-#                     )
-#                     dt += datetime.timedelta(
-#                         milliseconds=millis,
-#                         microseconds=micros
-#                     )
-# 
-#                 tzoffset = d[m.regs[m.lastindex][1]:]
-#                 if tzoffset:
-#                     # https://en.wikipedia.org/wiki/ISO_8601#Time_zone_designators
-#                     if tzoffset != "Z":
-#                         regex = r"""
-#                             ([+-])         # 1 - positive or negative offset
-#                             (\d{2})        # 2 - HH (hour)
-#                             (?::?(\d{2}))? # 3 - MM (minute)
-#                             $
-#                         """
-#                         moffset = re.match(regex, tzoffset, flags=re.X)
-# 
-#                         if moffset:
-#                             sign = moffset.group(1)
-#                             seconds = 0
-#                             if hours := moffset.group(2):
-#                                 seconds += int(hours) * 3600
-# 
-#                             if minutes := moffset.group(3):
-#                                 seconds += int(minutes) * 60
-# 
-#                             if seconds:
-#                                 if sign == "+":
-#                                     dt -= datetime.timedelta(seconds=seconds)
-# 
-#                                 else:
-#                                     dt += datetime.timedelta(seconds=seconds)
 
         return dt
 
