@@ -182,28 +182,13 @@ class DatetimeTest(TestCase):
 
         d2 = Datetime()
 
-        self.assertEqual(
-            d1.strftime(Datetime.FORMAT_ISO8601_SECONDS),
-            d2.strftime(Datetime.FORMAT_ISO8601_SECONDS)
-        )
+        self.assertEqual(d1.isoseconds(), d2.isoseconds())
 
         d3 = Datetime(2018, 10, 5)
         d4 = Datetime(String(d3))
-        self.assertEqual(
-            d3.strftime(Datetime.FORMAT_ISO8601_SECONDS),
-            d4.strftime(Datetime.FORMAT_ISO8601_SECONDS)
-        )
+        self.assertEqual(d3.isoseconds(), d4.isoseconds())
 
     def test_create_precision(self):
-        d = Datetime("2019-11-5")
-        self.assertEqual(2019, d.year)
-        self.assertEqual(11, d.month)
-        self.assertEqual(5, d.day)
-        self.assertEqual(0, d.hour)
-        self.assertEqual(0, d.minute)
-        self.assertEqual(0, d.second)
-        self.assertEqual(0, d.microsecond)
-
         d = Datetime("2019-11-05")
         self.assertEqual(2019, d.year)
         self.assertEqual(11, d.month)
@@ -236,10 +221,7 @@ class DatetimeTest(TestCase):
         self.assertEqual(d, d2)
 
         d3 = Datetime(int(ts))
-        self.assertEqual(
-            d.strftime(Datetime.FORMAT_ISO8601_SECONDS),
-            d3.strftime(Datetime.FORMAT_ISO8601_SECONDS)
-        )
+        self.assertEqual(d.isoseconds(), d3.isoseconds())
 
     def test_timestamp_2(self):
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
@@ -264,8 +246,8 @@ class DatetimeTest(TestCase):
 
     def test_strings(self):
         d = Datetime(2018, 10, 5, 23, 35, 4)
-        self.assertEqual("2018-10-05", d.iso_date())
-        self.assertEqual("2018-10-05T23:35:04Z", d.iso_seconds())
+        self.assertEqual("2018-10-05", d.isodate())
+        self.assertEqual("2018-10-05T23:35:04Z", d.isoseconds())
 
     def test___str__(self):
         ss = [
@@ -277,16 +259,6 @@ class DatetimeTest(TestCase):
         for s in ss:
             d = Datetime(s)
             self.assertEqual(s, str(d))
-
-    def test_format_subclass(self):
-        class DT(Datetime):
-            FORMAT_CUSTOM = "%Y-%m-%d %H:%M:%S.%f"
-
-        dt = DT("2020-03-19 00:00:00.000000000")
-        self.assertEqual(2020, dt.year)
-        self.assertEqual(3, dt.month)
-        self.assertEqual(19, dt.day)
-        self.assertFalse(dt.has_time())
 
     def test_isoformat(self):
         dt = Datetime()

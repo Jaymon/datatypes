@@ -165,12 +165,6 @@ class Datetime(datetime.datetime):
 
     https://docs.python.org/3/library/datetime.html#datetime-objects
     """
-    FORMAT_ISO8601_DAY = "%Y-%m-%d"
-    FORMAT_ISO8601 = "%Y-%m-%dT%H:%M:%S.%f"
-    FORMAT_ISO8601_TZ = "%Y-%m-%dT%H:%M:%S.%f%Z"
-    FORMAT_ISO8601_SECONDS = "%Y-%m-%dT%H:%M:%S"
-    FORMAT_ISO8601_SECONDS_TZ = "%Y-%m-%dT%H:%M:%S%Z"
-
     @property
     def yearname(self):
         """return the full 4 digit year"""
@@ -187,51 +181,13 @@ class Datetime(datetime.datetime):
         return self.strftime("%A")
 
     @classmethod
-    def formats(cls):
-        is_valid = lambda k, v: k.startswith("FORMAT")
-        formats = set(v for k, v in inspect.getmembers(cls) if is_valid(k, v))
-        return formats
+    def parse_datetime(cls, d):
+        """Parse a date-time string `d` to see if it is a valid date-time
+        string
 
-    @classmethod
-    def parse(cls, d):
-        dt = cls.parse_formats(d)
-
-        if dt is None:
-            dt = cls.parse_regex(d)
-
-        if dt is None:
-            raise ValueError("Cannot infer datetime value from {}".format(d))
-
-        return dt
-
-    @classmethod
-    def parse_formats(cls, d):
-        fs = cls.formats()
-        for f in fs:
-            try:
-                logger.debug(
-                    "Attempting to parse date: {} with format: {}".format(
-                        d,
-                        f,
-                    )
-                )
-
-                ret = cls.strptime(d, f)
-                if ("%z" in f) or ("%Z" in f):
-                    ret = ret.astimezone(datetime.timezone.utc)
-
-                else:
-                    ret = ret.replace(tzinfo=datetime.timezone.utc)
-
-                logger.debug(f"Date: {d} parsed with format: {f}")
-                return ret
-
-            except ValueError as e:
-                logger.debug(e)
-                pass
-
-    @classmethod
-    def parse_regex(cls, d):
+        :param d: str, either a string unix timestamp with or without
+            microsecond precision or an ISO 8601 datetime value
+        """
         dt = None
         if re.match(r"^\-?\d+\.\d+$", d):
             # account for unix timestamps with microseconds
@@ -369,6 +325,9 @@ class Datetime(datetime.datetime):
             print(mstr) # "012"
             print(ustr) # "345"
 
+        This is primarily used to make sure values like `00005` are treated
+        as 50ms instead of 5ms
+
         :param subseconds: int|str, usually a 6-digit integer but can be a six
             digit string
         :returns tuple[int, int, str, str]
@@ -495,7 +454,7 @@ class Datetime(datetime.datetime):
                         instance = super().__new__(cls, *args)
 
                     except TypeError:
-                        fs = cls.parse(args[0])
+                        fs = cls.parse_datetime(args[0])
                         if fs is None:
                             raise
 
@@ -759,7 +718,7 @@ class Datetime(datetime.datetime):
         changes
 
         :returns: str, A 7 character string, with indexes that represent:
-            0,1 - the year
+            0-1 - the year
             2 - month
             3 - day
             4 - hour
@@ -767,7 +726,10 @@ class Datetime(datetime.datetime):
             6 - second
         """
         h = ""
-        chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        chars = (
+            "0123456789"
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        )
 
         # year
         h += chars[self.year // 100]
@@ -788,7 +750,10 @@ class Datetime(datetime.datetime):
 
     @classmethod
     def fromdatehash(cls, h):
-        chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        chars = (
+            "0123456789"
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        )
         indexes = {v:k for k, v in enumerate(chars)}
 
         year = int(str(indexes[h[0]]) + str(indexes[h[1]]))
@@ -827,31 +792,19 @@ class Datetime(datetime.datetime):
 
     def isodate(self):
         """returns datetime as ISO-8601 string with just YYYY-MM-DD"""
-        return self.strftime(self.FORMAT_ISO8601_DAY)
-    iso_day = isodate
-    isoday = isodate
-    iso_date = isodate
+        return self.isoformat(timespec="none")
 
     def isoseconds(self):
         """returns datetime as ISO-8601 string with no milliseconds"""
         return self.isoformat(timespec="seconds")
-    iso_seconds = isoseconds
-    isosecond = isoseconds
-    iso_second = isoseconds
 
     def isohours(self):
         """returns datetime as ISO-8601 string up to the hour"""
         return self.isoformat(timespec="hours")
-    iso_hours = isohours
-    isohour = isohours
-    iso_hour = isohours
 
     def isominutes(self):
         """returns datetime as ISO-8601 string up to the minute"""
         return self.isoformat(timespec="minutes")
-    iso_minutes = isominutes
-    isominute = isominutes
-    iso_minute = isominutes
 
     def isomilliseconds(self):
         """returns datetime as ISO-8601 string up to the milliseconds (.SSS)
@@ -866,7 +819,9 @@ class Datetime(datetime.datetime):
     def iso8601(self):
         """returns datetime as a full ISO-8601 string with milliseconds"""
         return self.isoformat(timespec="microseconds")
-    iso_8601 = iso8601
+
+    def iso_8601(self):
+        return self.iso8601()
 
     def isofull(self):
         return self.isoformat(timespec="microseconds")
@@ -882,30 +837,35 @@ class Datetime(datetime.datetime):
             timezone is present
             * This will return YYYY-MM-DD if no time information is set and 
             timespec is "auto"
+            * Supports timespec value of `none` to return YYYY-MM-DD
 
         :returns: string, the iso8601 date
         """
-        if self.has_time():
-            if self.utcoffset():
-                ret = super().isoformat(sep, timespec)
-
-            else:
-                ret = self.datetime().replace(tzinfo=None).isoformat(
-                    sep,
-                    timespec
-                )
-                ret += "Z"
+        if timespec == "none" or not timespec:
+            ret = self.date().isoformat()
 
         else:
-            if timespec == "auto":
-                ret = self.date().isoformat()
+            if self.has_time():
+                if self.utcoffset():
+                    ret = super().isoformat(sep, timespec)
+
+                else:
+                    ret = self.datetime().replace(tzinfo=None).isoformat(
+                        sep,
+                        timespec
+                    )
+                    ret += "Z"
 
             else:
-                ret = self.datetime().replace(tzinfo=None).isoformat(
-                    sep,
-                    timespec
-                )
-                ret += "Z"
+                if timespec == "auto":
+                    ret = self.date().isoformat()
+
+                else:
+                    ret = self.datetime().replace(tzinfo=None).isoformat(
+                        sep,
+                        timespec
+                    )
+                    ret += "Z"
 
         return ret
 
