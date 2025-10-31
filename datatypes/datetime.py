@@ -43,12 +43,10 @@ class ISO8601(str):
 
     tzinfo: datetime.timezone|None = None
 
-    def __new__(cls, value: str):
-        instance = super().__new__(cls, value)
-
-        # in 3.11+ we can maybe replace this with:
-        #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
-        regex = r"""
+    # in 3.11+ we can maybe replace this with:
+    #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
+    datetime_regex = re.compile(
+        pattern = r"""
             ^               # match from the beginning of the string
             (\d{4})         # 0 - YYYY (year)
             .?              # deliminator
@@ -60,8 +58,24 @@ class ISO8601(str):
             (?::?(\d{2}))?  # 4 - MM (minute)
             (?::?(\d{2}))?  # 5 - SS (second)
             (?:\.(\d+))?    # 6 - MS (milliseconds)
-        """
-        m = re.match(regex, value, flags=re.X)
+        """,
+        flags=re.X,
+    )
+
+    tz_regex = re.compile(
+        pattern=r"""
+            ([+-])         # 1 - positive or negative offset
+            (\d{2})        # 2 - HH (hour)
+            (?::?(\d{2}))? # 3 - MM (minute)
+            $
+        """,
+        flags=re.X,
+    )
+
+    def __new__(cls, value: str):
+        instance = super().__new__(cls, value)
+
+        m = cls.datetime_regex.match(value)
 
         if m:
             logger.debug("Date: {} parsed with ISO8601 regex".format(value))
@@ -76,10 +90,9 @@ class ISO8601(str):
             instance.minute = None if parts[4] is None else int(parts[4])
             instance.second = None if parts[5] is None else int(parts[5])
 
-            td = None
-
             if parts[6] is not None:
-                # account for ms with leading zeros
+                # account for ms that isn't 6 characters long, eg `00005`
+                # would naively be considered 5ms when actually it's 50ms
                 millis, micros, _, _ = Datetime.parse_subseconds(parts[6])
                 td = datetime.timedelta(
                     milliseconds=millis,
@@ -95,13 +108,7 @@ class ISO8601(str):
                     instance.tzinfo = datetime.timezone.utc
 
                 else:
-                    regex = r"""
-                        ([+-])         # 1 - positive or negative offset
-                        (\d{2})        # 2 - HH (hour)
-                        (?::?(\d{2}))? # 3 - MM (minute)
-                        $
-                    """
-                    moffset = re.match(regex, tz, flags=re.X)
+                    moffset = cls.tz_regex.match(tz)
 
                     if moffset:
                         sign = moffset.group(1)
