@@ -30,6 +30,9 @@ class ISO8601(str):
 
     The properties correspond to the field names in `datetime.datetime`
 
+    If a property has a value of `None` it means that property wasn't found
+    in the datetime string
+
     https://en.wikipedia.org/wiki/ISO_8601
     """
     year: int|None = None
@@ -45,13 +48,21 @@ class ISO8601(str):
 
     # in 3.11+ we can maybe replace this with:
     #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
+    #
+    # We currently don't use this because it doesn't support YYYY or YYYY-MM
+    # as of 3.12
+    #
+    # https://en.wikipedia.org/wiki/ISO_8601#General_principles
+    # The separator used between date values (year, month, week, and day) is
+    # the hyphen, while the colon is used as the separator between time values
+    # (hours, minutes, and seconds)
     datetime_regex = re.compile(
         pattern = r"""
             ^               # match from the beginning of the string
             (\d{4})         # 0 - YYYY (year)
-            .?              # deliminator
+            -?              # deliminator
             (\d{2})?         # 1 - MM (month)
-            .?              # deliminator
+            -?              # deliminator
             (\d{2})?         # 2 - DD (day)
             .?               # Date and time separator (usually T)
             (\d{2})?         # 3 - HH (hour)
@@ -166,22 +177,22 @@ class Datetime(datetime.datetime):
     https://docs.python.org/3/library/datetime.html#datetime-objects
     """
     @property
-    def yearname(self):
+    def yearname(self) -> str:
         """return the full 4 digit year"""
         return self.strftime("%Y")
 
     @property
-    def monthname(self):
+    def monthname(self) -> str:
         """return the full month name"""
         return self.strftime("%B")
 
     @property
-    def dayname(self):
+    def dayname(self) -> str:
         """return the full day name"""
         return self.strftime("%A")
 
     @classmethod
-    def parse_datetime(cls, d):
+    def parse_datetime(cls, d) -> datetime.datetime:
         """Parse a date-time string `d` to see if it is a valid date-time
         string
 
@@ -221,7 +232,7 @@ class Datetime(datetime.datetime):
         return dt
 
     @classmethod
-    def parse_args(self, args, kwargs):
+    def parse_args(self, args, kwargs) -> tuple[Iterable, dict, dict]:
         """Parse out custom arguments so you can pass *args, **kwargs to the
         standard datetime class initializer
 
@@ -307,7 +318,7 @@ class Datetime(datetime.datetime):
         return args, replace_kwargs, timedelta_kwargs
 
     @classmethod
-    def parse_subseconds(cls, subseconds):
+    def parse_subseconds(cls, subseconds) -> tuple[int, int, str, str]:
         r"""Parse the value to the right of the period on a floating
         point number
 
@@ -318,15 +329,15 @@ class Datetime(datetime.datetime):
          |
         milliseconds
 
-        :Example:
+        This is primarily used to make sure values like `00005` are treated
+        as 50ms instead of 5ms
+
+        :example:
             ms, us, mstr, ustr = cls.parse_subseconds(012345)
             print(ms) # 12
             print(us) # 345
             print(mstr) # "012"
             print(ustr) # "345"
-
-        This is primarily used to make sure values like `00005` are treated
-        as 50ms instead of 5ms
 
         :param subseconds: int|str, usually a 6-digit integer but can be a six
             digit string
@@ -352,7 +363,7 @@ class Datetime(datetime.datetime):
         return int(millis_str), int(micros_str), millis_str, micros_str
 
     @classmethod
-    def parse_seconds(cls, seconds):
+    def parse_seconds(cls, seconds) -> tuple[int, int, int, str, str, str]:
         """Parse seconds into seconds, milliseconds, and microseconds
 
         :Example:
@@ -362,7 +373,7 @@ class Datetime(datetime.datetime):
             print(us) # 345
             print(sstr) # "123456789"
             print(mstr) # "012"
-            print(ustr) # # "000345"
+            print(ustr) # "000345"
 
         :param seconds: int|str, the seconds with possible milliseconds and
             microseconds
@@ -478,7 +489,7 @@ class Datetime(datetime.datetime):
 
         return instance
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.isoformat()
 
     def __add__(self, other):
@@ -557,7 +568,7 @@ class Datetime(datetime.datetime):
         """
         return super().__hash__()
 
-    def has_time(self):
+    def has_time(self) -> bool:
         return not (
             self.hour == 0 and
             self.minute == 0 and
@@ -565,7 +576,7 @@ class Datetime(datetime.datetime):
             self.microsecond == 0
         )
 
-    def timestamp(self):
+    def timestamp(self) -> float:
         """
         return the current utc timestamp of self
 
@@ -581,7 +592,7 @@ class Datetime(datetime.datetime):
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
         return (self - epoch).total_seconds()
 
-    def timestamp_ns(self):
+    def timestamp_ns(self) -> int:
         """Similar to .timestamp() but returns time as an integer number of
         nanoseconds since the epoch
 
@@ -593,7 +604,7 @@ class Datetime(datetime.datetime):
         timestamp = str(self.timestamp()).replace(".", "")
         return int("{{:0<{}}}".format(size).format(timestamp))
 
-    def since(self, now=None, chunks=2):
+    def since(self, now=None, chunks=2) -> str:
         """Returns a description of the amount of time that has passed from self
         to now. This is more exact than .estsince() but does a lot more
         computation to make it accurate
@@ -655,7 +666,7 @@ class Datetime(datetime.datetime):
 
         return ", ".join(output) if output else ""
 
-    def estsince(self, now=None, chunks=2):
+    def estsince(self, now=None, chunks=2) -> str:
         """Returns a ballpark/estimate description of the amount of time that
         has passed from self to now
 
@@ -706,10 +717,11 @@ class Datetime(datetime.datetime):
                     break
 
         return ", ".join(output) if output else ""
-    def esince(self, *args, **kwargs):
+
+    def esince(self, *args, **kwargs) -> str:
         return self.estsince(*args, **kwargs)
 
-    def datehash(self):
+    def datehash(self) -> str:
         """Return a datehash, kind of similar to a geohash where each character
         represents a more exact time
 
@@ -749,7 +761,7 @@ class Datetime(datetime.datetime):
         return h
 
     @classmethod
-    def fromdatehash(cls, h):
+    def fromdatehash(cls, h) -> datetime.datetime:
         chars = (
             "0123456789"
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -773,7 +785,7 @@ class Datetime(datetime.datetime):
         return cls(year, month, day, hour, minute, second)
 
     @classmethod
-    def now(cls, tz=datetime.timezone.utc):
+    def now(cls, tz=datetime.timezone.utc) -> datetime.datetime:
         """Passthrough but sets timezone to utc by default instead of None, so
         by default this now returns a timezone aware instance
 
@@ -782,7 +794,7 @@ class Datetime(datetime.datetime):
         return super().now(tz)
 
     @classmethod
-    def utcnow(cls):
+    def utcnow(cls) -> datetime.datetime:
         """Overrides parent to return a timezone aware datetime instance with
         the timezone UTC set
 
@@ -790,43 +802,43 @@ class Datetime(datetime.datetime):
         """
         return cls.now(datetime.timezone.utc)
 
-    def isodate(self):
+    def isodate(self) -> str:
         """returns datetime as ISO-8601 string with just YYYY-MM-DD"""
         return self.isoformat(timespec="none")
 
-    def isoseconds(self):
+    def isoseconds(self) -> str:
         """returns datetime as ISO-8601 string with no milliseconds"""
         return self.isoformat(timespec="seconds")
 
-    def isohours(self):
+    def isohours(self) -> str:
         """returns datetime as ISO-8601 string up to the hour"""
         return self.isoformat(timespec="hours")
 
-    def isominutes(self):
+    def isominutes(self) -> str:
         """returns datetime as ISO-8601 string up to the minute"""
         return self.isoformat(timespec="minutes")
 
-    def isomilliseconds(self):
+    def isomilliseconds(self) -> str:
         """returns datetime as ISO-8601 string up to the milliseconds (.SSS)
         """
         return self.isoformat(timespec="milliseconds")
 
-    def isomicroseconds(self):
+    def isomicroseconds(self) -> str:
         """returns datetime as ISO-8601 string up to the microseconds (.SSSSSS)
         """
         return self.isoformat(timespec="microseconds")
 
-    def iso8601(self):
+    def iso8601(self) -> str:
         """returns datetime as a full ISO-8601 string with milliseconds"""
         return self.isoformat(timespec="microseconds")
 
-    def iso_8601(self):
+    def iso_8601(self) -> str:
         return self.iso8601()
 
-    def isofull(self):
+    def isofull(self) -> str:
         return self.isoformat(timespec="microseconds")
 
-    def isoformat(self, sep="T", timespec="auto"):
+    def isoformat(self, sep="T", timespec="auto") -> str:
         """provides python 3 compatible isoformat even for py2
 
         https://docs.python.org/3/library/datetime.html#datetime.datetime.isoformat
@@ -869,14 +881,14 @@ class Datetime(datetime.datetime):
 
         return ret
 
-    def within(self, start, stop, now=None):
+    def within(self, start, stop, now=None) -> bool:
         """return True if this datetime is within start and stop dates
 
         :param start: int|timedelta|datetime, if int, then seconds from now, so
             a negative integer would be in the past from now
         :param stop: int|timedelta|datetime, same as start
         :param now: datetime, what you want now to be
-        :returns: boolean, True if self is between start and stop
+        :returns: bool, True if self is between start and stop
         """
         if not now:
             now = type(self)()
@@ -891,7 +903,7 @@ class Datetime(datetime.datetime):
 
         return start <= self <= stop
 
-    def strftime(self, *args, **kwargs):
+    def strftime(self, *args, **kwargs) -> str:
         """Make sure strftime always returns a unicode object"""
 
         # this was moved here on 2021-5-5 from prom.config.Field.jsonable
@@ -939,7 +951,7 @@ class Datetime(datetime.datetime):
 
         return String(val)
 
-    def replace(self, *args, **kwargs):
+    def replace(self, *args, **kwargs) -> datetime.datetime:
         """Overrides default behavior to account for custom behavior
 
         https://docs.python.org/3/library/datetime.html#datetime.datetime.replace
@@ -995,7 +1007,7 @@ class Datetime(datetime.datetime):
 
         return dt
 
-    def days_in_month(self):
+    def days_in_month(self) -> int:
         """Return how many days there are in self.month
 
         Months with 28 or 29 days:
@@ -1152,7 +1164,7 @@ class Datetime(datetime.datetime):
         else:
             yield from cls.iteryeardays(replace_kwargs["year"])
 
-    def datetime(self):
+    def datetime(self) -> datetime.datetime:
         """Similar to .date() but returns vanilla datetime instance
 
         For annotation (type hints) purposes this needs to be at the bottom
