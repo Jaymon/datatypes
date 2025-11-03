@@ -393,6 +393,7 @@ class Datetime(datetime.datetime):
     def __new__(cls, *args, **kwargs):
         # remove any custom keywords
         args, replace_kwargs, timedelta_kwargs = cls.parse_args(args, kwargs)
+        #pout.v(args, replace_kwargs, timedelta_kwargs)
 
         if not args:
             instance = cls.now(datetime.timezone.utc)
@@ -457,30 +458,23 @@ class Datetime(datetime.datetime):
                     else:
                         raise
 
+            elif isinstance(args[0], bytes):
+                # if the object is pickled we would get the pickled
+                # bytes as our one passed in positional
+                instance = super().__new__(cls, *args)
+
             else:
                 if args[0]:
-                    try:
-                        # if the object is pickled we would get the pickled
-                        # string as our one passed in value
-                        instance = super().__new__(cls, *args)
-
-                    except TypeError:
-                        fs = cls.parse_datetime(args[0])
-                        if fs is None:
-                            raise
-
-                        else:
-                            instance = fs
+                    instance = cls.parse_datetime(args[0])
 
                 else:
                     instance = cls.now(datetime.timezone.utc)
 
         else:
             week = replace_kwargs.pop("week", None)
-
             instance = super().__new__(cls, *args, **replace_kwargs)
-
             replace_kwargs = {} # we've consumed them
+
             if week is not None:
                 replace_kwargs["week"] = week
 
