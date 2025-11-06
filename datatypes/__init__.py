@@ -3,7 +3,8 @@
 from .collections import (
     Pool,
     Dict, Dict as Dictionary,
-    NormalizeDict,
+    NormalizeMixin,
+    NamespaceMixin,
     idict, idict as IDict, idict as Idict, idict as iDict,
     AppendList,
     SortedList, SortedList as OrderedList,

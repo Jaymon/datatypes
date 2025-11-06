@@ -40,7 +40,7 @@ from typing import (
     TypedDict,
     Required,
     NotRequired,
-    ReadOnly,
+    #ReadOnly, # py 3.13+ https://docs.python.org/3/library/typing.html#typing.ReadOnly
 
     # tuple version of TypedDict
     NamedTuple, # https://docs.python.org/3/library/typing.html#typing.NamedTuple

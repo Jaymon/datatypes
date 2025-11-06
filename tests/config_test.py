@@ -172,7 +172,7 @@ class SettingsTest(TestCase):
             self.assertEqual("5", s.FOO)
             self.assertEqual(7, s.BAR)
 
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             s.FOO
 
     def test_config(self):
@@ -205,12 +205,11 @@ class SettingsTest(TestCase):
             self.assertIsNone(s.get("klsfjdkfl"))
 
 
-
 class MultiSettingsTest(TestCase):
     def test_multi(self):
         s = MultiSettings({"foo": 1})
 
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             s.bar
 
         self.assertEqual(1, s.foo)

@@ -6,8 +6,9 @@ from .mapping import (
     DictTree,
     idict,
     Namespace,
-    NormalizeDict,
     Pool,
+    NamespaceMixin,
+    NormalizeMixin,
 )
 from .sequence import (
     AppendList,

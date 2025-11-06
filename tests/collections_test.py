@@ -5,11 +5,11 @@ from datatypes.compat import *
 from datatypes.collections.mapping import (
     Pool,
     Dict,
-    NormalizeDict,
     idict,
     Namespace,
     ContextNamespace,
     DictTree,
+    NormalizeMixin,
 )
 from datatypes.collections.sequence import (
     AppendList,
@@ -269,6 +269,29 @@ class DictTest(TestCase):
         self.assertEqual(2, d["new"])
 
 
+class NormalizeMixinTest(TestCase):
+    def test_crud(self):
+        class ID(NormalizeMixin, dict):
+            def normalize_key(self, k):
+                return k.lower()
+
+        d = ID()
+
+        d["FOO"] = 1
+        self.assertTrue("foo" in d)
+        self.assertTrue("FOO" in d)
+
+        del d["foo"]
+        self.assertFalse("foo" in d)
+        self.assertFalse("FOO" in d)
+
+        d = ID(FOO=2)
+        self.assertEqual(2, d["foo"])
+
+        self.assertTrue(isinstance(d, dict))
+        self.assertTrue(isinstance(d, NormalizeMixin))
+
+
 class IdictTest(TestCase):
     def test_ritems(self):
         d = idict({
@@ -426,14 +449,14 @@ class NamespaceTest(TestCase):
         self.assertEqual(1, n.bar)
         self.assertEqual(1, n["bar"])
         del n.bar
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             n.bar
 
         n["foo"] = 2
         self.assertEqual(2, n.foo)
         self.assertEqual(2, n["foo"])
         del n["foo"]
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             n.foo
 
     def test___missing__(self):
@@ -476,7 +499,7 @@ class ContextNamespaceTest(TestCase):
 
         self.assertEqual("foo", n.foo)
         self.assertTrue("foo" in n)
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             n.bar
 
 
@@ -628,7 +651,7 @@ class ContextNamespaceTest(TestCase):
             self.assertEqual("foo", conf.context_name())
             self.assertEqual(1, conf.bar)
 
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             config.bar
 
         self.assertEqual("", conf.context_name())

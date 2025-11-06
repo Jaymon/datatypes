@@ -225,8 +225,8 @@ class Dict(dict):
 
     def pops(self, keys, *default):
         """Check every key in the keys list, first found key will be returned,
-        if none of the keys exist then return default, all keys in the keys list
-        will be popped, even the ones after a value is found
+        if none of the keys exist then return default, all keys in the keys
+        list will be popped, even the ones after a value is found
 
         :Example:
             d = Dict({
@@ -303,12 +303,86 @@ class Dict(dict):
                 self[k] = other[k]
 
 
-class NormalizeDict(Dict):
-    """A normalizing dictionary, taken from herd.utils.NormalizeDict
+# class NormalizeDict(Dict):
+#     """A normalizing dictionary, taken from herd.utils.NormalizeDict
+# 
+#     You can override the .normalize_key and .normalize_value methods, which get
+#     called anytime you set/get a value. You can check out the idict class for
+#     an implementation that uses those methods to allow case-insensitive keys
+#     """
+#     def __init__(self, *args, **kwargs):
+#         super().__init__()
+#         self.update(*args, **kwargs)
+# 
+#     def __setitem__(self, k, v):
+#         k = self.normalize_key(k)
+#         v = self.normalize_value(v)
+#         return super().__setitem__(k, v)
+# 
+#     def __delitem__(self, k):
+#         k = self.normalize_key(k)
+#         return super().__delitem__(k)
+# 
+#     def __getitem__(self, k):
+#         k = self.normalize_key(k)
+#         return super().__getitem__(k)
+# 
+#     def __contains__(self, k):
+#         k = self.normalize_key(k)
+#         return super().__contains__(k)
+# 
+#     def setdefault(self, k, default=None):
+#         k = self.normalize_key(k)
+#         v = self.normalize_value(default)
+#         return super().setdefault(k, v)
+# 
+#     def update(self, *args, **kwargs):
+#         # create temp dictionary so I don't have to mess with the arguments
+#         d = dict(*args, **kwargs)
+#         for k, v in d.items():
+#             self[k] = v
+# 
+#     def pop(self, k, *default):
+#         k = self.normalize_key(k)
+#         if default:
+#             default = [self.normalize_value(default[0])]
+#         return super().pop(k, *default)
+# 
+#     def get(self, k, default=None):
+#         k = self.normalize_key(k)
+#         v = self.normalize_value(default)
+#         return super().get(k, v)
+# 
+#     def normalize_key(self, k):
+#         return k
+# 
+#     def normalize_value(self, v):
+#         return v
+# 
+#     def ritems(self, *keys):
+#         keys = map(self.normalize_key, keys)
+#         return super().ritems(*keys)
+
+
+class NormalizeMixin(object):
+    """Mixin to create a normalizing dictionary
+
+    This class must come before the mapping base class when defining the
+    custom child class
+
+    :example:
+        class Foo(NormalizeMixin, dict):
+            def normalize_key(self, k):
+                return k
+
+            def normalize_value(self, v):
+                return v
 
     You can override the .normalize_key and .normalize_value methods, which get
     called anytime you set/get a value. You can check out the idict class for
     an implementation that uses those methods to allow case-insensitive keys
+
+    Taken from `herd.utils.NormalizeDict`
     """
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -364,70 +438,97 @@ class NormalizeDict(Dict):
         return super().ritems(*keys)
 
 
-class idict(NormalizeDict):
-    """A case insensitive dictionary, adapted from herd.utils.NormalizeDict,
+class idict(NormalizeMixin, Dict):
+    """A case insensitive dictionary, adapted from `herd.utils.NormalizeDict`,
     naming convention is meant to mimic python's use of i* for case-insensitive
     functions and python's built-in dict class (which is why the classname is
     all lowercase)"""
     def __init__(self, *args, **kwargs):
-        self.ikeys = {} # hold mappings from normalized keys to the actual key
+        # lookup table holding key variations to the actual key
+        self.ikeys = {}
+
         super().__init__(*args, **kwargs)
 
     def normalize_key(self, k):
-        nk = k.lower()
-        if nk in self.ikeys:
-            k = self.ikeys[nk]
-        self.ikeys[nk] = k
+        if k in self.ikeys:
+            k = self.ikeys[k]
+
+        else:
+            self.ikeys[k] = k
+
+            nk = k.lower()
+            if nk in self.ikeys:
+                k = self.ikeys[nk]
+            self.ikeys[nk] = k
+
         return k
 
 
 class NamespaceMixin(object):
+    """Mixin to create an attribute dictionary
+
+    This makes `self.foo` work like `self["foo"]
+
+    This class must come before the mapping base class when defining the
+    custom child class
+
+    :example:
+        class Foo(NamespaceMixin, dict):
+            pass
+    """
     def __setattr__(self, k, v):
         if k.startswith("__"):
-            return super().__setitem__(k, v)
+            return super().__setattr__(k, v)
 
         else:
             return self.__setitem__(k, v)
 
     def __getattr__(self, k):
+        """Treat a missing attribute like a `.__getitem__` key request
+
+        :raises KeyError: When the attribute `k` is missing, this is to
+            hint to the developer that a dictionary key using an alternate
+            syntax was being requested and means that `self.foo` and
+            `self["foo"]` can be handled the same way
+        """
         if k.startswith("__"):
-            return super().__getattr__(k)
+            try:
+                return super().__getattr__(k)
+
+            except AttributeError as e:
+                raise AttributeError(k) from e
 
         else:
-            try:
-                return self.__getitem__(k)
-
-            except KeyError as e:
-                raise AttributeError(e) from e
+            return self.__getitem__(k)
 
     def __delattr__(self, k):
         if k.startswith("__"):
-            return super().__delitem__(k)
+            return super().__delattr__(k)
 
         else:
             return self.__delitem__(k)
 
 
-class Namespace(NamespaceMixin, NormalizeDict):
+class Namespace(NamespaceMixin, Dict):
     """Allows both dictionary syntax (eg foo["keyname"]) and object syntax
     (eg foo.keyname)
     """
     pass
 
 
-class ContextNamespace(Namespace):
+class ContextNamespace(NormalizeMixin, Namespace):
     """A context aware namespace where you can override values in later
     contexts and then revert back to the original context when the with
     statement is done
 
     values are retrieved in LIFO order of the pushed contexts when cascade=True
 
-    Based on bang.config.Config moved here and expanded on 1-10-2023
+    Based on `bang.config.Config` moved here and expanded on 1-10-2023
 
     Similar to a ChainMap:
         https://docs.python.org/3/library/collections.html#chainmap-objects
 
-    :Example:
+    :example:
         n = ContextNamespace()
 
         n.foo = 1
@@ -705,7 +806,7 @@ class DictTree(Dict):
 
     https://github.com/Jaymon/datatypes/issues/29
 
-    :Example:
+    :example:
         d = DictTree()
 
         d.set(["foo", "bar", "che"], 1)
