@@ -53,11 +53,13 @@ class Dictionary(dict):
         return super().__delitem__(key)
 
 """
-from contextlib import contextmanager
+from __future__ import annotations
+from contextlib import contextmanager, AbstractContextManager
 
 from ..compat import *
 from .container import HotSet
 from .sequence import Stack
+from collections.abc import Mapping, Generator
 
 
 class Pool(dict):
@@ -303,67 +305,6 @@ class Dict(dict):
                 self[k] = other[k]
 
 
-# class NormalizeDict(Dict):
-#     """A normalizing dictionary, taken from herd.utils.NormalizeDict
-# 
-#     You can override the .normalize_key and .normalize_value methods, which get
-#     called anytime you set/get a value. You can check out the idict class for
-#     an implementation that uses those methods to allow case-insensitive keys
-#     """
-#     def __init__(self, *args, **kwargs):
-#         super().__init__()
-#         self.update(*args, **kwargs)
-# 
-#     def __setitem__(self, k, v):
-#         k = self.normalize_key(k)
-#         v = self.normalize_value(v)
-#         return super().__setitem__(k, v)
-# 
-#     def __delitem__(self, k):
-#         k = self.normalize_key(k)
-#         return super().__delitem__(k)
-# 
-#     def __getitem__(self, k):
-#         k = self.normalize_key(k)
-#         return super().__getitem__(k)
-# 
-#     def __contains__(self, k):
-#         k = self.normalize_key(k)
-#         return super().__contains__(k)
-# 
-#     def setdefault(self, k, default=None):
-#         k = self.normalize_key(k)
-#         v = self.normalize_value(default)
-#         return super().setdefault(k, v)
-# 
-#     def update(self, *args, **kwargs):
-#         # create temp dictionary so I don't have to mess with the arguments
-#         d = dict(*args, **kwargs)
-#         for k, v in d.items():
-#             self[k] = v
-# 
-#     def pop(self, k, *default):
-#         k = self.normalize_key(k)
-#         if default:
-#             default = [self.normalize_value(default[0])]
-#         return super().pop(k, *default)
-# 
-#     def get(self, k, default=None):
-#         k = self.normalize_key(k)
-#         v = self.normalize_value(default)
-#         return super().get(k, v)
-# 
-#     def normalize_key(self, k):
-#         return k
-# 
-#     def normalize_value(self, v):
-#         return v
-# 
-#     def ritems(self, *keys):
-#         keys = map(self.normalize_key, keys)
-#         return super().ritems(*keys)
-
-
 class NormalizeMixin(object):
     """Mixin to create a normalizing dictionary
 
@@ -445,21 +386,21 @@ class idict(NormalizeMixin, Dict):
     all lowercase)"""
     def __init__(self, *args, **kwargs):
         # lookup table holding key variations to the actual key
-        self.ikeys = {}
+        self.key_lookup = {}
 
         super().__init__(*args, **kwargs)
 
     def normalize_key(self, k):
-        if k in self.ikeys:
-            k = self.ikeys[k]
+        if k in self.key_lookup:
+            k = self.key_lookup[k]
 
         else:
-            self.ikeys[k] = k
+            self.key_lookup[k] = k
 
             nk = k.lower()
-            if nk in self.ikeys:
-                k = self.ikeys[nk]
-            self.ikeys[nk] = k
+            if nk in self.key_lookup:
+                k = self.key_lookup[nk]
+            self.key_lookup[nk] = k
 
         return k
 
@@ -492,11 +433,7 @@ class NamespaceMixin(object):
             `self["foo"]` can be handled the same way
         """
         if k.startswith("__"):
-            try:
-                return super().__getattr__(k)
-
-            except AttributeError as e:
-                raise AttributeError(k) from e
+            return super().__getattr__(k)
 
         else:
             return self.__getitem__(k)
@@ -516,52 +453,24 @@ class Namespace(NamespaceMixin, Dict):
     pass
 
 
-class ContextNamespace(NormalizeMixin, Namespace):
-    """A context aware namespace where you can override values in later
-    contexts and then revert back to the original context when the with
-    statement is done
-
-    values are retrieved in LIFO order of the pushed contexts when cascade=True
-
-    Based on `bang.config.Config` moved here and expanded on 1-10-2023
-
-    Similar to a ChainMap:
-        https://docs.python.org/3/library/collections.html#chainmap-objects
+class StackNamespace(Mapping):
+    """Nested namespaces that can be changed for the given context and then
+    reverted to the previous context when the context is done
 
     :example:
-        n = ContextNamespace()
+        n = StackNamespace()
+        n["foo"] = 1
+        with n:
+            n["foo"] = 2
+            with n("named context"):
+                n["foo"] = 3
+                print(n["foo"]) # 3
 
-        n.foo = 1
-        with n.context("<CONTEXT NAME>"):
-            n.foo # 1
-            n.foo = 2
-            n.foo # 2
-            with n.context("<CONTEXT NAME 2>"):
-                n.foo # 2
-                n.foo = 3
-                n.foo #3
+            print(n["foo"]) # 2
 
-            n.foo # 2
-
-        n.foo # 1
-
-        # you can also turn cascading off, so it switches contexts but doesn't 
-        # cascade the values
-
-        n = ContextNamespace(cascade=False)
-
-        n.foo = 1
-        with n.context("<CONTEXT NAME>"):
-            "foo" in n.foo # False
-            n.foo = 2
-            "foo" in n.foo # True
-
-        n.foo # 1
+        print(n["foo"]) # 1
     """
-    context_class = Namespace
-    """Each context will be an instance of this class"""
-
-    def __init__(self, name="", cascade=True):
+    def __init__(self, name: str = "", cascade: bool = True):
         """
         :param name: str, If you want to customize the default context name
         then pass it in
@@ -570,150 +479,176 @@ class ContextNamespace(NormalizeMixin, Namespace):
         """
         super().__init__()
 
-        # we set support properties directly on the __dict__ so __setattr__
-        # doesn't infinite loop, context properties can just be set normally
+        self._contexts = {
+            "active": [],
+            "cascade": cascade,
+        }
 
-        # a stack of the context names
-        self.__dict__["_context_names"] = Stack()
-        self.__dict__["_cascade"] = cascade
-        self.push_context(name)
+        self.push_context(name, source="__init__")
 
-    def normalize_context_name(self, name):
-        """normalize the context name, this is meant to be customized in child
-        classes if needed
+    def __enter__(self) -> ContextNamespace:
+        """Allow `with instance:` context invocation"""
+        context_tuple = self._contexts["active"][-1]
+        if context_tuple[2] == "__call__":
+            context_tuple[2] = "__enter__"
 
-        :param name: str, the context name
-        :returns: str, the name, normalized
-        """
-        return name
+        else:
+            self.push_context("", source="__enter__")
 
-    def push_context(self, name):
-        """push a context named name onto the context stack"""
-        name = self.normalize_context_name(name)
+        return self
 
-        # this is where all the magic happens, the keys are the context names
-        # and the values are the set properties for that context, 
-        super().setdefault(name, self.context_class())
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.pop_context()
+        return None
 
-        self._context_names.push(name)
+    def __call__(self, name: str = "", **kwargs):
+        """Allow `with instance(...):` context invocation"""
+        self.push_context(name, kwargs, "__call__")
+        return self
 
-        return name
+#         self.push_context("ContextNamespace.__call__", kwargs)
+#         return self
 
-    def pop_context(self):
-        """Pop the last context from the stack"""
-        if len(self._context_names) > 1:
-            return self._context_names.pop()
-
-    def switch_context(self, name):
-        """Switch to context name, return the previous context_name"""
-        ret = self.pop_context()
-        self.push_context(name)
-        return ret
-
-    def clear_context(self, name):
-        """Completely clear the context"""
-        name = self.normalize_context_name(name)
-        self.get_context(name).clear()
-
-    def context_name(self):
-        """Get the current context name"""
-        return self._context_names.peek()
-
-    def context_names(self):
-        """yield all the _context_names taking into account the cascade setting
-        """
-        for context_name in self._context_names:
-            yield context_name
-
-            if not self._cascade:
-                break
-
-    def current_context(self):
-        """get the current context
-
-        :returns: self.context_class instance
-        """
-        return self.get_context(self.context_name())
-
-    def get_context(self, name):
-        """Get the context at name
-
-        :returns: self.context_class instance
-        """
-        name = self.normalize_context_name(name)
-        return super().__getitem__(name)
-
-    def is_context(self, name):
-        """Return True if name matches the current context name"""
-        return self.context_name() == self.normalize_context_name(name)
+#         context_name, context = self._context_stack[-1]
+#         if context_name == "ContextNamespace.__enter__":
+# 
+#         self._context_stack[-1][0] = name
+# 
+#         # passed in values get set on the instance directly
+#         for k, v in kwargs.items():
+#             self[k] = v
+# 
+#         return self
 
     @contextmanager
-    def context(self, name, **kwargs):
+    def context(
+        self,
+        name: str = "",
+        **kwargs
+    ) -> AbstractContextManager[ContextNamespace]:
         """This is meant to be used with the "with ..." command, its purpose is
         to make it easier to change the context and restore it back to the
         previous context when it is done
 
-        :Example:
+        :example:
             with instance.context("foo"):
                 # anything in this block will use the foo configuration
                 pass
             # anything outside this block will *NOT* use the foo configuration
         """
-        self.push_context(name)
+        with self(name, **kwargs) as s:
+            yield s
 
-        # passed in values get set on the instance directly
-        for k, v in kwargs.items():
-            self[k] = v
+#         self.push_context(name)
+# 
+#         # passed in values get set on the instance directly
+#         for k, v in kwargs.items():
+#             self[k] = v
+# 
+#         yield self
+# 
+#         self.pop_context()
 
-        yield self
+    def context_name(self):
+        """Get the current context name"""
+        return self._contexts["active"][-1][0]
 
-        self.pop_context()
+    def push_context(
+        self,
+        name: str,
+        context: Mapping|None = None,
+        source: str = "",
+    ) -> str:
+        """push a context named name onto the context stack"""
+        self._contexts["active"].append([name, context or {}, source])
+        return name
+
+    def has_context(self) -> bool:
+        # we pull directly from the __dict__ so __setattr__
+        # doesn't infinite loop
+        if contexts := self.__dict__.get("_contexts", None):
+            return len(contexts["active"]) > 0
+        return False
+
+#         if "_context_stack" in self.__dict__:
+#             return len(self._context_stack) > 1
+#         return False
+
+    def pop_context(self) -> tuple[str, Mapping, str]:
+        """Pop the last context from the stack"""
+        if self.has_context():
+            return self._contexts["active"].pop(-1)
+
+    def current_context(self) -> Mapping:
+        """get the current context"""
+        return self._contexts["active"][-1][1]
+
+    def active_contexts(self) -> Generator[Mapping]:
+        """yield all the contexts taking into account the cascade setting
+        """
+        for context_tuple in reversed(self._contexts["active"]):
+            yield context_tuple[1]
+
+            if not self._contexts["cascade"]:
+                break
+
+    def __setattr__(self, k, v):
+        if self.has_context():
+            self.__setitem__(k, v)
+
+        else:
+            super().__setattr__(k, v)
 
     def __setitem__(self, k, v):
-        k = self.normalize_key(k)
-        v = self.normalize_value(v)
         self.current_context().__setitem__(k, v)
 
+    def __delattr__(self, k):
+        if self.has_context():
+            self.__delitem__(k)
+
+        else:
+            super().__delattr__(k)
+
     def __delitem__(self, k):
-        k = self.normalize_key(k)
         self.current_context().__delitem__(k)
+
+    def __getattr__(self, k):
+        if self.has_context():
+            return self.__getitem__(k)
+
+        else:
+            raise KeyError(k)
+            #return super().__getattr__(k)
 
     def __getitem__(self, k):
         """Most of the context LIFO magic happens here, this will work through
         the contexts looking for k"""
-        if k == "__missing__":
-            # we need to avoid infinite recursion, if __missing__ gets to here
-            # it doesn't exist so go ahead and fail fast
-            raise KeyError(k)
-
-        k = self.normalize_key(k)
-        for context_name in self.context_names():
+        for context in self.active_contexts():
             try:
-                return self.get_context(context_name)[k]
+                return context[k]
 
             except KeyError:
                 pass
 
-        # because we completely override __getitem__ we can't rely on the
-        # descriptor protocol to call __missing__ for us
-        try:
-            return self.__missing__(k)
+        return self.__missing__(k)
+#         return super().__getitem__(k)
 
-        except AttributeError as e:
-            raise KeyError(k)
+    def __missing__(self, k):
+        raise KeyError(k)
 
     def __contains__(self, k):
-        for context_name in self.context_names():
-            if k in self.get_context(context_name):
+        for context in self.active_contexts():
+            if k in context:
                 return True
-        return False
 
+        return False
+    
     def __len__(self):
         """Unlike a normal dict this is O(n)"""
         return len(list(self.keys()))
 
-    def __reversed__(self):
-        return reversed(list(self.keys()))
+#     def __reversed__(self):
+#         return reversed(list(self.keys()))
 
     def __ior__(self, other):
         """self |= other"""
@@ -722,7 +657,7 @@ class ContextNamespace(NormalizeMixin, Namespace):
 
     def __or__(self, other):
         """self | other"""
-        d = self.context_class({i[0]: i[1] for i in self.items()})
+        d = {i[0]: i[1] for i in self.items()}
         d.update(other)
         return d
 
@@ -732,9 +667,10 @@ class ContextNamespace(NormalizeMixin, Namespace):
 
     def get(self, k, default=None):
         # we have to do it this way to play nice with __missing__
-        if k in self:
+        try:
             return self[k]
-        else:
+
+        except KeyError:
             return default
 
     def pop(self, k, *default):
@@ -745,15 +681,15 @@ class ContextNamespace(NormalizeMixin, Namespace):
         something in the current context actually popped it from a previous
         context
         """
-        k = self.normalize_key(k)
         try:
             d = self.current_context()
             v = d[k]
             del d[k]
 
-        except KeyError:
+        except (KeyError, IndexError):
             if default:
-                v = self.normalize_value(default[0])
+                v = default[0]
+
             else:
                 raise
 
@@ -765,30 +701,27 @@ class ContextNamespace(NormalizeMixin, Namespace):
     def clear(self):
         return self.current_context().clear()
 
+    def update(self, *args: Iterable[tuple[Any, Any]]|Mapping, **kwargs):
+        # create temp dictionary so I don't have to mess with the arguments
+        self.current_context().update(*args, **kwargs)
+#         d = dict(*args, **kwargs)
+#         for k, v in d.items():
+#             self[k] = v
+
     def copy(self):
         """return a dict of all active values in the config at the moment"""
-        d = self.context_class()
-
-        if self._cascade:
-            for context_name in reversed(self._context_names):
-                d.update(self.get_context(context_name))
-
-        else:
-            d.update(self.current_context())
-
-        return d
+        return dict(item for item in self.items())
 
     def items(self):
         seen_keys = set()
-        for context_name in self._context_names:
-            d = self.get_context(context_name)
-            for k, v in d.items():
+        for context in self.active_contexts():
+            for k, v in context.items():
                 if k not in seen_keys:
                     yield k, v
                     seen_keys.add(k)
 
-            if not self._cascade:
-                break
+    def __iter__(self):
+        yield from self.keys()
 
     def keys(self):
         for k, _ in self.items():
@@ -797,6 +730,78 @@ class ContextNamespace(NormalizeMixin, Namespace):
     def values(self):
         for _, v in self.items():
             yield v
+
+
+class ContextNamespace(StackNamespace):
+    """A context aware namespace where you can override values in later
+    contexts and then revert back to the original context when the with
+    statement is done
+
+    values are retrieved in LIFO order of the pushed contexts when
+    `cascade=True`
+
+    Based on `bang.config.Config` moved here and expanded on 1-10-2023
+
+    Similar to a ChainMap:
+        https://docs.python.org/3/library/collections.html#chainmap-objects
+
+    :example:
+        n = ContextNamespace()
+
+        n.foo = 1
+        with n.context("one"):
+            n.foo # 1
+            n.foo = 2
+            n.foo # 2
+            with n.context("two"):
+                n.foo # 2
+                n.foo = 3
+                n.foo #3
+
+            n.foo # 2
+
+        n.foo # 1
+
+        # calling the context again restores the values
+        with n.context("one"):
+            n.foo # 2
+
+        n.foo # 1
+
+        # you can also turn cascading off, so it switches contexts but doesn't 
+        # cascade the values
+
+        n = ContextNamespace(cascade=False)
+
+        n.foo = 1
+        with n.context("one"):
+            "foo" in n.foo # False
+            n.foo = 2
+            "foo" in n.foo # True
+
+        n.foo # 1
+    """
+    def push_context(
+        self,
+        name: str,
+        context: Mapping|None = None,
+        source: str = "",
+    ) -> str:
+        inactive = self._contexts.get("inactive", {})
+        d = inactive.get(name, {})
+
+        if context:
+            d.update(context)
+
+        return super().push_context(name, d, source)
+
+    def pop_context(self) -> Mapping:
+        """Pop the last context from the stack"""
+        context_tuple = super().pop_context()
+        self._contexts.setdefault("inactive", {})
+
+        self._contexts["inactive"][context_tuple[0]] = context_tuple[1]
+        return context_tuple
 
 
 class DictTree(Dict):

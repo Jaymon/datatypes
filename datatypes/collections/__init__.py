@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from .mapping import (
-    ContextNamespace,
     Dict,
     DictTree,
     idict,
     Namespace,
+    StackNamespace,
+    ContextNamespace,
     Pool,
     NamespaceMixin,
     NormalizeMixin,

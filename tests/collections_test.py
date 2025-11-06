@@ -7,6 +7,7 @@ from datatypes.collections.mapping import (
     Dict,
     idict,
     Namespace,
+    StackNamespace,
     ContextNamespace,
     DictTree,
     NormalizeMixin,
@@ -472,6 +473,34 @@ class NamespaceTest(TestCase):
         self.assertEqual(1, n.foo)
 
 
+class StackNamespaceTest(TestCase):
+    def test_stack(self):
+        n = StackNamespace()
+
+        self.assertFalse("foo" in n)
+
+        with n.context():
+            self.assertFalse("foo" in n)
+            n["foo"] = 1
+            self.assertTrue("foo" in n)
+
+            with n:
+                self.assertEqual(1, n["foo"])
+                n["foo"] = 2
+                self.assertEqual(2, n["foo"])
+
+                with n():
+                    self.assertEqual(2, n.foo)
+                    n.foo = 3
+                    self.assertEqual(3, n.foo)
+
+                self.assertEqual(2, n["foo"])
+
+            self.assertEqual(1, n["foo"])
+
+        self.assertFalse("foo" in n)
+
+
 class ContextNamespaceTest(TestCase):
     def test_crud(self):
         n = ContextNamespace()
@@ -542,17 +571,6 @@ class ContextNamespaceTest(TestCase):
                 n.popitem()
         self.assertEqual(("foo", 2), n.popitem())
 
-    def test_reversed(self):
-        n = ContextNamespace()
-        n.foo = 1
-        n.bar = 2
-
-        keys = []
-        for k in reversed(n):
-            keys.append(k)
-        self.assertEqual(["bar", "foo"], keys)
-
-
     def test_setdefault(self):
         n = ContextNamespace()
         self.assertEqual(1, n.setdefault("foo", 1))
@@ -585,11 +603,11 @@ class ContextNamespaceTest(TestCase):
         self.assertEqual(2, n.bar)
 
         n2 = n | {"che": 5, "bar": 6}
-        self.assertEqual(1, n2.foo)
-        self.assertEqual(6, n2.bar)
-        self.assertEqual(5, n2.che)
-        self.assertEqual(1, n.foo)
-        self.assertEqual(2, n.bar)
+        self.assertEqual(1, n2["foo"])
+        self.assertEqual(6, n2["bar"])
+        self.assertEqual(5, n2["che"])
+        self.assertEqual(1, n["foo"])
+        self.assertEqual(2, n["bar"])
 
     def test_clear(self):
         n = ContextNamespace()
@@ -716,20 +734,20 @@ class ContextNamespaceTest(TestCase):
         self.assertFalse("bar" in c)
         self.assertEqual(1, c.foo)
 
-    def test_clear_context(self):
-        c = ContextNamespace()
-
-        c.foo = 1
-
-        with c.context("foobar"):
-            c.foo = 2
-            c.bar = 3
-            self.assertEqual(2, c.foo)
-            self.assertEqual(3, c.bar)
-
-        c.clear_context("foobar")
-        with c.context("foobar"):
-            self.assertEqual(1, c.foo)
+#     def test_clear_context(self):
+#         c = ContextNamespace()
+# 
+#         c.foo = 1
+# 
+#         with c.context("foobar"):
+#             c.foo = 2
+#             c.bar = 3
+#             self.assertEqual(2, c.foo)
+#             self.assertEqual(3, c.bar)
+# 
+#         c.clear_context("foobar")
+#         with c.context("foobar"):
+#             self.assertEqual(1, c.foo)
 
     def test___missing__1(self):
         class ChildNS(ContextNamespace):
@@ -763,8 +781,14 @@ class ContextNamespaceTest(TestCase):
 
     def test___contains__(self):
         n = ContextNamespace(cascade=False)
-        n.switch_context("foo")
+        #n.switch_context("foo")
         self.assertFalse("bar" in n)
+
+        n["bar"] = 1
+        self.assertTrue("bar" in n)
+
+        with n:
+            self.assertFalse("bar" in n)
 
     def test_setdefault(self):
         n = ContextNamespace()

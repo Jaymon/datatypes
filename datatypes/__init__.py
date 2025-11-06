@@ -11,6 +11,7 @@ from .collections import (
     ListIterator,
     Trie,
     Namespace,
+    StackNamespace,
     ContextNamespace,
     HotSet,
     Stack,
