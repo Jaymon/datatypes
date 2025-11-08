@@ -59,7 +59,8 @@ from contextlib import contextmanager, AbstractContextManager
 from ..compat import *
 from .container import HotSet
 from .sequence import Stack
-from collections.abc import Mapping, Generator
+from collections.abc import Mapping, Generator, Iterable
+from typing import Any
 
 
 class Pool(dict):
@@ -469,6 +470,11 @@ class StackNamespace(Mapping):
             print(n["foo"]) # 2
 
         print(n["foo"]) # 1
+
+    Internally, an instance keeps track of a stack of contexts and pops off
+    the last context created every time a context block is finished. This
+    class quacks like a mapping and always references the last context on
+    the stack
     """
     def __init__(self, name: str = "", cascade: bool = True):
         """
@@ -506,20 +512,6 @@ class StackNamespace(Mapping):
         self.push_context(name, kwargs, "__call__")
         return self
 
-#         self.push_context("ContextNamespace.__call__", kwargs)
-#         return self
-
-#         context_name, context = self._context_stack[-1]
-#         if context_name == "ContextNamespace.__enter__":
-# 
-#         self._context_stack[-1][0] = name
-# 
-#         # passed in values get set on the instance directly
-#         for k, v in kwargs.items():
-#             self[k] = v
-# 
-#         return self
-
     @contextmanager
     def context(
         self,
@@ -539,19 +531,37 @@ class StackNamespace(Mapping):
         with self(name, **kwargs) as s:
             yield s
 
-#         self.push_context(name)
-# 
-#         # passed in values get set on the instance directly
-#         for k, v in kwargs.items():
-#             self[k] = v
-# 
-#         yield self
-# 
-#         self.pop_context()
-
-    def context_name(self):
+    def context_name(self) -> str:
         """Get the current context name"""
-        return self._contexts["active"][-1][0]
+        return self._current_context_tuple()[0]
+        #return self._contexts["active"][-1][0]
+
+    def _current_context_tuple(self) -> tuple[str, Mapping, str]:
+        """Internal method. Gets the full context tuple for the current
+        context"""
+        #return self._contexts["active"][-1]
+        # we pull directly from the __dict__ so __setattr__
+        # doesn't infinite loop
+        if contexts := self.__dict__.get("_contexts", None):
+            return contexts["active"][-1]
+        raise IndexError("No current contexts")
+
+    def current_context(self) -> Mapping:
+        """get the current context"""
+        return self._current_context_tuple()[1]
+        #return self._contexts["active"][-1][1]
+
+    def has_context(self) -> bool:
+        try:
+            self._current_context_tuple()
+            return True
+
+        except IndexError:
+            return False
+
+#         if contexts := self.__dict__.get("_contexts", None):
+#             return len(contexts["active"]) > 0
+#         return False
 
     def push_context(
         self,
@@ -563,25 +573,10 @@ class StackNamespace(Mapping):
         self._contexts["active"].append([name, context or {}, source])
         return name
 
-    def has_context(self) -> bool:
-        # we pull directly from the __dict__ so __setattr__
-        # doesn't infinite loop
-        if contexts := self.__dict__.get("_contexts", None):
-            return len(contexts["active"]) > 0
-        return False
-
-#         if "_context_stack" in self.__dict__:
-#             return len(self._context_stack) > 1
-#         return False
-
     def pop_context(self) -> tuple[str, Mapping, str]:
         """Pop the last context from the stack"""
         if self.has_context():
             return self._contexts["active"].pop(-1)
-
-    def current_context(self) -> Mapping:
-        """get the current context"""
-        return self._contexts["active"][-1][1]
 
     def active_contexts(self) -> Generator[Mapping]:
         """yield all the contexts taking into account the cascade setting
@@ -631,7 +626,6 @@ class StackNamespace(Mapping):
                 pass
 
         return self.__missing__(k)
-#         return super().__getitem__(k)
 
     def __missing__(self, k):
         raise KeyError(k)
@@ -642,13 +636,10 @@ class StackNamespace(Mapping):
                 return True
 
         return False
-    
+
     def __len__(self):
         """Unlike a normal dict this is O(n)"""
         return len(list(self.keys()))
-
-#     def __reversed__(self):
-#         return reversed(list(self.keys()))
 
     def __ior__(self, other):
         """self |= other"""
@@ -666,7 +657,6 @@ class StackNamespace(Mapping):
             self[k] = v
 
     def get(self, k, default=None):
-        # we have to do it this way to play nice with __missing__
         try:
             return self[k]
 
@@ -675,11 +665,11 @@ class StackNamespace(Mapping):
 
     def pop(self, k, *default):
         """Pop works a little differently than other key access methods, pop
-        will only return a value if it is actually in the current context, if k
-        is not in the current context then this will return default. It does
-        this because it would violate the principal of least surprise if popping
-        something in the current context actually popped it from a previous
-        context
+        will only return a value if it is actually in the current context, if
+        `k` is not in the current context then this will return default. It
+        does this because it would violate the principal of least surprise if
+        popping something in the current context actually popped it from a
+        previous context
         """
         try:
             d = self.current_context()
@@ -704,9 +694,6 @@ class StackNamespace(Mapping):
     def update(self, *args: Iterable[tuple[Any, Any]]|Mapping, **kwargs):
         # create temp dictionary so I don't have to mess with the arguments
         self.current_context().update(*args, **kwargs)
-#         d = dict(*args, **kwargs)
-#         for k, v in d.items():
-#             self[k] = v
 
     def copy(self):
         """return a dict of all active values in the config at the moment"""
@@ -780,6 +767,11 @@ class ContextNamespace(StackNamespace):
             "foo" in n.foo # True
 
         n.foo # 1
+
+    Internally, this class keeps a stack of active contexts and when the
+    context blocks are done, the context is moved to an inactive mapping,
+    if the context name is used again, that context will be moved from the
+    inactive mapping back to the active stack
     """
     def push_context(
         self,

@@ -500,6 +500,9 @@ class StackNamespaceTest(TestCase):
 
         self.assertFalse("foo" in n)
 
+    def test_foo(self):
+        pout.v(StackNamespace.update.__annotations__)
+
 
 class ContextNamespaceTest(TestCase):
     def test_crud(self):
