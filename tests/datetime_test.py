@@ -671,3 +671,9 @@ class DatetimeTest(TestCase):
         dt = Datetime(2025, 1, 1, 0, 0, 0, week=2)
         self.assertEqual("2025-01-06", str(dt))
 
+    def test_iso8601_date_init(self):
+        ds = "2025-11-25"
+        dt = Datetime(ds)
+        self.assertEqual(ds, str(dt))
+        self.assertEqual(ds, str(dt.date()))
+
