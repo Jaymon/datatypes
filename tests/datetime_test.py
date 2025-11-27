@@ -672,6 +672,8 @@ class DatetimeTest(TestCase):
         self.assertEqual("2025-01-06", str(dt))
 
     def test_iso8601_date_init(self):
+        """Make sure a YYYY-MM-DD created Datetime keeps the same date during
+        different conversions"""
         ds = "2025-11-25"
         dt = Datetime(ds)
         self.assertEqual(ds, str(dt))
