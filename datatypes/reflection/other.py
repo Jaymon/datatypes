@@ -12,9 +12,6 @@ from ..string import NamingConvention
 from ..collections.mapping import DictTree
 from .. import logging
 
-from .inspect import ReflectClass, ReflectModule
-from .path import ReflectName, ReflectPath
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +54,9 @@ class BaseClassFinder(DictTree):
             are the prefixes, the value is a dict with module path keys and
             the module found at the end of that module path
         """
+        # avoid circular dependency
+        from .inspect import ReflectModule
+
         modules = collections.defaultdict(dict)
         seen = set()
         prefixes = prefixes or []
@@ -86,6 +86,9 @@ class BaseClassFinder(DictTree):
         :param fileroot: see `fileroot` in `ReflectPath.find_modules`
         :returns: see .get_prefix_modules since it's the same value
         """
+        # avoid circular dependency
+        from .path import ReflectName, ReflectPath
+
         modules = collections.defaultdict(dict)
         seen = set()
         paths = paths or []
@@ -276,6 +279,9 @@ class ClasspathFinder(BaseClassFinder):
             value is a dict which will contain the value returned from either
             `._get_node_module_info`
         """
+        # avoid circular dependency
+        from .path import ReflectName
+
         rn = ReflectName(self._get_classpath(klass))
 
         module_keys = []
@@ -442,14 +448,13 @@ class ClassFinder(BaseClassFinder):
         else:
             del n.parent[n.key]
 
-    def getmro(self, klass: type, reverse: bool = False):
+    def getmro(self, klass: type, reverse: bool = False) -> Generator[type]:
         """Get the method resolution order of klass taking into account the
         cutoff classes
 
         :param klass: type, the class to get the method resolution order for
-        :param cutoff_classes: tuple[type], the cutoff classes returned from
-            .get_cutoff
-        :returns: generator[type]
+        :param reverse: reverse the order
+        :returns: all the classes
         """
         klasses = inspect.getmro(klass)
 
@@ -598,6 +603,41 @@ class ClassFinder(BaseClassFinder):
 
             except KeyError:
                 pass
+
+    def get_subclasses(self, klass: type) -> Generator[type]:
+        """walk all the subclasses of `klass`, the yielded values will
+        not include `klass`"""
+        try:
+            if node := self.find_class_node(klass):
+                for k, sn in node.nodes():
+                    if k:
+                        yield sn.key
+
+        except KeyError:
+            pass
+
+    def find_best_subclass(self, call_class: type, klass: type) -> type:
+        """Find the best matching subclass of `klass` for `call_class`
+
+        The algo is pretty simple here, it will basically look for a subclass
+        defined in the same module as `call_class`, if nothing is found
+        it will check all the parent's of `call_class` and see if there is
+        subclass of `klass` defined in those modules. If all else fails,
+        then consider `klass` as the best matching subclass
+        """
+        subclasses = []
+        for sc in self.get_subclasses(klass):
+            if sc.__module__ == call_class.__module__:
+                return sc
+
+            subclasses.append(sc)
+
+        for parent_class in self.getmro(call_class):
+            for sc in subclasses:
+                if sc.__module__ == parent_class.__module__:
+                    return sc
+
+        return klass
 
 
 class ClassKeyFinder(ClassFinder):

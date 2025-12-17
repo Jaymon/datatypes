@@ -2602,7 +2602,7 @@ class ReflectASTTest(TestCase):
         self.assertTrue(isinstance(ra.get_expr_value(), float))
 
 
-class ReflectParam(TestCase):
+class ReflectParamTest(TestCase):
     def test_positional_1(self):
         def foo(a, /): pass
         rm = ReflectCallable(foo)
@@ -2661,4 +2661,55 @@ class ReflectParam(TestCase):
         rp = next(rm.reflect_params())
         doc = rp.get_docblock()
         self.assertEqual("the desc of a", doc)
+
+
+class ReflectABCTest(TestCase):
+    def test___init_subclass___simple(self):
+        classes = self.create_module_classes("""
+            from datatypes.reflection.inspect import (
+                ReflectClass,
+                ReflectCallable,
+            )
+
+            class RC(ReflectClass):
+                pass
+
+            class RM(ReflectCallable):
+                pass
+        """)
+
+        RC = classes["RC"]
+
+        reflect_class = RC.find_reflect_class(ReflectCallable)
+        self.assertEqual(classes["RM"], reflect_class)
+
+        reflect_class = RC.find_reflect_class(ReflectDocblock)
+        self.assertEqual(ReflectDocblock, reflect_class)
+
+    def test___init_subclass___multi(self):
+        classes1 = self.create_module_classes("""
+            from datatypes.reflection.inspect import (
+                ReflectClass,
+                ReflectCallable,
+            )
+
+            class RM1(ReflectCallable):
+                pass
+
+            class RC1(ReflectClass):
+                pass
+        """)
+
+        modpath = classes1["RC1"].__module__
+        classes2 = self.create_module_classes(f"""
+            from {modpath} import RC1
+
+            class RC2(RC1):
+                pass
+        """)
+
+        RC = classes2["RC2"]
+
+        reflect_class = RC.find_reflect_class(ReflectCallable)
+        self.assertEqual(classes1["RM1"], reflect_class)
 

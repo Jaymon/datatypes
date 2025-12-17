@@ -35,9 +35,72 @@ from ..decorators import (
 )
 from ..path import Dirpath
 from ..token.base import Scanner
+from .other import ClassFinder
 
 
-class ReflectObject(object):
+class ReflectFinder(ClassFinder):
+    def __init__(self):
+        self.lookup = {}
+        super().__init__()
+
+    def find_best_subclass(self, call_class: type, klass: type) -> type:
+        sc = self.lookup.get(call_class, {}).get(klass, None) 
+        if sc is None:
+            self.lookup.setdefault(call_class, {})
+            sc = super().find_best_subclass(call_class, klass)
+            self.lookup[call_class][klass] = sc
+
+        return sc
+
+
+class ReflectABC(object):
+    classfinder = ReflectFinder()
+
+    def __init_subclass__(cls):
+        cls.classfinder.set_cutoff_class(ReflectABC)
+        cls.classfinder.add_class(cls)
+
+    @classmethod
+    def find_reflect_class(cls, reflect_class):
+        return cls.classfinder.find_best_subclass(cls, reflect_class)
+
+#         subclasses = []
+#         for sc in cls.classfinder.get_subclasses(reflect_class):
+#             if sc.__module__ == cls.__module__:
+#                 return sc
+# 
+#             subclasses.append(sc)
+# 
+#         for parent_class in cls.classfinder.getmro(cls):
+#             for sc in subclasses:
+#                 if sc.__module__ == parent_class.__module__:
+#                     return sc
+# 
+#         return reflect_class
+
+#             pout.v(sc.__module__, cls.__module__)
+            #pout.v(sc)
+
+#         node = cls.classfinder.find_class_node(reflect_class)
+#         if node:
+#             for k, sn in node.nodes():
+#                 pout.v(sn.key)
+
+        #pout.v(node)
+
+    def _create_reflect_instance(self, key, reflect_class, *args, **kwargs):
+        if key in kwargs:
+            reflect_class = kwargs[key]
+
+        else:
+            reflect_class = self.find_reflect_class(reflect_class)
+
+        return reflect_class(
+            *args,
+            **kwargs
+        )
+
+class ReflectObject(ReflectABC):
     """Internal base class for the common inter-related object/instance
     inspection classes like ReflectClass, ReflectCallable, and ReflectModule
     """
@@ -106,40 +169,76 @@ class ReflectObject(object):
         return attr_name in vars(self.get_target())
 
     def create_reflect_class(self, *args, **kwargs):
-        return kwargs.get("reflect_class_class", ReflectClass)(
+        return self._create_reflect_instance(
+            "reflect_class_class",
+            ReflectClass,
             *args,
             **kwargs
         )
+#         return kwargs.get("reflect_class_class", ReflectClass)(
+#             *args,
+#             **kwargs
+#         )
 
     def create_reflect_module(self, *args, **kwargs):
-        return kwargs.get("reflect_module_class", ReflectModule)(
+        return self._create_reflect_instance(
+            "reflect_module_class",
+            ReflectModule,
             *args,
             **kwargs
         )
+#         return kwargs.get("reflect_module_class", ReflectModule)(
+#             *args,
+#             **kwargs
+#         )
 
     def create_reflect_callable(self, *args, **kwargs):
-        return kwargs.get("reflect_callable_class", ReflectCallable)(
+        return self._create_reflect_instance(
+            "reflect_callable_class",
+            ReflectCallable,
             *args,
             **kwargs
         )
+#         return kwargs.get("reflect_callable_class", ReflectCallable)(
+#             *args,
+#             **kwargs
+#         )
 
     def create_reflect_type(self, *args, **kwargs):
-        return kwargs.get("reflect_type_class", ReflectType)(
+        return self._create_reflect_instance(
+            "reflect_type_class",
+            ReflectType,
             *args,
             **kwargs
         )
+#         return kwargs.get("reflect_type_class", ReflectType)(
+#             *args,
+#             **kwargs
+#         )
 
     def create_reflect_ast(self, *args, **kwargs):
-        return kwargs.get("reflect_ast_class", ReflectAST)(
+        return self._create_reflect_instance(
+            "reflect_ast_class",
+            ReflectAST,
             *args,
             **kwargs
         )
+#         return kwargs.get("reflect_ast_class", ReflectAST)(
+#             *args,
+#             **kwargs
+#         )
 
     def create_reflect_docblock(self, *args, **kwargs):
-        return kwargs.get("reflect_docblock_class", ReflectDocblock)(
+        return self._create_reflect_instance(
+            "reflect_docblock_class",
+            ReflectDocblock,
             *args,
             **kwargs
         )
+#         return kwargs.get("reflect_docblock_class", ReflectDocblock)(
+#             *args,
+#             **kwargs
+#         )
 
     def is_class(self):
         """Returns True if target is considered a class"""
@@ -1773,12 +1872,19 @@ class ReflectCallable(ReflectObject):
 
     def create_reflect_argument(self, *args, **kwargs):
         """Internal method to create ReflectArgument instances"""
-        ra_class = kwargs.pop("reflect_argument_class", ReflectArgument)
-        return ra_class(
+        kwargs["reflect_callable"] = self
+        return self._create_reflect_instance(
+            "reflect_argument_class",
+            ReflectArgument,
             *args,
-            reflect_callable=self,
-            **kwargs,
+            **kwargs
         )
+#         ra_class = kwargs.pop("reflect_argument_class", ReflectArgument)
+#         return ra_class(
+#             *args,
+#             reflect_callable=self,
+#             **kwargs,
+#         )
 
     def get_params(self):
         """This gets the params that can be bounded
@@ -1810,10 +1916,17 @@ class ReflectCallable(ReflectObject):
 
     def create_reflect_param(self, *args, **kwargs):
         kwargs["reflect_callable"] = self
-        return kwargs.pop("reflect_param_class", ReflectParam)(
+        return self._create_reflect_instance(
+            "reflect_param_class",
+            ReflectParam,
             *args,
-            **kwargs,
+            **kwargs
         )
+#         kwargs["reflect_callable"] = self
+#         return kwargs.pop("reflect_param_class", ReflectParam)(
+#             *args,
+#             **kwargs,
+#         )
 
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable could bind *args and **kwargs
@@ -3078,7 +3191,7 @@ class ReflectModule(ReflectObject):
         return ast.parse(self.getsource())
 
 
-class ReflectDocblock(object):
+class ReflectDocblock(ReflectABC):
     """Information about a ReST docblock
 
     https://www.sphinx-doc.org/en/master/usage/domains/python.html

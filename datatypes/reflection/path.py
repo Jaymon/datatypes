@@ -16,8 +16,6 @@ from ..path import Dirpath, Path
 from ..config import Config
 from ..url import Url
 
-from .inspect import ReflectModule
-
 
 class ReflectPath(Path):
     """Reflect a path
@@ -27,6 +25,8 @@ class ReflectPath(Path):
     """
     @classproperty
     def reflect_module_class(self):
+        # avoid circular dependency
+        from .inspect import ReflectModule
         return ReflectModule
 
     def reflect_modules(self, depth=-1):
@@ -77,7 +77,7 @@ class ReflectPath(Path):
                     parts.append(p.fileroot)
                     p = p.parent
 
-                rm = ReflectModule(
+                rm = self.reflect_module_class(
                     ".".join(reversed(parts)),
                     path=p
                 )
@@ -94,7 +94,7 @@ class ReflectPath(Path):
                     parts.append(p.fileroot)
                     p = p.parent
 
-                rm = ReflectModule(
+                rm = self.reflect_module_class(
                     ".".join(reversed(parts)),
                     path=p
                 )
@@ -231,7 +231,7 @@ class ReflectPath(Path):
                         modparts.append(sp.fileroot)
                         prefix = ".".join(modparts)
 
-                        rm = ReflectModule(prefix)
+                        rm = self.reflect_module_class(prefix)
                         try:
                             if submodules:
                                 for m in rm.get_modules():
@@ -296,6 +296,8 @@ class ReflectName(String):
     """
     @classproperty
     def reflect_module_class(self):
+        # avoid circular dependency
+        from .inspect import ReflectModule
         return ReflectModule
 
     @property
