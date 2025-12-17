@@ -3,6 +3,7 @@ import inspect
 import sys
 import types
 import functools
+import io
 import os
 import importlib
 import ast
@@ -1237,6 +1238,92 @@ class ReflectArgument(ReflectObject):
         return ret
 
 
+class ReflectParam(ReflectObject):
+    """Represents an `inspect.Parameter` instance attached to a callable
+
+    This is based on the `endpoints.reflection.inspect.ReflectParam`, I needed
+    a similar class in Captain and I realized I was copying a whole bunch
+    of the Endpoints code so I figured I would put the common code here
+
+    https://docs.python.org/3/library/inspect.html#inspect.Parameter
+    """
+    @functools.cached_property
+    def name(self) -> str:
+        return self.get_target().name
+
+    def __init__(
+        self,
+        param: inspect.Parameter,
+        reflect_callable: ReflectObject,
+        **kwargs
+    ):
+        """
+        :param param:
+        :param reflect_callable: the callable this param belongs to
+        """
+        super().__init__(param)
+        self._reflect_callable = reflect_callable
+
+    def get_docblock(self) -> str:
+        if rdb := self.reflect_callable().reflect_docblock():
+            name = self.name
+            param_descs = rdb.get_param_descriptions()
+            if name in param_descs:
+                return param_descs[name]
+
+    def reflect_class(self) -> ReflectObject:
+        return self.reflect_callable().reflect_class()
+
+    def reflect_module(self) -> ReflectObject:
+        """Returns the reflected module"""
+        return self.reflect_callable().reflect_module()
+
+    def reflect_callable(self) -> ReflectObject:
+        return self._reflect_callable
+
+    def reflect_type(self) -> ReflectObject:
+        """Reflect the param's type argument if present"""
+        param = self.get_target()
+        if param.annotation is not param.empty:
+            return self.create_reflect_type(param.annotation)
+
+    def is_keyword(self) -> bool:
+        """This param can be passed in as a keyword"""
+        param = self.get_target()
+        return param.kind in (
+            param.POSITIONAL_OR_KEYWORD,
+            param.KEYWORD_ONLY,
+            param.VAR_KEYWORD,
+        )
+
+    def is_positional(self) -> bool:
+        """This param can be passed as a positional argument"""
+        param = self.get_target()
+        return param.kind in (
+            param.POSITIONAL_OR_KEYWORD,
+            param.VAR_POSITIONAL,
+            param.POSITIONAL_ONLY,
+        )
+
+    def is_param(self) -> bool:
+        """This param can be passed as a keyword or positional"""
+        param = self.get_target()
+        return param.kind is param.POSITIONAL_OR_KEYWORD
+
+    def is_file(self) -> bool:
+        """Return True if this param is a file type"""
+        if rt := self.reflect_type():
+            return rt.is_type(io.IOBase)
+
+        return False
+
+    def is_catchall(self) -> bool:
+        """Return True if this param is catcha-all positional or keyword
+        (eg, `*args` or `**kwargs` value)"""
+        param = self.get_target()
+        return param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+
+
 class ReflectCallable(ReflectObject):
     """Reflect a callable
 
@@ -1249,7 +1336,8 @@ class ReflectCallable(ReflectObject):
     This is a refactoring of ReflectMethod that was moved here from
     endpoints.reflection.ReflectMethod on Jan 31, 2023
     """
-    @cachedproperty()
+    #@cachedproperty()
+    @functools.cached_property
     def name(self):
         name = getattr(self.target, "__name__", "")
         if not name:
@@ -1714,6 +1802,18 @@ class ReflectCallable(ReflectObject):
                 continue
 
             yield param
+
+    def reflect_params(self):
+        """This will reflect all params in the method signature"""
+        for param in self.get_params():
+            yield self.create_reflect_param(param)
+
+    def create_reflect_param(self, *args, **kwargs):
+        kwargs["reflect_callable"] = self
+        return kwargs.pop("reflect_param_class", ReflectParam)(
+            *args,
+            **kwargs,
+        )
 
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable could bind *args and **kwargs

@@ -2602,4 +2602,63 @@ class ReflectASTTest(TestCase):
         self.assertTrue(isinstance(ra.get_expr_value(), float))
 
 
+class ReflectParam(TestCase):
+    def test_positional_1(self):
+        def foo(a, /): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        self.assertEqual("a", rp.name)
+        self.assertTrue(rp.is_positional())
+        self.assertFalse(rp.is_keyword())
+        self.assertFalse(rp.is_catchall())
+
+    def test_positional_2(self):
+        def foo(*args): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        self.assertEqual("args", rp.name)
+        self.assertTrue(rp.is_positional())
+        self.assertFalse(rp.is_keyword())
+        self.assertTrue(rp.is_catchall())
+
+    def test_param_1(self):
+        def foo(a: int): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        self.assertEqual("a", rp.name)
+        self.assertTrue(rp.is_param())
+        self.assertTrue(rp.is_positional())
+        self.assertTrue(rp.is_keyword())
+        self.assertFalse(rp.is_catchall())
+        self.assertIsNotNone(rp.reflect_type())
+
+    def test_keyword_1(self):
+        def foo(*, a): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        self.assertEqual("a", rp.name)
+        self.assertFalse(rp.is_positional())
+        self.assertTrue(rp.is_keyword())
+        self.assertFalse(rp.is_catchall())
+
+    def test_positional_2(self):
+        def foo(**kwargs): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        self.assertEqual("kwargs", rp.name)
+        self.assertFalse(rp.is_positional())
+        self.assertTrue(rp.is_keyword())
+        self.assertTrue(rp.is_catchall())
+
+    def test_get_docblock(self):
+        def foo(a):
+            """
+            :param a: the desc of a
+            """
+            pass
+
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        doc = rp.get_docblock()
+        self.assertEqual("the desc of a", doc)
 
