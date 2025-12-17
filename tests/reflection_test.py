@@ -1068,6 +1068,22 @@ class ReflectCallableTest(TestCase):
         desc = rc.get_docblock()
         self.assertEqual("method docblock", desc)
 
+    def test_docblock_runpath(self):
+        """What if the callable was loaded with runpath and doesn't have a
+        docblock so the ast is checked. Instead of failing, the method should
+        just return an empty string
+        """
+        modpath = self.create_module("""
+            class Foo(object):
+                def foo(self):
+                    pass
+        """)
+
+        m = runpy.run_path(modpath.path)
+        rc = ReflectCallable(m["Foo"].foo)
+        desc = rc.get_docblock()
+        self.assertEqual("", desc)
+
     def test_get_module(self):
         m = self.create_module("""
             class Foo(object):

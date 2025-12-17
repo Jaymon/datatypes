@@ -1334,10 +1334,16 @@ class ReflectCallable(ReflectObject):
     def get_docblock(self, inherit=False):
         doc = super().get_docblock()
         if not doc:
-            # functions/methods can be wrapped by bad decorators that don't
-            # correctly wrap, so let's try and parse the docblock before
-            # giving up
-            doc = ast.get_docstring(self.get_ast()) or ""
+            try:
+                # functions/methods can be wrapped by bad decorators that don't
+                # correctly wrap, so let's try and parse the docblock before
+                # giving up
+                doc = ast.get_docstring(self.get_ast()) or ""
+
+            except ModuleNotFoundError:
+                # a module couldn't be found for the abstract syntax tree
+                # to be generated, so let's assume there is no docstring
+                doc = ""
 
         return doc or ""
 
