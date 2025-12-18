@@ -2662,6 +2662,54 @@ class ReflectParamTest(TestCase):
         doc = rp.get_docblock()
         self.assertEqual("the desc of a", doc)
 
+    def test_get_argparse_keywords_choices(self):
+        def foo(a: Literal["foo", "bar"]): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertEqual(2, len(flags["choices"]))
+
+    def test_get_argparse_keywords_bool(self):
+        def foo(a = True): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertEqual("store_false", flags["action"])
+
+        def foo(a = False): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertEqual("store_true", flags["action"])
+
+        def foo(a: bool = False): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertEqual("store_true", flags["action"])
+
+        def foo(a: bool): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertEqual("store_true", flags["action"])
+
+        def foo(a: bool = True): pass
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertEqual("store_false", flags["action"])
+
+    def test_get_argparse_keywords_help(self):
+        def foo(bar: str):
+            """
+            :param bar: the help description for bar
+            """
+        rm = ReflectCallable(foo)
+        rp = next(rm.reflect_params())
+        flags = rp.get_argparse_keywords()
+        self.assertTrue("help" in flags)
+
 
 class ReflectABCTest(TestCase):
     def test___init_subclass___simple(self):

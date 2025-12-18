@@ -1399,6 +1399,82 @@ class ReflectParam(ReflectObject):
         param = self.get_target()
         return param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
 
+    def get_argparse_keywords(self):
+        """Get keywords that can be passed to the argparse's add_argument
+        method
+
+        .. note:: This does not support the full set of flags and account
+            for all possible combinations. It basically supports the subset
+            of flags and combinations I needed
+
+        https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.add_argument
+        """
+        flags = {}
+
+        param = self.get_target()
+
+        flags["dest"] = param.name
+
+        if param.default is param.empty:
+            if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+                flags["required"] = False
+
+            else:
+                flags["required"] = True
+
+        else:
+            flags["required"] = False
+            flags["default"] = param.default
+
+        if param.annotation is param.empty:
+            if "default" in flags:
+                flags["type"] = type(flags["default"])
+
+        else:
+            flags["type"] = param.annotation
+
+                # we have a default value but no type annotation so try
+                # and infer as much from the default value as possible
+#                 if isinstance(param.default, bool):
+#                     if param.default:
+#                         flags["action"] = "store_false"
+# 
+#                     else:
+#                         flags["action"] = "store_true"
+
+        if param.kind == param.VAR_POSITIONAL:
+            flags["action"] = "append"
+
+        if "type" in flags:
+#             rt = self.create_reflect_type(param.annotation)
+            rt = self.create_reflect_type(flags["type"])
+
+            if rt.is_castable():
+                if rt.is_bool():
+                    # https://docs.python.org/3/library/argparse.html#action
+                    if not flags.get("default", False):
+                        flags["action"] = "store_true"
+
+                    else:
+                        flags["action"] = "store_false"
+
+            else:
+                flags.pop("type")
+
+            if rt.is_literal():
+                flags.pop("type", None)
+                flags["choices"] = set(rt.get_args())
+
+            for metadata in rt.get_metadata():
+                if isinstance(metadata, Mapping):
+                    flags.update(metadata)
+
+        if "help" not in flags:
+            if help_text := self.get_docblock():
+                flags["help"] = help_text
+
+        return flags
+
 
 class ReflectCallable(ReflectObject):
     """Reflect a callable
