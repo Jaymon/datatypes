@@ -619,11 +619,18 @@ class ClassFinder(BaseClassFinder):
     def find_best_subclass(self, call_class: type, klass: type) -> type:
         """Find the best matching subclass of `klass` for `call_class`
 
+        This finds the best subclass to use for `klass` based on proximity
+        to the calling `call_class`
+
         The algo is pretty simple here, it will basically look for a subclass
         defined in the same module as `call_class`, if nothing is found
         it will check all the parent's of `call_class` and see if there is
         subclass of `klass` defined in those modules. If all else fails,
         then consider `klass` as the best matching subclass
+
+        :param call_class: the class that is asking for the best subclass
+        :param klass: the class being asked for, the best subclass, defined
+            as the closest to proximity to `call_class` will be returned
         """
         subclasses = []
         for sc in self.get_subclasses(klass):
