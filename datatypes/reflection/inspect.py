@@ -1413,17 +1413,29 @@ class ReflectParam(ReflectObject):
 
         param = self.get_target()
 
-        flags["dest"] = param.name
+        not_required_set = (
+            param.VAR_POSITIONAL,
+            param.VAR_KEYWORD,
+            param.POSITIONAL_ONLY,
+        )
+
+        if param.kind not in (param.VAR_POSITIONAL, param.POSITIONAL_ONLY):
+            flags["dest"] = param.name
 
         if param.default is param.empty:
-            if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-                flags["required"] = False
-
-            else:
+            if param.kind not in not_required_set:
                 flags["required"] = True
 
+#             if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+#                 flags["required"] = False
+# 
+#             else:
+#                 flags["required"] = True
+
         else:
-            flags["required"] = False
+            if param.kind not in not_required_set:
+                flags["required"] = False
+
             flags["default"] = param.default
 
         if param.annotation is param.empty:
@@ -1444,6 +1456,7 @@ class ReflectParam(ReflectObject):
 
         if param.kind == param.VAR_POSITIONAL:
             flags["action"] = "append"
+            flags["nargs"] = "*"
 
         if "type" in flags:
 #             rt = self.create_reflect_type(param.annotation)

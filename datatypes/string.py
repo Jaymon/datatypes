@@ -802,6 +802,19 @@ class NamingConvention(String):
         """
         raise NotImplementedError()
 
+    def cli_keyword(self) -> str:
+        """A keyword command-line flag name"""
+        n = self.kebabcase()
+        if len(n) == 1:
+            return f"-{n}"
+
+        else:
+            return f"--{n}"
+
+    def cli_positional(self) -> str:
+        """A positional command-line name"""
+        return self.kebabcase()
+
 
 class EnglishWord(String):
     def plural(self):

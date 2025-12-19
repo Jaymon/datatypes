@@ -292,6 +292,14 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("foo.bar")
         self.assertEqual("fooBar", s.lower_camelcase())
 
+    def test_cli(self):
+        s = NamingConvention("foo_bar")
+        self.assertEqual("--foo-bar", s.cli_keyword())
+        self.assertEqual("foo-bar", s.cli_positional())
+
+        s = NamingConvention("f")
+        self.assertEqual("-f", s.cli_keyword())
+
 
 class EnglishWordTest(TestCase):
     def test_syllables(self):
