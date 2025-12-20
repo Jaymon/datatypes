@@ -802,18 +802,32 @@ class NamingConvention(String):
         """
         raise NotImplementedError()
 
-    def cli_keyword(self) -> str:
-        """A keyword command-line flag name"""
+    def cli_keyword(self, prefix_char: str = "-") -> str:
+        """A keyword command-line flag name
+
+        :param prefix_char: the character to user for the flag
+            https://docs.python.org/3/library/argparse.html#prefix-chars
+        """
         n = self.kebabcase()
         if len(n) == 1:
-            return f"-{n}"
+            return f"{prefix_char}{n}"
 
         else:
-            return f"--{n}"
+            return f"{prefix_char*2}{n}"
 
     def cli_positional(self) -> str:
         """A positional command-line name"""
         return self.kebabcase()
+
+    def cli_dest(self, prefix_char: str = "-") -> str:
+        """Get the dest value from a flag (eg, `--foo-bar` would become
+        `foo_bar`)"""
+        n = self.varname()
+        return n.strip(f"{prefix_char}_")
+
+    def cli_metavar(self, prefix_char: str = "-") -> str:
+        """Get the metavar value of a flag"""
+        return self.cli_dest(prefix_char).upper()
 
 
 class EnglishWord(String):

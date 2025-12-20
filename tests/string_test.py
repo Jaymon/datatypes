@@ -296,9 +296,13 @@ class NamingConventionTest(TestCase):
         s = NamingConvention("foo_bar")
         self.assertEqual("--foo-bar", s.cli_keyword())
         self.assertEqual("foo-bar", s.cli_positional())
+        self.assertEqual("foo_bar", s.cli_dest())
+        self.assertEqual("FOO_BAR", s.cli_metavar())
 
         s = NamingConvention("f")
         self.assertEqual("-f", s.cli_keyword())
+        self.assertEqual("f", s.cli_dest())
+        self.assertEqual("F", s.cli_metavar())
 
 
 class EnglishWordTest(TestCase):
@@ -353,13 +357,11 @@ class EnglishWordTest(TestCase):
         }
 
         for singular, plural in tests.items():
-            self.assertEqual(plural, EnglishWord(singular).plural(), f"{singular} -> {plural}")
-
-
-
-
-
-
+            self.assertEqual(
+                plural,
+                EnglishWord(singular).plural(),
+                f"{singular} -> {plural}",
+            )
 
 
 class ByteStringTest(TestCase):
