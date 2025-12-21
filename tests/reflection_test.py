@@ -1485,11 +1485,12 @@ class ReflectCallableTest(TestCase):
         }
         rc = ReflectCallable(foo)
 
+        info = rc.get_bind_info(**kwargs)
+        self.assertEqual([10, 20, 30], info["bound_args"])
+        self.assertEqual({"boo": 40}, info["bound_kwargs"])
+
         info = rc.get_bind_info(*args, **kwargs)
         self.assertEqual([4], info["unbound_args"])
-
-        info = rc.get_bind_info(**kwargs)
-        self.assertEqual(kwargs, info["bound_kwargs"])
 
     def test_get_bind_info_missing(self):
         def foo(bar, /, che): pass
@@ -1510,6 +1511,30 @@ class ReflectCallableTest(TestCase):
         self.assertTrue("che" in info["missing_names"])
         self.assertFalse(info["bound_args"])
         self.assertFalse(info["bound_kwargs"])
+
+    def test_get_bind_info_arg_catchall(self):
+        def foo(a1, *args, k1, **kwargs):
+            pass
+
+        rc = ReflectCallable(foo)
+        info = rc.get_bind_info(
+            a1=1,
+            args=[2, 3, 4],
+            k1=5,
+            k2=6,
+        )
+
+        self.assertEqual([1, 2, 3, 4], info["bound_args"])
+        self.assertEqual(5, info["bound_kwargs"]["k1"])
+        self.assertEqual(6, info["bound_kwargs"]["k2"])
+
+    def test_get_bind_info_args(self):
+        def foo(a1, a2, *args):
+            pass
+
+        rc = ReflectCallable(foo)
+        info = rc.get_bind_info(1, 2, 3, 4, 5)
+        self.assertEqual([1, 2, 3, 4, 5], info["bound_args"])
 
     def test_reflect_ast_decorators_function(self):
         mp = self.create_module("""
@@ -2661,54 +2686,6 @@ class ReflectParamTest(TestCase):
         rp = next(rm.reflect_params())
         doc = rp.get_docblock()
         self.assertEqual("the desc of a", doc)
-
-    def test_get_argparse_keywords_choices(self):
-        def foo(a: Literal["foo", "bar"]): pass
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertEqual(2, len(flags["choices"]))
-
-    def test_get_argparse_keywords_bool(self):
-        def foo(a = True): pass
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertEqual("store_false", flags["action"])
-
-        def foo(a = False): pass
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertEqual("store_true", flags["action"])
-
-        def foo(a: bool = False): pass
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertEqual("store_true", flags["action"])
-
-        def foo(a: bool): pass
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertEqual("store_true", flags["action"])
-
-        def foo(a: bool = True): pass
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertEqual("store_false", flags["action"])
-
-    def test_get_argparse_keywords_help(self):
-        def foo(bar: str):
-            """
-            :param bar: the help description for bar
-            """
-        rm = ReflectCallable(foo)
-        rp = next(rm.reflect_params())
-        flags = rp.get_argparse_keywords()
-        self.assertTrue("help" in flags)
 
 
 class ReflectABCTest(TestCase):

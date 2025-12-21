@@ -16,7 +16,7 @@ class ArgvParser(dict):
     """Parses what is contained in sys.argv or the extra list of
     argparse.parse_known_args()
 
-    :Example:
+    :example:
         d = ArgvParser([
             "--foo=1",
             "--bar",
@@ -28,13 +28,12 @@ class ArgvParser(dict):
     """
     def __init__(self, argv, **kwargs):
         """
-        :param argv: list<str>, the argv list or the extra args returned from
-            parse_known_args
+        :param argv: list<str>, the sys.argv list or the extra args returned
+            from parse_known_args
             https://docs.python.org/3/library/sys.html#sys.argv
             https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.parse_known_args
-        :param **kwargs: passed through to .normalize_* methods
-            - var_positional: str, defaults to "*", this is the name for the
-                found positional values
+        :keyword var_positional: str, defaults to "*", this is the name for
+            the found positional values
         :returns: dict[str, list[str]], key is the arg name (* for non
             positional args) and value is a list of found arguments (so --foo 1
             --foo 2 is supported). The value is always a list of strings
@@ -169,6 +168,12 @@ class ArgvParser(dict):
         """
         return self.get(self.positional_name, [])
 
+    def get_positional_strings(self) -> list[str]:
+        """Get the actual strings from `argv` that are positional"""
+        if info := self.info.get(self.positional_name, []):
+            return info["arg_strings"]
+        return []
+
     def keywords(self):
         """Return all the found keywords/optionals
 
@@ -181,6 +186,16 @@ class ArgvParser(dict):
                 d[k] = v
 
         return d
+
+    def get_keyword_strings(self) -> list[str]:
+        """Get the actual strings from `argv` that are keywords"""
+        arg_strings = []
+
+        for k, v in self.info.items():
+            if k != self.positional_name:
+                arg_strings.extend(v["arg_strings"])
+
+        return arg_strings
 
     def optionals(self):
         return self.keywords()

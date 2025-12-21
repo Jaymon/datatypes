@@ -27,6 +27,7 @@ from collections.abc import (
     Mapping,
     Sequence,
     Set,
+    Iterable,
 )
 
 from ..compat import *
@@ -1399,95 +1400,6 @@ class ReflectParam(ReflectObject):
         param = self.get_target()
         return param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
 
-    def get_argparse_keywords(self):
-        """Get keywords that can be passed to the argparse's add_argument
-        method
-
-        .. note:: This does not support the full set of flags and account
-            for all possible combinations. It basically supports the subset
-            of flags and combinations I needed
-
-        https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.add_argument
-        """
-        flags = {}
-
-        param = self.get_target()
-
-        not_required_set = (
-            param.VAR_POSITIONAL,
-            param.VAR_KEYWORD,
-            param.POSITIONAL_ONLY,
-        )
-
-        if param.kind not in (param.VAR_POSITIONAL, param.POSITIONAL_ONLY):
-            flags["dest"] = param.name
-
-        if param.default is param.empty:
-            if param.kind not in not_required_set:
-                flags["required"] = True
-
-#             if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-#                 flags["required"] = False
-# 
-#             else:
-#                 flags["required"] = True
-
-        else:
-            if param.kind not in not_required_set:
-                flags["required"] = False
-
-            flags["default"] = param.default
-
-        if param.annotation is param.empty:
-            if "default" in flags:
-                flags["type"] = type(flags["default"])
-
-        else:
-            flags["type"] = param.annotation
-
-                # we have a default value but no type annotation so try
-                # and infer as much from the default value as possible
-#                 if isinstance(param.default, bool):
-#                     if param.default:
-#                         flags["action"] = "store_false"
-# 
-#                     else:
-#                         flags["action"] = "store_true"
-
-        if param.kind == param.VAR_POSITIONAL:
-            flags["action"] = "append"
-            flags["nargs"] = "*"
-
-        if "type" in flags:
-#             rt = self.create_reflect_type(param.annotation)
-            rt = self.create_reflect_type(flags["type"])
-
-            if rt.is_castable():
-                if rt.is_bool():
-                    # https://docs.python.org/3/library/argparse.html#action
-                    if not flags.get("default", False):
-                        flags["action"] = "store_true"
-
-                    else:
-                        flags["action"] = "store_false"
-
-            else:
-                flags.pop("type")
-
-            if rt.is_literal():
-                flags.pop("type", None)
-                flags["choices"] = set(rt.get_args())
-
-            for metadata in rt.get_metadata():
-                if isinstance(metadata, Mapping):
-                    flags.update(metadata)
-
-        if "help" not in flags:
-            if help_text := self.get_docblock():
-                flags["help"] = help_text
-
-        return flags
-
 
 class ReflectCallable(ReflectObject):
     """Reflect a callable
@@ -1983,6 +1895,43 @@ class ReflectCallable(ReflectObject):
             **kwargs
         )
 
+    def get_method_params(self, *args, **kwargs) -> tuple[Iterable, Mapping]:
+        method_args = []
+        method_kwargs = {}
+
+        for ra in self.reflect_arguments(*args, **kwargs):
+            if ra.is_bound():
+                if ra.has_multiple_values():
+                    # method call is going to fail anyway so short-circuit
+                    # processing
+                    method_args = args
+                    method_kwargs = kwargs
+                    break
+
+                else:
+                    if ra.is_bound_positional():
+                        if ra.is_catchall():
+                            method_args.extend(ra.value)
+
+                        else:
+                            method_args.append(ra.value)
+
+                    else:
+                        if ra.is_catchall():
+                            method_kwargs.update(ra.value)
+
+                        else:
+                            method_kwargs[ra.name] = ra.value
+
+            else:
+                if ra.is_unbound_positionals():
+                    method_args.extend(ra.value)
+
+                elif ra.is_unbound_keywords():
+                    method_kwargs.update(ra.value)
+
+        return method_args, method_kwargs
+
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable could bind *args and **kwargs
 
@@ -2107,7 +2056,11 @@ class ReflectCallable(ReflectObject):
                         # we've found the *args param
                         yield self.create_reflect_argument(
                             param,
-                            [arg_val] + list(arg_vals),
+                            (
+                                [arg_val]
+                                + list(arg_vals)
+                                + kwargs.pop(param.name, [])
+                            ),
                             positional=True,
                         )
 
@@ -2137,6 +2090,7 @@ class ReflectCallable(ReflectObject):
                         )
 
         keywords_param = None
+        keyword_as_positional = True
 
         if param:
             params = itertools.chain([param], params)
@@ -2145,11 +2099,7 @@ class ReflectCallable(ReflectObject):
             if param.kind == param.VAR_KEYWORD:
                 # found the **kwargs param
                 keywords_param = param
-                continue
-
-            elif param.kind == param.VAR_POSITIONAL:
-                # we ignore the *arg param since we consumed all the args
-                continue
+                #continue
 
             elif param.kind == param.POSITIONAL_ONLY:
                 ra_kwargs = {
@@ -2169,7 +2119,27 @@ class ReflectCallable(ReflectObject):
                     **ra_kwargs,
                 )
 
+            elif param.kind == param.VAR_POSITIONAL:
+                keyword_as_positional = False
+                if kw_args := kwargs.pop(param.name, []):
+                    yield self.create_reflect_argument(
+                        param,
+                        kw_args,
+                        positional=True,
+                    )
+
+                # we ignore the *arg param since we consumed all the args
+                #continue
+
             else:
+                ra_kwargs = {
+                    "keyword": True,
+                }
+                if param.kind == param.POSITIONAL_OR_KEYWORD:
+                    if keyword_as_positional:
+                        ra_kwargs["positional"] = True
+                        ra_kwargs["keyword"] = False
+
                 try:
                     arg_val = kwargs.pop(param.name)
 
@@ -2177,14 +2147,16 @@ class ReflectCallable(ReflectObject):
                     yield self.create_reflect_argument(
                         param,
                         param.empty,
-                        keyword=True,
+                        **ra_kwargs,
+                        #keyword=True,
                     )
 
                 else:
                     yield self.create_reflect_argument(
                         param,
                         arg_val,
-                        keyword=True,
+                        **ra_kwargs,
+                        #keyword=True,
                     )
 
         if kwargs:
@@ -2286,6 +2258,23 @@ class ReflectCallable(ReflectObject):
                 return True
 
         return False
+
+    def get_catchall_names(self) -> tuple[str, str]:
+        """Get the positional and keyword catchall parameter names
+
+        :returns: positionals_name, keywords_name, empty string if the
+            parameter doesn't exist
+        """
+        positionals_name = ""
+        keywords_name = ""
+        for param in self.get_params():
+            if param.kind is param.VAR_POSITIONAL:
+                positionals_name = param.name
+
+            elif param.kind is param.VAR_KEYWORD:
+                keywords_name = param.name
+
+        return positionals_name, keywords_name
 
     def getsource(self):
         """get the source of the callable if available
