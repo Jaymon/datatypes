@@ -1273,6 +1273,22 @@ class ReflectArgument(ReflectObject):
         else:
             return self.kwargs.get("keyword_value", inspect.Parameter.empty)
 
+    def get_keyword_values(self) -> Mapping:
+        """Always return the argument value as something that can be passed
+        to `dict.update`"""
+        ret = {}
+        empty = inspect.Parameter.empty
+        v = self.get_value()
+
+        if v is not empty:
+            if self.is_catchall():
+                ret.update(v)
+
+            else:
+                ret[self.name] = v
+
+        return ret
+
     def get_positional_value(self):
         """Return the positional value or `inspect.Parameter.empty` if it
         doesn't exist"""
@@ -1280,6 +1296,22 @@ class ReflectArgument(ReflectObject):
             return self.value
 
         return inspect.Parameter.empty
+
+    def get_positional_values(self) -> Iterable:
+        """Always return the argument value as something that can be passed
+        to `list.extend`"""
+        ret = []
+        empty = inspect.Parameter.empty
+        v = self.get_value()
+
+        if v is not empty:
+            if self.is_catchall():
+                ret.extend(v)
+
+            else:
+                ret.append(v)
+
+        return ret
 
     def get_value(self):
         """Return the value of this argument, this will return the default
@@ -1895,43 +1927,6 @@ class ReflectCallable(ReflectObject):
             **kwargs
         )
 
-    def get_method_params(self, *args, **kwargs) -> tuple[Iterable, Mapping]:
-        method_args = []
-        method_kwargs = {}
-
-        for ra in self.reflect_arguments(*args, **kwargs):
-            if ra.is_bound():
-                if ra.has_multiple_values():
-                    # method call is going to fail anyway so short-circuit
-                    # processing
-                    method_args = args
-                    method_kwargs = kwargs
-                    break
-
-                else:
-                    if ra.is_bound_positional():
-                        if ra.is_catchall():
-                            method_args.extend(ra.value)
-
-                        else:
-                            method_args.append(ra.value)
-
-                    else:
-                        if ra.is_catchall():
-                            method_kwargs.update(ra.value)
-
-                        else:
-                            method_kwargs[ra.name] = ra.value
-
-            else:
-                if ra.is_unbound_positionals():
-                    method_args.extend(ra.value)
-
-                elif ra.is_unbound_keywords():
-                    method_kwargs.update(ra.value)
-
-        return method_args, method_kwargs
-
     def get_bind_info(self, *args, **kwargs):
         """Get information on how callable could bind *args and **kwargs
 
@@ -2008,7 +2003,30 @@ class ReflectCallable(ReflectObject):
         """Reflect the bindings for `*args` and `**kwargs`
 
         The functionality of this method is based on the source of
-        `inspect.Signature._bind`
+        `inspect.Signature._bind`. The big difference is this is much looser
+        on the values being passed as keywords or positionals, and it even
+        allows passing positional catch-alls by name.
+
+        .. note:: This shouldn't error out if the arguments don't match, but
+            it will return `ReflectArgument` instances that are unbound. This
+            lets downstream code customize behavior like ignoring unbound
+            arguments
+
+        :example:
+            # get all the args and kwargs for a method call
+            def foo(p1, **args, k1, **kwargs): pass
+            rc = ReflectCallable(foo)
+            args = []
+            kwargs = {}
+            for ra in rc.reflect_arguments(p1=1, args=[2, 3], k1=4, k2=5):
+                if ra.is_positional():
+                    args.extend(ra.get_positional_values())
+
+                elif ra.is_keyword():
+                    kwargs.update(ra.get_keyword_values())
+
+            print(args) # [1, 2, 3]
+            print(kwargs) # {"k1": 4, "k2": 5}
 
         :arguments *args: these are bound to the method's params
         :keyword **kwargs: these are bound to the method's params

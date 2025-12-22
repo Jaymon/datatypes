@@ -1474,6 +1474,27 @@ class ReflectCallableTest(TestCase):
         for ra in rc.reflect_arguments(ignored=2):
             self.assertFalse(ra.is_bound())
 
+    def test_reflect_arguments_values(self):
+        def foo(p1, *args, k1, **kwargs): pass
+        rc = ReflectCallable(foo)
+
+        args = []
+        kwargs = {}
+
+        for ra in rc.reflect_arguments(1, args=[2, 3], k1=4, k2=5):
+            if ra.is_positional():
+                values = ra.get_positional_values()
+                self.assertTrue(isinstance(values, list))
+                args.extend(values)
+
+            elif ra.is_keyword():
+                values = ra.get_keyword_values()
+                self.assertTrue(isinstance(values, dict))
+                kwargs.update(values)
+
+        self.assertEqual([1, 2, 3], args)
+        self.assertEqual({"k1": 4, "k2": 5}, kwargs)
+
     def test_get_bind_info_1(self):
         def foo(foo, bar=2, che=3, **kwargs): pass
         args = [1, 2, 3, 4]
