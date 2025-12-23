@@ -190,6 +190,27 @@ class ClasspathFinderTest(TestCase):
         with self.assertRaises(ValueError):
             pf.add_class(foo_factory())
 
+    def test_find_class_node(self):
+        prefix = self.create_module(
+            {
+                "": "class Foo(object): pass",
+                "foo": {
+                    "": "class Bar(object): pass",
+                    "baz": "class Che(object): pass",
+                },
+            },
+        )
+
+        pf_classes = set()
+        pf = ClasspathFinder(prefixes=[prefix])
+        for klass in prefix.get_classes():
+            pf.add_class(klass)
+            pf_classes.add(klass)
+
+        for pf_class in pf_classes:
+            n = pf.find_class_node(pf_class)
+            self.assertTrue(n.value["class"] is pf_class)
+
 
 class ClassFinderTest(TestCase):
     """

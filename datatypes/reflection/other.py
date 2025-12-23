@@ -5,6 +5,7 @@ import collections
 from collections.abc import (
     Sequence,
     Generator,
+    Mapping,
 )
 
 from ..compat import *
@@ -220,8 +221,7 @@ class ClasspathFinder(BaseClassFinder):
         `foo` and `bar`
 
         :param key: Hashable
-        :param **kwargs:
-            * module: types.ModuleType, the module
+        :keyword module: types.ModuleType, the module
         :returns: tuple[hashable|None, dict], index 0 is the key in the
             tree, no key will be added if it is `None`, index 1 is the value
             at that key in the tree
@@ -238,13 +238,12 @@ class ClasspathFinder(BaseClassFinder):
         `Che` and `Baz`
 
         :param key: Hashable
-        :param **kwargs:
-            * class_name: str, this class name, this will always be there
-            * class: type, this will only be here on the final class
-            * module_keys: list[str], a list of all the keys used for the
-                module portion of the path
-            * class_keys: list[str], a list of all the keys used for the
-                class portion of the path
+        :keyword class_name: str, this class name, this will always be there
+        :keyword class: type, this will only be here on the final class
+        :keyword module_keys: list[str], a list of all the keys used for the
+            module portion of the path
+        :keyword class_keys: list[str], a list of all the keys used for the
+            class portion of the path
         :returns: tuple[hashable|None, dict], index 0 is the key in the
             tree, no key will be added if it is `None`, index 1 is the value
             at that key in the tree, the keys it can have:
@@ -358,6 +357,19 @@ class ClasspathFinder(BaseClassFinder):
             if node.value and "class" in node.value:
                 yield keys, node.value
 
+    def find_class_node(self, klass: type) -> Mapping:
+        """return klass's node in the tree
+
+        :param klass: type
+        :returns: ClasspathFinder
+        """
+        for keys, node in self.nodes():
+            if node.value and "class" in node.value:
+                if node.value["class"] is klass:
+                    return node
+
+        raise KeyError(f"{klass} not found in tree")
+
 
 class ClassFinder(BaseClassFinder):
     """Keep a a class hierarchy tree so subclasses can be easily looked up
@@ -465,7 +477,7 @@ class ClassFinder(BaseClassFinder):
             if self._is_valid_subclass(klass):
                 yield klass
 
-    def find_class_node(self, klass: type):
+    def find_class_node(self, klass: type) -> Mapping:
         """return klass's node in the tree
 
         This is different than `.get_node` because it's not a straight
@@ -485,7 +497,7 @@ class ClassFinder(BaseClassFinder):
 
         raise KeyError(f"{klass} not found in tree")
 
-    def get_abs_class(self, klass: type, *default):
+    def get_abs_class(self, klass: type, *default) -> type:
         """Get the absolute edge subclass of klass
 
         :Example:
@@ -624,7 +636,7 @@ class ClassFinder(BaseClassFinder):
 
         The algo is pretty simple here, it will basically look for a subclass
         defined in the same module as `call_class`, if nothing is found
-        it will check all the parent's of `call_class` and see if there is
+        it will check all the parents of `call_class` and see if there is a
         subclass of `klass` defined in those modules. If all else fails,
         then consider `klass` as the best matching subclass
 
