@@ -6,6 +6,7 @@ from collections.abc import (
     Sequence,
     Generator,
     Mapping,
+    Iterable,
 )
 
 from ..compat import *
@@ -126,7 +127,7 @@ class ClasspathFinder(BaseClassFinder):
     """Create a tree of the full classpath (<MODULE_NAME>:<QUALNAME>) of
     a class added with .add_class
 
-    NOTE -- <MODULE_NAME> is only used if prefixes are passed into the
+    .. note:: <MODULE_NAME> is only used if prefixes are passed into the
     instance, if there are no prefixes then the module path is ignored when
     adding classes. This means the path for foo.bar:Che without prefixes would
     just be Che. If prefixes=["foo"] then the path is bar:Che 
@@ -152,7 +153,6 @@ class ClasspathFinder(BaseClassFinder):
         super().__init__()
 
         self.prefixes = prefixes or set()
-        self.find_keys = {}
         self.kwargs = kwargs # convenience for default .create_instance
         self.value = self._get_node_default_value(**kwargs)
 
@@ -163,21 +163,6 @@ class ClasspathFinder(BaseClassFinder):
             prefixes=self.prefixes,
             **self.kwargs,
         )
-
-    def add_node(self, key, node, value):
-        """override parent to set find keys
-
-        Whenever a new node is created this will be called, it populates
-        the .find_keys used in .normalize_key
-        """
-        super().add_node(key, node, value)
-
-        if key not in self.find_keys:
-            self.find_keys[key] = key
-
-            nc = NamingConvention(key)
-            for vk in nc.variations():
-                self.find_keys[vk] = key
 
     def update_node(self, key, node, value):
         """Update the node only if value has a class (meaning it's a
@@ -191,10 +176,6 @@ class ClasspathFinder(BaseClassFinder):
         """
         if not node.value or "class" in value:
             super().update_node(key, node, value)
-
-    def normalize_key(self, key):
-        """override parent to normalize key using .find_keys"""
-        return self.find_keys.get(key, key)
 
     def _get_classpath(self, klass):
         """Internal method. Get the classpath (<MODULE_NAME>:<CLASS_QUALNAME>)
@@ -211,7 +192,7 @@ class ClasspathFinder(BaseClassFinder):
 
         :returns: Any
         """
-        return None
+        return {}
 
     def _get_node_module_info(self, key, **kwargs):
         """Get the module key and value for a node representing a module.
@@ -222,12 +203,13 @@ class ClasspathFinder(BaseClassFinder):
 
         :param key: Hashable
         :keyword module: types.ModuleType, the module
+        :keyword module_name: str, the current module name
         :returns: tuple[hashable|None, dict], index 0 is the key in the
             tree, no key will be added if it is `None`, index 1 is the value
             at that key in the tree
         """
-        value = self._get_node_default_value(**kwargs) or {}
-        value["module"] = kwargs["module"]
+        value = self._get_node_default_value(**kwargs)
+        value.update(kwargs)
         return key, value
 
     def _get_node_class_info(self, key, **kwargs):
@@ -238,6 +220,7 @@ class ClasspathFinder(BaseClassFinder):
         `Che` and `Baz`
 
         :param key: Hashable
+        :keyword module_name: str, the current module name
         :keyword class_name: str, this class name, this will always be there
         :keyword class: type, this will only be here on the final class
         :keyword module_keys: list[str], a list of all the keys used for the
@@ -251,18 +234,33 @@ class ClasspathFinder(BaseClassFinder):
                     path
                 * class_name: this will always be set
         """
-        value = self._get_node_default_value(**kwargs) or {}
-
-        value["class_name"] = kwargs["class_name"]
-
-        if "class" in kwargs:
-            for k in ["class", "module_keys", "class_keys"]:
-                value[k] = kwargs[k]
-
-            if key is not None:
-                value["class_keys"] = kwargs["class_keys"] + [key]
-
+        value = self._get_node_default_value(**kwargs)
+        value.update(kwargs)
         return key, value
+
+#     def _finalize_node_value(self, value: Mapping) -> Mapping:
+#         """Internal method. Called right before `._get_node_items` yields and
+#         allows any final tweaks to be done to the value mapping before
+#         yielding it
+# 
+#         This was added because each node needs to make a copy of certain
+#         lists so they represent the right values for that node instead of
+#         the list getting updated
+#         """
+#         # these keys need their own copies of the list so they stomp on
+#         # other nodes
+#         keys = [
+#             "keys",
+#             "module_keys",
+#             "modules",
+#             "class_keys",
+#         ]
+# 
+#         for k in keys:
+#             if k in value:
+#                 value[k] = list(value[k])
+# 
+#         return value
 
     def _get_node_items(self, klass):
         """Internal method. This yields the keys and values that will be
@@ -287,8 +285,12 @@ class ClasspathFinder(BaseClassFinder):
         class_keys = []
 
         # these values are added to and passed into the child
-        # `._get_node_*_info` methods
-        nkwargs = {
+        # `._get_node_*_info` methods. These are updated each iteration and
+        # shallow copied into the node value by default (see
+        # `._get_node_default_value`). That means, for the most part, you
+        # shouldn't touch these keys but children classes can add keys to
+        # the value
+        kwargs = {
             "keys": [],
             "module_keys": [],
             "modules": [],
@@ -300,17 +302,30 @@ class ClasspathFinder(BaseClassFinder):
                 if modname := rn.relative_module_name(prefix):
                     for rm in rn.reflect_modules(modname):
                         m = rm.get_module()
+
+                        kwargs["module_name"] = m.__name__
+
                         k, v = self._get_node_module_info(
                             rm.module_basename,
                             module=m,
-                            **nkwargs
+                            **kwargs,
                         )
                         if k is not None:
-                            nkwargs["keys"].append(k)
-                            nkwargs["module_keys"].append(k)
-                            nkwargs["modules"].append(m)
+                            for vk in ["keys", "module_keys"]:
+                                kwargs[vk].append(k)
+                                v[vk] = kwargs[vk][:]
 
-                        yield nkwargs["keys"], v
+                        kwargs["modules"].append(m)
+                        v["modules"] = kwargs["modules"][:]
+                        v["class_keys"] = []
+
+                        yield kwargs["keys"], v
+
+#                             kwargs["keys"].append(k)
+#                             kwargs["module_keys"].append(k)
+#                             kwargs["modules"].append(m)
+# 
+#                         yield kwargs["keys"], self._finalize_node_value(v)
 
                 break
 
@@ -319,25 +334,32 @@ class ClasspathFinder(BaseClassFinder):
         # actually get the module because `<run_path>` doesn't exist anywhere
         # or `ClassPrefix`, we basically only have access to `klass`
         # because it was passed in, and it corresponds to `ClassName`
-        class_names = rn.class_names
+        class_names = rn.qualnames
         class_i = len(class_names) - 1
         for i, class_name in enumerate(class_names):
-            nkwargs["class_name"] = class_name
+            kwargs["class_name"] = class_name
 
             if class_i == i:
-                nkwargs["class"] = klass
+                kwargs["class"] = klass
 
-            k, v = self._get_node_class_info(
-                class_name,
-                **nkwargs
-            )
+            k, v = self._get_node_class_info(class_name, **kwargs)
+
             if k is not None:
-                nkwargs["keys"].append(k)
-                nkwargs["class_keys"].append(k)
+                for vk in ["keys", "class_keys"]:
+                    kwargs[vk].append(k)
+                    v[vk] = kwargs[vk][:]
 
-            yield nkwargs["keys"], v
+            v["module_keys"] = kwargs["module_keys"][:]
+            v["modules"] = kwargs["modules"][:]
 
-    def add_class(self, klass):
+            yield kwargs["keys"], v
+
+#                 kwargs["keys"].append(k)
+#                 kwargs["class_keys"].append(k)
+# 
+#             yield kwargs["keys"], self._finalize_node_value(v)
+
+    def add_class(self, klass: type):
         """This is the method that should be used to add new classes to the
         tree
 
@@ -346,12 +368,12 @@ class ClasspathFinder(BaseClassFinder):
         for keys, value in self._get_node_items(klass):
             self.set(keys, value)
 
-    def add_classes(self, classes):
+    def add_classes(self, classes: Iterable[type]):
         """Adds all the classes using .add_class"""
         for klass in classes:
             self.add_class(klass)
 
-    def get_class_items(self):
+    def get_class_items(self) -> tuple[list[str], Mapping]:
         """go through and return destination nodes keys and values"""
         for keys, node in self.nodes():
             if node.value and "class" in node.value:
@@ -359,6 +381,10 @@ class ClasspathFinder(BaseClassFinder):
 
     def find_class_node(self, klass: type) -> Mapping:
         """return klass's node in the tree
+
+        .. note:: Unlike `ClassFinder`, a class isn't guarranteed to be
+            unique in this tree, and this method returns the first matching
+            class, not all matching classes
 
         :param klass: type
         :returns: ClasspathFinder

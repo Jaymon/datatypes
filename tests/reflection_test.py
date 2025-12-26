@@ -40,10 +40,10 @@ class ClasspathFinderTest(TestCase):
         pf.add_class(m.Foo)
         pf.add_class(m.CheBoo)
 
-        value = pf.get(["foo-bar", "che-boo"])
+        value = pf.get(["foo_bar", "CheBoo"])
         self.assertEqual("CheBoo", value["class"].__name__)
 
-        value = pf.get(["foo-bar", "foo"])
+        value = pf.get(["foo_bar", "Foo"])
         self.assertEqual("Foo", value["class"].__name__)
 
     def test_add_empty_key(self):
@@ -99,33 +99,30 @@ class ClasspathFinderTest(TestCase):
         """Makes sure destination nodes take precedence over waypoint nodes"""
         prefix = self.create_module(
             {
-                "": [
-                    "class Foo(object): pass",
-                ],
+                "": "class foo(object): pass",
                 "foo": {
-                    "": [
-                        "class Bar(object): pass",
-                    ],
-                    "baz": [
-                        "class Che(object): pass",
-                    ],
+                    "": "class bar(object): pass",
+                    "baz": "class che(object): pass",
                 },
             },
         )
         pf = ClasspathFinder(prefixes=[prefix])
 
+        dest_class = prefix.get_module().foo
+        waypoint_class = prefix.get_module("foo").bar
+
         # first we add a waypoint node
-        pf.add_class(prefix.get_module("foo").Bar)
+        pf.add_class(waypoint_class)
         self.assertTrue("module" in pf["foo"])
 
         # now lets add the destination node and make sure it overwrites the
         # waypoint node
-        pf.add_class(prefix.get_module().Foo)
-        self.assertEqual(pf["foo"]["class"].__name__, "Foo")
+        pf.add_class(dest_class)
+        self.assertEqual(pf["foo"]["class"].__name__, "foo")
 
         # make sure adding another waypoint doesn't overwrite our destination
-        pf.add_class(prefix.get_module("foo.baz").Che)
-        self.assertEqual(pf["foo"]["class"].__name__, "Foo")
+        pf.add_class(prefix.get_module("foo.baz").che)
+        self.assertEqual(pf["foo"]["class"].__name__, "foo")
 
     def test_get_class_items(self):
         """Make sure we can iterate through all destination nodes in the tree
@@ -210,6 +207,21 @@ class ClasspathFinderTest(TestCase):
         for pf_class in pf_classes:
             n = pf.find_class_node(pf_class)
             self.assertTrue(n.value["class"] is pf_class)
+
+    def test_value_values(self):
+        prefix = self.create_module({
+            "foo": """
+                class Bar(object):
+                    class Che(object): pass
+            """
+        })
+
+        m = prefix.get_module("foo")
+        pf = ClasspathFinder(prefixes=[prefix])
+        pf.add_class(m.Bar.Che)
+        for ks, n in pf.nodes():
+            if n.value.get("class_name", "") == "Che":
+                self.assertTrue(n.value["module_name"].endswith(".foo"))
 
 
 class ClassFinderTest(TestCase):
@@ -611,6 +623,10 @@ class ReflectNameTest(TestCase):
 
             else:
                 raise AssertionError(rm.name)
+
+    def test_lowercase_classname(self):
+        rn = ReflectName("mname:cname1.cname2")
+        self.assertEqual(["cname1", "cname2"], rn.qualnames)
 
 
 class ReflectTypeTest(TestCase):

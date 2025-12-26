@@ -332,6 +332,7 @@ class ReflectName(String):
         filepath = modpath = classname = methodname = ""
         classnames = []
         unresolvable = []
+        qualnames = []
 
         parts = name.split(":")
         if len(parts) > 1:
@@ -344,12 +345,15 @@ class ReflectName(String):
 
             parts = parts[1].split(".")
             for index, part in enumerate(parts):
+                qualnames.append(part)
+
                 if re.search(r'^[A-Z]', part):
                     classnames.append(part)
                     classname = part
 
                 elif part.startswith("<"):
                     unresolvable = parts[index:]
+                    qualnames.extend(parts[index+1:])
                     break
 
                 else:
@@ -387,14 +391,17 @@ class ReflectName(String):
 
                 classnames = []
                 while parts:
+
                     if re.search(r'^[A-Z]', parts[0]):
                         classname = parts.pop(0)
                         classnames.append(classname)
+                        qualnames.append(classname)
 
                     else:
                         break
 
                 if parts:
+                    qualnames.extend(parts)
                     methodname = parts[0]
 
         if filepath:
@@ -403,17 +410,21 @@ class ReflectName(String):
         elif modpath:
             ret = modpath
 
-        if classnames:
-            if ret:
-                ret += ":"
+        if qualnames:
+            ret += ":"
+            ret += ".".join(qualnames)
 
-            ret += ".".join(classnames)
-
-        if methodname:
-            ret += f".{methodname}"
-
-        if unresolvable:
-            ret += ".".join(unresolvable)
+#         if classnames:
+#             if ret:
+#                 ret += ":"
+# 
+#             ret += ".".join(classnames)
+# 
+#         if methodname:
+#             ret += f".{methodname}"
+# 
+#         if unresolvable:
+#             ret += ".".join(unresolvable)
 
         return ret, {
             "filepath": filepath,
@@ -422,6 +433,7 @@ class ReflectName(String):
             "class_name": classname,
             "method_name": methodname,
             "unresolvable": unresolvable,
+            "qualnames": qualnames,
         }
 
     def reflect_module(self):
