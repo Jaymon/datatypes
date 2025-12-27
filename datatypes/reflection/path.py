@@ -344,6 +344,7 @@ class ReflectName(String):
                 modpath = parts[0]
 
             parts = parts[1].split(".")
+            total_parts = len(parts)
             for index, part in enumerate(parts):
                 qualnames.append(part)
 
@@ -357,7 +358,11 @@ class ReflectName(String):
                     break
 
                 else:
-                    methodname = part
+                    if index < total_parts - 1:
+                        classnames.append(part)
+
+                    else:
+                        methodname = part
 
         else:
             # this is old syntax of module_name.class_name(s).method_name and
@@ -413,18 +418,6 @@ class ReflectName(String):
         if qualnames:
             ret += ":"
             ret += ".".join(qualnames)
-
-#         if classnames:
-#             if ret:
-#                 ret += ":"
-# 
-#             ret += ".".join(classnames)
-# 
-#         if methodname:
-#             ret += f".{methodname}"
-# 
-#         if unresolvable:
-#             ret += ".".join(unresolvable)
 
         return ret, {
             "filepath": filepath,

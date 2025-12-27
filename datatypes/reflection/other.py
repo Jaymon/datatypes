@@ -238,30 +238,6 @@ class ClasspathFinder(BaseClassFinder):
         value.update(kwargs)
         return key, value
 
-#     def _finalize_node_value(self, value: Mapping) -> Mapping:
-#         """Internal method. Called right before `._get_node_items` yields and
-#         allows any final tweaks to be done to the value mapping before
-#         yielding it
-# 
-#         This was added because each node needs to make a copy of certain
-#         lists so they represent the right values for that node instead of
-#         the list getting updated
-#         """
-#         # these keys need their own copies of the list so they stomp on
-#         # other nodes
-#         keys = [
-#             "keys",
-#             "module_keys",
-#             "modules",
-#             "class_keys",
-#         ]
-# 
-#         for k in keys:
-#             if k in value:
-#                 value[k] = list(value[k])
-# 
-#         return value
-
     def _get_node_items(self, klass):
         """Internal method. This yields the keys and values that will be
         used to create new nodes in this tree
@@ -321,12 +297,6 @@ class ClasspathFinder(BaseClassFinder):
 
                         yield kwargs["keys"], v
 
-#                             kwargs["keys"].append(k)
-#                             kwargs["module_keys"].append(k)
-#                             kwargs["modules"].append(m)
-# 
-#                         yield kwargs["keys"], self._finalize_node_value(v)
-
                 break
 
         # we can't use rn.get_classes() here because classpath could be
@@ -353,11 +323,6 @@ class ClasspathFinder(BaseClassFinder):
             v["modules"] = kwargs["modules"][:]
 
             yield kwargs["keys"], v
-
-#                 kwargs["keys"].append(k)
-#                 kwargs["class_keys"].append(k)
-# 
-#             yield kwargs["keys"], self._finalize_node_value(v)
 
     def add_class(self, klass: type):
         """This is the method that should be used to add new classes to the

@@ -624,9 +624,14 @@ class ReflectNameTest(TestCase):
             else:
                 raise AssertionError(rm.name)
 
-    def test_lowercase_classname(self):
+    def test_lowercase_classname_1(self):
         rn = ReflectName("mname:cname1.cname2")
         self.assertEqual(["cname1", "cname2"], rn.qualnames)
+
+    def test_lowercase_classname_2(self):
+        rn = ReflectName("mname:cname1.cname2.methodname")
+        self.assertEqual(["cname1", "cname2"], rn.class_names)
+        self.assertEqual("methodname", rn.method_name)
 
 
 class ReflectTypeTest(TestCase):
