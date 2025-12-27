@@ -27,6 +27,14 @@ license-files = [
 Homepage = "https://github.com/Jaymon/datatypes"
 Repository = "https://github.com/Jaymon/datatypes"
 
+[project.optional-dependencies]
+tests = [
+  "testdata",
+]
+ssh = [
+  "asyncssh"
+]
+
 [build-system]
 requires = [
   "setuptools>=62.3.0"

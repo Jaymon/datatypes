@@ -49,7 +49,6 @@ from typing import (
     #TypeIs, # https://docs.python.org/3/library/typing.html#typing.TypeIs
     TypeGuard,
 
-
     # https://docs.python.org/3/library/typing.html#abcs-and-protocols-for-working-with-i-o
     IO,
     TextIO,
@@ -73,6 +72,9 @@ from types import (
 
 
 # https://docs.python.org/3/library/contextlib.html
+#
+# You should use these instead of the typing versions, as described in:
+# https://docs.python.org/3/library/typing.html#aliases-to-contextlib-abcs
 from contextlib import (
     AbstractContextManager,
     AbstractAsyncContextManager,
