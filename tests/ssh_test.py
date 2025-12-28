@@ -2,7 +2,7 @@ import os
 import unittest
 
 try:
-    from datatypes.ssh import SSH
+    from datatypes.ssh import InfraSSH as SSH
 except ImportError:
     SSH = None
 

@@ -752,6 +752,34 @@ class SSH(object):
         kwargs["text"] = True
         return await self.check_output(["cat", path], **kwargs)
 
+    def set_debug(self, debug: bool):
+        log_level = getattr(self, "_debug_log_level", None)
+        debug_level = getattr(self, "_debug_debug_level", None)
+
+        if debug:
+            if log_level is None and debug_level is None:
+                self._debug_log_level = asyncssh.logger.getEffectiveLevel()
+                self._debug_debug_level = asyncssh.logger._debug_level
+
+                # https://github.com/ronf/asyncssh/blob/develop/asyncssh/logging.py
+                asyncssh.set_log_level("DEBUG")
+                asyncssh.set_debug_level(2)
+
+        else:
+            if log_level is not None and debug_level is not None:
+                asyncssh.set_log_level(log_level)
+                asyncssh.set_debug_level(debug_level)
+
+                self._debug_log_level = None
+                self._debug_debug_level = None
+
+
+class InfraSSH(SSH):
+    """Infrastructure SSH client that has methods helpful for DevOps
+
+    I've broken these out from `SSH` because they aren't as generic, or
+    necessarily needed in a basic base SSH client
+    """
     async def has_package(self, package_name: str, **kwargs) -> bool:
         """True if `package_name` is installed, False otherwise
 
@@ -781,25 +809,4 @@ class SSH(object):
         except SSHProcessError:
             logger.debug(f"[{host}] package {package_name} is NOT installed")
             return False
-
-    def set_debug(self, debug: bool):
-        log_level = getattr(self, "_debug_log_level", None)
-        debug_level = getattr(self, "_debug_debug_level", None)
-
-        if debug:
-            if log_level is None and debug_level is None:
-                self._debug_log_level = asyncssh.logger.getEffectiveLevel()
-                self._debug_debug_level = asyncssh.logger._debug_level
-
-                # https://github.com/ronf/asyncssh/blob/develop/asyncssh/logging.py
-                asyncssh.set_log_level("DEBUG")
-                asyncssh.set_debug_level(2)
-
-        else:
-            if log_level is not None and debug_level is not None:
-                asyncssh.set_log_level(log_level)
-                asyncssh.set_debug_level(debug_level)
-
-                self._debug_log_level = None
-                self._debug_debug_level = None
 
