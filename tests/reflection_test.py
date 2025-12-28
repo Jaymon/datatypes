@@ -1499,10 +1499,6 @@ class ReflectCallableTest(TestCase):
         def foo(bar, /, che): pass
         rc = ReflectCallable(foo)
 
-#         for ra in rc.reflect_arguments(*[1], **{"boo": 2}):
-#             pout.v(ra)
-#         return
-
         ras = iter(rc.reflect_arguments(*[1], **{"boo": 2}))
         ra = next(ras) # bar
         ra = next(ras)
@@ -1536,6 +1532,14 @@ class ReflectCallableTest(TestCase):
 
         self.assertEqual([1, 2, 3], args)
         self.assertEqual({"k1": 4, "k2": 5}, kwargs)
+
+    def test_reflect_arguments_positional_only(self):
+        def foo(p1, /): pass
+        rc = ReflectCallable(foo)
+
+        for ra in rc.reflect_arguments(p1="che"):
+            self.assertEqual(["che"], ra.get_positional_values())
+
 
     def test_get_bind_info_1(self):
         def foo(foo, bar=2, che=3, **kwargs): pass

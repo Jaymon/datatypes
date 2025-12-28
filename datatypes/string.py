@@ -817,7 +817,7 @@ class NamingConvention(String):
 
     def cli_positional(self) -> str:
         """A positional command-line name"""
-        return self.kebabcase()
+        return self.cli_dest()
 
     def cli_dest(self, prefix_char: str = "-") -> str:
         """Get the dest value from a flag (eg, `--foo-bar` would become

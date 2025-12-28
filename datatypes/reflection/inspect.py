@@ -1170,16 +1170,25 @@ class ReflectArgument(ReflectObject):
         )
 
     def is_catchall(self) -> bool:
-        """True if this is a bound or unbound catch-all"""
+        """True if this is a bound or unbound catch-all
+
+        If there is no param value then this is considered a catch-all because
+        it will contain all the unbound keyword values or the unbound
+        positional values that remained
+        """
         kinds = (
             inspect.Parameter.VAR_POSITIONAL,
             inspect.Parameter.VAR_KEYWORD,
         )
+        target = self.get_target()
+        return (target is None) or (target.kind in kinds)
+        #return target and target.kind in kinds
 
-        return (
-            self.is_unbound()
-            or self.get_target().kind in kinds
-        )
+        #return self.get_target().kind in kinds
+#         return (
+#             self.is_unbound()
+#             or self.get_target().kind in kinds
+#         )
 
     def is_positional(self) -> bool:
         """True if the parameter can be passed in as a positional

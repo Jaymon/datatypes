@@ -295,7 +295,7 @@ class NamingConventionTest(TestCase):
     def test_cli(self):
         s = NamingConvention("foo_bar")
         self.assertEqual("--foo-bar", s.cli_keyword())
-        self.assertEqual("foo-bar", s.cli_positional())
+        self.assertEqual("foo_bar", s.cli_positional())
         self.assertEqual("foo_bar", s.cli_dest())
         self.assertEqual("FOO_BAR", s.cli_metavar())
 
