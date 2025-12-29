@@ -1182,13 +1182,6 @@ class ReflectArgument(ReflectObject):
         )
         target = self.get_target()
         return (target is None) or (target.kind in kinds)
-        #return target and target.kind in kinds
-
-        #return self.get_target().kind in kinds
-#         return (
-#             self.is_unbound()
-#             or self.get_target().kind in kinds
-#         )
 
     def is_positional(self) -> bool:
         """True if the parameter can be passed in as a positional

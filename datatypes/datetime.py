@@ -191,6 +191,32 @@ class Datetime(datetime.datetime):
         """return the full day name"""
         return self.strftime("%A")
 
+    @property
+    def week(self) -> int:
+        """Returns the ISO week number for this datetime
+
+        ISO weeks start at 1 on the week with the year's first Thursday in it
+        and go to 52 or 53
+
+        https://en.wikipedia.org/wiki/ISO_8601#Week_dates
+        https://en.wikipedia.org/wiki/ISO_week_date
+        """
+
+        cd = self.isocalendar()
+        return cd.week
+
+    @property
+    def weekday(self) -> int:
+        """Return the ISO weekday number for this datetime
+
+        A week day is 1 (Monday) through 7 (Sunday)
+
+        https://en.wikipedia.org/wiki/ISO_8601#Week_dates
+        https://en.wikipedia.org/wiki/ISO_week_date
+        """
+        cd = self.isocalendar()
+        return cd.weekday
+
     @classmethod
     def parse_datetime(cls, d) -> datetime.datetime:
         """Parse a date-time string `d` to see if it is a valid date-time
@@ -1001,6 +1027,31 @@ class Datetime(datetime.datetime):
 
         return dt
 
+    def day_start(self) -> datetime.datetime:
+        """Get a datetime set at the very first second of the day"""
+        return type(self)(self.year, self.month, self.day)
+
+    def day_end(self) -> datetime.datetime:
+        """Get a datetime set at the very last microsecond of the day"""
+        day_delta = datetime.timedelta(days=1, microseconds=-1)
+        return self.day_start() + day_delta
+
+    def week_start(self) -> datetime.datetime:
+        """Get a datetime set at the very first second of an ISO week
+
+        https://en.wikipedia.org/wiki/ISO_8601#Week_dates
+        """
+        day_delta = datetime.timedelta(days=(self.weekday - 1))
+        return self.day_start() - day_delta
+
+    def week_end(self) -> datetime.datetime:
+        """Get a datetime set at the very last microsecond of an ISO week
+
+        https://en.wikipedia.org/wiki/ISO_8601#Week_dates
+        """
+        day_delta = datetime.timedelta(days=(7 - self.weekday))
+        return self.day_end() + day_delta
+
     def days_in_month(self) -> int:
         """Return how many days there are in self.month
 
@@ -1054,6 +1105,14 @@ class Datetime(datetime.datetime):
     def current_month(self) -> datetime.date:
         """Returns the first day of the current month from self"""
         return Datetime(self.year, self.month, 1)
+
+    def month_start(self) -> datetime.datetime:
+        """Get a datetime set at the very first second of the month"""
+        return type(self)(self.year, self.month, 1)
+
+    def month_end(self) -> datetime.datetime:
+        """Get a datetime set at the very last microsecond of the month"""
+        return type(self)(self.year, self.month, self.days_in_month())
 
     def months(self, now=None, inclusive=True) -> Iterable[datetime.date]:
         """Returns all the months between self and now
@@ -1122,8 +1181,8 @@ class Datetime(datetime.datetime):
             for dt in Datetime.iterdays(2025, week=6):
                 print(dt)
 
-        :param year: Optional[int]
-        :param month: Optional[int]
+        :argument year: Optional[int]
+        :argument month: Optional[int]
         :keyword week: Optional[int]
         """
         args, replace_kwargs, _ = cls.parse_args(args, kwargs)
@@ -1158,12 +1217,19 @@ class Datetime(datetime.datetime):
         else:
             yield from cls.iteryeardays(replace_kwargs["year"])
 
-    def datetime(self) -> datetime.datetime:
-        """Similar to .date() but returns vanilla datetime instance
+    def year_start(self) -> datetime.datetime:
+        """Get a datetime set at the very first second of the year"""
+        return type(self)(self.year, 1, 1)
 
-        For annotation (type hints) purposes this needs to be at the bottom
-        since it overrides the class scope for `datetime`
-        """
+    def year_end(self) -> datetime.datetime:
+        """Get a datetime set at the very last microsecond of the year"""
+        day_delta = datetime.timedelta(days=1, microseconds=-1)
+        return type(self)(self.year, 12, 31) + day_delta
+
+    # For annotation (type hints) purposes this needs to be at the bottom
+    # since it overrides the class scope for `datetime`
+    def datetime(self) -> datetime.datetime:
+        """Similar to .date() but returns vanilla datetime instance"""
         return datetime.datetime(
             self.year,
             self.month,

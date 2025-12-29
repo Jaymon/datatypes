@@ -679,3 +679,30 @@ class DatetimeTest(TestCase):
         self.assertEqual(ds, str(dt))
         self.assertEqual(ds, str(dt.date()))
 
+    def test_day_start_end(self):
+        dt = Datetime(2025, 12, 29, 12, 34, 56)
+        self.assertEqual(dt.date(), dt.day_start())
+        self.assertEqual(dt.day + 1, (dt.day_end() + 1).day)
+
+    def test_week_weekday(self):
+        dt = Datetime(2025, 12, 29, 12, 34, 56)
+        self.assertEqual(1, dt.week)
+        self.assertEqual(1, dt.weekday)
+
+    def test_week_start_end(self):
+        dt = Datetime(2025, 12, 29, 12, 34, 56)
+        self.assertEqual(dt.date(), dt.week_start())
+        edt = dt.week_end()
+        self.assertEqual(dt.week, edt.week)
+        self.assertEqual(dt.week + 1, (edt + 1).week)
+
+    def test_month_start_end(self):
+        dt = Datetime(2025, 12, 29, 12, 34, 56)
+        self.assertEqual("2025-12-01", dt.month_start().isoformat())
+        self.assertEqual("2025-12-31", dt.month_end().isoformat())
+
+    def test_year_start_end(self):
+        dt = Datetime(2025, 12, 29, 12, 34, 56)
+        self.assertEqual("2025-01-01", dt.year_start().isoformat())
+        self.assertEqual(dt.year + 1, (dt.year_end() + 1).year)
+
