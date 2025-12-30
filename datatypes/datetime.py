@@ -356,7 +356,7 @@ class Datetime(datetime.datetime):
         milliseconds
 
         This is primarily used to make sure values like `00005` are treated
-        as 50ms instead of 5ms
+        as 50ms instead of 5ms since datetime uses 6 digits of precision
 
         :example:
             ms, us, mstr, ustr = cls.parse_subseconds(012345)
