@@ -1008,10 +1008,11 @@ class FilepathTest(_PathTestCase):
 
     def test_permissions(self):
         f = testdata.create_file("permissions.txt")
-        if is_py2:
-            self.assertRegexpMatches(f.permissions, r"0[0-7]{3}")
-        else:
-            self.assertRegex(f.permissions, r"0[0-7]{3}")
+        self.assertRegex(f.permissions, r"0[0-7]{3}")
+
+        # TODO -- this should work!
+        #f.chmod(0o755)
+        #self.assertEqual("0755", f.permissions)
 
         f.chmod("0755")
         self.assertEqual("0755", f.permissions)
