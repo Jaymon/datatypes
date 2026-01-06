@@ -547,7 +547,7 @@ class SSH(object):
         :param destpath: str
         :param **kwargs: passed directly to asyncssh.scp function
         """
-        if isinstance(srcpath, Dirpath):
+        if os.path.isdir(srcpath):
             kwargs.setdefault("recurse", True)
             kwargs.setdefault("preserve", True)
 
@@ -560,7 +560,7 @@ class SSH(object):
             **kwargs
         )
 
-    async def is_file(self, path) -> bool:
+    async def is_file(self, path, **kwargs) -> bool:
         """Checks if path exists and is a file on the remote host
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_file
@@ -568,9 +568,9 @@ class SSH(object):
         :param path: str|Pathlib, the file path on a remote host
         :returns: bool, True if path exists on remote machine
         """
-        return await self.check_success(f"test -f \"{path}\"")
+        return await self.check_success(f"test -f \"{path}\"", **kwargs)
 
-    async def is_dir(self, path) -> bool:
+    async def is_dir(self, path, **kwargs) -> bool:
         """Checks if path exists and is a dir on the remote host
 
         https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_dir
@@ -578,7 +578,7 @@ class SSH(object):
         :param path: str|Pathlib, the dir path on a remote host
         :returns: bool, True if path exists on remote machine
         """
-        return await self.check_success(f"test -d \"{path}\"")
+        return await self.check_success(f"test -d \"{path}\"", **kwargs)
 
     async def iterdir(self, path, **kwargs) -> Generator[RemotePath]:
         """Iterate the files and directories of path on the remote host
