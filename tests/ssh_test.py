@@ -122,3 +122,11 @@ class SSHTest(TestCase):
             r = await client.runscript("echo \"hello world\"")
             self.assertEqual("hello world", r.stdout.strip())
 
+    async def test_connection_retry(self):
+        """Make sure if we don't have a connection, the client should connect
+        and retry the command"""
+        client = self.create_ssh_client()
+        r = await client.check_output(["echo", "-n", "hello world"], text=True)
+        self.assertEqual("hello world", r)
+        await client.close()
+
