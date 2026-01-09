@@ -116,6 +116,7 @@ from .reflection import (
     ClassFinder,
     ClassKeyFinder,
     ClasspathFinder,
+    MethodpathFinder,
     ReflectCallable,
     ReflectClass,
     ReflectDocblock,

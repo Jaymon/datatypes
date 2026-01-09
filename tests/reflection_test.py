@@ -16,6 +16,7 @@ from datatypes.reflection import (
     ReflectCallable,
     ReflectDocblock,
     ClasspathFinder,
+    MethodpathFinder,
     ClassFinder,
     ClassKeyFinder,
 )
@@ -2804,4 +2805,31 @@ class ReflectABCTest(TestCase):
 
         reflect_class = RC.find_reflect_class(ReflectCallable)
         self.assertEqual(classes1["RM1"], reflect_class)
+
+class MethodpathFinderTest(TestCase):
+    def test_methods(self):
+        prefix = self.create_module({
+            "foo": """
+                class Bar(object):
+                    def che(self): pass
+                    def bam(self): pass
+                    def boo(self): pass
+            """
+        })
+
+        m = prefix.get_module("foo")
+        pf = MethodpathFinder(prefixes=[prefix])
+        pf.add_class(m.Bar)
+
+        v_boo = pf[["foo", "Bar", "boo"]]
+        self.assertEqual("boo", v_boo["method_name"])
+        self.assertTrue("method" in v_boo)
+
+        v_che = pf[["foo", "Bar", "che"]]
+        self.assertEqual("che", v_che["method_name"])
+        self.assertTrue("method" in v_che)
+
+        self.assertEqual(v_boo["keys"][0], v_che["keys"][0])
+        self.assertEqual(v_boo["keys"][1], v_che["keys"][1])
+        self.assertNotEqual(v_boo["keys"][2], v_che["keys"][2])
 

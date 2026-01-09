@@ -15,6 +15,7 @@ from .other import (
     ClassFinder,
     ClassKeyFinder,
     ClasspathFinder,
+    MethodpathFinder,
 )
 from .path import (
     ReflectName,

@@ -449,15 +449,6 @@ class SSH(object):
                     e.stderr
                 ) from e
 
-        except (AttributeError, ValueError):
-            if self.connection:
-                raise
-
-            else:
-                logger.warn("SSH is not connected but tried to run a command")
-                await self.connect()
-                return await self.run(command, **kwargs)
-
         return response
 
     async def call(self, command: str|list[str], **kwargs) -> int:
