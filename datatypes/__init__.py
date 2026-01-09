@@ -165,5 +165,5 @@ from .utils import (
 )
 
 
-__version__ = "0.30.0"
+__version__ = "0.31.0"
 

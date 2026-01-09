@@ -68,6 +68,8 @@ from types import (
     EllipsisType,
     UnionType,
     FrameType,
+    CodeType,
+    ModuleType,
 )
 
 
