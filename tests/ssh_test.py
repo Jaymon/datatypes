@@ -122,3 +122,37 @@ class SSHTest(TestCase):
             r = await client.runscript("echo \"hello world\"")
             self.assertEqual("hello world", r.stdout.strip())
 
+    async def test_env(self):
+        client = self.create_ssh_client()
+        environ = {
+            "FOO": "1 2",
+            "CHE": "3",
+            "BAR": "$FOO $CHE 4",
+        }
+
+        async with client:
+            r = await client.check_output(
+                "pwd && echo $BAR",
+                text=True,
+                cwd="/etc",
+                env=environ,
+            )
+            self.assertEqual("/etc\n1 2 3 4", r.rstrip())
+
+            r = await client.check_output(
+                "echo $BAR",
+                text=True,
+                env=environ,
+            )
+            self.assertEqual("1 2 3 4", r.rstrip())
+
+            r = await client.check_output(
+                #"echo $FOO",
+                "echo $BAR",
+                #"env",
+                sudo=True,
+                text=True,
+                env=environ,
+            )
+            self.assertEqual("1 2 3 4", r.rstrip())
+

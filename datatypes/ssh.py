@@ -349,24 +349,31 @@ class SSH(object):
     ) -> asyncssh.SSHCompletedProcess:
         """Run a command
 
-        https://asyncssh.readthedocs.io/en/latest/api.html#asyncssh.SSHClientConnection.run
+        .. note:: The various helper keywords (eg, `sudo`, `env`, and `cwd`)
+        can sometimes work together in unexpected ways and might lead to
+        unintented commands. They are useful but spelling the command out
+        manually and adding things like `sudo` where it is needed can be
+        more clear and easier to maintain
 
         All the asyncssh kwargs are here:
             https://asyncssh.readthedocs.io/en/latest/api.html#asyncssh.SSHClientConnection.create_session
 
-        https://github.com/ronf/asyncssh/blob/develop/asyncssh/connection.py
-
-        To set the environment on the remote machine take a look at `env` and
-        `send_env`
-            https://asyncssh.readthedocs.io/en/latest/#setting-environment-variables
-
         :param command: the command to run on the remote machine
-        :keyword sudo: bool, shortcut for `prefix="sudo"`, if prefix is passed
-            in then this is a noop
+        :keyword sudo: bool, shortcut for `prefix="sudo -E"`, if prefix is
+            passed in then this is a noop
         :keyword prefix: str, prepended to the command before command is run
         :keyword cwd: str, change to this directory before running command
-        :keyword environ: dict[str, str], set the environment to this
-        :keyword env: dict[str, str], adds to the environment
+        :keyword setenv: dict[str, str], equivalent to the ssh config's
+            `SetEnv` value, the ssh server will need the corresponding
+            `AcceptEnv` to be set for these to be actually set for the
+            command.
+            https://asyncssh.readthedocs.io/en/latest/#setting-environment-variables
+        :keyword env: dict[str, str], adds to the environment, these variables
+            are added to the front of the command because it's far more
+            common for an ssh server to have disabled `AcceptEnv` and that
+            leads to unexpected behavior where your passed in environment
+            variables aren't set. This is a change from `asyncssh`, use
+            `setenv` to pass values through to `asyncssh`
         :keyword check: bool|int|Sequence[int], if True then raise error if
             command fails. If int(s) then only raise the error if the
             return code doesn't match any of the int(s)
@@ -382,7 +389,7 @@ class SSH(object):
         command = self.list2cmdline(command)
 
         if kwargs.pop("sudo", False):
-            kwargs.setdefault("prefix", "sudo")
+            kwargs.setdefault("prefix", "sudo -E")
 
         if prefix := kwargs.pop("prefix", ""):
             command = prefix + " " + command
@@ -390,9 +397,27 @@ class SSH(object):
         if cwd := kwargs.pop("cwd", ""):
             command = f"cd \"{cwd}\" && " + command
 
-        # normalize environ and env keyword arguments
-        if environ := kwargs.pop("environ", {}):
-            kwargs["env"] = {**environ, **kwargs.get("env", {})}
+        # we pass env mapping values on the command line
+        if environ := kwargs.pop("env", {}):
+            env_vals = []
+            for k, v in environ.items():
+                v = str(v)
+                if (" " in v) or ("\t" in v) or not v:
+                    v = f"\"{v}\""
+
+                # we don't use `shlex.quote` because it uses single quotes so
+                # environment variables in the value won't be expanded
+                env_vals.append(f"{k}={v}")
+
+            # we use a semi-colon here so that environment variables will
+            # be available on the command line, which seems like expected
+            # behavior, without the semicolon, `FOO=1 echo $FOO` wouldn't
+            # work
+            command = " ".join(env_vals) + "; " + command
+
+        # normalize setenv into asyncssh's env
+        if environ := kwargs.pop("setenv", {}):
+            kwargs["env"] = environ
 
         if passthrough := kwargs.pop("passthrough", False):
             kwargs.setdefault("stdout", sys.stdout)
@@ -422,6 +447,7 @@ class SSH(object):
             host = self.connection_host
             logger.info(f"[{host}] Running: `{command}`")
 
+            # https://asyncssh.readthedocs.io/en/latest/api.html#asyncssh.SSHClientConnection.run
             response = await self.connection.run(command, **kwargs)
 
             logger.debug(
