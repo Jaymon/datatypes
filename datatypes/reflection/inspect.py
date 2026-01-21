@@ -1131,7 +1131,6 @@ class ReflectArgument(ReflectObject):
     def is_bound_positional(self) -> bool:
         """True if a bound positional argument is represented"""
         return self.get_positional_value() is not inspect.Parameter.empty
-#         return self.is_bound() and self.kwargs.get("positional", False)
 
     def is_bound_keyword(self) -> bool:
         """True if a bound keyword argument is represented"""
@@ -1139,7 +1138,6 @@ class ReflectArgument(ReflectObject):
             not self.is_bound_positional()
             and self.get_keyword_value() is not inspect.Parameter.empty
         )
-#         return self.is_bound() and self.kwargs.get("keyword", False)
 
     def is_bound(self) -> bool:
         """True if this instance is a bound argument"""
@@ -1240,23 +1238,10 @@ class ReflectArgument(ReflectObject):
         values also"""
         return self.get_value() is not inspect.Parameter.empty
 
-#         ret = self.has_bound_value()
-#         if not ret:
-#             if param := self.get_target():
-#                 if param.default is not param.empty:
-#                     ret = True
-# 
-#         return ret
-
     def has_positional_value(self) -> bool:
         """True if the value is from a positional argument"""
         value = self.get_positional_value()
         return value is not inspect.Parameter.empty
-
-#         if self.is_positional():
-#             return self.value is not inspect.Parameter.empty
-
-#         return self.has_value() and self.is_bound_positional()
 
     def has_keyword_value(self) -> bool:
         """True if the value is from a keyword argument
@@ -1267,45 +1252,14 @@ class ReflectArgument(ReflectObject):
         value = self.get_keyword_value()
         return value is not inspect.Parameter.empty
 
-#         if self.is_keyword():
-#             return self.value is not inspect.Parameter.empty
-# 
-#         else:
-#             return "keyword_value" in self.kwargs
-
-#         return (
-#             self.has_value()
-#             and (
-#                 self.is_bound_keyword()
-#                 or "keyword_value" in self.kwargs
-#             )
-#         )
-
     def has_multiple_values(self) -> bool:
         """True if multiple values for this argument were passed in"""
         return self.has_positional_value() and self.has_keyword_value()
-
-#         return (
-#             self.has_value()
-#             and "keyword_value" in self.kwargs
-#         )
 
     def get_keyword_value(self):
         """Return the keyword value or `inspect.Parameter.empty` if it doesn't
         exist"""
         return self.kwargs.get("keyword_value", self.value)
-
-#         if self.is_keyword():
-#             return self.value
-# 
-#         else:
-#             return self.kwargs.get("keyword_value", inspect.Parameter.empty)
-
-#         if self.is_bound_keyword():
-#             return self.value
-# 
-#         else:
-#             return self.kwargs.get("keyword_value", inspect.Parameter.empty)
 
     def get_keyword_values(self) -> Mapping:
         """Always return the argument value as something that can be passed
@@ -1329,11 +1283,6 @@ class ReflectArgument(ReflectObject):
             return self.value
         return inspect.Parameter.empty
 
-#         if self.is_bound_positional():
-#             return self.value
-# 
-#         return inspect.Parameter.empty
-
     def get_positional_values(self) -> Iterable:
         """Always return the argument value as something that can be passed
         to `list.extend`"""
@@ -1350,6 +1299,11 @@ class ReflectArgument(ReflectObject):
         return ret
 
     def get_bound_value(self):
+        """Returns the bound passed in value, this will not return default
+        values
+
+        This will favor positional over keyword
+        """
         v = self.get_positional_value()
 
         if v is inspect.Parameter.empty:
@@ -1366,22 +1320,8 @@ class ReflectArgument(ReflectObject):
 
         return v
 
-#         empty = inspect.Parameter.empty
-#         v = self.get_positional_value()
-# 
-# #         v = self.value
-#         if v is empty:
-#             v = self.get_keyword_value()
-# 
-#         if v is empty:
-#             v = self.get_default_value()
-# #             if param := self.get_target():
-# #                 if param.default is not empty:
-# #                     v = param.default
-# 
-#         return v
-
     def get_default_value(self):
+        """get the default value for this argument"""
         if param := self.get_target():
             return param.default
         return inspect.Parameter.empty
@@ -1389,13 +1329,6 @@ class ReflectArgument(ReflectObject):
     def has_default_value(self) -> bool:
         """True if a default parameter exists"""
         return self.get_default_value() is not inspect.Parameter.empty
-
-#         ret = False
-# 
-#         if param := self.get_target():
-#             ret = param.default is not param.empty
-# 
-#         return ret
 
     def has_annotation(self) -> bool:
         """True if the parameter has a type annotation"""
