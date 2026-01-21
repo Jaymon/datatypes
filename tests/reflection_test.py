@@ -1985,6 +1985,60 @@ class ReflectCallableTest(TestCase):
         siginfo.pop("signature", None)
         self.assertFalse("six" in siginfo["annotations"])
 
+    def test_get_arguments_binding(self):
+        def foo(bar: int, /): pass
+        rc = ReflectCallable(foo)
+
+        for ra in rc.reflect_arguments(bar=1):
+            self.assertTrue(ra.is_bound())
+            self.assertTrue(ra.is_positional())
+            self.assertFalse(ra.has_positional_value())
+            self.assertTrue(ra.has_keyword_value())
+            self.assertTrue(ra.has_bound_value())
+            self.assertEqual(1, ra.get_bound_value())
+            self.assertFalse(ra.is_bound_positional())
+            self.assertTrue(ra.is_bound_keyword())
+
+        for ra in rc.reflect_arguments(1, bar=2):
+            self.assertTrue(ra.is_bound())
+            self.assertTrue(ra.is_positional())
+            self.assertTrue(ra.has_positional_value())
+            self.assertTrue(ra.has_keyword_value())
+            self.assertTrue(ra.has_bound_value())
+            self.assertTrue(ra.has_multiple_values())
+            self.assertEqual(1, ra.get_bound_value())
+            self.assertEqual(1, ra.get_positional_value())
+            self.assertEqual(2, ra.get_keyword_value())
+            self.assertTrue(ra.is_bound_positional())
+            self.assertFalse(ra.is_bound_keyword())
+
+        def foo(*, bar: int): pass
+        rc = ReflectCallable(foo)
+        rargs = rc.reflect_arguments(1)
+        ra = next(rargs)
+        self.assertTrue(ra.is_positional())
+        self.assertTrue(ra.is_unbound_positionals())
+        self.assertEqual([1], ra.get_value())
+
+
+#             pout.v(ra)
+#             pout.v(ra.get_bound_value())
+#             pout.v(ra.is_positional())
+#             pout.v(ra.is_keyword())
+#             pout.v(ra.is_bound())
+#             pout.v(ra.is_bound_positional())
+#             pout.v(ra.is_bound_keyword())
+#             pout.v(ra.is_positional())
+#             pout.v(ra.is_keyword())
+#             pout.v(ra.is_unbound())
+#             pout.v(ra.is_unbound_positionals())
+#             pout.v(ra.is_unbound_keywords())
+#             pout.v(ra.has_bound_value())
+#             pout.v(ra.has_positional_value())
+#             pout.v(ra.has_keyword_value())
+#             pout.v(ra.has_multiple_values())
+
+
 
 class ReflectClassTest(TestCase):
     def test_docblock_1(self):
