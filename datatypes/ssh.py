@@ -292,6 +292,56 @@ class SSH(object):
         finally:
             self.context_kwargs = old_context_kwargs
 
+#     def _get_command(self, command: list[str]|str, **kwargs) -> str:
+#         if isinstance(command, str):
+#             pass
+# 
+#         elif isinstance(command, bytes):
+#             command = String(command)
+# 
+#         else:
+#             command = subprocess.list2cmdline(command)
+# 
+#         if kwargs.pop("sudo", False):
+#             kwargs.setdefault("prefix", "sudo -E")
+# 
+#         prefix = kwargs.pop("prefix", "")
+#         if prefix:
+#             prefix += " "
+# 
+# #         if prefix := kwargs.pop("prefix", ""):
+# #             command = prefix + " " + command
+# 
+#         cwd = kwargs.pop("cwd", "")
+#         if cwd:
+#             cwd = prefix + cwd + " && "
+# 
+# #         if cwd := kwargs.pop("cwd", ""):
+# #             command = f"cd \"{cwd}\" && " + command
+# 
+#         envstr = ""
+#         # we pass env mapping values on the command line
+#         if environ := kwargs.pop("env", {}):
+#             env_vals = []
+#             for k, v in environ.items():
+#                 v = str(v)
+#                 if (" " in v) or ("\t" in v) or not v:
+#                     v = f"\"{v}\""
+# 
+#                 # we don't use `shlex.quote` because it uses single quotes so
+#                 # environment variables in the value won't be expanded
+#                 env_vals.append(f"{k}={v}")
+# 
+#             if env_vals:
+#                 envstr = " ".join(env_vals) + " "
+# 
+#             # we use a semi-colon here so that environment variables will
+#             # be available on the command line, which seems like expected
+#             # behavior, without the semicolon, `FOO=1 echo $FOO` wouldn't
+#             # work
+#             #command = " ".join(env_vals) + "; " + command
+#         
+
     def list2cmdline(self, command) -> str:
         """Wrapper around subprocess's method of the same name
 
@@ -344,7 +394,7 @@ class SSH(object):
 
     async def run(
         self,
-        command: list|str,
+        command: list[str]|str,
         **kwargs
     ) -> asyncssh.SSHCompletedProcess:
         """Run a command
@@ -389,17 +439,32 @@ class SSH(object):
         command = self.list2cmdline(command)
 
         if kwargs.pop("sudo", False):
-            kwargs.setdefault("prefix", "sudo -E")
+            if "prefix" not in kwargs:
+                kwargs.setdefault("prefix", "sudo -E")
 
-        if prefix := kwargs.pop("prefix", ""):
-            command = prefix + " " + command
+#                 kwargs["prefix"] = "sudo -E"
+#                 cwd = kwargs.pop("cwd", "")
+#                 if cwd:
+#                     kwargs["prefix"] += f" -D \"{cwd}\""
+#                     cwd = ""
 
-        if cwd := kwargs.pop("cwd", ""):
-            command = f"cd \"{cwd}\" && " + command
+        prefix = kwargs.pop("prefix", "")
+        if prefix:
+            prefix += " "
 
+#         if prefix := kwargs.pop("prefix", ""):
+#             command = prefix + " " + command
+
+        cwd = kwargs.pop("cwd", "")
+        if cwd:
+            cwd = "cd " + cwd + " && "
+
+#         if cwd := kwargs.pop("cwd", ""):
+#             command = f"cd \"{cwd}\" && " + command
+
+        env = ""
         # we pass env mapping values on the command line
         if environ := kwargs.pop("env", {}):
-            env_vals = []
             for k, v in environ.items():
                 v = str(v)
                 if (" " in v) or ("\t" in v) or not v:
@@ -407,13 +472,15 @@ class SSH(object):
 
                 # we don't use `shlex.quote` because it uses single quotes so
                 # environment variables in the value won't be expanded
-                env_vals.append(f"{k}={v}")
+                env += f"{k}={v} "
 
             # we use a semi-colon here so that environment variables will
             # be available on the command line, which seems like expected
             # behavior, without the semicolon, `FOO=1 echo $FOO` wouldn't
             # work
-            command = " ".join(env_vals) + "; " + command
+            #command = " ".join(env_vals) + "; " + command
+
+        command = cwd + prefix + env + command
 
         # normalize setenv into asyncssh's env
         if environ := kwargs.pop("setenv", {}):

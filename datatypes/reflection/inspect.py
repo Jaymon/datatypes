@@ -2000,6 +2000,11 @@ class ReflectCallable(ReflectObject):
         on the values being passed as keywords or positionals, and it even
         allows passing positional catch-alls by name.
 
+        Basically, if you pass in a positional as a keyword it will catch it
+        and apply the keyword to the positional. However, it will not catch
+        a keyword only passed as a positional because of how the arguments
+        are parsed. This is just something to be aware of.
+
         .. note:: This shouldn't error out if the arguments don't match, but
             it will return `ReflectArgument` instances that are unbound. This
             lets downstream code customize behavior like ignoring unbound

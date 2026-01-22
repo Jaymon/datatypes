@@ -132,27 +132,36 @@ class SSHTest(TestCase):
 
         async with client:
             r = await client.check_output(
-                "pwd && echo $BAR",
-                text=True,
+                "env",
+                sudo=True,
                 cwd="/etc",
-                env=environ,
-            )
-            self.assertEqual("/etc\n1 2 3 4", r.rstrip())
-
-            r = await client.check_output(
-                "echo $BAR",
                 text=True,
                 env=environ,
             )
-            self.assertEqual("1 2 3 4", r.rstrip())
+            self.assertTrue("PWD=/etc\n" in r)
+            self.assertTrue("BAR=  4\n" in r)
 
             r = await client.check_output(
-                #"echo $FOO",
-                "echo $BAR",
-                #"env",
+                "env",
                 sudo=True,
                 text=True,
                 env=environ,
             )
-            self.assertEqual("1 2 3 4", r.rstrip())
+            self.assertTrue("BAR=  4\n" in r)
+
+            r = await client.check_output(
+                "env",
+                text=True,
+                cwd="/etc",
+                env=environ,
+            )
+            self.assertTrue("PWD=/etc\n" in r)
+            self.assertTrue("BAR=1 2 3 4\n" in r)
+
+            r = await client.check_output(
+                "env",
+                text=True,
+                env=environ,
+            )
+            self.assertTrue("BAR=1 2 3 4\n" in r)
 
