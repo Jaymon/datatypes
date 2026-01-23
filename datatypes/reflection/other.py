@@ -466,7 +466,7 @@ class MethodpathFinder(ClasspathFinder):
         will overwrite the previous key, if value is None then this info
         won't even be yielded
         """
-        if key.startswith("_"):
+        if key and key.startswith("_"):
             return None, None
 
         value = self._get_node_default_value(**kwargs)

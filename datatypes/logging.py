@@ -7,27 +7,46 @@ import sys
 from collections.abc import (
     Mapping,
     Sequence,
+    Generator,
 )
-from string import Formatter
+import string
 
 
-def get_loggers(prefix=""):
+def get_loggers(prefix: str = "") -> Generator[str, Logger]:
     """Return loggers matching prefix or all loggers if prefix is empty
 
     :params prefix: str, the logger prefix to filter returned loggers
-    :returns: dict[str, logging.Logger]
+    :returns: all the loggers, including the root logger
     """
     loggers = Logger.manager.loggerDict
     if prefix:
         loggers = {}
         for logname, logger in Logger.manager.loggerDict.items():
             if logname.startswith(prefix):
-                loggers[logname] = logger
+                yield logname, logger
 
     else:
-        loggers = Logger.manager.loggerDict
+        yield from Logger.manager.loggerDict.items()
 
-    return loggers
+    if not prefix or Logger.manager.root.name.startswith(prefix):
+        yield Logger.manager.root.name, Logger.manager.root
+
+
+def get_handlers(logger: Logger|None = None) -> Generator[Logger, Handler]:
+    """Return loggers and their handlers
+
+    :param logger: if a logger is passed in then only returns the handlers
+        of this logger
+    :returns: tuples of the logger instance and a handler instance for that
+        logger
+    """
+    if logger is None:
+        for _, logger in get_loggers():
+            yield from get_handlers(logger)
+
+    else:
+        for handler in getattr(logger, "handlers", []):
+            yield logger, handler
 
 
 def getlro(logger):
@@ -382,7 +401,7 @@ class LogMixin(object):
 
             if len(log_args) == 1 and isinstance(log_args[0], list):
                 # https://docs.python.org/3/library/string.html#string.Formatter
-                parts = list(Formatter().parse(log_args[0][0]))
+                parts = list(string.Formatter().parse(log_args[0][0]))
                 if len(parts) > 1 or parts[0][1] is not None:
                     log_args = log_args[0] 
 
