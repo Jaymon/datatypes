@@ -1148,7 +1148,7 @@ class ABNFGrammar(Scanner):
         )
 
 
-class ABNFRecursiveDescentParser(logging.LogMixin):
+class ABNFRecursiveDescentParser(object):
     """Actually parse a buffer using a parsed grammar
 
     This is an internal class used by ABNFParser and this does the actual
@@ -1240,19 +1240,20 @@ class ABNFRecursiveDescentParser(logging.LogMixin):
             **options
         )
 
-    def get_log_message(self, format_str, *format_args, **kwargs):
-        parsing_rule = kwargs.get("parsing_rule", None)
-        if not parsing_rule:
-            if self.parsing_rules_stack:
-                parsing_rule = self.parsing_rules_stack[-1]
+    def log_debug(self, format_str, *format_args, **kwargs):
+        if logger.isEnabledFor(logging.DEBUG):
+            parsing_rule = kwargs.get("parsing_rule", None)
+            if not parsing_rule:
+                if self.parsing_rules_stack:
+                    parsing_rule = self.parsing_rules_stack[-1]
 
-        msg = super().get_log_message(format_str, *format_args, **kwargs)
-        if parsing_rule:
-            rulename = parsing_rule["rule"].defname
-            count = parsing_rule["count"]
-            msg = f"{rulename}({count}) -> {msg}"
+            msg = format_str.format(*format_args)
+            if parsing_rule:
+                rulename = parsing_rule["rule"].defname
+                count = parsing_rule["count"]
+                msg = f"{rulename}({count}) -> {msg}"
 
-        return f"[{self.scanner.tell()}] {msg}"
+            logger.debug(f"[{self.scanner.tell()}] {msg}")
 
     @contextmanager
     def transaction(self):

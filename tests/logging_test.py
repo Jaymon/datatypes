@@ -2,12 +2,208 @@
 import time
 
 from datatypes.compat import *
+from datatypes import logging
 from datatypes.logging import (
     LogMixin,
+    Logger,
 )
-from datatypes import logging
 
 from . import TestCase
+
+
+class LoggingTest(TestCase):
+    def test_getLevelMethod(self):
+        logger = Logger("getLevelMethod")
+        lm = logging.getLevelMethod("DEBUG", logger)
+        self.assertEqual("debug", lm.__name__)
+
+
+class LoggerTest(TestCase):
+    def get_logger(self, name: str) -> Logger:
+        logger = logging.getLogger(name)
+        #logger.quick_config()
+
+        # assert*Logs needs the root logger to capture logs
+        #logger.parent = logging.root
+        return logger
+
+    def test_quick_config(self):
+        logger = self.get_logger("quick_config")
+        logger.quick_config() # no errors == passed
+
+    def test_isEnabledFor(self):
+        logger = self.get_logger("IsEnabledFor")
+
+        r = logger.isEnabledFor("DEBUG")
+        self.assertTrue(isinstance(r, bool))
+
+        r = logger.isEnabledFor(logging.DEBUG)
+        self.assertTrue(isinstance(r, bool))
+
+        r = logger.isEnabledFor(logging.debug)
+        self.assertTrue(isinstance(r, bool))
+
+    def test_log_for_1(self):
+        logger = self.get_logger("log_for_1")
+
+        logger.setLevel("INFO")
+        with self.assertLogs(level="INFO") as cm:
+            logger.log_for(info="info log")
+
+        logger.setLevel("WARNING")
+        # https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertLogs
+        with self.assertNoLogs(level="INFO") as cm:
+            logger.log_for(info="info log")
+
+    def test_log_for_str(self):
+        logger = self.get_logger("log_for_str")
+
+        logger.setLevel("INFO")
+        with self.assertLogs(level="INFO") as cm:
+            logger.log_for(info="info 1")
+            self.assertTrue("info 1" in cm[1][0])
+
+    def test_log_for_list(self):
+        logger = self.get_logger("log_for_list")
+        logger.setLevel("INFO")
+
+        with self.assertLogs(level="INFO") as cm:
+            logger.log_for(info=["info %s %s", "1", "2"])
+            self.assertTrue("info 1 2" in cm[1][0])
+
+        with self.assertLogs(level="INFO") as cm:
+            logger.log_for(info=["info %s", "2"])
+            self.assertTrue("info 2" in cm[1][0])
+
+    def test_log_for_tuple(self):
+        logger = self.get_logger("log_for_list")
+
+        with self.assertLogs(logger=logger, level="INFO") as cm:
+            logger.log_for(info=("%d - %d - %d", 1, 2, 3))
+            self.assertTrue("1 - 2 - 3" in cm[1][0])
+
+        with self.assertLogs(logger=logger, level="INFO") as cm:
+            logger.log_for(info=("info {} {}", "1", "2"), style="{")
+            self.assertTrue("info 1 2" in cm[1][0])
+
+        with self.assertLogs(logger=logger, level="INFO") as cm:
+            logger.log_for(info=("info 1 2",))
+            self.assertTrue("info 1 2" in cm[1][0])
+
+        with self.assertLogs(logger=logger, level="INFO") as cm:
+            logger.log_for(info=["info %s %s", "1", "2"])
+            self.assertTrue("info 1 2" in cm[1][0])
+
+#         with self.assertLogs(level="INFO") as cm:
+#             s.log_for(
+#                 info=([["info {}", "2", "{}"], "1", "3"]),
+#             )
+#             self.assertTrue("info 1 2 3" in cm[1][0])
+# 
+#         with self.assertLogs(level="INFO") as cm:
+#             logstr = [
+#                 "1.",
+#                 "foo",
+#                 "-> bar"
+#             ]
+#             s.log_for(
+#                 info=(logstr, {"sentinel": True}),
+#             )
+#             self.assertTrue("1. foo -> bar" in cm[1][0])
+
+
+    def test__log_enabled_for(self):
+        logger = self.get_logger("log_enabled_for")
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.warning("warning", enabled_for="DEBUG")
+        self.assertEqual(1, len(cm.records))
+        self.assertEqual("WARNING", cm.records[0].levelname)
+
+        with self.assertRaises(AssertionError):
+            with self.assertLogs(logger=logger, level="INFO") as cm:
+                logger.warning("warning", enabled_for="DEBUG")
+
+    def test__log_style(self):
+        logger = self.get_logger("log_style")
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.debug("format {} {}", 1, 2, style="{")
+        self.assertTrue(cm.output[0].endswith("format 1 2"))
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.debug("golang", "k1", "v1", "k2", "v 2", style=",")
+        self.assertTrue(cm.output[0].endswith("golang k1=v1 k2=\"v 2\""))
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.debug("printf %d %d", 1, 2, style="%")
+        self.assertTrue(cm.output[0].endswith("printf 1 2"))
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.debug("printf %d %d", 1, 2)
+        self.assertTrue(cm.output[0].endswith("printf 1 2"))
+
+
+
+
+#         return
+# 
+# 
+#         logger = logging.getLogger("log_for_1")
+#         logger.debug("debug")
+#         logger.info("info")
+#         logger.warning("warning")
+#         logger.error("error")
+#         logger.critical("critical")
+#         pout.v(type(logger).__module__, type(logger).__qualname__)
+#         return
+# 
+#         logger = Logger("log_for_1")
+# 
+#         pout.v(logging.getLevelName(logging.root.getEffectiveLevel()))
+#         return
+# 
+#         for l in logging.getlro(logger):
+#             pout.v(l)
+# 
+#         return
+# 
+# 
+# 
+#         import sys
+#         log_handler = logging.StreamHandler(stream=sys.stderr)
+#         log_formatter = logging.Formatter('[%(levelname).1s] %(message)s')
+#         log_handler.setFormatter(log_formatter)
+#         logger.addHandler(log_handler)
+# 
+#         logger.setLevel("DEBUG")
+#         pout.v(logging.getLevelName(logger.getEffectiveLevel()))
+#         pout.v(logger.isEnabledFor("INFO"))
+# 
+#         logger.debug("debug")
+#         logger.info("info")
+#         logger.warning("warning")
+#         logger.error("error")
+#         logger.critical("critical")
+#         return
+#         with self.assertLogs(level="INFO") as cm:
+#             logger.log_for(info="info log")
+# 
+# 
+#         logger.setLevel("WARNING")
+#         # https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertLogs
+#         with self.assertNoLogs(level="INFO") as cm:
+#             logger.log_for(info="info log")
+
+#     def test_log_for_sentinel_1(self):
+#         logger = Logger("log_for_sentinel_1")
+# 
+#         # https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertLogs
+#         with self.assertNoLogs(level="INFO") as cm:
+#             logger.log_for(
+#                 info=(f"info called", {"sentinel": False}),
+#             )
+
 
 
 class LogMixinTest(TestCase):
