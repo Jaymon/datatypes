@@ -78,9 +78,7 @@ from .http import (
     HTTPEnviron,
     HTTPClient,
 )
-from .logging import (
-    LogMixin,
-)
+#from .logging import ()
 from .number import (
     Binary,
     Boolean, Boolean as Bool,

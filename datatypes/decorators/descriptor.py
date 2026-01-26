@@ -281,15 +281,6 @@ class property(FuncDecorator):
             # cache
             self.cached = False
 
-    def log(self, format_str, *format_args, **log_options):
-        fget = getattr(self, "fget", None)
-        if fget:
-            log_options.setdefault(
-                "prefix",
-                "[{}.{}]".format(self.__class__.__name__, fget.__name__)
-            )
-        return super().log(format_str, *format_args, **log_options)
-
     def decorate(self, method, *args, **kwargs):
         if "setter" in kwargs:
             ret = self.setter(method)
@@ -312,12 +303,13 @@ class property(FuncDecorator):
                 # swallowed and so let's log it before raising it
                 # fixes https://github.com/Jaymon/decorators/issues/4
                 if hasattr(instance, "__getattr__"):
-                    self.log(
-                        f"Property {self.name} AttributeError: \"{e}\" will"
+                    logger.warning(
+                        "Property %s AttributeError: \"%s\" will"
                         " be suppressed because the class has a __getattr__"
                         " that will now be called and can lead to unintended"
                         " behavior",
-                        level="WARN"
+                        self.name,
+                        e,
                     )
 
                 raise
@@ -341,10 +333,10 @@ class property(FuncDecorator):
 
         if self.cached:
             if self.name in instance.__dict__:
-                self.log("Checking cache for {}", self.name)
+                logger.debug("Checking cache for %s", self.name)
                 value = instance.__dict__[self.name]
                 if not value and not self.allow_empty:
-                    self.log("Cache failed for {}", self.name)
+                    logger.debug("Cache failed for %s", self.name)
                     value = self.get_value(instance)
                     if value or self.allow_empty:
                         self.__set__(instance, value)
@@ -366,7 +358,7 @@ class property(FuncDecorator):
             raise AttributeError("Can't set readonly attribute")
 
         if self.cached:
-            self.log("Caching value in {}", self.name)
+            logger.debug("Caching value in %s", self.name)
             if self.fset:
                 self.fset(instance, value)
 
@@ -384,7 +376,7 @@ class property(FuncDecorator):
             raise AttributeError("Can't delete readonly attribute")
 
         if self.cached:
-            self.log("Deleting cached value in {}", self.name)
+            logger.debug("Deleting cached value in %s", self.name)
             if self.fdel:
                 self.fdel(instance)
 

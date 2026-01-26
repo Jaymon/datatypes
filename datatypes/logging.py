@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from logging import * # allow this module as a passthrough for builtin logging
 from logging import (
     config,
@@ -14,22 +13,22 @@ from collections.abc import (
     Generator,
     Callable,
 )
-import string
 from typing import Literal
+import string
 
 
 type Level = str|int|Callable
 
-FORMAT_SHORT = "[%(levelname).1s] %(message)s"
+SHORT_FORMAT = "[%(levelname).1s] %(message)s"
 
-FORMAT_LONG = "|".join([
+LONG_FORMAT = "|".join([
     "[%(levelname).1s",
     "%(asctime)s",
     "%(process)d.%(thread)d",
     "%(filename)s:%(lineno)s] %(message)s",
 ])
 
-FORMAT_VERBOSE = "|".join([
+VERBOSE_FORMAT = "|".join([
     "[%(levelname).1s",
     "%(asctime)s",
     "%(process)d.%(thread)d",
@@ -37,7 +36,7 @@ FORMAT_VERBOSE = "|".join([
     "%(pathname)s:%(lineno)s] %(message)s",
 ])
 
-FORMAT_MSG = "%(message)s"
+MSG_FORMAT = "%(message)s"
 
 
 def has_logger(name: str) -> bool:
@@ -120,36 +119,43 @@ def setdefault(name: str, val: str|int):
             raise NotImplementedError("Not sure what to do with val")
 
 
-def _get_quick_config(**kwargs) -> str:
+def _get_quick_config(**kwargs) -> Mapping:
     if "format" in kwargs:
         if kwargs["format"] == "short":
-            kwargs["format"] = FORMAT_SHORT
+            kwargs["format"] = SHORT_FORMAT
 
         elif kwargs["format"] == "long":
-            kwargs["format"] = FORMAT_LONG
+            kwargs["format"] = LONG_FORMAT
 
         elif kwargs["format"] == "verbose":
-            kwargs["format"] = FORMAT_VERBOSE
+            kwargs["format"] = VERBOSE_FORMAT
 
         elif kwargs["format"] == "msg":
-            kwargs["format"] = FORMAT_MSG
+            kwargs["format"] = MSG_FORMAT
+
+        elif kwargs["format"] == "basic":
+            kwargs["format"] = BASIC_FORMAT
 
     else:
         verbose = kwargs.pop("verbose_format", False)
         long = kwargs.pop("long_format", False)
         short = kwargs.pop("short_format", False)
         msg = kwargs.pop("msg_format", False)
+        basic = kwargs.pop("basic_format", False)
         if verbose:
-            kwargs["format"] = FORMAT_VERBOSE
+            kwargs["format"] = VERBOSE_FORMAT
 
         elif long:
-            kwargs["format"] = FORMAT_LONG
+            kwargs["format"] = LONG_FORMAT
 
         elif msg:
-            kwargs["format"] = FORMAT_MSG
+            kwargs["format"] = MSG_FORMAT
+
+        elif basic:
+            kwargs["format"] = BASIC_FORMAT
 
         else:
-            kwargs["format"] = FORMAT_SHORT
+            kwargs["format"] = SHORT_FORMAT
 
     kwargs.setdefault("level", logging.DEBUG)
     kwargs.setdefault("stream", sys.stdout)
@@ -236,7 +242,7 @@ def project_config(config=None, **kwargs) -> None:
         it is the level of the `name` logger, defaults to debug
     :keyword root_level: Level, the minimum root level logger, set to `level`
         unless `name` is passed in, then set to warning unless passed in
-        explicitely
+        explicitly
     :keyword name: str, the project logger name that is being configured, if
         this is passed in then the logger at `name` will be configured at
         level `level` (defaults to debug) and `root_level` will default to
@@ -270,31 +276,34 @@ def project_config(config=None, **kwargs) -> None:
         'version': 1,
         'formatters': {
             # https://docs.python.org/3/library/logging.html#logrecord-attributes
-            'shortformatter': {
-                'format': FORMAT_SHORT,
+            'short': {
+                'format': SHORT_FORMAT,
             },
-            'longformatter': {
-                'format': FORMAT_LONG,
+            'long': {
+                'format': LONG_FORMAT,
             },
-            'verboseformatter': {
-                'format': FORMAT_VERBOSE,
+            'verbose': {
+                'format': VERBOSE_FORMAT,
             },
-            'msgformatter': {
-                'format': FORMAT_MSG,
+            'msg': {
+                'format': MSG_FORMAT,
+            },
+            'basic': {
+                'format': BASIC_FORMAT,
             },
         },
         'handlers': {
-            'streamhandler': {
+            'stream': {
                 #'level': level,
                 'class': 'logging.StreamHandler',
-                'formatter': 'shortformatter',
+                'formatter': 'short',
                 #'filters': [],
             },
         },
         'root': {
             'level': getLevelName(root_level),
             'filters': [],
-            'handlers': ['streamhandler'],
+            'handlers': ['stream'],
         },
         'loggers': {
             'dsnparse': {
@@ -332,7 +341,7 @@ def project_config(config=None, **kwargs) -> None:
 
 def getLevelName(
     level: Level
-) -> Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+) -> Literal["NOTSET", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
     """Wrapper around stdlib `getLevelName` that can also take the logging
     methods"""
     if callable(level):
@@ -344,7 +353,9 @@ def getLevelName(
     return logging.getLevelName(level)
 
 
-def getLevel(level: Level):
+def getLevel(
+    level: Level
+) -> Literal[NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL]:
     """This is named `getLevel` instead of `get_level` to match `getLevelName`
     """
     if not isinstance(level, int):
@@ -381,10 +392,6 @@ def getLogger(name: str|None = None, logger_class:Logger|None = None) -> Logger:
     logger_class.manager.loggerClass = prev_logger_class
 
     return logger
-
-
-# class LogRecord(LogRecord):
-#     pass
 
 
 class Logger(Logger):
@@ -450,33 +457,6 @@ class Logger(Logger):
         level = getLevel(level)
         return super().log(level, msg, *args, **kwargs)
 
-#     def log(self, level: Level, msg: str, *args, **kwargs) -> None:
-#         level = getLevel(level)
-# 
-#         # the style keyword matches `.basicConfig` style keyword
-#         style = kwargs.pop("style", "%")
-#         # % = printf
-#         # { = format
-#         # $ = template
-#         if style == "{":
-#             if self.isEnabledFor(level):
-#                 msg = msg.format(*args)
-#                 args = []
-# 
-#         return super().log(level, msg, *args, **kwargs)
-
-#     def makeRecord(self, *args, **kwargs):
-#         record = super().makeRecord(*args, **kwargs)
-# 
-#         pout.v(record.msg)
-#         pout.v(record.args)
-#         pout.v("%s %s" % tuple(record.args))
-# 
-# 
-# 
-#         pout.v(record)
-#         return record
-
     def _log(self, level: int, msg: str, args: Sequence, **kwargs) -> None:
         """Wrapper around parent's internal method, mostly everything is the
         same except this can take a few more keywords to customize behavior
@@ -485,11 +465,11 @@ class Logger(Logger):
             enabled for the level, this allows you to do thing like only log a 
             warning if debug is enabled and is just another way to fine tune
             the logging
-        :keyword style: Literal["%", "{", ","]
+        :keyword style: Literal["%", "{", "="]
             * `%` = printf, the default
             * `{` = format, use `msg.format`
             * `$` = template, not supported right now
-            * `,` = golang slog, similar to golang's slog logger, the main
+            * `=` = golang slog, similar to golang's slog logger, the main
                 message is followed by key, value arguments that are added
                 to the end of the message
         """
@@ -499,26 +479,26 @@ class Logger(Logger):
                 return
 
         # the style keyword matches `.basicConfig` style keyword
-        style = kwargs.pop("style", "%")
-        if self.isEnabledFor(level):
-            # % = printf
-            # { = format
-            # $ = template
-            # , = glang slog
-            if style == "{":
-                msg = msg.format(*args)
-                args = []
+        if style := kwargs.pop("style", ""):
+            if self.isEnabledFor(level):
+                # % = printf
+                # { = format
+                # $ = template
+                # , = glang slog
+                if style == "{":
+                    msg = msg.format(*args)
+                    args = []
 
-            elif style == ",":
-                for i in range(0, len(args), 2):
-                    key = args[i]
-                    value = args[i + 1]
-                    if value.find(" ") >= 0:
-                        value = "\"" + value + "\""
+                elif style == "=":
+                    for i in range(0, len(args), 2):
+                        key = args[i]
+                        value = args[i + 1]
+                        if value.find(" ") >= 0:
+                            value = "\"" + value + "\""
 
-                    msg += " " + key + "=" + value
+                        msg += " " + key + "=" + value
 
-                args = []
+                    args = []
 
 #             if kwargs["extra"] is None:
 #                 kwargs["extra"] = {}
@@ -588,256 +568,4 @@ class Logger(Logger):
                     log_kwargs.setdefault(k, kwargs[k])
 
             self._log(level, *log_args, **log_kwargs)
-
-#     def debug_info(self, *args, **kwargs):
-#         if self.isEnabledFor(DEBUG):
-#             self.info(*args, **kwargs)
-# 
-#     def debug_warning(self, *args, **kwargs):
-#         if self.isEnabledFor(DEBUG):
-#             self.warning(*args, **kwargs)
-# 
-#     def debug_error(self, *args, **kwargs):
-#         if self.isEnabledFor(DEBUG):
-#             self.error(*args, **kwargs)
-# 
-#     def debug_exception(self, *args, **kwargs):
-#         if self.isEnabledFor(DEBUG):
-#             self.exception(*args, **kwargs)
-# 
-#     def debug_critical(self, *args, **kwargs):
-#         if self.isEnabledFor(DEBUG):
-#             self.critical(*args, **kwargs)
-
-#     def D(self, *args, **kwargs):
-#         return self.debug(*args, **kwargs)
-# 
-#     def I(self, *args, **kwargs):
-#         return self.info(*args, **kwargs)
-# 
-#     def W(self, *args, **kwargs):
-#         return self.warning(*args, **kwargs)
-# 
-#     def E(self, *args, **kwargs):
-#         return self.error(*args, **kwargs)
-# 
-#     def X(self, *args, **kwargs):
-#         return self.exception(*args, **kwargs)
-# 
-#     def C(self, *args, **kwargs):
-#         return self.critical(*args, **kwargs)
-
-
-class LogMixin(object):
-    """A mixin object that can be added to classes to add some logging methods
-
-    NOTE -- this is deprecated in favor of just using the custom logger,
-    I will remove this once I've audited some other projects to remove this
-    mixin
-
-    This was inspired by .log() methods in both morp and prom, I wanted to add
-    .log_for() to prom and then thought it would be nice to have it in morp also
-    so I moved the functionality into here on 2-11-2023
-    """
-    @classmethod
-    def get_logger_instance(cls, instance_name="logger", **kwargs):
-        """Get the logger class for this class
-
-        :param instance_name: str, the name of the module level variable defined
-            in the module that the child class resides. If this doesn't exist
-            then a new instance will be created using the module classpath
-        :returns: Logger instance
-        """
-        module_name = cls.__module__
-        module = sys.modules[module_name]
-        return getattr(module, instance_name, None) or getLogger(module_name)
-
-    @classmethod
-    def get_logging_module(cls, module_name="logging", **kwargs):
-        """get the logging module defined in classes module
-
-        :param module_name: the logging module you want to get
-        :returns: module
-        """
-        module = sys.modules[cls.__module__]
-        return sys.modules[module_name]
-
-    @classmethod
-    def get_log_level(cls, level=NOTSET, **kwargs):
-        """Get the log level for class's logger
-
-        :param level_name: str, the name of the logger level (eg, "DEBUG")
-        :returns: int, the internal logging log level
-        """
-        if level == NOTSET:
-            default_level = kwargs.get("default_level", "DEBUG")
-            level = kwargs.get(
-                "level_name",
-                kwargs.get("level_name", default_level)
-            )
-
-        if not isinstance(level, int):
-            logmod = cls.get_logging_module(**kwargs)
-            # getLevelName() returns int if passed in arg is string
-            level = logmod.getLevelName(level.upper())
-        return level
-
-    @classmethod
-    def is_logging(cls, level, **kwargs):
-        """Wrapper around logger.isEnabledFor
-
-        :param level: str|int, the logging level we want to check
-        :param **kwargs:
-        :returns: bool, True if the level has logging enabled
-        """
-        if not isinstance(level, int):
-            level = cls.get_log_level(level, **kwargs)
-
-        logger = cls.get_logger_instance(**kwargs)
-        return logger.isEnabledFor(level)
-
-    def log_for(self, **kwargs):
-        """set different logging messages for different log levels
-
-        :Example:
-            self.log_for(
-                debug=(["debug log message {}", debug_msg], {}),
-                INFO=(["info log message {}", info_msg],),
-                warning=(["warning message"], {}),
-                ERROR=(["error message"],),
-            )
-
-        :param **kwargs: each key can have a tuple of (args, kwargs) that will
-            be passed to .log(), the key should be a log level name and can be
-            either upper or lower case
-        """
-        logger = self.get_logger_instance(**kwargs)
-        logmod = self.get_logging_module(**kwargs)
-        level_name = logmod.getLevelName(logger.getEffectiveLevel())
-
-        if level_name not in kwargs:
-            level_name = level_name.lower()
-
-        if level_name in kwargs:
-            args = kwargs[level_name]
-            if isinstance(args, str):
-                # debug="a string value"
-                log_args = [args]
-                log_kwargs = {}
-
-            elif isinstance(args, Sequence):
-                if len(args) == 2:
-                    if (
-                        isinstance(args[0], Sequence)
-                        and isinstance(args[1], Mapping)
-                    ):
-                        # debug=("a string value", {})
-                        # debug=(["a", "list", "value"], {})
-                        log_args = [args[0]]
-                        log_kwargs = args[1]
-
-                    else:
-                        # debug=["a list", "value"]
-                        log_args = args
-                        log_kwargs = {}
-
-                else:
-                    log_args = args
-                    log_kwargs = {}
-
-            else:
-                raise ValueError(f"Unknown value for {level_name}")
-
-            if len(log_args) == 1 and isinstance(log_args[0], list):
-                # https://docs.python.org/3/library/string.html#string.Formatter
-                parts = list(string.Formatter().parse(log_args[0][0]))
-                if len(parts) > 1 or parts[0][1] is not None:
-                    log_args = log_args[0] 
-
-            log_kwargs["level"] = level_name
-            self.log(*log_args, **log_kwargs)
-
-    def get_log_message(self, format_str, *format_args, **kwargs):
-        """Returns the logging message that will be logged using .log()"""
-        if format_args:
-            return format_str.format(*format_args)
-
-        else:
-            return format_str
-
-    def log(self, format_str, *format_args, **kwargs):
-        """wrapper around the module's logger
-
-        :param format_str: str|list[str], the message to log, if this is a list
-            then it will be joined with a space
-        :param *format_args: list, if format_str is a string containing {},
-            then format_str.format(*format_args) is ran
-        :param **kwargs:
-            level: str|int, something like logging.DEBUG or "DEBUG"
-            sentinel: callable|bool, if evaluates to False then the log will be
-                ignored
-        """
-        sentinel = kwargs.pop("sentinel", None)
-        if sentinel is None:
-            sentinel = True
-
-        else:
-            if callable(sentinel):
-                sentinel = sentinel()
-
-        logger = self.get_logger_instance(**kwargs)
-        if isinstance(format_str, Exception):
-            level = self.get_log_level(default_level="ERROR", **kwargs)
-            if self.is_logging(level) and sentinel:
-                logger.log(level, f"{format_str}", *format_args)
-
-        else:
-            if isinstance(format_str, list):
-                format_str = " ".join(filter(None, format_str))
-
-            level = self.get_log_level(**kwargs)
-            if self.is_logging(level) and sentinel:
-                try:
-                    logger.log(
-                        level,
-                        self.get_log_message(format_str, *format_args, **kwargs)
-                    )
-
-                except UnicodeError as e:
-                    logger.exception(e)
-
-    def log_warning(self, *args, **kwargs):
-        kwargs["level"] = "WARNING"
-        return self.log(*args, **kwargs)
-
-    def logw(self, *args, **kwargs):
-        return self.log_warning(*args, **kwargs)
-
-    def log_info(self, *args, **kwargs):
-        kwargs["level"] = "INFO"
-        return self.log(*args, **kwargs)
-
-    def logi(self, *args, **kwargs):
-        return self.log_info(*args, **kwargs)
-
-    def log_debug(self, *args, **kwargs):
-        kwargs["level"] = "DEBUG"
-        return self.log(*args, **kwargs)
-
-    def logd(self, *args, **kwargs):
-        return self.log_debug(*args, **kwargs)
-
-    def log_error(self, *args, **kwargs):
-        kwargs["level"] = "ERROR"
-        return self.log(*args, **kwargs)
-
-    def loge(self, *args, **kwargs):
-        return self.log_error(*args, **kwargs)
-
-    def log_critical(self, *args, **kwargs):
-        kwargs["level"] = "CRITICAL"
-        return self.log(*args, **kwargs)
-
-    def logc(self, *args, **kwargs):
-        return self.log_critical(*args, **kwargs)
 
