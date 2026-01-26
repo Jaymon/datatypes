@@ -144,6 +144,27 @@ class LoggerTest(TestCase):
         self.assertTrue(cm.output[0].endswith("printf 1 2"))
 
 
+    def test_hierarchy(self):
+        l1 = self.get_logger("abc.def.g")
+        l2 = self.get_logger("abc.def.h")
+
+        #l1.propogate = False
+        l1.setLevel("DEBUG")
+
+        #l2.propogate = False
+        l2.setLevel("DEBUG")
+
+        l1.manager.root.setLevel("WARNING")
+
+        for l in [l1, l2, l1.manager.root]:
+            l.debug(f"{l.name} - debug")
+            l.info(f"{l.name} - info")
+            l.warning(f"{l.name} - warning")
+            l.error(f"{l.name} - error")
+            l.critical(f"{l.name} - critical")
+
+
+
 
 
 #         return

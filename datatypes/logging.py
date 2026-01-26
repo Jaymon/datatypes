@@ -15,6 +15,7 @@ from collections.abc import (
     Callable,
 )
 import string
+from typing import Literal
 
 
 type Level = str|int|Callable
@@ -35,6 +36,8 @@ FORMAT_VERBOSE = "|".join([
     "%(name)s", # logger name
     "%(pathname)s:%(lineno)s] %(message)s",
 ])
+
+FORMAT_MSG = "%(message)s"
 
 
 def has_logger(name: str) -> bool:
@@ -128,15 +131,22 @@ def _get_quick_config(**kwargs) -> str:
         elif kwargs["format"] == "verbose":
             kwargs["format"] = FORMAT_VERBOSE
 
+        elif kwargs["format"] == "msg":
+            kwargs["format"] = FORMAT_MSG
+
     else:
         verbose = kwargs.pop("verbose_format", False)
         long = kwargs.pop("long_format", False)
         short = kwargs.pop("short_format", False)
+        msg = kwargs.pop("msg_format", False)
         if verbose:
             kwargs["format"] = FORMAT_VERBOSE
 
         elif long:
             kwargs["format"] = FORMAT_LONG
+
+        elif msg:
+            kwargs["format"] = FORMAT_MSG
 
         else:
             kwargs["format"] = FORMAT_SHORT
@@ -160,7 +170,7 @@ def quick_config(levels=None, **kwargs):
         # fine-tune the levels
         logging.quick_config(
             levels={
-                "datatypes": "WARNING",
+                "datatypes": "DEBUG",
             }
         )
 
@@ -173,18 +183,28 @@ def quick_config(levels=None, **kwargs):
         log_handler.setFormatter(log_formatter)
         logger.addHandler(log_handler)
 
+    https://docs.python.org/3/library/logging.html#logging.basicConfig
+
     :param levels: dict[str, str], the key is the logger name and the value is
         the level. This can also be a list[tuple] where the tuple is (name,
         level)
         method
     :keyword verbose_format: bool, pass in True to set the "format" key to a
         format that contains a lot more information
+    :keyword name: str, if passed in this is considered the primary logger
+        name and this will cause root to default to warning and the logger
+        at this name to default to debug
     :keyword **kwargs: key/val, these will be passed into logger.basicConfig
     """
     #setLoggerClass(Logger)
     #setLogRecordFactory(LogRecord)
-
     levels = levels or {}
+
+    # https://github.com/Jaymon/datatypes/issues/69
+    if name := kwargs.pop("name", ""):
+        name = name.split(".", 1)[0]
+        kwargs.setdefault("level", "WARNING")
+        levels.setdefault(name, "DEBUG")
 
     kwargs = _get_quick_config(**kwargs)
     basicConfig(**kwargs)
@@ -203,7 +223,7 @@ def quick_config(levels=None, **kwargs):
 basic_logging = quick_config
 
 
-def project_config(config=None, **kwargs):
+def project_config(config=None, **kwargs) -> None:
     """I have a tendency to set up projects roughly the same way, and I've been
     copy/pasting some version of this dict_config for years, this is an effort
     to DRY this config a little bit
@@ -212,13 +232,35 @@ def project_config(config=None, **kwargs):
     on 2-11-2023
 
     :param config: dict, this dict will override the default configuration
-    :param **kwargs: any specific keys will override passed in config dict
+    :keyword level: Level, the minimum level unless `name` is passed in, then
+        it is the level of the `name` logger, defaults to debug
+    :keyword root_level: Level, the minimum root level logger, set to `level`
+        unless `name` is passed in, then set to warning unless passed in
+        explicitely
+    :keyword name: str, the project logger name that is being configured, if
+        this is passed in then the logger at `name` will be configured at
+        level `level` (defaults to debug) and `root_level` will default to
+        warning
+    :keyword **kwargs: any specific keys will override passed in config dict
     """
     setLoggerClass(Logger)
     #setLogRecordFactory(LogRecord)
 
-    level = kwargs.pop("level", "DEBUG")
     config = config or {}
+
+    level = getLevelName(kwargs.pop("level", "DEBUG"))
+
+    if name := kwargs.pop("name", ""):
+        name = name.split(".", 1)[0]
+        root_level = kwargs.pop("root_level", "WARNING")
+
+        config.setdefault("loggers", {})
+        config["loggers"].setdefault(name, {})
+        config["loggers"][name].setdefault("level", level)
+
+    else:
+        root_level = kwargs.pop("root_level", level)
+
     config.update(kwargs)
 
     # avoid circular dependency
@@ -237,57 +279,41 @@ def project_config(config=None, **kwargs):
             'verboseformatter': {
                 'format': FORMAT_VERBOSE,
             },
+            'msgformatter': {
+                'format': FORMAT_MSG,
+            },
         },
         'handlers': {
             'streamhandler': {
-                'level': level,
+                #'level': level,
                 'class': 'logging.StreamHandler',
                 'formatter': 'shortformatter',
-                'filters': [],
+                #'filters': [],
             },
         },
         'root': {
-            'level': level,
+            'level': getLevelName(root_level),
             'filters': [],
             'handlers': ['streamhandler'],
         },
         'loggers': {
-    #         'botocore': {
-    #             'level': 'ERROR',
-    #         },
-    #         'boto3': {
-    #             'level': 'ERROR',
-    #         },
-    #         'boto': {
-    #             'level': 'ERROR',
-    #         },
-    #         'paramiko': {
-    #             'level': 'WARNING',
-    #         },
             'dsnparse': {
                 'level': 'INFO',
             },
             'prom': {
-                #'level': 'CRITICAL',
-                #'level': 'WARNING',
-                #'level': 'DEBUG',
                 'level': 'INFO',
             },
             'morp': {
                 'level': 'INFO',
-                #'level': 'DEBUG',
             },
             'decorators': {
                 'level': 'WARNING',
-                #'level': 'DEBUG',
             },
             'datatypes': {
                 'level': 'WARNING',
-                #'level': 'DEBUG',
             },
             'caches': {
                 'level': 'WARNING',
-                #'level': 'DEBUG',
             },
             'requests': {
                 'level': 'WARNING',
@@ -304,7 +330,9 @@ def project_config(config=None, **kwargs):
     config.dictConfig(dict_config)
 
 
-def getLevelName(level: Level):
+def getLevelName(
+    level: Level
+) -> Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
     """Wrapper around stdlib `getLevelName` that can also take the logging
     methods"""
     if callable(level):
