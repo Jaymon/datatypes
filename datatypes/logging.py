@@ -457,7 +457,17 @@ class Logger(Logger):
         level = getLevel(level)
         return super().log(level, msg, *args, **kwargs)
 
-    def _log(self, level: int, msg: str, args: Sequence, **kwargs) -> None:
+    def _log(
+        self,
+        level: int,
+        msg: str,
+        args: Sequence,
+        exc_info: BaseException|bool|tuple|None = None,
+        extra: Mapping|None = None,
+        stack_info: bool = False,
+        stacklevel: int = 1, 
+        **kwargs,
+    ) -> None:
         """Wrapper around parent's internal method, mostly everything is the
         same except this can take a few more keywords to customize behavior
 
@@ -466,12 +476,18 @@ class Logger(Logger):
             warning if debug is enabled and is just another way to fine tune
             the logging
         :keyword style: Literal["%", "{", "="]
-            * `%` = printf, the default
-            * `{` = format, use `msg.format`
-            * `$` = template, not supported right now
+            * `%` = printf, the default, `msg % args` will be called
+                https://docs.python.org/3/library/stdtypes.html#old-string-formatting
+            * `{` = format, use `msg.format` will be called with args and
+                kwargs
+                https://docs.python.org/3/library/string.html#format-string-syntax
+            * `$` = template, msg will be wrapped in string.Template and
+                `Template.substitute` will be called with args and kwargs
+                https://docs.python.org/3/library/string.html#template-strings-strings
             * `=` = golang slog, similar to golang's slog logger, the main
                 message is followed by key, value arguments that are added
                 to the end of the message
+                https://pkg.go.dev/log/slog#TextHandler
         """
         enabled_level = kwargs.pop("enabled_for", None)
         if enabled_level is not None:
@@ -481,12 +497,8 @@ class Logger(Logger):
         # the style keyword matches `.basicConfig` style keyword
         if style := kwargs.pop("style", ""):
             if self.isEnabledFor(level):
-                # % = printf
-                # { = format
-                # $ = template
-                # , = glang slog
                 if style == "{":
-                    msg = msg.format(*args)
+                    msg = msg.format(*args, **kwargs)
                     args = []
 
                 elif style == "=":
@@ -500,12 +512,19 @@ class Logger(Logger):
 
                     args = []
 
-#             if kwargs["extra"] is None:
-#                 kwargs["extra"] = {}
-# 
-#             kwargs["extra"]["style"] = style
+                elif style == "$":
+                    msg = string.Template(msg).substitute(*args, **kwargs)
+                    args = []
 
-        return super()._log(level, msg, args, **kwargs)
+        return super()._log(
+            level,
+            msg,
+            args,
+            exc_info,
+            extra,
+            stack_info,
+            stacklevel,
+        )
 
     def log_for(self, **kwargs) -> None:
         """set different logging messages for different log levels

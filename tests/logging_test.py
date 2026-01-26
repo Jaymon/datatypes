@@ -169,16 +169,22 @@ class LoggerTest(TestCase):
             with self.assertLogs(logger=logger, level="INFO") as cm:
                 logger.warning("warning", enabled_for="DEBUG")
 
-    def test__log_style(self):
-        logger = self.get_logger("log_style")
+    def test__log_style_format(self):
+        logger = self.get_logger("log_style_format")
 
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             logger.debug("format {} {}", 1, 2, style="{")
         self.assertTrue(cm.output[0].endswith("format 1 2"))
 
+    def test__log_style_golang(self):
+        logger = self.get_logger("log_style_golang")
+
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             logger.debug("golang", "k1", "v1", "k2", "v 2", style="=")
         self.assertTrue(cm.output[0].endswith("golang k1=v1 k2=\"v 2\""))
+
+    def test__log_style_printf(self):
+        logger = self.get_logger("log_style_printf")
 
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             logger.debug("printf %d %d", 1, 2, style="%")
@@ -187,6 +193,17 @@ class LoggerTest(TestCase):
         with self.assertLogs(logger=logger, level="DEBUG") as cm:
             logger.debug("printf %d %d", 1, 2)
         self.assertTrue(cm.output[0].endswith("printf 1 2"))
+
+    def test__log_style_template(self):
+        logger = self.get_logger("log_style_template")
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.debug("template $one $two", {"one": 1, "two": 2}, style="$")
+        self.assertTrue(cm.output[0].endswith("template 1 2"))
+
+        with self.assertLogs(logger=logger, level="DEBUG") as cm:
+            logger.debug("template $one $two", one=1, two=2, style="$")
+        self.assertTrue(cm.output[0].endswith("template 1 2"))
 
     def test_hierarchy(self):
         l1 = self.get_logger("abc.def.g")
