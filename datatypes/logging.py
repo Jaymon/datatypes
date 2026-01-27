@@ -120,6 +120,9 @@ def setdefault(name: str, val: str|int):
 
 
 def _get_quick_config(**kwargs) -> Mapping:
+    """Internal function. Called from `quick_config` and `Logger.quick_config`
+    and shouldn't be called outside of those. THis just normalizes `kwargs`
+    and gets it ready to actually configure the Logger instance"""
     if "format" in kwargs:
         if kwargs["format"] == "short":
             kwargs["format"] = SHORT_FORMAT
@@ -158,7 +161,20 @@ def _get_quick_config(**kwargs) -> Mapping:
             kwargs["format"] = SHORT_FORMAT
 
     kwargs.setdefault("level", logging.DEBUG)
-    kwargs.setdefault("stream", sys.stdout)
+
+    if "stream" in kwargs and isinstance(kwargs["stream"], str):
+        if kwargs["stream"] == "stdout":
+            kwargs["stream"] = sys.stdout
+
+        elif kwargs["stream"] == "stderr":
+            kwargs["stream"] = sys.stderr
+
+        else:
+            raise ValueError(f"Unrecognized stream value: {kwargs['stream']}")
+
+    else:
+        kwargs.setdefault("stream", sys.stdout)
+
     return kwargs
 
 
@@ -195,8 +211,9 @@ def quick_config(levels=None, **kwargs):
         the level. This can also be a list[tuple] where the tuple is (name,
         level)
         method
-    :keyword verbose_format: bool, pass in True to set the "format" key to a
-        format that contains a lot more information
+    :keyword format: Literal["verbose", "long", "short", "msg", "basic"],
+        defaults to "short", this is the type of output wanted
+    :keyword stream: io.IOBase|Literal["stdout", "stderr"]
     :keyword name: str, if passed in this is considered the primary logger
         name and this will cause root to default to warning and the logger
         at this name to default to debug
@@ -226,8 +243,6 @@ def quick_config(levels=None, **kwargs):
             logger_level = getattr(logging, logger_level)
         l.setLevel(logger_level)
 
-basic_logging = quick_config
-
 
 def project_config(config=None, **kwargs) -> None:
     """I have a tendency to set up projects roughly the same way, and I've been
@@ -236,6 +251,8 @@ def project_config(config=None, **kwargs) -> None:
 
     This will set loggers for some of the modules I use the most, moved here
     on 2-11-2023
+
+    https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig
 
     :param config: dict, this dict will override the default configuration
     :keyword level: Level, the minimum level unless `name` is passed in, then
@@ -273,70 +290,70 @@ def project_config(config=None, **kwargs) -> None:
     from .collections import Dict
 
     dict_config = Dict({
-        'version': 1,
-        'formatters': {
+        "version": 1,
+        "formatters": {
             # https://docs.python.org/3/library/logging.html#logrecord-attributes
-            'short': {
-                'format': SHORT_FORMAT,
+            "short": {
+                "format": SHORT_FORMAT,
             },
-            'long': {
-                'format': LONG_FORMAT,
+            "long": {
+                "format": LONG_FORMAT,
             },
-            'verbose': {
-                'format': VERBOSE_FORMAT,
+            "verbose": {
+                "format": VERBOSE_FORMAT,
             },
-            'msg': {
-                'format': MSG_FORMAT,
+            "msg": {
+                "format": MSG_FORMAT,
             },
-            'basic': {
-                'format': BASIC_FORMAT,
+            "basic": {
+                "format": BASIC_FORMAT,
             },
         },
-        'handlers': {
-            'stream': {
+        "handlers": {
+            "stream": {
                 #'level': level,
-                'class': 'logging.StreamHandler',
-                'formatter': 'short',
+                "class": "logging.StreamHandler",
+                "formatter": "short",
                 #'filters': [],
             },
         },
-        'root': {
-            'level': getLevelName(root_level),
-            'filters': [],
-            'handlers': ['stream'],
+        "root": {
+            "level": getLevelName(root_level),
+            "filters": [],
+            "handlers": ["stream"],
         },
-        'loggers': {
-            'dsnparse': {
-                'level': 'INFO',
+        "loggers": {
+            "asyncio": {
+                "level": "INFO",
             },
-            'prom': {
-                'level': 'INFO',
+            "dsnparse": {
+                "level": "INFO",
             },
-            'morp': {
-                'level': 'INFO',
+            "prom": {
+                "level": "INFO",
             },
-            'decorators': {
-                'level': 'WARNING',
+            "morp": {
+                "level": "INFO",
             },
-            'datatypes': {
-                'level': 'WARNING',
+            "decorators": {
+                "level": "WARNING",
             },
-            'caches': {
-                'level': 'WARNING',
+            "datatypes": {
+                "level": "WARNING",
             },
-            'requests': {
-                'level': 'WARNING',
+            "caches": {
+                "level": "WARNING",
             },
-            'asyncio': {
-                'level': 'INFO',
+            "requests": {
+                "level": "WARNING",
             },
         },
-        'incremental': False,
-        'disable_existing_loggers': False,
+        "incremental": False,
+        "disable_existing_loggers": False,
     })
 
     dict_config.merge(config)
-    config.dictConfig(dict_config)
+    logging.config.dictConfig(dict_config)
 
 
 def getLevelName(
@@ -417,17 +434,17 @@ class Logger(Logger):
 
         https://docs.python.org/3/library/logging.html#logging.basicConfig
         """
-        _acquireLock()
-        try:
-            kwargs = _get_quick_config(**kwargs)
-            log_formatter = Formatter(kwargs["format"])
-            log_handler = StreamHandler(stream=kwargs["stream"])
-            log_handler.setFormatter(log_formatter)
-            self.addHandler(log_handler)
-            self.setLevel(kwargs["level"])
+        if len(self.handlers) == 0:
+            _acquireLock()
+            try:
+                kwargs = _get_quick_config(**kwargs)
+                log_handler = StreamHandler(stream=kwargs["stream"])
+                log_handler.setFormatter(Formatter(kwargs["format"]))
+                self.addHandler(log_handler)
+                self.setLevel(kwargs["level"])
 
-        finally:
-            _releaseLock()
+            finally:
+                _releaseLock()
 
     def getEffectiveLevelName(self) -> str:
         """Similar to the `.getEffectiveLevel` but returns the string
@@ -531,10 +548,10 @@ class Logger(Logger):
 
         :example:
             logger.log_for(
-                debug=(["debug log message {}", debug_msg], {}),
-                INFO=(["info log message {}", info_msg],),
+                debug=("debug log message {}", debug_msg),
+                INFO=("info log message {}", info_msg),
                 warning=(["warning message"], {}),
-                ERROR=(["error message"],),
+                ERROR="error message",
             )
 
         :param **kwargs: each key can have a tuple of (args, kwargs) that will
@@ -582,9 +599,9 @@ class Logger(Logger):
                     # debug=["msg %s", "value"]
                     log_args = [args[0], tuple(args[1:])]
 
-            for k in ["style", "enabled_for"]:
-                if k in kwargs:
-                    log_kwargs.setdefault(k, kwargs[k])
+#             for k in ["style", "enabled_for"]:
+#                 if k in kwargs:
+#                     log_kwargs.setdefault(k, kwargs[k])
 
-            self._log(level, *log_args, **log_kwargs)
+            self._log(level, *log_args, **kwargs, **log_kwargs)
 
