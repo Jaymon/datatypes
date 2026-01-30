@@ -18,6 +18,8 @@ import string
 
 
 type Level = str|int|Callable
+type Levels = Mapping[str, Level]|Sequence[tuple[str, Level]]
+
 
 SHORT_FORMAT = "[%(levelname).1s] %(message)s"
 
@@ -178,7 +180,21 @@ def _get_quick_config(**kwargs) -> Mapping:
     return kwargs
 
 
-def quick_config(levels=None, **kwargs):
+def _set_levels(levels: Levels) -> None:
+    """Configure certain loggers
+
+    :param levels: keys are logger names, value is the level for that logger
+    """
+    # https://github.com/Jaymon/testdata/issues/34
+    if isinstance(levels, Mapping):
+        levels = levels.items()
+
+    for logger_name, logger_level in levels:
+        l = getLogger(logger_name)
+        l.setLevel(logger_level)
+
+
+def quick_config(levels: Levels|None = None, **kwargs):
     """Lots of times I have to add a basic logger, it's basically the
     same code over and over again, this will just make that a little easier to
     do
@@ -231,20 +247,10 @@ def quick_config(levels=None, **kwargs):
 
     kwargs = _get_quick_config(**kwargs)
     basicConfig(**kwargs)
-
-    # configure certain loggers
-    # https://github.com/Jaymon/testdata/issues/34
-    if isinstance(levels, Mapping):
-        levels = levels.items()
-
-    for logger_name, logger_level in levels:
-        l = getLogger(logger_name)
-        if isinstance(logger_level, str):
-            logger_level = getattr(logging, logger_level)
-        l.setLevel(logger_level)
+    _set_levels(levels)
 
 
-def project_config(config=None, **kwargs) -> None:
+def project_config(config: Mapping|None = None, **kwargs) -> None:
     """I have a tendency to set up projects roughly the same way, and I've been
     copy/pasting some version of this dict_config for years, this is an effort
     to DRY this config a little bit
@@ -264,12 +270,14 @@ def project_config(config=None, **kwargs) -> None:
         this is passed in then the logger at `name` will be configured at
         level `level` (defaults to debug) and `root_level` will default to
         warning
+    :keyword levels: Levels, passed to `._set_levels`
     :keyword **kwargs: any specific keys will override passed in config dict
     """
     setLoggerClass(Logger)
     #setLogRecordFactory(LogRecord)
 
     config = config or {}
+    levels = kwargs.pop("levels") or {}
 
     level = getLevelName(kwargs.pop("level", "DEBUG"))
 
@@ -354,6 +362,7 @@ def project_config(config=None, **kwargs) -> None:
 
     dict_config.merge(config)
     logging.config.dictConfig(dict_config)
+    _set_levels(levels)
 
 
 def getLevelName(
@@ -492,7 +501,7 @@ class Logger(Logger):
             enabled for the level, this allows you to do thing like only log a 
             warning if debug is enabled and is just another way to fine tune
             the logging
-        :keyword style: Literal["%", "{", "="]
+        :keyword style: Literal["%", "{", "=", "$"]
             * `%` = printf, the default, `msg % args` will be called
                 https://docs.python.org/3/library/stdtypes.html#old-string-formatting
             * `{` = format, use `msg.format` will be called with args and
@@ -591,17 +600,13 @@ class Logger(Logger):
                         and isinstance(args[1], Mapping)
                     )
                 ):
-                    # debug=("msg", {})
-                    log_args = [args[0]]
+                    # debug=(["msg %s", "value"], {"k1": "v1"})
+                    log_args = args[0]
                     log_kwargs = args[1]
 
                 else:
                     # debug=["msg %s", "value"]
                     log_args = [args[0], tuple(args[1:])]
-
-#             for k in ["style", "enabled_for"]:
-#                 if k in kwargs:
-#                     log_kwargs.setdefault(k, kwargs[k])
 
             self._log(level, *log_args, **kwargs, **log_kwargs)
 

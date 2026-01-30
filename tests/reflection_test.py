@@ -2733,6 +2733,25 @@ class ReflectDocblockTest(TestCase):
         desc = list(rdb.get_bodies("description"))[0]
         self.assertTrue("description line 1\n\ndescription line 2" in desc)
 
+    def test_positionals_keywords(self):
+        db = (
+            ":argument *foos: foos description\n"
+            ":keyword **bars: bars description\n"
+        )
+        rdb = ReflectDocblock(db)
+
+        params = rdb.get_param_descriptions()
+        self.assertTrue("foos" in params)
+        self.assertTrue("bars" in params)
+
+    def test_get_description(self):
+        db = (
+            "Main description\n\n"
+            ":param foo: param description"
+        )
+        rdb = ReflectDocblock(db)
+        self.assertEqual("Main description", rdb.get_description())
+
 
 class ReflectASTTest(TestCase):
     def test_get_expr_value(self):

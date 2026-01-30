@@ -28,6 +28,7 @@ from collections.abc import (
     Sequence,
     Set,
     Iterable,
+    Generator,
 )
 
 from ..compat import *
@@ -3258,9 +3259,9 @@ class ReflectDocblock(ReflectABC):
     """
     def __init__(self, target, **kwargs):
         self.target = target
-        self.info = self.parse()
+        self.info = self._parse()
 
-    def parse(self):
+    def _parse(self) -> dict[str, list[str]|dict[str, str|list[str]]]:
         """Internal method. Called from the constructor to give structure to
         the docblock
 
@@ -3279,7 +3280,7 @@ class ReflectDocblock(ReflectABC):
             if not desc or desc[-1].isspace():
                 chars = s.read_thru(delims=delims)
                 if chars == ":":
-                    tagname, tagval, tagbody = self.parse_tag(s)
+                    tagname, tagval, tagbody = self._parse_tag(s)
                     info.setdefault(tagname, [])
                     info[tagname].append({
                         "value": tagval,
@@ -3287,7 +3288,7 @@ class ReflectDocblock(ReflectABC):
                     })
 
                 elif chars == "..":
-                    dirname, dirbody = self.parse_directive(s)
+                    dirname, dirbody = self._parse_directive(s)
                     info.setdefault(dirname, [])
                     info[dirname].append({
                         "body": dirbody,
@@ -3295,7 +3296,7 @@ class ReflectDocblock(ReflectABC):
 
         return info
 
-    def parse_tag(self, s):
+    def _parse_tag(self, s: Scanner) -> tuple[str, str, list[str]]:
         """Internal method. Called from `.parse()`. This handles parsing
         `:tag:` syntax.
 
@@ -3310,10 +3311,10 @@ class ReflectDocblock(ReflectABC):
         s.read_thru(hspace=True)
         value = s.read_to(char=":")
         s.read_thru(char=":")
-        body = self.parse_body(s)
+        body = self._parse_body(s)
         return name, value, body
 
-    def parse_directive(self, s):
+    def _parse_directive(self, s: Scanner) -> tuple[str, str, list[str]]:
         """Internal method. Called from `.parse()`. This handles parsing
         `.. directive::` syntax
 
@@ -3324,10 +3325,10 @@ class ReflectDocblock(ReflectABC):
         s.read_thru(hspace=True)
         name = s.read_to(delim="::")
         s.read_thru(delim="::")
-        body = self.parse_body(s)
+        body = self._parse_body(s)
         return name, body
 
-    def parse_body(self, s):
+    def _parse_body(self, s: Scanner) -> list[str]:
         """Internal method. Called from the sub parsing methods.
 
         :param s: Scanner
@@ -3337,14 +3338,14 @@ class ReflectDocblock(ReflectABC):
 
         while True:
             body.append(s.read_to(char="\n", include_delim=True))
-            indent, blanklines = self.parse_blanklines(s)
+            indent, blanklines = self._parse_blanklines(s)
             body.extend(blanklines)
             if not indent:
                 break
 
         return body
 
-    def parse_blanklines(self, s):
+    def _parse_blanklines(self, s: Scanner) -> tuple[str, list[str]]:
         """Internal method. Called from `.parse_body()`. Get all the blank
         lines between 2 populated lines in a body
 
@@ -3366,7 +3367,7 @@ class ReflectDocblock(ReflectABC):
 
         return indent, blanklines
 
-    def get_bodies(self, name):
+    def get_bodies(self, name: str) -> Generator[str]:
         """Get the bodies of `name`
 
         :param name: str, the directive or tag name
@@ -3381,19 +3382,23 @@ class ReflectDocblock(ReflectABC):
             else:
                 yield self._get_str_body(self.info[name])
 
-    def get_signature_info(self):
+    def get_signature_info(self) -> dict[str, set[str]|str|dict[str, str]]:
         """Get call signature information according to the docblock
 
         :returns: dict[str, str|set|dict[str, str]]
             - positional_only_names: set[str], the set of names that can
                 only be passed in as positionals
-            - keyword_only_names: set[str], the set of names taht can
+            - positionals_name: str, the positionals catchall (eg, `*args`)
+            - keyword_only_names: set[str], the set of names that can
                 only be passed in as keywords
+            - keywords_name: str, the keywords catchall (eg, `**kwargs`)
             - descriptions: dict[str, str], the descriptions for each param
         """
         siginfo = {
             "positional_only_names": set(),
             "keyword_only_names": set(),
+            "positionals_name": "",
+            "keywords_name": "",
             "descriptions": {},
         }
 
@@ -3404,19 +3409,29 @@ class ReflectDocblock(ReflectABC):
             if ptype == "positional":
                 siginfo["positional_only_names"].add(name)
 
+            elif ptype == "positionals":
+                siginfo["positionals_name"].add(name)
+
             elif ptype == "keyword":
                 siginfo["keyword_only_names"].add(name)
 
+            elif ptype == "keywords":
+                siginfo["keywords_name"].add(name)
+
         return siginfo
 
-    def get_docblock(self):
+    def get_docblock(self) -> str:
+        """Returns the full docblock, for this class, this is basically the
+        same as `.get_target()` but is here for api compatibility with a
+        lot of the other Reflection classes"""
         return self.get_target()
 
-    def get_description(self):
-        """Get the docblock description"""
+    def get_description(self) -> str:
+        """Get just the docblock description with all the tags and
+        directives stripped from it"""
         return self._get_str_body(self.info.get("description", []))
 
-    def get_param_descriptions(self):
+    def get_param_descriptions(self) -> dict[str, str]:
         """Get all the callable's parameter descriptions
 
         :returns: dict[str, str], the key is the parameter name and the
@@ -3428,7 +3443,7 @@ class ReflectDocblock(ReflectABC):
 
         return ret
 
-    def _get_params(self):
+    def _get_params(self) -> tuple[str, str, str]:
         """Internal method to get the parameters
 
         This normalize all the different keywords a parameter can be defined
@@ -3454,7 +3469,7 @@ class ReflectDocblock(ReflectABC):
         for tagname in tagnames:
             if tagname in self.info:
                 for row in self.info[tagname]:
-                    name = row["value"]
+                    name = row["value"].lstrip("*")
                     param_type = "param"
 
                     if tagname in set(["arg", "argument"]):
@@ -3463,9 +3478,17 @@ class ReflectDocblock(ReflectABC):
                     elif tagname in set(["key", "keyword"]):
                         param_type = "keyword"
 
+                    if name.startswith("**"):
+                        name = row["value"].lstrip("*")
+                        param_type = "keywords"
+
+                    elif name.startswith("*"):
+                        name = row["value"].lstrip("*")
+                        param_type = "positionals"
+
                     desc = self._get_str_body(row["body"])
                     yield name, param_type, desc
 
-    def _get_str_body(self, lines):
+    def _get_str_body(self, lines: list[str]) -> str:
         return "".join(lines).strip()
 
