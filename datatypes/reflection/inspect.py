@@ -2723,6 +2723,36 @@ class ReflectClass(ReflectObject):
         except inspect.ClassFoundException:
             return class_finder.node
 
+    def get_property_descriptions(self) -> dict[str, str]:
+        """Get property descriptions (docblock string underneath a class
+        property
+
+        .. note:: This does not currently pick up descriptors (eg methods
+            defined using `@property`) that are considered properties
+        """
+        ret = {}
+
+        if node := self.get_ast():
+            # this code comes from Gemini
+            for a, b in zip(node.body, node.body[1:]):
+                if (
+                    isinstance(a, (ast.Assign, ast.AnnAssign))
+                    and isinstance(b, ast.Expr)
+                    and isinstance(b.value, ast.Constant)
+                    and isinstance(b.value.value, str)
+                ):
+                    if isinstance(a, ast.Assign):
+                        targets = a.targets
+
+                    else:
+                        targets = [a.target]
+
+                    for target in targets:
+                        if isinstance(target, ast.Name):
+                            ret[target.id] = inspect.cleandoc(b.value.value)
+
+        return ret
+
 
 class ReflectModule(ReflectObject):
     """Introspect on a given module name/path (eg foo.bar.che)

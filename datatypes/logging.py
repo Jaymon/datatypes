@@ -277,7 +277,7 @@ def project_config(config: Mapping|None = None, **kwargs) -> None:
     #setLogRecordFactory(LogRecord)
 
     config = config or {}
-    levels = kwargs.pop("levels") or {}
+    levels = kwargs.pop("levels", None) or {}
 
     level = getLevelName(kwargs.pop("level", "DEBUG"))
 

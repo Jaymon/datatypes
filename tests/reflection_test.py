@@ -2192,6 +2192,31 @@ class ReflectClassTest(TestCase):
         pc = next(rc.reflect_parents(depth=1))
         self.assertTrue(pc.has_definition("bar"))
 
+    def test_get_property_descriptions(self):
+        class Foo(object):
+            # bar property comment
+            bar: int = 1
+            """The bar property docblock"""
+
+            che: str
+            """The che property docblock"""
+
+            @property
+            def bam(self) -> int:
+                """bam property descriptor docblock"""
+                return 3
+
+            def boo(self):
+                """boo method docblock"""
+                pass
+
+        rc = ReflectClass(Foo)
+
+        d = rc.get_property_descriptions()
+        self.assertEqual(2, len(d))
+        self.assertEqual("The che property docblock", d["che"])
+        self.assertEqual("The bar property docblock", d["bar"])
+
 
 class ReflectModuleTest(TestCase):
     def test_relative(self):
