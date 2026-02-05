@@ -124,3 +124,12 @@ from collections.abc import (
     Buffer,
 )
 
+#BaseException = BaseException
+
+from enum import (
+    EnumType, # The type for Enum and its subclasses
+    IntEnum,
+    StrEnum,
+    IntFlag,
+)
+

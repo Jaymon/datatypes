@@ -2999,7 +2999,7 @@ class ReflectModule(ReflectObject):
             )
 
             for subname in submodule_names:
-                if depth <= 0 or count(subname) < depth:
+                if depth <= 0 or subname.count(".") <= depth:
                     yield self.create_reflect_module(subname)
 
     def get_submodules(self, depth=-1):
@@ -3057,7 +3057,7 @@ class ReflectModule(ReflectObject):
         """
         yield self.get_module()
 
-        for sm in self.get_submodules():
+        for sm in self.get_submodules(depth=depth):
             yield sm
 
     def get_module_names(self):

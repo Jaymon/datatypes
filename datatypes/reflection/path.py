@@ -6,6 +6,7 @@ import importlib.util
 import importlib.machinery
 import pkgutil
 import re
+import logging
 
 from ..compat import *
 from ..decorators import (
@@ -15,6 +16,9 @@ from ..string import String
 from ..path import Dirpath, Path
 from ..config import Config
 from ..url import Url
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReflectPath(Path):
@@ -240,9 +244,9 @@ class ReflectPath(Path):
                             else:
                                 yield rm.get_module()
 
-                        except ModuleNotFoundError:
+                        except ModuleNotFoundError as e:
                             # what we found wasn't actually a module
-                            pass
+                            logger.warning(e)
 
 
 class ReflectName(String):
