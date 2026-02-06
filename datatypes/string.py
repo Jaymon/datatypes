@@ -1531,6 +1531,9 @@ class Password(String):
         :returns: str, a password hash, using all the default values the hash
             length should be 175 characters
         """
+        if not password:
+            raise ValueError("Password is empty")
+
         if len(password) > 1024:
             raise ValueError("Password is too long")
 
@@ -1740,9 +1743,23 @@ class Password(String):
         :keyword error_class: pass in an Exception derived class to raise
             an error instead of return False
         """
-        r = self.checkpw(self, hashpw)
-        if not r and error_class:
-            raise error_class("Password failed check")
+        if self:
+            if hashpw:
+                r = self.checkpw(self, hashpw)
+                if not r and error_class:
+                    raise error_class("Password failed check")
+
+            else:
+                r = False
+                if error_class:
+                    raise error_class(
+                        "Password hash cannot be empty for check",
+                    )
+
+        else:
+            r = False
+            if error_class:
+                raise error_class("Password cannot be empty for check")
 
         return r
 

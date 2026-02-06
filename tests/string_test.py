@@ -614,3 +614,17 @@ class PasswordTest(TestCase):
         with self.assertRaises(ValueError):
             pw.check(bph, error_class=ValueError)
 
+    def test_check_empty(self):
+        """Make sure empty password or hash fails the check"""
+        pw1 = Password("foo")
+        ph1 = pw1.hash()
+
+        pw2 = Password("")
+        self.assertFalse(pw2.check(ph1))
+        with self.assertRaises(ValueError):
+            pw2.check(ph1, error_class=ValueError)
+
+        self.assertFalse(pw2.check(""))
+        with self.assertRaises(ValueError):
+            pw2.check("", error_class=ValueError)
+
