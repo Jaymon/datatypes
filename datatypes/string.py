@@ -8,6 +8,7 @@ import unicodedata
 import secrets
 import textwrap
 import uuid
+import enum
 
 from .compat import *
 from .config.environ import environ
@@ -1478,6 +1479,13 @@ class Ascii(String):
 class Password(String):
     """Standard library password hashing
 
+    :example:
+        pw = Password("my-1-GREAT-password")
+        pw.validate(min_size=8, flags=Password.flag.ALL) # True
+
+        ph = pw.hash()
+        pw.check(ph) # True
+
     the purpose of this is to allow reasonably secure password hashing using
     only standard libraries with no third-party dependency
 
@@ -1494,15 +1502,32 @@ class Password(String):
 
         https://pypi.org/project/argon2-cffi/
     """
+    class flag(enum.IntFlag):
+        UPPERCASE = enum.auto()
+        """Password must contain an uppercase character"""
+
+        LOWERCASE = enum.auto()
+        """Password must contain a lowercase character"""
+
+        SPECIAL = enum.auto()
+        """Password must contain a non alphanumeric character"""
+
+        DIGIT = enum.auto()
+        """Password must contain a numeric character"""
+
+        ALL = UPPERCASE|LOWERCASE|SPECIAL|DIGIT
+        """Password must have at least one lowercase, uppercase, special
+        and numerical character"""
+
     @classmethod
-    def hashpw(cls, password, salt="", **kwargs):
+    def hashpw(cls, password: str, salt: str = "", **kwargs) -> str:
         """The main method to turn plain text password into an obscured
         password hash
 
         :param password: str, the plain text password that should be shorter
             than 1024 characters
         :param salt: str, the salt you want to use
-        :param **kwargs: see .genprefix
+        :param **kwargs: see ._genprefix
         :returns: str, a password hash, using all the default values the hash
             length should be 175 characters
         """
@@ -1510,13 +1535,13 @@ class Password(String):
             raise ValueError("Password is too long")
 
         salt = String(salt) or cls.gensalt(**kwargs)
-        prefix, pkwargs = cls.genprefix(salt, **kwargs) 
-        pwhash = cls.scrypt(password, **pkwargs)
+        prefix, pkwargs = cls._genprefix(salt, **kwargs) 
+        pwhash = cls._scrypt(password, **pkwargs)
 
         return prefix + pwhash
 
     @classmethod
-    def checkpw(cls, password, hashpw):
+    def checkpw(cls, password: str, hashpw: str) -> bool:
         """Compare plain text password to obscured hashpw
 
         :param password: str, the plain text password
@@ -1524,12 +1549,12 @@ class Password(String):
         :returns: bool, True if password hashes to the same hash as hashpw
         """
         prefix, haystack = hashpw.split(".", 1)
-        pkwargs = cls.parse_prefix(prefix)
-        needle = cls.scrypt(password, **pkwargs)
+        pkwargs = cls._parse_prefix(prefix)
+        needle = cls._scrypt(password, **pkwargs)
         return needle == haystack
 
     @classmethod
-    def gensalt(cls, nbytes=32, **kwargs):
+    def gensalt(cls, nbytes: int = 32, **kwargs) -> str:
         """Semi-internal method. Generates nbytes of a random salt
 
         https://docs.python.org/3/library/secrets.html#secrets.choice
@@ -1541,7 +1566,7 @@ class Password(String):
         return "".join(secrets.choice(cls.ALPHANUMERIC) for i in range(nbytes))
 
     @classmethod
-    def parse_prefix(cls, prefix):
+    def _parse_prefix(cls, prefix: str) -> dict[str, str|int]:
         """Internal method. Given the prefix portion (everything to the left of
         the period in a password hash generated with .hashpw) parse it to get
         the scrypt values used to generate the right side of the hash
@@ -1564,9 +1589,17 @@ class Password(String):
         return pkwargs
 
     @classmethod
-    def genprefix(cls, salt, n=16384, r=8, p=1, dklen=64, **kwargs):
+    def _genprefix(
+        cls,
+        salt: str,
+        n: int = 16384,
+        r: int = 8,
+        p: int = 1,
+        dklen: int = 64,
+        **kwargs
+    ) -> tuple[str, dict[str, str|int]]:
         """Internal method. Create a prefix that can be prepended to the hash
-        returned from .scrypt
+        returned from ._scrypt
 
         This was useful in figuring out values for all the params:
 
@@ -1596,8 +1629,8 @@ class Password(String):
                 <TYPE>$...$<SALT>.
 
             Where <TYPE> is `s` which stands for scrypt, the values between the
-            first and last $ are param values for hashing and they are separated
-            by $'s
+            first and last $ are param values for hashing and they are
+            separated by $'s
         """
         nhex = "{:X}".format(n)
         dklenhex = "{:X}".format(dklen)
@@ -1615,7 +1648,7 @@ class Password(String):
         return prefix, pkwargs
 
     @classmethod
-    def scrypt(cls, password, salt, **kwargs):
+    def _scrypt(cls, password: str, salt: str, **kwargs) -> str:
         """Internal method. This is just a light wrapper around hashlib.scrypt
 
         https://cryptobook.nakov.com/mac-and-key-derivation/scrypt
@@ -1623,10 +1656,93 @@ class Password(String):
         :param password: str, the plain text password
         :param salt: str, usually generated using .gensalt
         :param **kwargs: passed through to scrypt, this is usually the dict
-            returned from .genprefix or .parse_prefix
+            returned from ._genprefix or .parse_prefix
         :returns: str, the raw scrypt hash in hex format
         """
         password = ByteString(password)
         salt = ByteString(salt)
         return hashlib.scrypt(password, salt=salt, **kwargs).hex()
+
+    def __new__(cls, password, **kwargs):
+        instance = super().__new__(cls, password)
+        instance._new_kwargs = kwargs
+        return instance
+
+    def validate(
+        self, 
+        *,
+        min_size: int = 0,
+        max_size: int = 0,
+        flags: int = 0,
+        error_class: Exception|None = None,
+    ) -> bool:
+        """
+        :keyword min_size: the password must be at least this many characters
+        :keyword max_size: the password must be no longer than this many
+            characters
+        :keyword flags: one or more `self.flags` or'd together
+        :keyword error_class: pass in an Exception derived class to raise
+            an error instead of return False
+        """
+        errmsgs = []
+
+        min_size = min_size or self._new_kwargs.get("min_size", 0)
+        max_size = max_size or self._new_kwargs.get("max_size", 0)
+        flags |= self._new_kwargs.get("flags", 0)
+
+        if error_class is None:
+            error_class = self._new_kwargs.get("error_class", None)
+
+        if min_size > 0 and len(self) < min_size:
+            errmsgs.append(f"Password shorter than {min_size} characters")
+
+        if max_size > 0 and len(self) > max_size:
+            errmsgs.append(f"Password longer than {min_size} characters")
+
+        if flags:
+            if flags & self.flag.UPPERCASE:
+                if not re.search(r"[A-Z]", self):
+                    errmsgs.append(f"Password missing uppercase character")
+
+            if flags & self.flag.LOWERCASE:
+                if not re.search(r"[a-z]", self):
+                    errmsgs.append(f"Password missing lowercase character")
+
+            if flags & self.flag.SPECIAL:
+                if not re.search(r"[^\s\w]", self):
+                    errmsgs.append(f"Password missing special character")
+
+            if flags & self.flag.DIGIT:
+                if not re.search(r"[\d]", self):
+                    errmsgs.append(f"Password missing numerical character")
+
+        if errmsgs and error_class is not None:
+            # https://docs.python.org/3/library/exceptions.html#ExceptionGroup
+            raise ExceptionGroup(
+                "Password failed validation",
+                [error_class(errmsg) for errmsg in errmsgs],
+            )
+
+        return False if errmsgs else True
+
+    def hash(self, **kwargs) -> str:
+        """Hash self and return the hashed value"""
+        return self.hashpw(self, **kwargs)
+
+    def check(
+        self,
+        hashpw: str,
+        *,
+        error_class: Exception|None = None
+    ) -> bool:
+        """Check self against `hashpw`
+
+        :keyword error_class: pass in an Exception derived class to raise
+            an error instead of return False
+        """
+        r = self.checkpw(self, hashpw)
+        if not r and error_class:
+            raise error_class("Password failed check")
+
+        return r
 

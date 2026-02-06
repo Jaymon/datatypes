@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 from datatypes.compat import *
 from datatypes.string import (
     String,
@@ -553,7 +552,7 @@ class PasswordTest(TestCase):
 
     def test_genprefix(self):
         salt = Password.gensalt()
-        prefix, pkwargs = Password.genprefix(salt)
+        prefix, pkwargs = Password._genprefix(salt)
         self.assertEqual(1, prefix.count("."))
         self.assertEqual(5, prefix.count("$"))
 
@@ -567,4 +566,51 @@ class PasswordTest(TestCase):
         pwhash = Password.hashpw(pw)
         r = Password.checkpw(pw, pwhash)
         self.assertTrue(r)
+
+    def test_validate(self):
+        pw = Password("Fo0.")
+        r = pw.validate(flags=Password.flag.ALL)
+        self.assertTrue(r)
+
+        pw = Password("Fo0")
+        r = pw.validate(flags=Password.flag.ALL)
+        self.assertFalse(r)
+
+        pw = Password("F0.")
+        r = pw.validate(flags=Password.flag.ALL)
+        self.assertFalse(r)
+
+        pw = Password("o0.")
+        r = pw.validate(flags=Password.flag.ALL)
+        self.assertFalse(r)
+
+        pw = Password("f")
+        r = pw.validate(min_size=8)
+        self.assertFalse(r)
+
+        pw = Password("f")
+        r = pw.validate(max_size=8)
+        self.assertTrue(r)
+
+        pw = Password("1234")
+        r = pw.validate(min_size=3, max_size=5)
+        self.assertTrue(r)
+
+        pw = Password("123456")
+        r = pw.validate(min_size=3, max_size=5)
+        self.assertFalse(r)
+
+        with self.assertRaises(ExceptionGroup) as context:
+            pw = Password("foo")
+            pw.validate(flags=Password.flag.ALL, error_class=ValueError)
+
+    def test_hash_check(self):
+        pw = Password("bar")
+        ph = pw.hash()
+        bph = Password.hashpw("foo")
+        self.assertTrue(pw.check(ph))
+        self.assertFalse(pw.check(bph))
+
+        with self.assertRaises(ValueError):
+            pw.check(bph, error_class=ValueError)
 
