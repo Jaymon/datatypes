@@ -82,6 +82,21 @@ class EnumTest(TestCase):
         self.assertFalse("ADFKLSDAKLJDL" == Foo.BAR)
         self.assertFalse(Foo.CHE == Foo.BAR)
 
+    def test_enumtype(self):
+        class Foo(Enum):
+            BAR = 1
+
+        self.assertTrue(issubclass(Foo, Enum))
+        self.assertFalse(issubclass(Foo, enum.EnumType))
+        self.assertTrue(isinstance(Foo, enum.EnumType))
+
+        class Bar(enum.Enum):
+            FOO = 1
+
+        self.assertTrue(issubclass(Bar, enum.Enum))
+        self.assertFalse(issubclass(Bar, enum.EnumType))
+        self.assertTrue(isinstance(Bar, enum.EnumType))
+
 
 class StdEnumTest(TestCase):
     """Tests for the python standard library enum to make sure Datatype's enum

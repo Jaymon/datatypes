@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from enum import Enum as BaseEnum, EnumMeta as BaseEnumMeta
+from enum import Enum, EnumMeta
 
 from .compat import *
 from .string import String
@@ -108,7 +107,7 @@ def find_value(enum_class, value):
     return find_enum(enum_class, value).value
 
 
-class EnumMeta(BaseEnumMeta):
+class EnumMeta(EnumMeta):
     def __contains__(cls, k):
         """
         https://docs.python.org/3/library/enum.html#enum.EnumType.__contains__
@@ -124,7 +123,7 @@ class EnumMeta(BaseEnumMeta):
 
 # Order matters for the parent classes
 # https://docs.python.org/3/library/enum.html#restricted-enum-subclassing
-class Enum(BaseEnum, metaclass=EnumMeta):
+class Enum(Enum, metaclass=EnumMeta):
     @classmethod
     def find_name(cls, name):
         return find_name(cls, name)
