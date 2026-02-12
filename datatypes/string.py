@@ -1700,7 +1700,7 @@ class Password(String):
             errmsgs.append(f"Password shorter than {min_size} characters")
 
         if max_size > 0 and len(self) > max_size:
-            errmsgs.append(f"Password longer than {min_size} characters")
+            errmsgs.append(f"Password longer than {max_size} characters")
 
         if flags:
             if flags & self.flag.UPPERCASE:

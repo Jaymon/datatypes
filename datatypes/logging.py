@@ -332,7 +332,7 @@ def project_config(config: Mapping|None = None, **kwargs) -> None:
         },
         "loggers": {
             "asyncio": {
-                "level": "INFO",
+                "level": "ERROR",
             },
             "dsnparse": {
                 "level": "INFO",
