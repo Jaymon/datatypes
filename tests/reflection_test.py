@@ -2931,3 +2931,26 @@ class MethodpathFinderTest(TestCase):
         self.assertEqual(v_boo["keys"][1], v_che["keys"][1])
         self.assertNotEqual(v_boo["keys"][2], v_che["keys"][2])
 
+    def test_key_list(self):
+        prefix = self.create_module({
+            "foo": """
+                class Bar(object):
+                    def che(self): pass
+            """
+        })
+
+        class KSFinder(MethodpathFinder):
+            def _get_node_method_info(self, key, **kwargs):
+                key, value = super()._get_node_method_info(key, **kwargs)
+                return [key, "bam"], value
+
+
+        m = prefix.get_module("foo")
+        pf = KSFinder(prefixes=[prefix])
+        pf.add_class(m.Bar)
+        n = pf.get_node(["foo", "Bar", "che", "bam"])
+        self.assertTrue("method_name" in n.value)
+
+        n = pf.get_node(["foo", "Bar", "che"])
+        self.assertIsNone(n.value)
+

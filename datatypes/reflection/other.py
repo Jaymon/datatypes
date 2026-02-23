@@ -7,6 +7,7 @@ from collections.abc import (
     Generator,
     Mapping,
     Iterable,
+    Hashable,
 )
 
 from ..compat import *
@@ -194,7 +195,11 @@ class ClasspathFinder(BaseClassFinder):
         """
         return {}
 
-    def _get_node_module_info(self, key, **kwargs):
+    def _get_node_module_info(
+        self,
+        key: str,
+        **kwargs,
+    ) -> tuple[Hashable|tuple[Hashable]|list[Hashable]|None, Mapping|None]:
         """Get the module key and value for a node representing a module.
 
         This is called for each module in the full classpath. So if the
@@ -204,16 +209,19 @@ class ClasspathFinder(BaseClassFinder):
         :param key: Hashable
         :keyword module: types.ModuleType, the module
         :keyword module_name: str, the current module name
-        :returns: tuple[hashable|None, dict], index 0 is the key in the
-            tree, no key will be added if it is `None`, index 1 is the value
-            at that key in the tree
+        :returns: index 0 is the key(s) in the tree, no key(s) will be added
+            if it is `None`, index 1 is the value of the final key in the tree
         """
         value = self._get_node_default_value(**kwargs)
         value.update(kwargs)
         value.pop("reflect_name", None)
         return key, value
 
-    def _get_node_class_info(self, key, **kwargs):
+    def _get_node_class_info(
+        self,
+        key: str,
+        **kwargs,
+    ) -> tuple[Hashable|tuple[Hashable]|list[Hashable]|None, Mapping|None]:
         """Get the key and value for a node representing a class
 
         This is called for each class in the full classpath. So if the
@@ -228,9 +236,9 @@ class ClasspathFinder(BaseClassFinder):
             module portion of the path
         :keyword class_keys: list[str], a list of all the keys used for the
             class portion of the path
-        :returns: tuple[hashable|None, dict], index 0 is the key in the
-            tree, no key will be added if it is `None`, index 1 is the value
-            at that key in the tree, the keys it can have:
+        :returns: index 0 is the key(s) in the tree, no key(s) will be added
+            if it is `None`, index 1 is the value of the final key in the
+            tree, the keys it can have:
                 * class: this will be set for the final absolute class of the
                     path
                 * class_name: this will always be set
@@ -244,7 +252,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         klass: type,
         **kwargs
-    ) -> Generator[list[str], Mapping, Mapping]:
+    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
         """Internal method for this class. This will generate all the module
         nodes for `klass` and is called from `._get_node_path_items`
 
@@ -269,7 +277,12 @@ class ClasspathFinder(BaseClassFinder):
                         )
                         if k is not None:
                             for vk in ["keys", "module_keys"]:
-                                kwargs[vk].append(k)
+                                if isinstance(k, (list, tuple)):
+                                    kwargs[vk].extend(k)
+
+                                else:
+                                    kwargs[vk].append(k)
+
                                 v[vk] = kwargs[vk][:]
 
                         kwargs["modules"].append(m)
@@ -284,7 +297,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[list[str], Mapping, Mapping]:
+    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
         """Internal method for this class. This will generate all the class
         nodes for `klass` and is called from `._get_node_path_items`
 
@@ -309,7 +322,12 @@ class ClasspathFinder(BaseClassFinder):
 
             if k is not None:
                 for vk in ["keys", "class_keys"]:
-                    kwargs[vk].append(k)
+                    if isinstance(k, (list, tuple)):
+                        kwargs[vk].extend(k)
+
+                    else:
+                        kwargs[vk].append(k)
+
                     v[vk] = kwargs[vk][:]
 
             v["module_keys"] = kwargs["module_keys"][:]
@@ -321,7 +339,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[list[str], Mapping, Mapping]:
+    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
         """Internal method for this class. This will generate all the path
         nodes for `klass`
 
@@ -416,7 +434,7 @@ class MethodpathFinder(ClasspathFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[list[str], Mapping, Mapping]:
+    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
         """Internal method of parent. Overloaded to also yield methods"""
         path_node_items = super()._get_node_path_items(klass, **kwargs)
         for keys, value, kwargs in path_node_items:
@@ -429,7 +447,7 @@ class MethodpathFinder(ClasspathFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[list[str], Mapping, Mapping]:
+    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
         """Internal method of this class. This yields all the method nodes
         that should be added to the tree
 
@@ -446,8 +464,13 @@ class MethodpathFinder(ClasspathFinder):
             )
             if v is not None:
                 if k is not None:
-                    v["keys"] = [*kwargs["keys"], k]
-                    v["method_keys"] = [k]
+                    if isinstance(k, (list, tuple)):
+                        v["keys"] = [*kwargs["keys"], *k]
+                        v["method_keys"] = [*k]
+
+                    else:
+                        v["keys"] = [*kwargs["keys"], k]
+                        v["method_keys"] = [k]
 
                 for vk in ["module_keys", "modules", "class_keys"]:
                     v[vk] = kwargs[vk][:]
@@ -458,7 +481,7 @@ class MethodpathFinder(ClasspathFinder):
         self,
         key: str,
         **kwargs,
-    ) -> tuple[str|None, Mapping|None]:
+    ) -> tuple[Hashable|tuple[Hashable]|list[Hashable]|None, Mapping|None]:
         """Internal method to the class. This is similar to
         `._get_node_module_info` and `._get_node_class_info`.
 
@@ -473,6 +496,18 @@ class MethodpathFinder(ClasspathFinder):
         value.update(kwargs)
         value.pop("reflect_name", None)
         return key, value
+
+    def get_class_items(self) -> tuple[list[str], Mapping]:
+        """go through and return destination nodes keys and values"""
+        for keys, value in super().get_class_items():
+            if "method" not in value:
+                yield keys, value
+
+    def get_method_items(self) -> tuple[list[str], Mapping]:
+        """go through and return destination nodes keys and values"""
+        for keys, node in self.nodes():
+            if node.value and "method" in node.value:
+                yield keys, node.value
 
 
 class ClassFinder(BaseClassFinder):

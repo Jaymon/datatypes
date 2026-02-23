@@ -950,8 +950,8 @@ class DictTree(Dict):
     def add_node(self, key, node, value):
         """Add `node` into `self` at `key` with `value`
 
-        NOTE -- this is never called for the root node since the root node
-        is never added into another node
+        .. note:: this is never called for the root node since the root node
+            is never added into another node
 
         :param key: Hashable, already ran through .normalize_key
         :param node: ClasspathFinder, freshly created with .create_instance
@@ -966,9 +966,9 @@ class DictTree(Dict):
     def update_node(self, key, node, value):
         """Update `node` of `self` at `key` with `value`
 
-        NOTE -- this only updates the value of node, the key is only here to
-        keep the signature the same as .add_node and self and node can be the
-        same node when the root node is being updated
+        .. note:: this only updates the value of node, the key is only here to
+            keep the signature the same as .add_node and self and node can be
+            the same node when the root node is being updated
 
         :param key: Hashable, already ran through .normalize_key
         :param node: ClasspathFinder, the node to update
