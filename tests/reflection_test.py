@@ -15,6 +15,7 @@ from datatypes.reflection import (
     ReflectType,
     ReflectCallable,
     ReflectDocblock,
+    ReflectArgument,
     ClasspathFinder,
     MethodpathFinder,
     ClassFinder,
@@ -1431,23 +1432,20 @@ class ReflectCallableTest(TestCase):
         self.assertFalse(ra.is_bound())
         self.assertTrue(ra.is_unbound())
         self.assertFalse(ra.has_value())
-        self.assertFalse(ra.is_unbound_positionals())
-        self.assertFalse(ra.is_unbound_keywords())
 
         ra = next(ras)
         self.assertEqual("che", ra.name)
         self.assertTrue(ra.is_bound())
         self.assertTrue(ra.has_value())
-        self.assertEqual(1, ra.value)
+        self.assertEqual(1, ra.get_value())
 
         ras = iter(rc.reflect_arguments(1, 2, 3, 4))
         next(ras) # bar
         next(ras) # che
         ra = next(ras) # unbound
-        self.assertTrue(ra.is_unbound_positionals())
-        self.assertTrue(ra.is_unbound())
+        self.assertFalse(ra.is_bound())
         self.assertTrue(ra.is_catchall())
-        self.assertEqual([3, 4], ra.value)
+        self.assertEqual([3, 4], ra.get_value())
 
     def test_reflect_arguments_2(self):
         def foo(foo, bar=2, /, che=3): pass
@@ -1459,7 +1457,7 @@ class ReflectCallableTest(TestCase):
             "che": 3,
         }
         for ra in sig.reflect_arguments(1, 2, 3):
-            self.assertEqual(bound[ra.name], ra.value)
+            self.assertEqual(bound[ra.name], ra.get_value())
             bound.pop(ra.name)
         self.assertFalse(bound)
 
@@ -1469,7 +1467,7 @@ class ReflectCallableTest(TestCase):
         }
         for ra in sig.reflect_arguments(1, che=3):
             if ra.name != "bar":
-                self.assertEqual(bound[ra.name], ra.value)
+                self.assertEqual(bound[ra.name], ra.get_value())
                 bound.pop(ra.name)
         self.assertFalse(bound)
 
@@ -1483,7 +1481,6 @@ class ReflectCallableTest(TestCase):
         self.assertTrue(ra.has_positional_value())
         self.assertTrue(ra.has_keyword_value())
         self.assertTrue(ra.has_multiple_values())
-        self.assertEqual(1, ra.value)
         self.assertEqual(2, ra.get_keyword_value())
         self.assertEqual(1, ra.get_value())
 
@@ -1494,7 +1491,7 @@ class ReflectCallableTest(TestCase):
         kwargs = {"bar": 1, "che": 2}
         ras = iter(rc.reflect_arguments(**kwargs))
         ra = next(ras)
-        self.assertEqual(kwargs, ra.value)
+        self.assertEqual(kwargs, ra.get_value())
 
     def test_reflect_arguments_unbound_param(self):
         def foo(bar, /, che): pass
@@ -1994,30 +1991,32 @@ class ReflectCallableTest(TestCase):
             self.assertTrue(ra.is_positional())
             self.assertFalse(ra.has_positional_value())
             self.assertTrue(ra.has_keyword_value())
-            self.assertTrue(ra.has_bound_value())
+#             self.assertTrue(ra.has_bound_value())
             self.assertEqual(1, ra.get_bound_value())
-            self.assertFalse(ra.is_bound_positional())
-            self.assertTrue(ra.is_bound_keyword())
+#             self.assertFalse(ra.is_bound_positional())
+#             self.assertTrue(ra.is_bound_keyword())
 
         for ra in rc.reflect_arguments(1, bar=2):
             self.assertTrue(ra.is_bound())
             self.assertTrue(ra.is_positional())
             self.assertTrue(ra.has_positional_value())
             self.assertTrue(ra.has_keyword_value())
-            self.assertTrue(ra.has_bound_value())
+#             self.assertTrue(ra.has_bound_value())
             self.assertTrue(ra.has_multiple_values())
             self.assertEqual(1, ra.get_bound_value())
             self.assertEqual(1, ra.get_positional_value())
             self.assertEqual(2, ra.get_keyword_value())
-            self.assertTrue(ra.is_bound_positional())
-            self.assertFalse(ra.is_bound_keyword())
+#             self.assertTrue(ra.is_bound_positional())
+#             self.assertFalse(ra.is_bound_keyword())
 
         def foo(*, bar: int): pass
         rc = ReflectCallable(foo)
         rargs = rc.reflect_arguments(1)
         ra = next(rargs)
         self.assertTrue(ra.is_positional())
-        self.assertTrue(ra.is_unbound_positionals())
+        self.assertTrue(ra.is_unbound())
+        self.assertTrue(ra.is_catchall())
+#         self.assertTrue(ra.is_unbound_positionals())
         self.assertEqual([1], ra.get_value())
 
 
@@ -2038,6 +2037,19 @@ class ReflectCallableTest(TestCase):
 #             pout.v(ra.has_keyword_value())
 #             pout.v(ra.has_multiple_values())
 
+    def test_get_arguments_has_multiple_values(self):
+        def foo(bar: list[int]): pass
+        rc = ReflectCallable(foo)
+        rargs = rc.reflect_arguments(bar=[1, 2])
+        ra = next(rargs)
+
+        self.assertTrue(ra.is_keyword())
+        self.assertTrue(ra.is_positional())
+        self.assertFalse(ra.has_multiple_values())
+        self.assertTrue(ra.has_keyword_value())
+        self.assertEqual([1, 2], ra.get_value())
+        self.assertEqual({"bar": [1, 2]}, ra.get_keyword_values())
+        self.assertEqual([[1, 2]], ra.get_positional_values())
 
 
 class ReflectClassTest(TestCase):
@@ -2953,4 +2965,81 @@ class MethodpathFinderTest(TestCase):
 
         n = pf.get_node(["foo", "Bar", "che"])
         self.assertIsNone(n.value)
+
+
+import inspect
+
+class ReflectArgumentTest(TestCase):
+    def test_bound_keyword(self):
+        def mock(foo): pass
+        rc = ReflectCallable(mock)
+        p = inspect.Parameter("foo", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+
+        ra = ReflectArgument(
+            p,
+            mock,
+            ReflectArgument.POSITIONAL_OR_KEYWORD,
+            keyword_value=1,
+        )
+
+        self.assertTrue(ra.is_bound())
+        self.assertFalse(ra.is_unbound())
+
+        self.assertFalse(ra.is_catchall())
+        self.assertTrue(ra.is_positional())
+        self.assertTrue(ra.is_keyword())
+
+        self.assertTrue(ra.has_value())
+        self.assertFalse(ra.has_multiple_values())
+        self.assertFalse(ra.has_positional_value())
+        self.assertTrue(ra.has_keyword_value())
+        self.assertEqual(1, ra.get_bound_value())
+        self.assertEqual(1, ra.get_value())
+        self.assertEqual(1, ra.get_keyword_value())
+        self.assertEqual(ra.EMPTY, ra.get_positional_value())
+
+    def test_bound_positional(self):
+        def mock(foo): pass
+        rc = ReflectCallable(mock)
+        p = inspect.Parameter("foo", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+
+        ra = ReflectArgument(
+            p,
+            mock,
+            ReflectArgument.POSITIONAL_ONLY,
+            positional_value=1,
+        )
+
+        self.assertTrue(ra.is_bound())
+        self.assertFalse(ra.is_unbound())
+
+        self.assertFalse(ra.is_catchall())
+        self.assertTrue(ra.is_positional())
+        self.assertFalse(ra.is_keyword())
+
+        self.assertTrue(ra.has_value())
+        self.assertFalse(ra.has_multiple_values())
+        self.assertTrue(ra.has_positional_value())
+        self.assertFalse(ra.has_keyword_value())
+        self.assertEqual(1, ra.get_bound_value())
+        self.assertEqual(1, ra.get_value())
+        self.assertEqual(1, ra.get_positional_value())
+        self.assertEqual(ra.EMPTY, ra.get_keyword_value())
+
+#             pout.v(ra)
+#             pout.v(ra.get_bound_value())
+#             pout.v(ra.is_positional())
+#             pout.v(ra.is_keyword())
+#             pout.v(ra.is_bound())
+#             pout.v(ra.is_bound_positional())
+#             pout.v(ra.is_bound_keyword())
+#             pout.v(ra.is_positional())
+#             pout.v(ra.is_keyword())
+#             pout.v(ra.is_unbound())
+#             pout.v(ra.is_unbound_positionals())
+#             pout.v(ra.is_unbound_keywords())
+#             pout.v(ra.has_bound_value())
+#             pout.v(ra.has_positional_value())
+#             pout.v(ra.has_keyword_value())
+#             pout.v(ra.has_multiple_values())
 
