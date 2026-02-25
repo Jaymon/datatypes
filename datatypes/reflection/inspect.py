@@ -1078,6 +1078,9 @@ class ReflectArgument(ReflectObject):
     If it represents unmatched keywords, its value will be a dict of the
     passed in keyword arguments that weren't consumed and `.get_target()` will
     return None.
+
+    An argument can be considered both a positional and a keyword depending
+    on its instance variables
     """
     EMPTY = inspect.Parameter.empty
     POSITIONAL_ONLY = inspect.Parameter.POSITIONAL_ONLY
@@ -1087,11 +1090,11 @@ class ReflectArgument(ReflectObject):
     VAR_KEYWORD = inspect.Parameter.VAR_KEYWORD
 
     @property
-    def param(self):
+    def param(self) -> inspect.Parameter|None:
         return self.get_target()
 
     @property
-    def name(self):
+    def name(self) -> str:
         """This will be an empty string if it represents an unbound remainder
         otherwise it will be the name of the parameter"""
         name = ""
@@ -1103,7 +1106,7 @@ class ReflectArgument(ReflectObject):
     def __init__(
         self,
         target: inspect.Parameter|None,
-        reflect_callable: callable,
+        reflect_callable: ReflectABC,
         kind: inspect._ParameterKind|inspect.Parameter.empty,
         *,
         positional_value: Any = inspect.Parameter.empty,
@@ -1111,22 +1114,21 @@ class ReflectArgument(ReflectObject):
         **kwargs,
     ):
         """
-        :param target: inspect.Parameter|None, if a Parameter instance then
-            `value` was successfully bound (unless it's empty). If None then
-            `value` is unbounded
-        :param value: Any, the value to bind. `inspect.Parameter.empty` means
-            the value doesn't exist. So if target is not None it means that
-            parameter wasn't found when binding the arguments
+        :param target: if a Parameter instance then the value was successfully
+            bound, . If None then value is unbounded
         :param reflect_callable: ReflectCallable, the callable that is binding
             the arguments
-        :keyword positional: bool, True if `target` was bound as a positional
+        :param kind: tells what kind of parameter this is
+            - POSITIONAL_ONLY - positional argument
+            - VAR_POSTIONAL - argument is a postiional catchall (eg, `*args`)
+            - KEYWORD_ONLY - keyword argument
+            - VAR_KEYWORD - argument is a keyword catchall (eg, `**kwargs`)
+            - POSITIONAL_OR_KEYWORD - param argument that can be passed in
+                as a positional or keyword
+        :keyword positional_value: the positional value being bound to this
             argument
-        :keyword keyword: bool, True if `target` was bound as a keyword
+        :keyword keyword_value: the keyword value being bound to this
             argument
-        :keyword keyword_value: Any, if `target` is being bound as a
-            positional but there was also a keyword value this will be passed
-            in, if this key is not passed in then there are not multiple
-            values for the target param
         """
         super().__init__(target)
 
@@ -1138,52 +1140,16 @@ class ReflectArgument(ReflectObject):
 
         self.kwargs = kwargs
 
-#     def __init__(self, target, value, reflect_callable, **kwargs):
-#         """
-#         :param target: inspect.Parameter|None, if a Parameter instance then
-#             `value` was successfully bound (unless it's empty). If None then
-#             `value` is unbounded
-#         :param value: Any, the value to bind. `inspect.Parameter.empty` means
-#             the value doesn't exist. So if target is not None it means that
-#             parameter wasn't found when binding the arguments
-#         :param reflect_callable: ReflectCallable, the callable that is binding
-#             the arguments
-#         :keyword positional: bool, True if `target` was bound as a positional
-#             argument
-#         :keyword keyword: bool, True if `target` was bound as a keyword
-#             argument
-#         :keyword keyword_value: Any, if `target` is being bound as a
-#             positional but there was also a keyword value this will be passed
-#             in, if this key is not passed in then there are not multiple
-#             values for the target param
-#         """
-#         super().__init__(target)
-# 
-#         self._reflect_callable = reflect_callable
-#         self.value = value
-#         self.kwargs = kwargs
-
-    def get_class(self):
+    def get_class(self) -> type:
         return self.reflect_callable().get_class()
 
-    def reflect_callable(self):
+    def reflect_callable(self) -> ReflectABC:
         return self._reflect_callable
 
-    def get_docblock(self):
+    def get_docblock(self) -> str|None:
         if rdb := self.reflect_callable().reflect_docblock():
             descs = rdb.get_param_descriptions()
             return descs.get(self.name, None)
-
-#     def is_bound_positional(self) -> bool:
-#         """True if a bound positional argument is represented"""
-#         return self.get_positional_value() is not inspect.Parameter.empty
-# 
-#     def is_bound_keyword(self) -> bool:
-#         """True if a bound keyword argument is represented"""
-#         return (
-#             not self.is_bound_positional()
-#             and self.get_keyword_value() is not inspect.Parameter.empty
-#         )
 
     def is_bound(self) -> bool:
         """True if this instance is a bound argument"""
@@ -1191,41 +1157,10 @@ class ReflectArgument(ReflectObject):
             self.get_target() is not None
             and self.get_bound_value() is not inspect.Parameter.empty
         )
-#         if self.get_target() is not None:
-#             return self.get_bound_value() is not inspect.Parameter.empty
-
-#         return (
-#             self.get_target() is not None
-#             and self.has_bound_value()
-#         )
-
-#     def is_unbound_positionals(self) -> bool:
-#         """True if this instance are the leftover positionals that weren't
-#         bound and there is no catch-all argument like `*args` in the
-#         signature"""
-#         return (
-#             self.get_target() is None
-#             and self.kwargs.get("positional", False)
-#         )
-# 
-#     def is_unbound_keywords(self) -> bool:
-#         """True if this instance are the leftover keywords that weren't
-#         bound and there is no catch-all argument like `**kwargs` in the
-#         signature"""
-#         return (
-#             self.get_target() is None
-#             and self.kwargs.get("keyword", False)
-#         )
 
     def is_unbound(self) -> bool:
         """True if this instance is unbound"""
         return not self.is_bound()
-
-#         return (
-#             not self.is_bound()
-#             or self.is_unbound_positionals()
-#             or self.is_unbound_keywords()
-#         )
 
     def is_catchall(self) -> bool:
         """True if this is a bound or unbound catch-all
@@ -1239,8 +1174,6 @@ class ReflectArgument(ReflectObject):
             inspect.Parameter.VAR_KEYWORD,
         )
         return self.kind in kinds
-#         target = self.get_target()
-#         return (target is None) or (target.kind in kinds)
 
     def is_positional(self) -> bool:
         """True if the parameter can be passed in as a positional
@@ -1254,21 +1187,6 @@ class ReflectArgument(ReflectObject):
         )
         return self.kind in kinds
 
-#         ret = False
-# 
-#         if param := self.get_target():
-#             kinds = (
-#                 param.POSITIONAL_ONLY,
-#                 param.VAR_POSITIONAL,
-#                 param.POSITIONAL_OR_KEYWORD,
-#             )
-#             ret = param.kind in kinds
-# 
-#         else:
-#             ret = self.is_unbound_positionals()
-# 
-#         return ret
-
     def is_keyword(self) -> bool:
         """True if the parameter can be passed in as a keyword
 
@@ -1281,39 +1199,10 @@ class ReflectArgument(ReflectObject):
         )
         return self.kind in kinds
 
-#         ret = False
-# 
-#         if param := self.get_target():
-#             kinds = (
-#                 param.KEYWORD_ONLY,
-#                 param.VAR_KEYWORD,
-#                 param.POSITIONAL_OR_KEYWORD,
-#             )
-#             ret = param.kind in kinds
-# 
-#         else:
-#             ret = self.is_unbound_keywords()
-# 
-#         return ret
-
-#     def has_bound_value(self) -> bool:
-#         """True if this argument has a bound value
-# 
-#         This does not take into account default values
-#         """
-#         return self.get_bound_value() is not inspect.Parameter.empty
-
-    def get_keyword_value(self):
+    def get_keyword_value(self) -> Any:
         """Return the keyword value or `inspect.Parameter.empty` if it doesn't
         exist"""
         return self.keyword_value
-
-#         if self.kwargs.get("keyword", False):
-#             return self.value
-# 
-#         else:
-#             return self.kwargs.get("keyword_value", inspect.Parameter.empty)
-        #return self.kwargs.get("keyword_value", self.value)
 
     def get_keyword_values(self) -> Mapping:
         """Always return the argument value as something that can be passed
@@ -1330,14 +1219,10 @@ class ReflectArgument(ReflectObject):
 
         return ret
 
-    def get_positional_value(self):
+    def get_positional_value(self) -> Any:
         """Return the positional value or `inspect.Parameter.empty` if it
         doesn't exist"""
         return self.positional_value
-
-#         if self.is_positional():
-#             return self.value
-#         return inspect.Parameter.empty
 
     def get_positional_values(self) -> Iterable:
         """Always return the argument value as something that can be passed
@@ -1354,13 +1239,13 @@ class ReflectArgument(ReflectObject):
 
         return ret
 
-    def get_default_value(self):
+    def get_default_value(self) -> Any:
         """get the default value for this argument"""
         if param := self.get_target():
             return param.default
         return inspect.Parameter.empty
 
-    def get_bound_value(self):
+    def get_bound_value(self) -> Any:
         """Returns the bound passed in value, this will not return default
         values
 
@@ -1373,7 +1258,7 @@ class ReflectArgument(ReflectObject):
 
         return v
 
-    def get_value(self):
+    def get_value(self) -> Any:
         """Return the value of this argument, this will return the default
         value if it exists"""
         v = self.get_bound_value()
@@ -1402,25 +1287,6 @@ class ReflectArgument(ReflectObject):
     def has_multiple_values(self) -> bool:
         """True if multiple values for this argument were passed in"""
         return self.has_positional_value() and self.has_keyword_value()
-
-#     def get_value(self):
-#         """Return the value of this argument, this will return the default
-#         value if it exists"""
-#         v = self.get_bound_value()
-#         if v is inspect.Parameter.empty:
-#             v = self.get_default_value()
-# 
-#         return v
-# 
-#     def get_default_value(self):
-#         """get the default value for this argument"""
-#         if param := self.get_target():
-#             return param.default
-#         return inspect.Parameter.empty
-# 
-#     def has_default_value(self) -> bool:
-#         """True if a default parameter exists"""
-#         return self.get_default_value() is not inspect.Parameter.empty
 
     def has_annotation(self) -> bool:
         """True if the parameter has a type annotation"""
@@ -2189,17 +2055,6 @@ class ReflectCallable(ReflectObject):
                             keyword_value=kwargs.pop(param.name, param.empty),
                         )
 
-#                         ra_kwargs = {
-#                             "positional_value": arg_val,
-#                             "kind": inspect.Parameter.POSITIONAL_ONLY,
-#                         }
-# 
-#                         # value was passed as both an arg and kwarg
-#                         if param.name in kwargs:
-#                             ra_kwargs["keyword_value"] = kwargs.pop(param.name)
-# 
-#                         yield self.create_reflect_argument(param, **ra_kwargs)
-
         keywords_param = None # holds `**kwargs` param if found
         keyword_as_positional = True
 
@@ -2242,9 +2097,6 @@ class ReflectCallable(ReflectObject):
                     )
 
             else:
-#                 ra_kwargs = {
-#                     "keyword": True,
-#                 }
                 try:
                     arg_val = kwargs.pop(param.name)
 
@@ -2260,23 +2112,6 @@ class ReflectCallable(ReflectObject):
                         kind=param.kind,
                         keyword_value=arg_val,
                     )
-
-#                     if param.kind == param.POSITIONAL_OR_KEYWORD:
-#                         if keyword_as_positional:
-#                             ra_kwargs["positional"] = True
-#                             ra_kwargs["keyword"] = False
-#                             ra_kwargs["positional_value"] = arg_val
-# 
-#                         else:
-#                             ra_kwargs["keyword_value"] = arg_val
-# 
-#                         ra_kwargs["source"] = param.KEYWORD_ONLY
-# 
-#                     yield self.create_reflect_argument(
-#                         param,
-# #                         keyword_value=arg_val,
-#                         **ra_kwargs,
-#                     )
 
         if kwargs:
             # we have leftover keywords, so we yield them either bound to
