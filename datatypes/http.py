@@ -15,6 +15,9 @@ import mimetypes
 import io
 import os
 import base64
+import datetime
+from typing import Literal
+from collections.abc import Generator
 
 from .compat import *
 from .compat import cookies as httpcookies
@@ -454,26 +457,108 @@ class HTTPHeaders(Headers, Mapping):
             subtype = media_type.split("/", 1)[1]
         return subtype
 
-    def get_cookies(self):
-        """Return all the cookie values
+    def set_cookie(
+        self,
+        key: str,
+        value: str,
+        *,
+        #expires: datetime.datetime|None = None,
+        max_age: int|datetime.timedelta|None = None,
+        #comment: str = "",
+        domain: str = "",
+        path: str = "/",
+        secure: bool = True,
+        httponly: bool = True,
+        samesite: Literal["Strict", "Lax", "None"] = "Strict",
+        partitioned: bool = False,
+    ) -> None:
+        """Set a cookie header
+
+        RFC 6265 is the cookie spec.
+
+        .. note:: Most modern browsers seem to avoid `version`, `comment`,
+            and `expires` so this doesn't even bother with them
+
+        .. note:: This defaults to the most strict settings for the cookie
+
+        :keyword partitioned: if this is True then `secure` needs to also
+            be True
+        """
+        cookie = httpcookies.SimpleCookie()
+        cookie[key] = value
+
+        if max_age:
+            if isinstance(max_age, datetime.timedelta):
+                max_age = max_age.seconds
+
+            cookie[key]["max-age"] = max_age
+
+        if domain:
+            cookie[key]["domain"] = domain
+
+        if path:
+            cookie[key]["path"] = domain
+
+        if secure:
+            cookie[key]["secure"] = secure
+
+        if httponly:
+            cookie[key]["httponly"] = httponly
+
+        if samesite:
+            cookie[key]["samesite"] = samesite
+
+        if partitioned:
+            if not secure:
+                raise ValueError("Cannot set partioned insecure cookie")
+
+            cookie[key]["partitioned"] = partitioned
+
+        self.add_header("Set-Cookie", cookie[key].OutputString())
+
+    def get_cookie(self, key: str) -> httpcookies.Morsel|None:
+        """Returns the matching cookie morsel at `key`
+
+        https://docs.python.org/3/library/http.cookies.html#http.cookies.Morsel
+
+        :returns: an `http.cookies.Morsel` instance with `key` and `value`
+            attributes and a mapping of set cookie attributes
+        """
+        for cookie in self.get_cookies():
+            if key == cookie.key:
+                return cookie
+
+    def get_cookies(self) -> Generator[httpcookies.Morsel]:
+        """Return all the cookies found in the headers
 
         * https://en.wikipedia.org/wiki/HTTP_cookie
         * https://stackoverflow.com/questions/25387340/is-comma-a-valid-character-in-cookie-value
         * https://stackoverflow.com/questions/21522586/python-convert-set-cookies-response-to-array-of-cookies
         * https://gist.github.com/Ostrovski/c8d16ce16759eddf6664
-
-        :returns: dict[str, str], the key is the cookie name
         """
-        cookie_headers = self.get_all("Set-Cookie")
-        cookie_headers.extend(self.get_all("Cookie"))
-        if cookie_headers:
-            cs = httpcookies.SimpleCookie("\r\n".join(cookie_headers))
-            ret = {cs[k].key:cs[k].value for k in cs}
+        header_values = self.get_all("Set-Cookie")
+        header_values.extend(self.get_all("Cookie"))
+        if header_values:
+            for hv in header_values:
+                cookie = httpcookies.SimpleCookie(hv)
+                for k, morsel in cookie.items():
+                    if morsel["max-age"]:
+                        morsel["max-age"] = int(morsel["max-age"])
 
-        else:
-            ret = {}
+                    yield morsel
 
-        return ret
+#                 pout.v(cookie)
+#                 yield cookie
+
+#             pout.v(cookie_headers)
+# 
+#             cs = httpcookies.SimpleCookie("\r\n".join(cookie_headers))
+#             ret = {cs[k].key:cs[k].value for k in cs}
+# 
+#         else:
+#             ret = {}
+# 
+#         return ret
 
 
 class HTTPEnviron(HTTPHeaders):

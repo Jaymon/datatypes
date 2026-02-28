@@ -253,6 +253,11 @@ class HTTPHeadersTest(TestCase):
         h.delete_header("content-type")
         self.assertFalse(h.has_header("content-type"))
 
+    def test_get_media_type(self):
+        hs = HTTPHeaders()
+        hs["Content-Type"] = "foo/bar;charset=BooBoo"
+        self.assertEqual("foo/bar", hs.get_media_type())
+
     def test_get_cookies(self):
         headers = email.message_from_bytes((
             b"Server: SimpleHTTP/0.6 Python/3.10.14"
@@ -263,16 +268,27 @@ class HTTPHeadersTest(TestCase):
         ))
 
         hs = HTTPHeaders(headers)
-        cs = hs.get_cookies()
+        cs = {c.key: c for c in hs.get_cookies()}
 
         self.assertEqual(3, len(cs))
         for k in ["foo", "bar", "che"]:
             self.assertTrue(k in cs)
+            self.assertTrue(isinstance(cs[k].value, str))
 
-    def test_get_media_type(self):
+    def test_set_get_cookie(self):
         hs = HTTPHeaders()
-        hs["Content-Type"] = "foo/bar;charset=BooBoo"
-        self.assertEqual("foo/bar", hs.get_media_type())
+
+        hs.set_cookie("foo", "bar")
+        hs.set_cookie("che", "baz")
+
+        cookie = hs.get_cookie("foo")
+        self.assertEqual("foo", cookie.key)
+        self.assertEqual("bar", cookie.value)
+
+        hs.set_cookie("bam", "boo", max_age=3600)
+        cookie = hs.get_cookie("bam")
+        self.assertEqual("boo", cookie.value)
+        self.assertEqual(3600, cookie["max-age"])
 
 
 class HTTPClientTest(TestCase):
