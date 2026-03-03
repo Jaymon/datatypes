@@ -547,19 +547,6 @@ class HTTPHeaders(Headers, Mapping):
 
                     yield morsel
 
-#                 pout.v(cookie)
-#                 yield cookie
-
-#             pout.v(cookie_headers)
-# 
-#             cs = httpcookies.SimpleCookie("\r\n".join(cookie_headers))
-#             ret = {cs[k].key:cs[k].value for k in cs}
-# 
-#         else:
-#             ret = {}
-# 
-#         return ret
-
 
 class HTTPEnviron(HTTPHeaders):
     """just like Headers but allows any values (headers converts everything to
