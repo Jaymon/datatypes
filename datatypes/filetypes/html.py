@@ -120,6 +120,125 @@ class HTML(String):
         "var",
     ])
 
+    # https://www.w3schools.com/tags/default.asp
+    ALL_TAGNAMES = [
+        #"<!--...-->",  # Defines a comment
+        #"!DOCTYPE",  # Defines the document type
+        "a",  # Defines a hyperlink
+        "abbr",  # Defines an abbreviation or an acronym
+        "address",  # Defines contact information for the author/owner of a document
+        "area",  # Defines an area inside an image map
+        "article",  # Defines an article
+        "aside",  # Defines content aside from the page content
+        "audio",  # Defines embedded sound content
+        "b",  # Defines bold text
+        "base",  # Specifies the base URL/target for all relative URLs in a document
+        "bdi",  # Isolates text that might be formatted in a different direction
+        "bdo",  # Overrides the current text direction
+        "blockquote",  # Defines a section quoted from another source
+        "body",  # Defines the document's body
+        "br",  # Defines a single line break
+        "button",  # Defines a clickable button
+        "canvas",  # Used to draw graphics via scripting
+        "caption",  # Defines a table caption
+        "cite",  # Defines the title of a work
+        "code",  # Defines a piece of computer code
+        "col",  # Specifies column properties for each column within <colgroup>
+        "colgroup",  # Specifies a group of columns in a table
+        "data",  # Adds a machine-readable translation of content
+        "datalist",  # Specifies a list of pre-defined options for input controls
+        "dd",  # Defines a description/value in a description list
+        "del",  # Defines text that has been deleted
+        "details",  # Defines additional details the user can view/hide
+        "dfn",  # Specifies a term that is going to be defined
+        "dialog",  # Defines a dialog box or window
+        "div",  # Defines a section in a document
+        "dl",  # Defines a description list
+        "dt",  # Defines a term/name in a description list
+        "em",  # Defines emphasized text
+        "embed",  # Defines a container for an external application
+        "fieldset",  # Groups related elements in a form
+        "figcaption",  # Defines a caption for a <figure>
+        "figure",  # Specifies self-contained content
+        "footer",  # Defines a footer for a document or section
+        "form",  # Defines an HTML form for user input
+        "h1",  # Defines HTML headings
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "head",  # Contains metadata/information for the document
+        "header",  # Defines a header for a document or section
+        "hgroup",  # Defines a header and related content
+        "hr",  # Defines a thematic change in content
+        "html",  # Defines the root of an HTML document
+        "i",  # Defines text in an alternate voice or mood
+        "iframe",  # Defines an inline frame
+        "img",  # Defines an image
+        "input",  # Defines an input control
+        "ins",  # Defines text inserted into a document
+        "kbd",  # Defines keyboard input
+        "label",  # Defines a label for an input element
+        "legend",  # Defines a caption for a <fieldset>
+        "li",  # Defines a list item
+        "link",  # Defines the relationship between a document and external resource
+        "main",  # Specifies the main content of a document
+        "map",  # Defines an image map
+        "mark",  # Defines highlighted text
+        "menu",  # Defines an unordered list
+        "meta",  # Defines metadata about an HTML document
+        "meter",  # Defines a scalar measurement within a known range
+        "nav",  # Defines navigation links
+        "noscript",  # Defines alternate content for users without scripts
+        "object",  # Defines a container for an external application
+        "ol",  # Defines an ordered list
+        "optgroup",  # Defines a group of options in a drop-down list
+        "option",  # Defines an option in a drop-down list
+        "output",  # Defines the result of a calculation
+        "p",  # Defines a paragraph
+        "param",  # Defines a parameter for an object
+        "picture",  # Defines a container for multiple image resources
+        "pre",  # Defines preformatted text
+        "progress",  # Represents the progress of a task
+        "q",  # Defines a short quotation
+        "rp",  # Defines fallback text for ruby annotations
+        "rt",  # Defines explanation/pronunciation for ruby annotations
+        "ruby",  # Defines a ruby annotation
+        "s",  # Defines text that is no longer correct
+        "samp",  # Defines sample output from a computer program
+        "script",  # Defines a client-side script
+        "search",  # Defines a search section
+        "section",  # Defines a section in a document
+        "select",  # Defines a drop-down list
+        "small",  # Defines smaller text
+        "source",  # Defines media resources for <video>/<audio>
+        "span",  # Defines a section in a document
+        "strong",  # Defines important text
+        "style",  # Defines style information for a document
+        "sub",  # Defines subscript text
+        "summary",  # Defines a heading for a <details> element
+        "sup",  # Defines superscript text
+        "svg",  # Defines a container for SVG graphics
+        "table",  # Defines a table
+        "tbody",  # Groups the body content in a table
+        "td",  # Defines a cell in a table
+        "template",  # Defines hidden template content
+        "textarea",  # Defines a multiline input control
+        "tfoot",  # Groups footer content in a table
+        "th",  # Defines a header cell in a table
+        "thead",  # Groups header content in a table
+        "time",  # Defines a specific time
+        "title",  # Defines a title for the document
+        "tr",  # Defines a row in a table
+        "track",  # Defines text tracks for media
+        "u",  # Defines text styled differently
+        "ul",  # Defines an unordered list
+        "var",  # Defines a variable
+        "video",  # Defines embedded video
+        "wbr",  # Defines a possible line break
+    ]
+
     def plain(self, **kwargs):
         hc = kwargs.pop("cleaner_class", HTMLCleaner)(**kwargs)
         return hc.feed(self)
