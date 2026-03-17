@@ -755,6 +755,12 @@ class ClassFinder(BaseClassFinder):
             except KeyError:
                 pass
 
+    def get_classes(self) -> Generator[type]:
+        """This just yields all classes found in the tree"""
+        for klass in self.postorder():
+            if klass is not None:
+                yield klass
+
     def get_subclasses(self, klass: type) -> Generator[type]:
         """walk all the subclasses of `klass`, the yielded values will
         not include `klass`"""

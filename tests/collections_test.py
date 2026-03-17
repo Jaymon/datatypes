@@ -1103,6 +1103,30 @@ class DictTreeTest(TestCase):
         ks, n = it.__next__()
         self.assertEqual(("foo", "che", "boo", "far"), tuple(ks))
 
+    def test_preorder_postorder(self):
+        d = DictTree()
+        d[["A"]] = "A"
+
+        d[["A", "B"]] = "B"
+        d[["A", "B", "E"]] = "E"
+        d[["A", "B", "F"]] = "F"
+
+        d[["A", "C"]] = "C"
+
+        d[["A", "D"]] = "D"
+        d[["A", "D", "G"]] = "G"
+        d[["A", "D", "H"]] = "H"
+        d[["A", "D", "I"]] = "I"
+
+        self.assertEqual(
+            ["E", "F", "B", "C", "G", "H", "I", "D", "A", None],
+            list(d.postorder()),
+        )
+
+        self.assertEqual(
+            [None, "A", "B", "E", "F", "C", "D", "G", "H", "I"],
+            list(d.preorder()),
+        )
 
 
 class SortedSetTest(TestCase):

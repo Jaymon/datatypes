@@ -448,6 +448,31 @@ class ClassFinderTest(TestCase):
             orders.append(c)
         self.assertEqual([Bar, Foo], orders)
 
+    def test_get_classes(self):
+        classes = self.create_module_classes("""
+            class GGP(object): pass
+            class GP(GGP): pass
+            class P(GP): pass
+            class C1(P): pass
+            class C2(P): pass
+            class GC11(C1): pass
+            class GC12(C1): pass
+            class GC21(C2): pass
+            class GGC221(GC21): pass
+        """)
+
+        cf = ClassFinder()
+        for c in classes.values():
+            cf.add_class(c)
+
+        class_names = set(k for k in classes.keys())
+        class_names.add("object")
+
+        for c in cf.get_classes():
+            class_names.remove(c.__name__)
+
+        self.assertEqual(0, len(class_names))
+
 
 class ClassKeyFinderTest(TestCase):
     def test_find_class(self):

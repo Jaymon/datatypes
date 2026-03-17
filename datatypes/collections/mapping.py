@@ -60,7 +60,7 @@ from ..compat import *
 from .container import HotSet
 from .sequence import Stack
 from collections.abc import Mapping, Generator, Iterable
-from typing import Any
+from typing import Any, Self
 
 
 class Pool(dict):
@@ -1223,4 +1223,24 @@ class DictTree(Dict):
                 for sk, sd in n.nodes(depth=depth-1):
                     if sk:
                         yield [k] + sk, sd
+
+    def preorder(self) -> Generator:
+        """preorder traversal - perform first on node itself, then children
+
+        :returns: the value of the node, not the node itself
+        """
+        yield self.value
+        for node in self.values():
+            yield from node.preorder()
+
+    def postorder(self) -> Generator:
+        """postorder traversal - perform first on node's children, then the
+        node itself
+
+        :returns: the value of the node, not the node itself
+        """
+        for node in self.values():
+            yield from node.postorder()
+
+        yield self.value
 
