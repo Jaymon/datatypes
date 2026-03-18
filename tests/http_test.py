@@ -290,6 +290,21 @@ class HTTPHeadersTest(TestCase):
         self.assertEqual("boo", cookie.value)
         self.assertEqual(3600, cookie["max-age"])
 
+    def test_set_cookie_path(self):
+        """Turns out I had a typo in `path` and so it wasn't setting the
+        cookie to the root path correctly"""
+        hs = HTTPHeaders()
+        hs.set_cookie("foo", "bar")
+        cookie = hs.get_cookie("foo")
+        self.assertEqual("/", cookie["path"])
+        self.assertEqual("bar", cookie.value)
+
+    def test_set_client_cookie(self):
+        hs = HTTPHeaders()
+        hs.set_client_cookie("foo", "bar")
+        cookie = hs.get_cookie("foo")
+        self.assertEqual("bar", cookie.value)
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):

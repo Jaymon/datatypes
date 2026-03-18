@@ -472,7 +472,7 @@ class HTTPHeaders(Headers, Mapping):
         samesite: Literal["Strict", "Lax", "None"] = "Strict",
         partitioned: bool = False,
     ) -> None:
-        """Set a cookie header
+        """Set a response/server cookie in the `Set-Cookie` header
 
         RFC 6265 is the cookie spec.
 
@@ -497,7 +497,7 @@ class HTTPHeaders(Headers, Mapping):
             cookie[key]["domain"] = domain
 
         if path:
-            cookie[key]["path"] = domain
+            cookie[key]["path"] = path
 
         if secure:
             cookie[key]["secure"] = secure
@@ -510,7 +510,9 @@ class HTTPHeaders(Headers, Mapping):
 
         if partitioned:
             if not secure:
-                raise ValueError("Cannot set partioned insecure cookie")
+                raise ValueError(
+                    "Cannot set partitioned on and insecure cookie",
+                )
 
             cookie[key]["partitioned"] = partitioned
 
@@ -546,6 +548,12 @@ class HTTPHeaders(Headers, Mapping):
                         morsel["max-age"] = int(morsel["max-age"])
 
                     yield morsel
+
+    def set_client_cookie(self, key: str, value: str):
+        """Sets `key` and `value` in a client/request `Cookie` header"""
+        cookie = httpcookies.SimpleCookie()
+        cookie[key] = value
+        self.add_header("Cookie", cookie[key].OutputString())
 
 
 class HTTPEnviron(HTTPHeaders):
