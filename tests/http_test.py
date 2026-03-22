@@ -305,6 +305,14 @@ class HTTPHeadersTest(TestCase):
         cookie = hs.get_cookie("foo")
         self.assertEqual("bar", cookie.value)
 
+    def test_delete_cookie(self):
+        hs = HTTPHeaders()
+        hs.delete_cookie("foo")
+        #cookie = hs.get_cookie("foo")
+        hv = hs.get("set-cookie")
+        self.assertTrue("foo=\"\"" in hv)
+        self.assertTrue("Max-Age=0" in hv)
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):

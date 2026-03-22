@@ -462,34 +462,37 @@ class HTTPHeaders(Headers, Mapping):
         key: str,
         value: str,
         *,
-        #expires: datetime.datetime|None = None,
         max_age: int|datetime.timedelta|None = None,
         #comment: str = "",
         domain: str = "",
         path: str = "/",
         secure: bool = True,
         httponly: bool = True,
-        samesite: Literal["Strict", "Lax", "None"] = "Strict",
+        samesite: Literal["Strict", "Lax", "None", ""] = "Strict",
         partitioned: bool = False,
+        expires: datetime.datetime|int|datetime.timedelta|None = None,
     ) -> None:
         """Set a response/server cookie in the `Set-Cookie` header
 
         RFC 6265 is the cookie spec.
 
-        .. note:: Most modern browsers seem to avoid `version`, `comment`,
-            and `expires` so this doesn't even bother with them
+        .. note:: Most modern browsers seem to avoid `version` and `comment`,
+            so this doesn't even bother with them
 
         .. note:: This defaults to the most strict settings for the cookie
 
         :keyword partitioned: if this is True then `secure` needs to also
             be True
+        :keyword expires: This shouldn't be normally used since modern
+            browsers will favor `max_age` but this seems to be suggested
+            when deleting a cookie
         """
         cookie = httpcookies.SimpleCookie()
         cookie[key] = value
 
-        if max_age:
+        if max_age is not None:
             if isinstance(max_age, datetime.timedelta):
-                max_age = max_age.seconds
+                max_age = int(max_age.total_seconds())
 
             cookie[key]["max-age"] = max_age
 
@@ -515,6 +518,25 @@ class HTTPHeaders(Headers, Mapping):
                 )
 
             cookie[key]["partitioned"] = partitioned
+
+        if expires is not None:
+            if isinstance(expires, datetime.timedelta):
+                expires = int(expires.total_seconds())
+
+            elif isinstance(expires, datetime.datetime):
+                # convert datetime to an int so the stdlib code will convert
+                # it to the appropriate string date format
+                now = datetime.datetime.now(datetime.timezone.utc)
+                exutc = expires.replace(tzinfo=datetime.timezone.utc)
+                expires = int((now - exutc).total_seconds())
+                if now > exutc:
+                    expires = -expires
+#                 pout.v(expires, now, exutc)
+#                 expires = expires.replace(
+#                     tzinfo=datetime.timezone.utc
+#                 ).timestamp()
+
+            cookie[key]["expires"] = expires
 
         self.add_header("Set-Cookie", cookie[key].OutputString())
 
@@ -550,10 +572,46 @@ class HTTPHeaders(Headers, Mapping):
                     yield morsel
 
     def set_client_cookie(self, key: str, value: str):
-        """Sets `key` and `value` in a client/request `Cookie` header"""
+        """Sets `key` and `value` in a client/request `Cookie` header
+        instead of the server/response `Set-Cookie`"""
         cookie = httpcookies.SimpleCookie()
         cookie[key] = value
         self.add_header("Cookie", cookie[key].OutputString())
+
+    def delete_cookie(self, key: str, domain: str = "", path: str = "/"):
+        """Set a header to remove the cookie from the client
+
+        As best I can tell, we want to set an `expires` in the past and a
+        `max-age` value to 0, then make sure the domain and path match the
+        original cookie value
+
+        RFC 6265:
+            To remove a cookie, the server returns a Set-Cookie header
+            with an expiration date in the past. The server will be successful
+            in removing the cookie only if the Path and the Domain attribute in
+            the Set-Cookie header match the values used when the cookie was
+            created
+        """
+        # we need a time in the past to expire the cookie
+        expires = datetime.datetime(2000, 1, 1)
+        self.set_cookie(
+            key,
+            value="",
+            domain=domain,
+            path=path,
+            expires=expires,
+            max_age=0,
+            secure=False,
+            httponly=False,
+            samesite="",
+        )
+
+#     def delete_morsel(self, cookie: httpcookies.Morsel):
+#         self.delete_cookie(
+#             cookie.key,
+#             domain=cookie["domain"],
+#             path=cookie["path"],
+#         )
 
 
 class HTTPEnviron(HTTPHeaders):
