@@ -1,7 +1,18 @@
 from enum import Enum, EnumMeta
+from typing import Any
 
 from .compat import *
 from .string import String
+
+
+def convert_enum_to_dict(enum_class: Enum) -> dict[str, Any]:
+    """Convert the `enum_class` to a dict with the property names as the
+    keys and the values as the enum value"""
+    d = {}
+    for k, v in enum_class.__members__.items():
+        d[String(k)] = v.value
+
+    return d
 
 
 def convert_value_to_name(enum_class, value):
@@ -139,10 +150,11 @@ class Enum(Enum, metaclass=EnumMeta):
     @classmethod
     def todict(cls):
         """return all the enum values with names as key and integer values"""
-        d = {}
-        for k, v in cls.__members__.items():
-            d[String(k)] = v.value
-        return d
+        return convert_enum_to_dict(cls)
+#         d = {}
+#         for k, v in cls.__members__.items():
+#             d[String(k)] = v.value
+#         return d
 
     @classmethod
     def names(cls):

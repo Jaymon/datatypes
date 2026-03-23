@@ -7,6 +7,7 @@ from datatypes.enum import (
     find_enum,
     find_name,
     find_value,
+    convert_enum_to_dict,
 )
 
 from . import TestCase, testdata
@@ -143,4 +144,33 @@ class StdEnumTest(TestCase):
         r2 = find_value(Foo, 1)
         r3 = find_value(Foo, Foo.ONE)
         self.assertTrue(r1 == r2 == r3 == 1)
+
+    def test_convert_enum_to_dict_1(self):
+        class Foo(enum.Enum):
+            ONE = 1
+            TWO = 2
+
+        d = convert_enum_to_dict(Foo)
+        self.assertEqual(2, len(d))
+        self.assertTrue("ONE" in d)
+        self.assertEqual(2, d["TWO"])
+
+        class Bar(enum.IntEnum):
+            ONE = 1
+            TWO = 2
+            ALL = ONE|TWO
+
+        d = convert_enum_to_dict(Bar)
+        self.assertEqual(3, len(d))
+
+    def test_convert_enum_to_dict_flag(self):
+        class Foo(enum.Flag):
+            ONE = enum.auto()
+            TWO = enum.auto()
+            THREE = enum.auto()
+            FOUR = enum.auto()
+
+        d = convert_enum_to_dict(Foo)
+        self.assertEqual(4, len(d))
+        self.assertEqual(8, d["FOUR"])
 
