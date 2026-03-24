@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 from collections import ChainMap
+from collections.abc import Generator
 
 from ..collections.mapping import Namespace
 from .environ import Environ
@@ -118,17 +118,6 @@ class Settings(Namespace):
         :returns: Any
         """
         return self._get_value(self.environ, k)
-#         try:
-#             return self._get_value(self.environ, k)
-# 
-#         except KeyError:
-#             # if this is an nkey then get all the values for this variable
-#             nk = f"{k}_1"
-#             if nk in self.environ:
-#                 return list(self.environ.nget(k))
-# 
-#             else:
-#                 raise
 
     def get_config_value(self, k):
         """Given a key k, attempt to get the value from the config
@@ -323,6 +312,33 @@ class MultiSettings(Settings):
             else:
                 if namespace and nk and namespace.lower().startswith(nk):
                     return environ
+
+#     def get_environ_value(self, k):
+#         if attr := getattr(self.environ_class, k, None):
+#             if callable(attr):
+#                 def callback(*args, **kwargs):
+#                     for environ in self.environ.maps:
+#                         found = False
+#                         for v in environ.nget(k):
+#                             found = True
+#                             yield v
+# 
+#                         if found:
+#                             break
+# 
+# 
+# 
+#         return self._get_value(self.environ, k)
+
+#     def nget(self, k: str) -> Generator:
+#         for environ in self.environ.maps:
+#             found = False
+#             for v in environ.nget(k):
+#                 found = True
+#                 yield v
+# 
+#             if found:
+#                 break
 
     def get_config(self, k):
         for config in self.config.maps:

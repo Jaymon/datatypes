@@ -44,29 +44,17 @@ def convert_value_to_name(enum_class: EnumType, value: Any) -> str:
     :param value: Any, the enum value
     :returns: str, the name of the enum property
     """
-#     names = []
-#     is_flag = issubclass(enum_class, Flag)
-# 
-#     for k, v in enum_class.__members__.items():
-#         if v.value & value:
-#             names.append(k)
-#             if not is_flag:
-#                 break
-# 
-#     if not names:
-#         raise ValueError(
-#             "Value {} is not a valid enumerated value".format(value)
-#         )
-# 
-#     return "|".join(names)
-
     name = ""
 
     if issubclass(enum_class, Flag):
         names = []
         for k, v in enum_class.__members__.items():
             if v.value & value:
+                value -= v.value
                 names.append(k)
+
+            if value <= 0:
+                break
 
         name = "|".join(names)
 
@@ -105,48 +93,6 @@ def convert_name_to_value(enum_class: EnumType, name: str) -> Any:
         raise ValueError(
             f"{name} is not a member of {enum_class.__name__}"
         ) from e
-
-
-# def convert_name_to_value(enum_class, name):
-#     """Given a name find the value
-# 
-#     :param enum_class: Enum, the enum class we'll check for name to find value
-#     :param name: str, the enum name
-#     :returns: Any, the enum property value
-#     """
-#     if isinstance(name, enum_class):
-#         value = name.value
-# 
-#     elif isinstance(name, int):
-#         value = name
-# 
-#     else:
-#         try:
-#             if issubclass(enum_class, Flag):
-#                 value = 0
-#                 names = name.split("|")
-#                 for n in names:
-#                     value |= enum_class.__getitem__(n).value
-# 
-#             else:
-#                 value = enum_class.__getitem__(name).value
-# 
-#         except KeyError as e:
-#             raise ValueError(
-#                 f"{name} is not a member of {enum_class.__name__}"
-#             ) from e
-
-#         try:
-#             value = enum_class.__getitem__(name).value
-# 
-#         except KeyError as e:
-#             if isinstance(name, enum_class):
-#                 value = name.value
-# 
-#             else:
-#                 raise ValueError(
-#                     f"{name} is not a member of {enum_class.__name__}"
-#                 ) from e
 
     return value
 
@@ -197,7 +143,6 @@ def find_enum(enum_class: EnumType, name_or_value: Any) -> Enum:
                 en |= enum_class[n]
 
         return en
-#         return enum_class[name]
 
 
 def find_name(enum_class: EnumType, name: str) -> str:
@@ -259,10 +204,6 @@ class Enum(Enum, metaclass=EnumMeta):
     def todict(cls):
         """return all the enum values with names as key and integer values"""
         return convert_enum_to_dict(cls)
-#         d = {}
-#         for k, v in cls.__members__.items():
-#             d[String(k)] = v.value
-#         return d
 
     @classmethod
     def names(cls):

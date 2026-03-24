@@ -284,3 +284,9 @@ class MultiSettingsTest(TestCase):
             v2 = s["BAR"]
             self.assertEqual(v1, v2)
 
+#     def test_nget(self):
+#         with self.environ(FOO_BAR_1=1, FOO_BAR_2=2, FOO_BAR_3=3):
+#             environs = [Environ("FOO_")]
+#             s = MultiSettings(environs=environs)
+#             pout.v(s.nget)
+

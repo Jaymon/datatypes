@@ -190,13 +190,35 @@ class StdEnumTest(TestCase):
         value = find_value(Foo, en1.value)
         self.assertEqual(en1.value, value)
 
-    def test_convert_value_to_name_flag(self):
+    def test_convert_value_to_name_flag_1(self):
         class Foo(enum.Flag):
             ONE = enum.auto()
             TWO = enum.auto()
 
         name = convert_value_to_name(Foo, (Foo.ONE|Foo.TWO).value)
         self.assertEqual("ONE|TWO", name)
+
+    def test_convert_value_to_name_flag_2(self):
+        class Foo(enum.Flag):
+            ONE = enum.auto()
+            TWO = enum.auto()
+            THREE = enum.auto()
+            ALL = ONE|TWO|THREE
+
+        name = convert_value_to_name(Foo, (Foo.ONE|Foo.TWO).value)
+        self.assertEqual("ONE|TWO", name)
+
+        name = convert_value_to_name(Foo, (Foo.ONE|Foo.THREE).value)
+        self.assertEqual("ONE|THREE", name)
+
+        name = convert_value_to_name(Foo, Foo.ONE.value)
+        self.assertEqual("ONE", name)
+
+        name = convert_value_to_name(Foo, Foo.THREE.value)
+        self.assertEqual("THREE", name)
+
+        name = convert_value_to_name(Foo, Foo.ALL.value)
+        self.assertEqual("ONE|TWO|THREE", name)
 
     def test_convert_name_to_value_flag(self):
         class Foo(enum.Flag):
