@@ -8,6 +8,8 @@ from datatypes.enum import (
     find_name,
     find_value,
     convert_enum_to_dict,
+    convert_value_to_name,
+    convert_name_to_value,
 )
 
 from . import TestCase, testdata
@@ -173,4 +175,34 @@ class StdEnumTest(TestCase):
         d = convert_enum_to_dict(Foo)
         self.assertEqual(4, len(d))
         self.assertEqual(8, d["FOUR"])
+
+    def test_find_enum_value_flags(self):
+        class Foo(enum.Flag):
+            ONE = enum.auto()
+            TWO = enum.auto()
+            THREE = enum.auto()
+            FOUR = enum.auto()
+
+        en1 = Foo.ONE|Foo.TWO|Foo.THREE
+        en2 = find_enum(Foo, en1)
+        self.assertEqual(en1, en2)
+
+        value = find_value(Foo, en1.value)
+        self.assertEqual(en1.value, value)
+
+    def test_convert_value_to_name_flag(self):
+        class Foo(enum.Flag):
+            ONE = enum.auto()
+            TWO = enum.auto()
+
+        name = convert_value_to_name(Foo, (Foo.ONE|Foo.TWO).value)
+        self.assertEqual("ONE|TWO", name)
+
+    def test_convert_name_to_value_flag(self):
+        class Foo(enum.Flag):
+            ONE = enum.auto()
+            TWO = enum.auto()
+
+        value = convert_name_to_value(Foo, "ONE|TWO")
+        self.assertEqual((Foo.ONE|Foo.TWO).value, value)
 
