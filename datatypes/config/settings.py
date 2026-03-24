@@ -118,7 +118,17 @@ class Settings(Namespace):
         :returns: Any
         """
         return self._get_value(self.environ, k)
-
+#         try:
+#             return self._get_value(self.environ, k)
+# 
+#         except KeyError:
+#             # if this is an nkey then get all the values for this variable
+#             nk = f"{k}_1"
+#             if nk in self.environ:
+#                 return list(self.environ.nget(k))
+# 
+#             else:
+#                 raise
 
     def get_config_value(self, k):
         """Given a key k, attempt to get the value from the config
@@ -128,7 +138,7 @@ class Settings(Namespace):
         """
         return self._get_value(self.config, k)
 
-    def get_environ(self, k):
+    def get_environ(self, k: str) -> Environ|None:
         """Internal method called from .__getitem__ that checks to see if the
         key k is actually the Environ instance's namespace
 
@@ -137,8 +147,12 @@ class Settings(Namespace):
         """
         if self.environ is not None:
             namespace = getattr(self.environ, "namespace", "")
-            if namespace and namespace.lower().startswith(k.lower()):
+            if namespace == k:
                 return self.environ
+
+            else:
+                if namespace and k and namespace.lower().startswith(k.lower()):
+                    return self.environ
 
     def get_config(self, k):
         """Internal method called from .__getitem__ that checks to see if the
@@ -299,12 +313,16 @@ class MultiSettings(Settings):
         """
         self.__dict__["settings"] = ChainMap(*self.settings.maps, settings)
 
-    def get_environ(self, k):
-        k = k.lower()
+    def get_environ(self, k: str) -> Environ|None:
+        nk = k.lower()
         for environ in self.environ.maps:
             namespace = getattr(environ, "namespace", "")
-            if namespace and namespace.lower().startswith(k):
+            if namespace == k:
                 return environ
+
+            else:
+                if namespace and nk and namespace.lower().startswith(nk):
+                    return environ
 
     def get_config(self, k):
         for config in self.config.maps:
