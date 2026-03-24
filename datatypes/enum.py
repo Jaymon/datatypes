@@ -49,12 +49,11 @@ def convert_value_to_name(enum_class: EnumType, value: Any) -> str:
     if issubclass(enum_class, Flag):
         names = []
         for k, v in enum_class.__members__.items():
-            if v.value & value:
-                value -= v.value
-                names.append(k)
-
-            if value <= 0:
-                break
+            # flags with a length greater than 1 are aggregate flags
+            # consisting of other flags
+            if len(v) == 1:
+                if v.value & value:
+                    names.append(k)
 
         name = "|".join(names)
 
