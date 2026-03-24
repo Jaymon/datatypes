@@ -50,10 +50,15 @@ def convert_value_to_name(enum_class: EnumType, value: Any) -> str:
         names = []
         for k, v in enum_class.__members__.items():
             # flags with a length greater than 1 are aggregate flags
-            # consisting of other flags
+            # consisting of other flags (py 3.11+ only)
             if len(v) == 1:
                 if v.value & value:
                     names.append(k)
+
+            else:
+                if v.value == value:
+                    names = [k]
+                    break
 
         name = "|".join(names)
 

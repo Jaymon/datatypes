@@ -218,7 +218,8 @@ class StdEnumTest(TestCase):
         self.assertEqual("THREE", name)
 
         name = convert_value_to_name(Foo, Foo.ALL.value)
-        self.assertEqual("ONE|TWO|THREE", name)
+        #self.assertEqual("ONE|TWO|THREE", name)
+        self.assertEqual("ALL", name)
 
     def test_convert_name_to_value_flag(self):
         class Foo(enum.Flag):
