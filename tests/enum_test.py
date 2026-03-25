@@ -200,10 +200,14 @@ class StdEnumTest(TestCase):
 
     def test_convert_value_to_name_flag_2(self):
         class Foo(enum.Flag):
+            NONE = 0
             ONE = enum.auto()
             TWO = enum.auto()
             THREE = enum.auto()
             ALL = ONE|TWO|THREE
+
+        name = convert_value_to_name(Foo, 0)
+        self.assertEqual("NONE", name)
 
         name = convert_value_to_name(Foo, (Foo.ONE|Foo.TWO).value)
         self.assertEqual("ONE|TWO", name)
@@ -218,7 +222,6 @@ class StdEnumTest(TestCase):
         self.assertEqual("THREE", name)
 
         name = convert_value_to_name(Foo, Foo.ALL.value)
-        #self.assertEqual("ONE|TWO|THREE", name)
         self.assertEqual("ALL", name)
 
     def test_convert_name_to_value_flag(self):

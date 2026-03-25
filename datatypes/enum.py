@@ -56,6 +56,7 @@ def convert_value_to_name(enum_class: EnumType, value: Any) -> str:
                     names.append(k)
 
             else:
+                # aggregate flags (eg, FOO|BAR) and zero flags end up here
                 if v.value == value:
                     names = [k]
                     break
