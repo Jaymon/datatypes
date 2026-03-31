@@ -121,123 +121,896 @@ class HTML(String):
     ])
 
     # https://www.w3schools.com/tags/default.asp
-    ALL_TAGNAMES = [
-        #"<!--...-->",  # Defines a comment
-        #"!DOCTYPE",  # Defines the document type
-        "a",  # Defines a hyperlink
-        "abbr",  # Defines an abbreviation or an acronym
-        "address",  # Defines contact information for the author/owner of a document
-        "area",  # Defines an area inside an image map
-        "article",  # Defines an article
-        "aside",  # Defines content aside from the page content
-        "audio",  # Defines embedded sound content
-        "b",  # Defines bold text
-        "base",  # Specifies the base URL/target for all relative URLs in a document
-        "bdi",  # Isolates text that might be formatted in a different direction
-        "bdo",  # Overrides the current text direction
-        "blockquote",  # Defines a section quoted from another source
-        "body",  # Defines the document's body
-        "br",  # Defines a single line break
-        "button",  # Defines a clickable button
-        "canvas",  # Used to draw graphics via scripting
-        "caption",  # Defines a table caption
-        "cite",  # Defines the title of a work
-        "code",  # Defines a piece of computer code
-        "col",  # Specifies column properties for each column within <colgroup>
-        "colgroup",  # Specifies a group of columns in a table
-        "data",  # Adds a machine-readable translation of content
-        "datalist",  # Specifies a list of pre-defined options for input controls
-        "dd",  # Defines a description/value in a description list
-        "del",  # Defines text that has been deleted
-        "details",  # Defines additional details the user can view/hide
-        "dfn",  # Specifies a term that is going to be defined
-        "dialog",  # Defines a dialog box or window
-        "div",  # Defines a section in a document
-        "dl",  # Defines a description list
-        "dt",  # Defines a term/name in a description list
-        "em",  # Defines emphasized text
-        "embed",  # Defines a container for an external application
-        "fieldset",  # Groups related elements in a form
-        "figcaption",  # Defines a caption for a <figure>
-        "figure",  # Specifies self-contained content
-        "footer",  # Defines a footer for a document or section
-        "form",  # Defines an HTML form for user input
-        "h1",  # Defines HTML headings
+    ALL_TAGNAMES = set([
+        #"<!--...-->", # Defines a comment
+        #"!DOCTYPE", # Defines the document type
+        "a", # Defines a hyperlink
+        "abbr", # Defines an abbreviation or an acronym
+        "address", # Defines contact information for the author/owner of a document
+        "area", # Defines an area inside an image map
+        "article", # Defines an article
+        "aside", # Defines content aside from the page content
+        "audio", # Defines embedded sound content
+        "b", # Defines bold text
+        "base", # Specifies the base URL/target for all relative URLs in a document
+        "bdi", # Isolates text that might be formatted in a different direction
+        "bdo", # Overrides the current text direction
+        "blockquote", # Defines a section quoted from another source
+        "body", # Defines the document's body
+        "br", # Defines a single line break
+        "button", # Defines a clickable button
+        "canvas", # Used to draw graphics via scripting
+        "caption", # Defines a table caption
+        "cite", # Defines the title of a work
+        "code", # Defines a piece of computer code
+        "col", # Specifies column properties for each column within <colgroup>
+        "colgroup", # Specifies a group of columns in a table
+        "data", # Adds a machine-readable translation of content
+        "datalist", # Specifies a list of pre-defined options for input controls
+        "dd", # Defines a description/value in a description list
+        "del", # Defines text that has been deleted
+        "details", # Defines additional details the user can view/hide
+        "dfn", # Specifies a term that is going to be defined
+        "dialog", # Defines a dialog box or window
+        "div", # Defines a section in a document
+        "dl", # Defines a description list
+        "dt", # Defines a term/name in a description list
+        "em", # Defines emphasized text
+        "embed", # Defines a container for an external application
+        "fieldset", # Groups related elements in a form
+        "figcaption", # Defines a caption for a <figure>
+        "figure", # Specifies self-contained content
+        "footer", # Defines a footer for a document or section
+        "form", # Defines an HTML form for user input
+        "h1", # Defines HTML headings
         "h2",
         "h3",
         "h4",
         "h5",
         "h6",
-        "head",  # Contains metadata/information for the document
-        "header",  # Defines a header for a document or section
-        "hgroup",  # Defines a header and related content
-        "hr",  # Defines a thematic change in content
-        "html",  # Defines the root of an HTML document
-        "i",  # Defines text in an alternate voice or mood
-        "iframe",  # Defines an inline frame
-        "img",  # Defines an image
-        "input",  # Defines an input control
-        "ins",  # Defines text inserted into a document
-        "kbd",  # Defines keyboard input
-        "label",  # Defines a label for an input element
-        "legend",  # Defines a caption for a <fieldset>
-        "li",  # Defines a list item
-        "link",  # Defines the relationship between a document and external resource
-        "main",  # Specifies the main content of a document
-        "map",  # Defines an image map
-        "mark",  # Defines highlighted text
-        "menu",  # Defines an unordered list
-        "meta",  # Defines metadata about an HTML document
-        "meter",  # Defines a scalar measurement within a known range
-        "nav",  # Defines navigation links
-        "noscript",  # Defines alternate content for users without scripts
-        "object",  # Defines a container for an external application
-        "ol",  # Defines an ordered list
-        "optgroup",  # Defines a group of options in a drop-down list
-        "option",  # Defines an option in a drop-down list
-        "output",  # Defines the result of a calculation
-        "p",  # Defines a paragraph
-        "param",  # Defines a parameter for an object
-        "picture",  # Defines a container for multiple image resources
-        "pre",  # Defines preformatted text
-        "progress",  # Represents the progress of a task
-        "q",  # Defines a short quotation
-        "rp",  # Defines fallback text for ruby annotations
-        "rt",  # Defines explanation/pronunciation for ruby annotations
-        "ruby",  # Defines a ruby annotation
-        "s",  # Defines text that is no longer correct
-        "samp",  # Defines sample output from a computer program
-        "script",  # Defines a client-side script
-        "search",  # Defines a search section
-        "section",  # Defines a section in a document
-        "select",  # Defines a drop-down list
-        "small",  # Defines smaller text
-        "source",  # Defines media resources for <video>/<audio>
-        "span",  # Defines a section in a document
-        "strong",  # Defines important text
-        "style",  # Defines style information for a document
-        "sub",  # Defines subscript text
-        "summary",  # Defines a heading for a <details> element
-        "sup",  # Defines superscript text
-        "svg",  # Defines a container for SVG graphics
-        "table",  # Defines a table
-        "tbody",  # Groups the body content in a table
-        "td",  # Defines a cell in a table
-        "template",  # Defines hidden template content
-        "textarea",  # Defines a multiline input control
-        "tfoot",  # Groups footer content in a table
-        "th",  # Defines a header cell in a table
-        "thead",  # Groups header content in a table
-        "time",  # Defines a specific time
-        "title",  # Defines a title for the document
-        "tr",  # Defines a row in a table
-        "track",  # Defines text tracks for media
-        "u",  # Defines text styled differently
-        "ul",  # Defines an unordered list
-        "var",  # Defines a variable
-        "video",  # Defines embedded video
-        "wbr",  # Defines a possible line break
-    ]
+        "head", # Contains metadata/information for the document
+        "header", # Defines a header for a document or section
+        "hgroup", # Defines a header and related content
+        "hr", # Defines a thematic change in content
+        "html", # Defines the root of an HTML document
+        "i", # Defines text in an alternate voice or mood
+        "iframe", # Defines an inline frame
+        "img", # Defines an image
+        "input", # Defines an input control
+        "ins", # Defines text inserted into a document
+        "kbd", # Defines keyboard input
+        "label", # Defines a label for an input element
+        "legend", # Defines a caption for a <fieldset>
+        "li", # Defines a list item
+        "link", # Defines the relationship between a document and external resource
+        "main", # Specifies the main content of a document
+        "map", # Defines an image map
+        "mark", # Defines highlighted text
+        "menu", # Defines an unordered list
+        "meta", # Defines metadata about an HTML document
+        "meter", # Defines a scalar measurement within a known range
+        "nav", # Defines navigation links
+        "noscript", # Defines alternate content for users without scripts
+        "object", # Defines a container for an external application
+        "ol", # Defines an ordered list
+        "optgroup", # Defines a group of options in a drop-down list
+        "option", # Defines an option in a drop-down list
+        "output", # Defines the result of a calculation
+        "p", # Defines a paragraph
+        "param", # Defines a parameter for an object
+        "picture", # Defines a container for multiple image resources
+        "pre", # Defines preformatted text
+        "progress", # Represents the progress of a task
+        "q", # Defines a short quotation
+        "rp", # Defines fallback text for ruby annotations
+        "rt", # Defines explanation/pronunciation for ruby annotations
+        "ruby", # Defines a ruby annotation
+        "s", # Defines text that is no longer correct
+        "samp", # Defines sample output from a computer program
+        "script", # Defines a client-side script
+        "search", # Defines a search section
+        "section", # Defines a section in a document
+        "select", # Defines a drop-down list
+        "small", # Defines smaller text
+        "source", # Defines media resources for <video>/<audio>
+        "span", # Defines a section in a document
+        "strong", # Defines important text
+        "style", # Defines style information for a document
+        "sub", # Defines subscript text
+        "summary", # Defines a heading for a <details> element
+        "sup", # Defines superscript text
+        "svg", # Defines a container for SVG graphics
+        "table", # Defines a table
+        "tbody", # Groups the body content in a table
+        "td", # Defines a cell in a table
+        "template", # Defines hidden template content
+        "textarea", # Defines a multiline input control
+        "tfoot", # Groups footer content in a table
+        "th", # Defines a header cell in a table
+        "thead", # Groups header content in a table
+        "time", # Defines a specific time
+        "title", # Defines a title for the document
+        "tr", # Defines a row in a table
+        "track", # Defines text tracks for media
+        "u", # Defines text styled differently
+        "ul", # Defines an unordered list
+        "var", # Defines a variable
+        "video", # Defines embedded video
+        "wbr", # Defines a possible line break
+    ])
+
+    # https://www.w3schools.com/tags/ref_attributes.asp
+    # https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes
+    ATTRIBUTES = {
+        "Global": set([
+            "accesskey", # Keyboard shortcut to activate or add focus to
+                         # the element.
+            "autocapitalize", # Sets whether input is automatically
+                              # capitalized when entered by user
+            "class", # Often used with CSS to style elements with common
+                     # properties.
+            "contenteditable", # Indicates whether the element's content
+                               # is editable.
+            "data-*", # Lets you attach custom attributes to an HTML
+                      # element.
+            "dir", # Defines the text direction. Allowed values are ltr
+                   # (Left-To-Right) or rtl (Right-To-Left)
+            "draggable", # Defines whether the element can be dragged.
+            "hidden", # Prevents rendering of given element, while
+                      # keeping child elements, e.g. script elements,
+                      # active.
+            "id", # Often used with CSS to style a specific element. The
+                  # value of this attribute must be unique.
+            "itemprop",
+            "lang", # Defines the language used in the element.
+            "role", # Defines an explicit role for an element for use by
+                    # assistive technologies.
+            "slot", # Assigns a slot in a shadow DOM shadow tree to an
+                    # element.
+            "spellcheck", # Indicates whether spell checking is allowed
+                          # for the element.
+            "style", # Defines CSS styles which will override styles
+                     # previously set.
+            "tabindex", # Overrides the browser's default tab order and
+                        # follows the one specified instead.
+            "title", # Text to be displayed in a tooltip when hovering
+                     # over the element.
+            "translate", # Specify whether an element's attribute values
+                         # and the values of its Text node children are
+                         # to be translated when the page is localized,
+                         # or whether to leave them unchanged.
+        ]),
+        "a": set([
+            "download", # Indicates that the hyperlink is to be used for
+                        # downloading a resource.
+            "href", # The URL of a linked resource.
+            "hreflang", # Specifies the language of the linked resource.
+            "media", # Specifies a hint of the media for which the
+                     # linked resource was designed.
+            "ping", # The ping attribute specifies a space-separated
+                    # list of URLs to be notified if a user follows the
+                    # hyperlink.
+            "referrerpolicy", # Specifies which referrer is sent when
+                              # fetching the resource.
+            "rel", # Specifies the relationship of the target object to
+                   # the link object.
+            "shape",
+            "target", # Specifies where to open the linked document (in
+                      # the case of an <a> element) or where to display
+                      # the response received (in the case of a <form>
+                      # element)
+        ]),
+        "area": set([
+            "alt", # Alternative text in case an image can't be
+                   # displayed.
+            "coords", # A set of values specifying the coordinates of
+                      # the hot-spot region.
+            "download", # Indicates that the hyperlink is to be used for
+                        # downloading a resource.
+            "href", # The URL of a linked resource.
+            "media", # Specifies a hint of the media for which the
+                     # linked resource was designed.
+            "ping", # The ping attribute specifies a space-separated
+                    # list of URLs to be notified if a user follows the
+                    # hyperlink.
+            "referrerpolicy", # Specifies which referrer is sent when
+                              # fetching the resource.
+            "rel", # Specifies the relationship of the target object to
+                   # the link object.
+            "shape",
+            "target", # Specifies where to open the linked document (in
+                      # the case of an <a> element) or where to display
+                      # the response received (in the case of a <form>
+                      # element)
+        ]),
+        "audio": set([
+            "autoplay", # The audio or video should play as soon as
+                        # possible.
+            "controls", # Indicates whether the browser should show
+                        # playback controls to the user.
+            "crossorigin", # How the element handles cross-origin
+                           # requests
+            "loop", # Indicates whether the media should start playing
+                    # from the start when it's finished.
+            "muted", # Indicates whether the audio will be initially
+                     # silenced on page load.
+            "preload", # Indicates whether the whole resource, parts of
+                       # it or nothing should be preloaded.
+            "src", # The URL of the embeddable content.
+        ]),
+        "base": set([
+            "href", # The URL of a linked resource.
+            "target", # Specifies where to open the linked document (in
+                      # the case of an <a> element) or where to display
+                      # the response received (in the case of a <form>
+                      # element)
+        ]),
+        "blockquote": set([
+            "cite", # Contains a URI which points to the source of the
+                    # quote or change.
+        ]),
+        "body": set([
+            "background", # Specifies the URL of an image file. Note:
+                          # Although browsers and email clients may
+                          # still support this attribute, it is
+                          # obsolete. Use CSS background-image instead.
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+        ]),
+        "button": set([
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "formaction", # Indicates the action of the element,
+                          # overriding the action defined in the <form>.
+            "formenctype", # If the button/input is a submit button
+                           # (e.g., type="submit"), this attribute sets
+                           # the encoding type to use during form
+                           # submission. If this attribute is specified,
+                           # it overrides the enctype attribute of the
+                           # button's form owner.
+            "formmethod", # If the button/input is a submit button
+                          # (e.g., type="submit"), this attribute sets
+                          # the submission method to use during form
+                          # submission (GET, POST, etc.). If this
+                          # attribute is specified, it overrides the
+                          # method attribute of the button's form owner.
+            "formnovalidate", # If the button/input is a submit button
+                              # (e.g., type="submit"), this boolean
+                              # attribute specifies that the form is not
+                              # to be validated when it is submitted. If
+                              # this attribute is specified, it
+                              # overrides the novalidate attribute of
+                              # the button's form owner.
+            "formtarget", # If the button/input is a submit button
+                          # (e.g., type="submit"), this attribute
+                          # specifies the browsing context (for example,
+                          # tab, window, or inline frame) in which to
+                          # display the response that is received after
+                          # submitting the form. If this attribute is
+                          # specified, it overrides the target attribute
+                          # of the button's form owner.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "type", # Defines the type of the element.
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "canvas": set([
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+        "col": set([
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+            "span",
+        ]),
+        "colgroup": set([
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+            "span",
+        ]),
+        "data": set([
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "del": set([
+            "cite", # Contains a URI which points to the source of the
+                    # quote or change.
+            "datetime", # Indicates the date and time associated with
+                        # the element.
+        ]),
+        "details": set([
+            "open", # Indicates whether the contents are currently
+                    # visible (in the case of a <details> element) or
+                    # whether the dialog is active and can be interacted
+                    # with (in the case of a <dialog> element).
+        ]),
+        "dialog": set([
+            "open", # Indicates whether the contents are currently
+                    # visible (in the case of a <details> element) or
+                    # whether the dialog is active and can be interacted
+                    # with (in the case of a <dialog> element).
+        ]),
+        "embed": set([
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "src", # The URL of the embeddable content.
+            "type", # Defines the type of the element.
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+        "fieldset": set([
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+        ]),
+        "font": set([
+            "color", # This attribute sets the text color using either a
+                     # named color or a color specified in the
+                     # hexadecimal #RRGGBB format. Note: This is a
+                     # legacy attribute. Please use the CSS color
+                     # property instead.
+        ]),
+        "form": set([
+            "accept", # List of types the server accepts, typically a
+                      # file type.
+            "accept-charset", # The character set, which if provided
+                              # must be "UTF-8".
+            "action", # The URI of a program that processes the
+                      # information submitted via the form.
+            "autocomplete", # Indicates whether controls in this form
+                            # can by default have their values
+                            # automatically completed by the browser.
+            "enctype", # Defines the content type of the form data when
+                       # the method is POST.
+            "method", # Defines which HTTP method to use when submitting
+                      # the form. Can be GET (default) or POST.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "novalidate", # This attribute indicates that the form
+                          # shouldn't be validated when submitted.
+            "target", # Specifies where to open the linked document (in
+                      # the case of an <a> element) or where to display
+                      # the response received (in the case of a <form>
+                      # element)
+        ]),
+        "hr": set([
+            "color", # This attribute sets the text color using either a
+                     # named color or a color specified in the
+                     # hexadecimal #RRGGBB format. Note: This is a
+                     # legacy attribute. Please use the CSS color
+                     # property instead.
+        ]),
+        "iframe": set([
+            "allow", # Specifies a feature-policy for the iframe.
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "loading", # Indicates if the element should be loaded
+                       # lazily (loading="lazy") or loaded immediately
+                       # (loading="eager").
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "referrerpolicy", # Specifies which referrer is sent when
+                              # fetching the resource.
+            "sandbox", # Stops a document loaded in an iframe from using
+                       # certain features (such as submitting forms or
+                       # opening new windows).
+            "src", # The URL of the embeddable content.
+            "srcdoc",
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+        "image": set([
+            "elementtiming", # Indicates that an element is flagged for
+                             # tracking by PerformanceObserver objects
+                             # using the "element" type. For more
+                             # details, see the PerformanceElementTiming
+                             # interface.
+        ]),
+        "img": set([
+            "alt", # Alternative text in case an image can't be
+                   # displayed.
+            "border", # The border width.Note: This is a legacy
+                      # attribute. Please use the CSS border property
+                      # instead.
+            "crossorigin", # How the element handles cross-origin
+                           # requests
+            "decoding", # Indicates the preferred method to decode the
+                        # image.
+            "elementtiming", # Indicates that an element is flagged for
+                             # tracking by PerformanceObserver objects
+                             # using the "element" type. For more
+                             # details, see the PerformanceElementTiming
+                             # interface.
+            "fetchpriority", # Signals that fetching a particular image
+                             # early in the loading process has more or
+                             # less impact on user experience than a
+                             # browser can reasonably infer when
+                             # assigning an internal priority.
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "ismap", # Indicates that the image is part of a server-side
+                     # image map.
+            "loading", # Indicates if the element should be loaded
+                       # lazily (loading="lazy") or loaded immediately
+                       # (loading="eager").
+            "referrerpolicy", # Specifies which referrer is sent when
+                              # fetching the resource.
+            "sizes",
+            "src", # The URL of the embeddable content.
+            "srcset", # One or more responsive image candidates.
+            "usemap",
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+        "input": set([
+            "accept", # List of types the server accepts, typically a
+                      # file type.
+            "alpha", # Allow the user to select a color's opacity on a
+                     # type="color" input.
+            "alt", # Alternative text in case an image can't be
+                   # displayed.
+            "autocomplete", # Indicates whether controls in this form
+                            # can by default have their values
+                            # automatically completed by the browser.
+            "capture", # From the Media Capture specification, specifies
+                       # a new file can be captured.
+            "checked", # Indicates whether the element should be checked
+                       # on page load.
+            "colorspace", # Defines the color space that is used by a
+                          # type="color" input.
+            "dirname",
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "formaction", # Indicates the action of the element,
+                          # overriding the action defined in the <form>.
+            "formenctype", # If the button/input is a submit button
+                           # (e.g., type="submit"), this attribute sets
+                           # the encoding type to use during form
+                           # submission. If this attribute is specified,
+                           # it overrides the enctype attribute of the
+                           # button's form owner.
+            "formmethod", # If the button/input is a submit button
+                          # (e.g., type="submit"), this attribute sets
+                          # the submission method to use during form
+                          # submission (GET, POST, etc.). If this
+                          # attribute is specified, it overrides the
+                          # method attribute of the button's form owner.
+            "formnovalidate", # If the button/input is a submit button
+                              # (e.g., type="submit"), this boolean
+                              # attribute specifies that the form is not
+                              # to be validated when it is submitted. If
+                              # this attribute is specified, it
+                              # overrides the novalidate attribute of
+                              # the button's form owner.
+            "formtarget", # If the button/input is a submit button
+                          # (e.g., type="submit"), this attribute
+                          # specifies the browsing context (for example,
+                          # tab, window, or inline frame) in which to
+                          # display the response that is received after
+                          # submitting the form. If this attribute is
+                          # specified, it overrides the target attribute
+                          # of the button's form owner.
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "list", # Identifies a list of pre-defined options to
+                    # suggest to the user.
+            "max", # Indicates the maximum value allowed.
+            "maxlength", # Defines the maximum number of characters
+                         # allowed in the element.
+            "minlength", # Defines the minimum number of characters
+                         # allowed in the element.
+            "min", # Indicates the minimum value allowed.
+            "multiple", # Indicates whether multiple values can be
+                        # entered in an input of the type email or file.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "pattern", # Defines a regular expression which the
+                       # element's value will be validated against.
+            "placeholder", # Provides a hint to the user of what can be
+                           # entered in the field.
+            "readonly", # Indicates whether the element can be edited.
+            "required", # Indicates whether this element is required to
+                        # fill out or not.
+            "size", # Defines the width of the element (in pixels). If
+                    # the element's type attribute is text or password
+                    # then it's the number of characters.
+            "src", # The URL of the embeddable content.
+            "step",
+            "type", # Defines the type of the element.
+            "usemap",
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+        "ins": set([
+            "cite", # Contains a URI which points to the source of the
+                    # quote or change.
+            "datetime", # Indicates the date and time associated with
+                        # the element.
+        ]),
+        "label": set([
+            "for", # Describes elements which belongs to this one.
+        ]),
+        "li": set([
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "link": set([
+            "as", # Specifies the type of content being loaded by the
+                  # link.
+            "crossorigin", # How the element handles cross-origin
+                           # requests
+            "fetchpriority", # Signals that fetching a particular image
+                             # early in the loading process has more or
+                             # less impact on user experience than a
+                             # browser can reasonably infer when
+                             # assigning an internal priority.
+            "href", # The URL of a linked resource.
+            "hreflang", # Specifies the language of the linked resource.
+            "integrity", # Specifies a Subresource Integrity value that
+                         # allows browsers to verify what they fetch.
+            "media", # Specifies a hint of the media for which the
+                     # linked resource was designed.
+            "referrerpolicy", # Specifies which referrer is sent when
+                              # fetching the resource.
+            "rel", # Specifies the relationship of the target object to
+                   # the link object.
+            "sizes",
+            "type", # Defines the type of the element.
+        ]),
+        "map": set([
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+        ]),
+        "marquee": set([
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+            "loop", # Indicates whether the media should start playing
+                    # from the start when it's finished.
+        ]),
+        "menu": set([
+            "type", # Defines the type of the element.
+        ]),
+        "meta": set([
+            "charset", # Declares the character encoding of the page or
+                       # script.
+            "content", # A value associated with http-equiv or name
+                       # depending on the context.
+            "http-equiv", # Defines a pragma directive.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+        ]),
+        "meter": set([
+            "high", # Indicates the lower bound of the upper range.
+            "low", # Indicates the upper bound of the lower range.
+            "max", # Indicates the maximum value allowed.
+            "min", # Indicates the minimum value allowed.
+            "optimum", # Indicates the optimal numeric value.
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "object": set([
+            "border", # The border width.Note: This is a legacy
+                      # attribute. Please use the CSS border property
+                      # instead.
+            "data", # Specifies the URL of the resource.
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "type", # Defines the type of the element.
+            "usemap",
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+        "ol": set([
+            "reversed", # Indicates whether the list should be displayed
+                        # in a descending order instead of an ascending
+                        # order.
+            "start", # Defines the first number if other than 1.
+            "type", # Defines the type of the element.
+        ]),
+        "optgroup": set([
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "label", # Specifies a user-readable title of the element.
+        ]),
+        "option": set([
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "label", # Specifies a user-readable title of the element.
+            "selected", # Defines a value which will be selected on page
+                        # load.
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "output": set([
+            "for", # Describes elements which belongs to this one.
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+        ]),
+        "p": set([
+            "elementtiming", # Indicates that an element is flagged for
+                             # tracking by PerformanceObserver objects
+                             # using the "element" type. For more
+                             # details, see the PerformanceElementTiming
+                             # interface.
+        ]),
+        "param": set([
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "progress": set([
+            "max", # Indicates the maximum value allowed.
+            "value", # Defines a default value which will be displayed
+                     # in the element on page load.
+        ]),
+        "q": set([
+            "cite", # Contains a URI which points to the source of the
+                    # quote or change.
+        ]),
+        "script": set([
+            "async", # Executes the script asynchronously.
+            "crossorigin", # How the element handles cross-origin
+                           # requests
+            "defer", # Indicates that the script should be executed
+                     # after the page has been parsed.
+            "fetchpriority", # Signals that fetching a particular image
+                             # early in the loading process has more or
+                             # less impact on user experience than a
+                             # browser can reasonably infer when
+                             # assigning an internal priority.
+            "integrity", # Specifies a Subresource Integrity value that
+                         # allows browsers to verify what they fetch.
+            "referrerpolicy", # Specifies which referrer is sent when
+                              # fetching the resource.
+            "src", # The URL of the embeddable content.
+            "type", # Defines the type of the element.
+        ]),
+        "select": set([
+            "autocomplete", # Indicates whether controls in this form
+                            # can by default have their values
+                            # automatically completed by the browser.
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "multiple", # Indicates whether multiple values can be
+                        # entered in an input of the type email or file.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "required", # Indicates whether this element is required to
+                        # fill out or not.
+            "size", # Defines the width of the element (in pixels). If
+                    # the element's type attribute is text or password
+                    # then it's the number of characters.
+        ]),
+        "source": set([
+            "media", # Specifies a hint of the media for which the
+                     # linked resource was designed.
+            "sizes",
+            "src", # The URL of the embeddable content.
+            "srcset", # One or more responsive image candidates.
+            "type", # Defines the type of the element.
+        ]),
+        "style": set([
+            "media", # Specifies a hint of the media for which the
+                     # linked resource was designed.
+            "type", # Defines the type of the element.
+        ]),
+        "svg": set([
+            "elementtiming", # Indicates that an element is flagged for
+                             # tracking by PerformanceObserver objects
+                             # using the "element" type. For more
+                             # details, see the PerformanceElementTiming
+                             # interface.
+        ]),
+        "table": set([
+            "background", # Specifies the URL of an image file. Note:
+                          # Although browsers and email clients may
+                          # still support this attribute, it is
+                          # obsolete. Use CSS background-image instead.
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+            "border", # The border width.Note: This is a legacy
+                      # attribute. Please use the CSS border property
+                      # instead.
+        ]),
+        "tbody": set([
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+        ]),
+        "td": set([
+            "background", # Specifies the URL of an image file. Note:
+                          # Although browsers and email clients may
+                          # still support this attribute, it is
+                          # obsolete. Use CSS background-image instead.
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+            "colspan", # The colspan attribute defines the number of
+                       # columns a cell should span.
+            "headers", # IDs of the <th> elements which applies to this
+                       # element.
+            "rowspan", # Defines the number of rows a table cell should
+                       # span over.
+        ]),
+        "textarea": set([
+            "autocomplete", # Indicates whether controls in this form
+                            # can by default have their values
+                            # automatically completed by the browser.
+            "cols", # Defines the number of columns in a textarea.
+            "dirname",
+            "disabled", # Indicates whether the user can interact with
+                        # the element.
+            "enterkeyhint", # The enterkeyhint specifies what action
+                            # label (or icon) to present for the enter
+                            # key on virtual keyboards. The attribute
+                            # can be used with form controls (such as
+                            # the value of textarea elements), or in
+                            # elements in an editing host (e.g., using
+                            # contenteditable attribute).
+            "form", # Indicates the form that is the owner of the
+                    # element.
+            "inputmode", # Provides a hint as to the type of data that
+                         # might be entered by the user while editing
+                         # the element or its contents. The attribute
+                         # can be used with form controls (such as the
+                         # value of textarea elements), or in elements
+                         # in an editing host (e.g., using
+                         # contenteditable attribute).
+            "maxlength", # Defines the maximum number of characters
+                         # allowed in the element.
+            "minlength", # Defines the minimum number of characters
+                         # allowed in the element.
+            "name", # Name of the element. For example used by the
+                    # server to identify the fields in form submits.
+            "placeholder", # Provides a hint to the user of what can be
+                           # entered in the field.
+            "readonly", # Indicates whether the element can be edited.
+            "required", # Indicates whether this element is required to
+                        # fill out or not.
+            "rows", # Defines the number of rows in a text area.
+            "wrap", # Indicates whether the text should be wrapped.
+        ]),
+        "tfoot": set([
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+        ]),
+        "th": set([
+            "background", # Specifies the URL of an image file. Note:
+                          # Although browsers and email clients may
+                          # still support this attribute, it is
+                          # obsolete. Use CSS background-image instead.
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+            "colspan", # The colspan attribute defines the number of
+                       # columns a cell should span.
+            "headers", # IDs of the <th> elements which applies to this
+                       # element.
+            "rowspan", # Defines the number of rows a table cell should
+                       # span over.
+            "scope", # Defines the cells that the header test (defined
+                     # in the th element) relates to.
+        ]),
+        "time": set([
+            "datetime", # Indicates the date and time associated with
+                        # the element.
+        ]),
+        "tr": set([
+            "bgcolor", # Background color of the element.Note: This is a
+                       # legacy attribute. Please use the CSS
+                       # background-color property instead.
+        ]),
+        "track": set([
+            "default", # Indicates that the track should be enabled
+                       # unless the user's preferences indicate
+                       # something different.
+            "kind", # Specifies the kind of text track.
+            "label", # Specifies a user-readable title of the element.
+            "src", # The URL of the embeddable content.
+            "srclang",
+        ]),
+        "video": set([
+            "autoplay", # The audio or video should play as soon as
+                        # possible.
+            "controls", # Indicates whether the browser should show
+                        # playback controls to the user.
+            "crossorigin", # How the element handles cross-origin
+                           # requests
+            "elementtiming", # Indicates that an element is flagged for
+                             # tracking by PerformanceObserver objects
+                             # using the "element" type. For more
+                             # details, see the PerformanceElementTiming
+                             # interface.
+            "height", # Specifies the height of elements listed here.
+                      # For all other elements, use the CSS height
+                      # property. Note: In some instances, such as
+                      # <div>, this is a legacy attribute, in which case
+                      # the CSS height property should be used instead.
+            "loop", # Indicates whether the media should start playing
+                    # from the start when it's finished.
+            "muted", # Indicates whether the audio will be initially
+                     # silenced on page load.
+            "playsinline", # A Boolean attribute indicating that the
+                           # video is to be played "inline"; that is,
+                           # within the element's playback area. Note
+                           # that the absence of this attribute does not
+                           # imply that the video will always be played
+                           # in fullscreen.
+            "poster", # A URL indicating a poster frame to show until
+                      # the user plays or seeks.
+            "preload", # Indicates whether the whole resource, parts of
+                       # it or nothing should be preloaded.
+            "src", # The URL of the embeddable content.
+            "width", # For the elements listed here, this establishes
+                     # the element's width. Note: For all other
+                     # instances, such as <div>, this is a legacy
+                     # attribute, in which case the CSS width property
+                     # should be used instead.
+        ]),
+    }
 
     def plain(self, **kwargs):
         hc = kwargs.pop("cleaner_class", HTMLCleaner)(**kwargs)
