@@ -654,8 +654,8 @@ class HTTPResponse(object):
         return encoding
 
     @property
-    def cookies(self):
-        return self.headers.get_cookies()
+    def cookies(self) -> Mapping[str, str]:
+        return {c.key: c.value for c in self.headers.get_cookies()}
 
     @property
     def content(self):
