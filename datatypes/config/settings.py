@@ -191,8 +191,8 @@ class Settings(Namespace):
 
 
 class MultiSettings(Settings):
-    """Similar to Settings but makes it easier to query multiple configuration
-    files or environ prefixes
+    """Similar to `Settings` but makes it easier to query multiple
+    configuration files or environ prefixes
 
     Sometimes there might be multiple of the same value with different
     prefixes (eg FOO_BOO=1, BAR_BOO=2), and self.BOO is first match wins, so
@@ -204,7 +204,7 @@ class MultiSettings(Settings):
     singleton, so this allows these dependent projects to give their settings
     singleton access to everything
 
-    :Example:
+    :example:
         from datatypes import MultiSettings
         from <SOME-PACKAGE> import settings as external_settings
         from <SOME-OTHER-PACKAGE> import environ as external_environ

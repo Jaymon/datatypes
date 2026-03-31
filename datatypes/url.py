@@ -481,7 +481,7 @@ class Url(String):
     @classmethod
     def split_hostname_from_port(cls, hostname, default_port=None):
         """given a hostname:port return a tuple (hostname, port)"""
-        bits = hostname.split(":", 2)
+        bits = hostname.rsplit(":", 1)
         p = int(default_port) if default_port else default_port
         d = bits[0]
         if len(bits) == 2:
