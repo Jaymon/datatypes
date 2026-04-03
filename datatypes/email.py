@@ -147,11 +147,13 @@ class Email(object):
     @property
     def headers(self):
         # TODO -- convert the tuples to a dict?
+        # TODO -- use HTTPHeaders
         for name, value in self.msg.items():
             yield String(name), String(value)
 
     @property
     def subject(self):
+        # TODO -- this should return "" if there is no subject
         ret = self.msg.get('Subject', "")
         # https://stackoverflow.com/a/7331577/5006
         ds = decode_header(ret)
@@ -164,25 +166,72 @@ class Email(object):
         return ret
 
     @property
-    def recipient_addrs(self):
+    def addresses(self) -> list[str]:
+        """Return all the email addresses involved in the email, this is all
+        the email addresses of recipients and senders"""
+        header_values = []
+        header_names = [
+            "From",
+            "Sender",
+            "To",
+            "Cc",
+            "Bcc",
+            "Reply-To",
+            "Resent-From",
+            "Resent-Sender",
+            "Resent-To",
+            "Resent-Cc",
+            "Resent-Bcc",
+            "Return-Path",
+            "Delivered-To",
+        ]
+
+        for header_name in header_names:
+            header_values.extend(self.msg.get_all(header_name, []))
+
+        addrs = []
+        seen = set()
+        for name, email_address in email.utils.getaddresses(header_values):
+            if email_address not in seen:
+                addrs.append(email_address)
+                seen.add(email_address)
+
+        return addrs
+
+    @property
+    def recipient_addrs(self) -> list[str]:
         """return all the recipient email addresses
 
         https://docs.python.org/3/library/email.util.html#email.utils.getaddresses
 
         :returns: list, the list of recipients, this includes to, cc, bcc, etc.
         """
-        tos = self.msg.get_all('to', [])
-        ccs = self.msg.get_all('cc', [])
-        bccs = self.msg.get_all('bcc', [])
-        resent_tos = self.msg.get_all('resent-to', [])
-        resent_ccs = self.msg.get_all('resent-cc', [])
+        tos = self.msg.get_all("to", [])
+        ccs = self.msg.get_all("cc", [])
+        bccs = self.msg.get_all("bcc", [])
+        resent_tos = self.msg.get_all("resent-to", [])
+        resent_ccs = self.msg.get_all("resent-cc", [])
         recipient_addrs = email.utils.getaddresses(
             tos + bccs + ccs + resent_tos + resent_ccs
         )
         return [String(a[1]) for a in recipient_addrs if a[1]]
 
     @property
-    def to_addrs(self):
+    def to_address(self) -> str:
+        """Return the address that the email was delivered to, if that address
+        can't be inferred then return an empty string
+        """
+        to_addrs = self.msg.get_all("Delivered-To", [])
+        if not to_addrs:
+            to_addrs = self.msg.get_all('To', [])
+
+        if len(to_addrs) == 1:
+            return String(email.utils.getaddresses(to_addrs[0])[1])
+
+        return ""
+
+    @property
+    def to_addrs(self) -> list[str]:
         """Only to addresses, ignore cc"""
         to_addrs = email.utils.getaddresses(self.msg.get_all('To', []))
         to_addrs = [String(a[1]) for a in to_addrs]

@@ -139,3 +139,21 @@ class EmailTest(TestCase):
         paths = em.save(basedir)
         self.assertTrue(paths[0].basename.startswith("UNKNOWN"))
 
+    def test_addresses(self):
+        data = self.create_email(
+            headers={
+                "cc": [
+                    self.get_email_address(),
+                    self.get_email_address(),
+                ],
+                "bcc": self.get_email_address(),
+            },
+        )
+        em = Email(bytes(data))
+        addresses = em.addresses
+        self.assertEqual(5, len(addresses))
+        seen = set()
+        for addr in addresses:
+            self.assertTrue(addr not in seen)
+            seen.add(addr)
+
