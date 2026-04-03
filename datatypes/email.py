@@ -7,12 +7,71 @@ from collections import defaultdict
 import email.utils
 from email.parser import Parser
 from email.header import decode_header
+from typing import Self
 
 from .compat import *
 from .config.environ import environ
 from .string import String, ByteString
 from .datetime import Datetime
 from .path import Filepath, Dirpath
+
+
+class EmailAddress(str):
+    """The parts of an email address
+
+    First Last <username@subdomain.sld.tld>
+    """
+    name: str = ""
+    """Holds the name section of an email address"""
+
+    @property
+    def username(self) -> str:
+        return self.split("@", 1)[0]
+
+    @property
+    def domain(self) -> str:
+        return self.split("@", 1)[1]
+
+    @property
+    def hostname(self) -> str:
+        return self.domain
+
+    @property
+    def address(self) -> str:
+        return str(self)
+
+    def __new__(cls, address: str|tuple[str, str]) -> Self:
+        if address:
+            if isinstance(address, str):
+                address = email.utils.parseaddr(address)
+
+        else:
+            address = ("", "")
+
+        name, address = address
+        instance = super().__new__(cls, address)
+        instance.name = name
+        return instance
+
+    def formataddr(self) -> str:
+        """Formats the address for an email header, wrapper around
+        `email.utils.formataddr`
+
+        https://docs.python.org/3/library/email.utils.html#email.utils.formataddr
+        """
+        return email.utils.formataddr((self.name, self))
+
+    def parseaddr(self) -> tuple[str, str]:
+        """Acts just like `email.utils.parseaddr`
+        https://docs.python.org/3/library/email.utils.html#email.utils.parseaddr
+        """
+        return (self.name, self.address)
+
+
+#     def __new__(cls, name: str, address: str) -> Self:
+#         instance = super().__new__(cls, address)
+#         instance.realname = name
+#         return instance
 
 
 class EmailPart(object):
@@ -166,7 +225,7 @@ class Email(object):
         return ret
 
     @property
-    def addresses(self) -> list[str]:
+    def addresses(self) -> list[EmailAddress]:
         """Return all the email addresses involved in the email, this is all
         the email addresses of recipients and senders"""
         header_values = []
@@ -193,13 +252,13 @@ class Email(object):
         seen = set()
         for name, email_address in email.utils.getaddresses(header_values):
             if email_address not in seen:
-                addrs.append(email_address)
+                addrs.append(EmailAddress((name, email_address)))
                 seen.add(email_address)
 
         return addrs
 
     @property
-    def recipient_addrs(self) -> list[str]:
+    def recipient_addrs(self) -> list[EmailAddress]:
         """return all the recipient email addresses
 
         https://docs.python.org/3/library/email.util.html#email.utils.getaddresses
@@ -214,35 +273,44 @@ class Email(object):
         recipient_addrs = email.utils.getaddresses(
             tos + bccs + ccs + resent_tos + resent_ccs
         )
-        return [String(a[1]) for a in recipient_addrs if a[1]]
+        return [EmailAddress(a) for a in recipient_addrs if a[1]]
 
     @property
-    def to_address(self) -> str:
+    def to_address(self) -> EmailAddress:
         """Return the address that the email was delivered to, if that address
         can't be inferred then return an empty string
         """
         to_addrs = self.msg.get_all("Delivered-To", [])
         if not to_addrs:
-            to_addrs = self.msg.get_all('To', [])
+            to_addrs = self.msg.get_all("To", [])
 
         if len(to_addrs) == 1:
-            return String(email.utils.getaddresses(to_addrs[0])[1])
+            return EmailAddress(email.utils.getaddresses(to_addrs[0]))
 
-        return ""
+        return EmailAddress("")
 
     @property
-    def to_addrs(self) -> list[str]:
+    def to_addrs(self) -> list[EmailAddress]:
         """Only to addresses, ignore cc"""
-        to_addrs = email.utils.getaddresses(self.msg.get_all('To', []))
-        to_addrs = [String(a[1]) for a in to_addrs]
+        to_addrs = email.utils.getaddresses(self.msg.get_all("To", []))
+        to_addrs = [EmailAddress(a) for a in to_addrs]
         return to_addrs
 
     @property
-    def from_addr(self):
+    def from_addr(self) -> EmailAddress:
         """Get just the email address this email is from"""
         from_addr = ""
-        from_addrs = email.utils.getaddresses(self.msg.get_all('From', []))
-        return String(from_addrs[0][1]) if from_addrs else ""
+        from_addrs = email.utils.getaddresses(self.msg.get_all("From", []))
+        return EmailAddress(from_addrs[0] if from_addrs else "")
+
+    @property
+    def reply_address(self) -> EmailAddress:
+        """The email address that should be used to reply to this email"""
+        addrs = self.msg.get_all("Reply-To", [])
+        if not addrs:
+            addrs = self.msg.get_all("From", [])
+
+        return EmailAddress(email.utils.getaddresses(to_addrs[0]))
 
     @property
     def from_domain(self):

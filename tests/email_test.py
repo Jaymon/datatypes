@@ -3,6 +3,7 @@
 from datatypes.compat import *
 from datatypes.email import (
     Email,
+    EmailAddress,
 )
 from datatypes.string import ByteString
 
@@ -156,4 +157,25 @@ class EmailTest(TestCase):
         for addr in addresses:
             self.assertTrue(addr not in seen)
             seen.add(addr)
+
+
+class EmailAddressTest(TestCase):
+    def test_properties(self):
+        em = EmailAddress("foo@bar.com")
+        self.assertEqual("foo", em.username)
+        self.assertEqual("bar.com", em.domain)
+        self.assertEqual("", em.name)
+        self.assertEqual("foo@bar.com", em)
+
+        em = EmailAddress("Che Baz <foo@bar.com>")
+        self.assertEqual("foo", em.username)
+        self.assertEqual("bar.com", em.domain)
+        self.assertEqual("Che Baz", em.name)
+        self.assertEqual("foo@bar.com", em)
+
+        em = EmailAddress(("Che Baz", "foo@bar.com"))
+        self.assertEqual("foo", em.username)
+        self.assertEqual("bar.com", em.domain)
+        self.assertEqual("Che Baz", em.name)
+        self.assertEqual("foo@bar.com", em)
 
