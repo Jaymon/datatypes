@@ -225,6 +225,21 @@ class Email(object):
         return ret
 
     @property
+    def references(self) -> list[str]:
+        header_values = self.msg.get_all("References", [])
+        if not header_values:
+            header_values = self.msg.get_all("In-Reply-To", [])
+
+
+        refs = []
+        if header_values:
+            for hv in header_values:
+                refs.extend(re.split(r"\s+", hv))
+
+        return refs
+
+
+    @property
     def addresses(self) -> list[EmailAddress]:
         """Return all the email addresses involved in the email, this is all
         the email addresses of recipients and senders"""

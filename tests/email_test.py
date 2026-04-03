@@ -158,6 +158,19 @@ class EmailTest(TestCase):
             self.assertTrue(addr not in seen)
             seen.add(addr)
 
+    def test_references(self):
+        msgids = [
+            self.get_email_msgid(),
+            self.get_email_msgid(),
+            self.get_email_msgid(),
+        ]
+        data = self.create_email(
+            prev_msgids=msgids,
+        )
+
+        em = Email(str(data))
+        self.assertEqual(msgids, em.references)
+
 
 class EmailAddressTest(TestCase):
     def test_properties(self):
