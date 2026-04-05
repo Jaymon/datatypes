@@ -248,10 +248,13 @@ class Email(object):
         msgid = self.msg.get("Message-ID", "")
         if not msgid:
             addr = self.reply_address
-            msgid = email.utils.make_msg(
-                idstring=addr.username,
-                domain=addr.domain,
-            )
+            h = String(self.msg).sha256()
+            msgid = f"<{h}@{addr.domain}>"
+
+#             msgid = email.utils.make_msgid(
+#                 idstring=addr.username,
+#                 domain=addr.domain,
+#             )
 
         return msgid
 
@@ -322,7 +325,7 @@ class Email(object):
             to_addrs = self.msg.get_all("To", [])
 
         if len(to_addrs) == 1:
-            return EmailAddress(email.utils.getaddresses(to_addrs[0]))
+            return EmailAddress(email.utils.getaddresses(to_addrs)[0])
 
         return EmailAddress("")
 
@@ -347,14 +350,16 @@ class Email(object):
         if not addrs:
             addrs = self.msg.get_all("From", [])
 
-        return EmailAddress(email.utils.getaddresses(to_addrs[0]))
+        return EmailAddress(email.utils.getaddresses(addrs)[0])
 
     @property
-    def from_domain(self):
+    def from_domain(self) -> str:
         """Get the from email address domain (eg, the example.com of a
         foo@example.com email address)"""
-        from_addr = self.from_addr
-        return from_addr.rsplit("@", maxsplit=1)[-1]
+        addr = self.from_addr
+        return addr.domain
+#         from_addr = self.from_addr
+#         return from_addr.rsplit("@", maxsplit=1)[-1]
 
     @property
     def date(self):
@@ -413,7 +418,12 @@ class Email(object):
         if not encodings:
             encodings = ["UTF-8", "ISO-8859-1", "us-ascii"]
 
-        self.msg = Parser().parsestr(String(contents))
+        if not isinstance(contents, str):
+            for encoding in encodings:
+                contents = String(contents, encoding=encoding, errors=errors)
+                break
+
+        self.msg = Parser().parsestr(contents)
         if self.msg.is_multipart():
             index = 0
             for part in self.msg.walk():
@@ -421,9 +431,7 @@ class Email(object):
                 if part.is_multipart():
                     continue
 
-                # NOTE -- I'm not sure the lower is needed here, but just in
-                # case
-                content_type = part.get_content_type().lower()
+                content_type = part.get_content_type()
                 encoding = part.get_content_charset()
                 filename = part.get_filename()
                 part_contents = part.get_payload(decode=True)

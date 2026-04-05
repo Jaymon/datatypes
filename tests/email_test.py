@@ -171,6 +171,24 @@ class EmailTest(TestCase):
         em = Email(str(data))
         self.assertEqual(msgids, em.references)
 
+    def test_msgid_no_header(self):
+        data = self.create_email()
+        del data["Message-ID"]
+        em = Email(data)
+        self.assertEqual(em.msgid, em.msgid)
+
+    def test_to_address(self):
+        to_addr = self.get_email_address()
+        data = self.create_email(to_address=to_addr)
+
+        del data["Delivered-To"]
+        em = Email(data)
+        self.assertEqual(to_addr, em.to_address)
+
+        data["Delivered-To"] = to_addr
+        em = Email(data)
+        self.assertEqual(to_addr, em.to_address)
+
 
 class EmailAddressTest(TestCase):
     def test_properties(self):
