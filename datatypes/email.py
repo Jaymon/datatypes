@@ -238,6 +238,28 @@ class Email(object):
 
         return refs
 
+    @property
+    def msgid(self) -> str:
+        """Return a unique msgid for this email
+
+        If a msgid isn't found in the headers then one will be created
+        using the from address, so this will always return something
+        """
+        msgid = self.msg.get("Message-ID", "")
+        if not msgid:
+            addr = self.reply_address
+            msgid = email.utils.make_msg(
+                idstring=addr.username,
+                domain=addr.domain,
+            )
+
+        return msgid
+
+#     @property
+#     def prev_msgid(self) -> str:
+#         """Return the previous msgid, which is the message this email is
+#         replying to"""
+#         return self.msg.get("In-Reply-To", "")
 
     @property
     def addresses(self) -> list[EmailAddress]:
