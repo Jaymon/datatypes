@@ -141,7 +141,7 @@ class EmailTest(TestCase):
         self.assertTrue(paths[0].basename.startswith("UNKNOWN"))
 
     def test_addresses(self):
-        data = self.create_email(
+        data = self.create_email_message(
             headers={
                 "cc": [
                     self.get_email_address(),
@@ -164,7 +164,7 @@ class EmailTest(TestCase):
             self.get_email_msgid(),
             self.get_email_msgid(),
         ]
-        data = self.create_email(
+        data = self.create_email_message(
             prev_msgids=msgids,
         )
 
@@ -172,14 +172,14 @@ class EmailTest(TestCase):
         self.assertEqual(msgids, em.references)
 
     def test_msgid_no_header(self):
-        data = self.create_email()
+        data = self.create_email_message()
         del data["Message-ID"]
         em = Email(data)
         self.assertEqual(em.msgid, em.msgid)
 
     def test_to_address(self):
         to_addr = self.get_email_address()
-        data = self.create_email(to_address=to_addr)
+        data = self.create_email_message(to_address=to_addr)
 
         del data["Delivered-To"]
         em = Email(data)

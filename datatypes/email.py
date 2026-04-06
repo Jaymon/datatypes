@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import re
 import os
 import mimetypes
@@ -17,9 +16,9 @@ from .path import Filepath, Dirpath
 
 
 class EmailAddress(str):
-    """The parts of an email address
+    """The parts of an email address header
 
-    First Last <username@subdomain.sld.tld>
+    `<name> <username@subdomain.sld.tld>`
     """
     name: str = ""
     """Holds the name section of an email address"""
@@ -66,12 +65,6 @@ class EmailAddress(str):
         https://docs.python.org/3/library/email.utils.html#email.utils.parseaddr
         """
         return (self.name, self.address)
-
-
-#     def __new__(cls, name: str, address: str) -> Self:
-#         instance = super().__new__(cls, address)
-#         instance.realname = name
-#         return instance
 
 
 class EmailPart(object):
@@ -195,6 +188,8 @@ class Email(object):
     The original email parsing portion of the code was based on code that I got
     from Larry Bates here:
         http://mail.python.org/pipermail/python-list/2004-June/265634.html
+
+    https://en.wikipedia.org/wiki/Email_address
     """
     part_class = EmailPart
     """Each body or attachment in the email will be represented by this class"""
@@ -242,8 +237,11 @@ class Email(object):
     def msgid(self) -> str:
         """Return a unique msgid for this email
 
-        If a msgid isn't found in the headers then one will be created
-        using the from address, so this will always return something
+        If a msgid isn't found in the headers then one will be created, so
+        this will always return something
+
+        Returns a msgid that is similar to one returned from
+        `email.utils.make_msgid`
         """
         msgid = self.msg.get("Message-ID", "")
         if not msgid:
@@ -251,18 +249,7 @@ class Email(object):
             h = String(self.msg).sha256()
             msgid = f"<{h}@{addr.domain}>"
 
-#             msgid = email.utils.make_msgid(
-#                 idstring=addr.username,
-#                 domain=addr.domain,
-#             )
-
         return msgid
-
-#     @property
-#     def prev_msgid(self) -> str:
-#         """Return the previous msgid, which is the message this email is
-#         replying to"""
-#         return self.msg.get("In-Reply-To", "")
 
     @property
     def addresses(self) -> list[EmailAddress]:
@@ -358,8 +345,6 @@ class Email(object):
         foo@example.com email address)"""
         addr = self.from_addr
         return addr.domain
-#         from_addr = self.from_addr
-#         return from_addr.rsplit("@", maxsplit=1)[-1]
 
     @property
     def date(self):
