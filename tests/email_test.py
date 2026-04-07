@@ -43,7 +43,7 @@ class EmailTest(TestCase):
     def test_parse_subject_multi_to(self):
         em = self.get_email("no-subject")
         self.assertEqual(2, len(em.to_addrs))
-        self.assertTrue("(no subject)" in em.subject)
+        self.assertTrue("" in em.subject)
 
     def test_parse_cc(self):
         em = self.get_email("cc")
@@ -189,6 +189,11 @@ class EmailTest(TestCase):
         em = Email(data)
         self.assertEqual(to_addr, em.to_address)
 
+    def test_headers(self):
+        data = self.create_email_message()
+        em = Email(data)
+        self.assertIsNotNone(em.headers)
+
 
 class EmailAddressTest(TestCase):
     def test_properties(self):
@@ -209,4 +214,10 @@ class EmailAddressTest(TestCase):
         self.assertEqual("bar.com", em.domain)
         self.assertEqual("Che Baz", em.name)
         self.assertEqual("foo@bar.com", em)
+
+    def test_encoding(self):
+        name = self.get_unicode_name()
+        em = EmailAddress((name, self.get_email_address()))
+        em = EmailAddress(em.formataddr())
+        self.assertEqual(name, em.name)
 

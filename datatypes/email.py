@@ -7,12 +7,14 @@ import email.utils
 from email.parser import Parser
 from email.header import decode_header
 from typing import Self
+from functools import cached_property
 
 from .compat import *
 from .config.environ import environ
 from .string import String, ByteString
 from .datetime import Datetime
 from .path import Filepath, Dirpath
+from .http import HTTPHeaders
 
 
 class EmailAddress(str):
@@ -44,10 +46,22 @@ class EmailAddress(str):
             if isinstance(address, str):
                 address = email.utils.parseaddr(address)
 
+
         else:
             address = ("", "")
 
         name, address = address
+
+        ds = decode_header(name)
+        name, encoding = ds[0]
+        if encoding:
+            name = name.decode(encoding)
+
+#         if name.startswith("=?"):
+#             ds = decode_header(name)
+#             name, encoding = ds[0]
+#             name = name.decode(encoding)
+
         instance = super().__new__(cls, address)
         instance.name = name
         return instance
@@ -72,18 +86,28 @@ class EmailPart(object):
 
     this class probably isn't useful outside of the Email class in this module
     """
-    def __init__(self, email, content_type, contents, encoding, encodings=None, errors="", filename="", index=1):
-        '''
+    def __init__(
+        self,
+        email: object,
+        content_type: str,
+        data: str,
+        encoding: str,
+        encodings: list[str]|None = None,
+        errors: str = "",
+        filename: str = "",
+        index: int = 1,
+    ):
+        """
         :param email: Email, the full email instance
         :param content_type: str, the mimetype of the part
-        :param contents: str, the part's contents/body
+        :param data: str, the part's data/body
         :param encoding: str, the content encoding
         :param encodings: list[str], the fallback encodings if encoding fails
         :param errors: str, how to handle encoding errors
         :param filename: str, filename for this attachment, if not provided this
             part will be considered a body instead of an attachment
         :param index: int, the part index/num of this email
-        '''
+        """
         self.email = email
         self.content_type = content_type
         self.filename = filename
@@ -91,13 +115,13 @@ class EmailPart(object):
         self.index = index
 
         if self.filename:
-            # don't mess with the contents since this will be treated like a
+            # don't mess with the data since this will be treated like a
             # binary file
-            self.contents = contents
+            self.data = data
 
         else:
             try:
-                self.contents = String(contents, encoding, errors)
+                self.data = String(data, encoding, errors)
 
             except LookupError as e:
                 success = False
@@ -106,8 +130,8 @@ class EmailPart(object):
 
                 try:
                     for enc in encodings:
-                        self.contents = String(
-                            contents,
+                        self.data = String(
+                            data,
                             enc,
                             errors=errors,
                         )
@@ -125,7 +149,7 @@ class EmailPart(object):
                             f"Unable to decode with {encoding} encoding",
                             "even using alternate encodings",
                         ]),
-                        object=contents
+                        object=data
                     ) from e
 
     def path(self, basedir):
@@ -141,7 +165,6 @@ class EmailPart(object):
 
         else:
             content_type = self.content_type
-            #fileroot = self.email.subject
             fileroot = f"body {self.index}"
             if content_type.endswith("plain"):
                 ext = ".txt"
@@ -154,28 +177,28 @@ class EmailPart(object):
         return Filepath(basedir, name=fileroot, ext=ext).sanitize()
 
     def save(self, basedir):
-        '''Method to save the contents of an attachment to a file
+        '''Method to save the data of an attachment to a file
         arguments:
 
         :param basedir: string, directory path where file is to be saved
         :returns: Path, the written filepath saved in basedir
         '''
-        if not self.contents: return
+        if not self.data: return
 
         p = self.path(basedir)
         if self.filename:
-            p.write_bytes(self.contents)
+            p.write_bytes(self.data)
 
         else:
-            p.write_text(self.contents)
+            p.write_text(self.data)
 
         return p
 
-    def is_attachment(self):
+    def is_attachment(self) -> bool:
         """True if this is an attachment, False if it is a body"""
         return bool(self.filename)
 
-    def is_body(self):
+    def is_body(self) -> bool:
         """True if this is a body, False if it is an attachment"""
         return not self.is_attachment()
 
@@ -198,28 +221,24 @@ class Email(object):
     def raw(self):
         return String(self.msg)
 
-    @property
-    def headers(self):
-        # TODO -- convert the tuples to a dict?
-        # TODO -- use HTTPHeaders
-        for name, value in self.msg.items():
-            yield String(name), String(value)
+    @cached_property
+    def headers(self) -> HTTPHeaders:
+        return HTTPHeaders(self.msg.items())
+#         for name, value in self.msg.items():
+#             yield String(name), String(value)
 
-    @property
-    def subject(self):
-        # TODO -- this should return "" if there is no subject
-        ret = self.msg.get('Subject', "")
-        # https://stackoverflow.com/a/7331577/5006
-        ds = decode_header(ret)
-        if ds:
+    @cached_property
+    def subject(self) -> str:
+        if ret := self.msg.get("Subject", ""):
+            # https://stackoverflow.com/a/7331577/5006
+            ds = decode_header(ret)
             ret, encoding = ds[0]
-            ret = String(ret, encoding)
+            if encoding:
+                ret = ret.decode(encoding)
 
-        if not ret:
-            ret = "(no subject)"
         return ret
 
-    @property
+    @cached_property
     def references(self) -> list[str]:
         header_values = self.msg.get_all("References", [])
         if not header_values:
@@ -233,7 +252,7 @@ class Email(object):
 
         return refs
 
-    @property
+    @cached_property
     def msgid(self) -> str:
         """Return a unique msgid for this email
 
@@ -251,7 +270,7 @@ class Email(object):
 
         return msgid
 
-    @property
+    @cached_property
     def addresses(self) -> list[EmailAddress]:
         """Return all the email addresses involved in the email, this is all
         the email addresses of recipients and senders"""
@@ -284,8 +303,8 @@ class Email(object):
 
         return addrs
 
-    @property
-    def recipient_addrs(self) -> list[EmailAddress]:
+    @cached_property
+    def recipient_addresses(self) -> list[EmailAddress]:
         """return all the recipient email addresses
 
         https://docs.python.org/3/library/email.util.html#email.utils.getaddresses
@@ -303,6 +322,10 @@ class Email(object):
         return [EmailAddress(a) for a in recipient_addrs if a[1]]
 
     @property
+    def recipient_addrs(self): # DEPRECATED
+        return self.recipient_addresses
+
+    @cached_property
     def to_address(self) -> EmailAddress:
         """Return the address that the email was delivered to, if that address
         can't be inferred then return an empty string
@@ -316,21 +339,29 @@ class Email(object):
 
         return EmailAddress("")
 
-    @property
-    def to_addrs(self) -> list[EmailAddress]:
+    @cached_property
+    def to_addresses(self) -> list[EmailAddress]:
         """Only to addresses, ignore cc"""
         to_addrs = email.utils.getaddresses(self.msg.get_all("To", []))
         to_addrs = [EmailAddress(a) for a in to_addrs]
         return to_addrs
 
     @property
-    def from_addr(self) -> EmailAddress:
+    def to_addrs(self): # DEPRECATED
+        return self.to_addresses
+
+    @cached_property
+    def from_address(self) -> EmailAddress:
         """Get just the email address this email is from"""
         from_addr = ""
         from_addrs = email.utils.getaddresses(self.msg.get_all("From", []))
         return EmailAddress(from_addrs[0] if from_addrs else "")
 
     @property
+    def from_addr(self): # DEPRECATED
+        return self.from_address
+
+    @cached_property
     def reply_address(self) -> EmailAddress:
         """The email address that should be used to reply to this email"""
         addrs = self.msg.get_all("Reply-To", [])
@@ -347,12 +378,12 @@ class Email(object):
         return addr.domain
 
     @property
-    def date(self):
+    def date(self) -> str:
         """Get the string datestamp from the email"""
-        ret = String(self.msg.get('Date', ""))
+        ret = str(self.msg.get('Date', ""))
         return ret
 
-    @property
+    @cached_property
     def datetime(self):
         """Convert .date into a datetime instance
 
@@ -376,19 +407,19 @@ class Email(object):
     def plain(self):
         """Return the plain text body of this email"""
         ret = self.parts["text/plain"]
-        return ret[0].contents
+        return ret[0].data
 
     @property
     def html(self):
         """Return the html body of this email, if it exists"""
         ret = self.parts.get("text/html", [])
-        ret = ret[0].contents if ret else ""
+        ret = ret[0].data if ret else ""
         return ret
 
-    def __init__(self, contents, encodings=None, errors=""):
+    def __init__(self, data, encodings=None, errors=""):
         """Encapsulate a pop email message
 
-        :param contents: str, an original full email with all headers and parts
+        :param data: str, an original full email with all headers and parts
         :param encodings: list[str], the fallback encodings if the header
             defined encoding fails, this defaults to a list of the most common
             email encodings, the first encoding that succeeds will be used
@@ -397,18 +428,18 @@ class Email(object):
             how errors is used and what the default is and how to change the
             default
         """
-        self.contents = contents
+        self.data = data
         self.parts = defaultdict(list)
 
         if not encodings:
             encodings = ["UTF-8", "ISO-8859-1", "us-ascii"]
 
-        if not isinstance(contents, str):
+        if not isinstance(data, str):
             for encoding in encodings:
-                contents = String(contents, encoding=encoding, errors=errors)
+                data = String(data, encoding=encoding, errors=errors)
                 break
 
-        self.msg = Parser().parsestr(contents)
+        self.msg = Parser().parsestr(data)
         if self.msg.is_multipart():
             index = 0
             for part in self.msg.walk():
@@ -419,13 +450,13 @@ class Email(object):
                 content_type = part.get_content_type()
                 encoding = part.get_content_charset()
                 filename = part.get_filename()
-                part_contents = part.get_payload(decode=True)
+                part_data = part.get_payload(decode=True)
                 index += 1
 
                 self.parts[content_type].append(self.part_class(
                     email=self,
                     content_type=content_type,
-                    contents=part_contents,
+                    data=part_data,
                     encoding=encoding,
                     encodings=encodings,
                     errors=errors,
@@ -440,11 +471,11 @@ class Email(object):
             # would be message/rfc822
             content_type = self.msg.get_content_type()
             encoding = self.msg.get_content_charset()
-            part_contents = self.msg.get_payload(decode=1)
+            part_data = self.msg.get_payload(decode=1)
             self.parts[content_type].append(self.part_class(
                 email=self,
                 content_type=content_type,
-                contents=part_contents,
+                data=part_data,
                 encoding=encoding
             ))
 
@@ -458,6 +489,7 @@ class Email(object):
             into
         """
         stamp = self.datestamp("%Y-%m-%d %H%M%S")
+        subject = self.subject or "(no subject)"
 
         s = f"{stamp} - {self.subject}"
 
@@ -559,7 +591,7 @@ class Email(object):
 
         if save_original:
             p = Filepath(email_dir, "original.eml")
-            p.write_bytes(ByteString(self.contents))
+            p.write_bytes(ByteString(self.data))
             ret.append(p)
 
         ret.append(email_dir)
@@ -571,15 +603,16 @@ class Email(object):
 
         p = Filepath(email_dir, "headers.txt")
         with p.open_text("w+") as f:
-            f.write("From:\n\t- {}\n".format(self.from_addr))
+            f.write("From:\n\t- {}\n".format(self.from_address))
             f.write("Recipients:\n\t- {}\n".format(
-                "\n\t- ".join(self.recipient_addrs)
+                "\n\t- ".join(self.recipient_addresses)
             ))
             f.write("Subject: {}\n".format(self.subject))
             f.write("Date: {}\n\n".format(self.datestamp()))
 
-            for name, val in self.headers:
-                f.write("{}: {}\n".format(name, val))
+            f.write(str(self.headers))
+#             for name, val in self.headers:
+#                 f.write("{}: {}\n".format(name, val))
         ret.append(p)
 
         return ret
