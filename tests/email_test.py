@@ -15,11 +15,6 @@ class EmailTest(TestCase):
         contents = testdata.get_contents(fileroot)
         return Email(contents, **kwargs)
 
-#         body = testdata.get_contents(fileroot)
-#         lines = body.splitlines(False)
-#         contents = (b'+OK message follows', [ByteString(l) for l in lines], len(lines))
-#         return EmailMsg(1, contents)
-
     def test_parse_multipart(self):
         em = self.get_email("emoji-html-attachment")
 

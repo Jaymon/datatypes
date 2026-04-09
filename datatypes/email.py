@@ -57,11 +57,6 @@ class EmailAddress(str):
         if encoding:
             name = name.decode(encoding)
 
-#         if name.startswith("=?"):
-#             ds = decode_header(name)
-#             name, encoding = ds[0]
-#             name = name.decode(encoding)
-
         instance = super().__new__(cls, address)
         instance.name = name
         return instance
@@ -224,8 +219,6 @@ class Email(object):
     @cached_property
     def headers(self) -> HTTPHeaders:
         return HTTPHeaders(self.msg.items())
-#         for name, value in self.msg.items():
-#             yield String(name), String(value)
 
     @cached_property
     def subject(self) -> str:
@@ -611,8 +604,7 @@ class Email(object):
             f.write("Date: {}\n\n".format(self.datestamp()))
 
             f.write(str(self.headers))
-#             for name, val in self.headers:
-#                 f.write("{}: {}\n".format(name, val))
+
         ret.append(p)
 
         return ret
