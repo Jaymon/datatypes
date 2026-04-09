@@ -217,18 +217,6 @@ class EmailTest(TestCase):
         self.assertTrue(isinstance(em.plain, str))
 
 
-
-#     def test_base_io(self):
-#         data = self.create_email_message()
-#         fp = self.create_file(bytes(data))
-#         with open(fp, "rb") as buffer:
-#             pout.v(buffer.mode)
-# 
-#         with open(fp, "r", encoding="UTF-8") as buffer:
-#             #pout.v(buffer)
-#             em = Email(buffer)
-#             self.assertTrue(isinstance(em.plain, str))
-
 class EmailAddressTest(TestCase):
     def test_properties(self):
         em = EmailAddress("foo@bar.com")

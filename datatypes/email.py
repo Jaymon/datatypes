@@ -22,7 +22,7 @@ from .http import HTTPHeaders
 class EmailAddress(str):
     """The parts of an email address header
 
-    `<name> <username@subdomain.sld.tld>`
+    `<name> <username@subdomain.domain>`
     """
     name: str = ""
     """Holds the name section of an email address"""
@@ -85,9 +85,9 @@ class EmailPart(object):
     """
     def __init__(
         self,
-        email: object,
+        email: "Email",
         content_type: str,
-        data: str,
+        data: bytes,
         encoding: str,
         encodings: list[str]|None = None,
         errors: str = "",
@@ -97,7 +97,7 @@ class EmailPart(object):
         """
         :param email: Email, the full email instance
         :param content_type: str, the mimetype of the part
-        :param data: str, the part's data/body
+        :param data: the part's data/body
         :param encoding: str, the content encoding
         :param encodings: list[str], the fallback encodings if encoding fails
         :param errors: str, how to handle encoding errors
@@ -108,7 +108,7 @@ class EmailPart(object):
         self.email = email
         self.content_type = content_type
         self.filename = filename
-        self.encoding = encoding
+#         self.encoding = encoding
         self.index = index
 
         if self.filename:
@@ -117,37 +117,68 @@ class EmailPart(object):
             self.data = data
 
         else:
-            try:
-                self.data = String(data, encoding, errors)
+            if not encodings:
+                encodings = []
 
-            except LookupError as e:
-                success = False
-                if not encodings:
-                    encodings = []
+            if encoding:
+                encodings = [encoding, *encodings]
 
-                try:
-                    for enc in encodings:
-                        self.data = String(
-                            data,
-                            enc,
-                            errors=errors,
-                        )
+            success = False
+
+            for enc in encodings:
+                if enc:
+                    try:
+                        self.data = data.decode(enc, errors=errors)
                         self.encoding = enc
                         success = True
                         break
 
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
 
-                if not success:
-                    raise UnicodeError(
-                        encoding=encoding,
-                        reason=" ".join([
-                            f"Unable to decode with {encoding} encoding",
-                            "even using alternate encodings",
-                        ]),
-                        object=data
-                    ) from e
+            if not success:
+                raise UnicodeDecodeError(
+                    encoding=encoding,
+                    reason=(
+                        f"Unable to decode data with content encoding"
+                        " or alternate encodings"
+                    ),
+                    object=data,
+                )
+
+#             try:
+#                 self.data = str(data, encoding, errors)
+#                 #self.data = String(data, encoding, errors)
+# 
+#             except (LookupError, TypeError) as e:
+#                 success = False
+#                 if not encodings:
+#                     encodings = []
+# 
+#                 try:
+#                     for enc in encodings:
+#                         #self.data = String(
+#                         self.data = str(
+#                             data,
+#                             enc,
+#                             errors=errors,
+#                         )
+#                         self.encoding = enc
+#                         success = True
+#                         break
+# 
+#                 except Exception:
+#                     pass
+# 
+#                 if not success:
+#                     raise UnicodeError(
+#                         encoding=encoding,
+#                         reason=" ".join([
+#                             f"Unable to decode with {encoding} encoding",
+#                             "even using alternate encodings",
+#                         ]),
+#                         object=data,
+#                     ) from e
 
     def path(self, basedir):
         """Get the save path for this part
@@ -215,7 +246,7 @@ class Email(object):
     """Each body or attachment in the email will be represented by this class"""
 
     @property
-    def raw(self):
+    def raw(self): # DEPRECATED
         return String(self.msg)
 
     @cached_property
@@ -373,25 +404,27 @@ class Email(object):
         return addr.domain
 
     @property
-    def date(self) -> str:
+    def date(self) -> str: # DEPRECATED
         """Get the string datestamp from the email"""
         ret = str(self.msg.get('Date', ""))
         return ret
 
     @cached_property
-    def datetime(self):
+    def datetime(self) -> Datetime|None:
         """Convert .date into a datetime instance
 
         :returns: Datetime|None, if the date header exists this will return
             a datetime instance with the date the email was sent, if no date
             header is found then this will return None
         """
-        d = self.date
+        d = self.msg.get('Date', "")
+        #d = self.date
         if d:
             # https://docs.python.org/3/library/email.util.html#email.utils.parsedate_tz
             t = email.utils.parsedate_tz(d)
             stamp = time.mktime(t[0:9])
 
+            # we want to convert this to UTC
             tz_offset = t[9]
             if tz_offset:
                 stamp -= tz_offset
@@ -449,24 +482,11 @@ class Email(object):
                 # Treat all other io as text io and pray
                 self.msg = Parser().parse(data)
 
-#             elif isinstance(data, io.TextIOWrapper):
-#                 self.msg = Parser().parse(data)
-
-#         elif isinstance(data, io.IOBase):
-# 
-#             pass
-
         elif isinstance(data, EmailMessage):
             self.msg = data
-            #self.msg = Parser().parsestr(str(data))
 
         else:
             raise ValueError(f"Unsupported data type: {type(data)}")
-#             for encoding in encodings:
-#                 data = String(data, encoding=encoding, errors=errors)
-#                 break
-# 
-#             self.msg = Parser().parsestr(data)
 
         if self.msg.is_multipart():
             index = 0
@@ -523,8 +543,6 @@ class Email(object):
 
         # remove path delims from the subject
         s = re.sub(r"[\\/]+", " ", s)
-        #s = re.sub(r"\s*[\\/*<>]+\s*", " ", s)
-        #s = re.sub(r"[:?\"\'|^]", "", s)
 
         return Dirpath(
             basedir,
@@ -619,7 +637,7 @@ class Email(object):
 
         if save_original:
             p = Filepath(email_dir, "original.eml")
-            p.write_bytes(ByteString(self.data))
+            p.write_bytes(bytes(self))
             ret.append(p)
 
         ret.append(email_dir)
@@ -643,4 +661,10 @@ class Email(object):
         ret.append(p)
 
         return ret
+
+    def __str__(self) -> str:
+        return str(self.msg)
+
+    def __bytes__(self) -> bytes:
+        return bytes(self.msg)
 
