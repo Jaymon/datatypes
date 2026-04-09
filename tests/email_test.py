@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+import io
 
 from datatypes.compat import *
 from datatypes.email import (
@@ -189,6 +189,45 @@ class EmailTest(TestCase):
         em = Email(data)
         self.assertIsNotNone(em.headers)
 
+    def test_bytes_1(self):
+        data = self.create_email_message()
+        em = Email(bytes(data))
+        self.assertTrue(isinstance(em.plain, str))
+
+    def test_bytes_io(self):
+        data = self.create_email_message()
+        fp = self.create_file(bytes(data))
+        with open(fp, "rb") as buffer:
+            em = Email(buffer)
+            self.assertTrue(isinstance(em.plain, str))
+
+        buffer = io.BytesIO(bytes(data))
+        em = Email(buffer)
+        self.assertTrue(isinstance(em.plain, str))
+
+    def test_str_io(self):
+        data = self.create_email_message()
+        fp = self.create_file(bytes(data))
+        with open(fp, "r", encoding="UTF-8") as buffer:
+            em = Email(buffer)
+            self.assertTrue(isinstance(em.plain, str))
+
+        buffer = io.StringIO(str(data))
+        em = Email(buffer)
+        self.assertTrue(isinstance(em.plain, str))
+
+
+
+#     def test_base_io(self):
+#         data = self.create_email_message()
+#         fp = self.create_file(bytes(data))
+#         with open(fp, "rb") as buffer:
+#             pout.v(buffer.mode)
+# 
+#         with open(fp, "r", encoding="UTF-8") as buffer:
+#             #pout.v(buffer)
+#             em = Email(buffer)
+#             self.assertTrue(isinstance(em.plain, str))
 
 class EmailAddressTest(TestCase):
     def test_properties(self):

@@ -4,10 +4,12 @@ import mimetypes
 import time
 from collections import defaultdict
 import email.utils
-from email.parser import Parser
+from email.parser import Parser, BytesParser
 from email.header import decode_header
+from email.message import EmailMessage
 from typing import Self
 from functools import cached_property
+import io
 
 from .compat import *
 from .config.environ import environ
@@ -409,10 +411,15 @@ class Email(object):
         ret = ret[0].data if ret else ""
         return ret
 
-    def __init__(self, data, encodings=None, errors=""):
-        """Encapsulate a pop email message
+    def __init__(
+        self,
+        data: bytes|str|io.IOBase|EmailMessage,
+        encodings: list[str]|None = None,
+        errors: str = "",
+    ):
+        """Encapsulate a raw/original email message
 
-        :param data: str, an original full email with all headers and parts
+        :param data: an original full email with all headers and parts
         :param encodings: list[str], the fallback encodings if the header
             defined encoding fails, this defaults to a list of the most common
             email encodings, the first encoding that succeeds will be used
@@ -427,12 +434,40 @@ class Email(object):
         if not encodings:
             encodings = ["UTF-8", "ISO-8859-1", "us-ascii"]
 
-        if not isinstance(data, str):
-            for encoding in encodings:
-                data = String(data, encoding=encoding, errors=errors)
-                break
+        if isinstance(data, bytes):
+            self.msg = BytesParser().parsebytes(data)
 
-        self.msg = Parser().parsestr(data)
+        elif isinstance(data, str):
+            self.msg = Parser().parsestr(data)
+
+        elif isinstance(data, io.IOBase):
+            mode = getattr(data, "mode", "")
+            if isinstance(data, io.BufferedIOBase) or "b" in mode:
+                self.msg = BytesParser().parse(data)
+
+            else:
+                # Treat all other io as text io and pray
+                self.msg = Parser().parse(data)
+
+#             elif isinstance(data, io.TextIOWrapper):
+#                 self.msg = Parser().parse(data)
+
+#         elif isinstance(data, io.IOBase):
+# 
+#             pass
+
+        elif isinstance(data, EmailMessage):
+            self.msg = data
+            #self.msg = Parser().parsestr(str(data))
+
+        else:
+            raise ValueError(f"Unsupported data type: {type(data)}")
+#             for encoding in encodings:
+#                 data = String(data, encoding=encoding, errors=errors)
+#                 break
+# 
+#             self.msg = Parser().parsestr(data)
+
         if self.msg.is_multipart():
             index = 0
             for part in self.msg.walk():
