@@ -27,11 +27,11 @@ class EmailAddress(str):
     name: str = ""
     """Holds the name section of an email address"""
 
-    @property
+    @cached_property
     def username(self) -> str:
         return self.split("@", 1)[0]
 
-    @property
+    @cached_property
     def domain(self) -> str:
         return self.split("@", 1)[1]
 
@@ -39,7 +39,7 @@ class EmailAddress(str):
     def hostname(self) -> str:
         return self.domain
 
-    @property
+    @cached_property
     def address(self) -> str:
         return str(self)
 
@@ -47,7 +47,6 @@ class EmailAddress(str):
         if address:
             if isinstance(address, str):
                 address = email.utils.parseaddr(address)
-
 
         else:
             address = ("", "")
@@ -108,7 +107,6 @@ class EmailPart(object):
         self.email = email
         self.content_type = content_type
         self.filename = filename
-#         self.encoding = encoding
         self.index = index
 
         if self.filename:
@@ -145,40 +143,6 @@ class EmailPart(object):
                     ),
                     object=data,
                 )
-
-#             try:
-#                 self.data = str(data, encoding, errors)
-#                 #self.data = String(data, encoding, errors)
-# 
-#             except (LookupError, TypeError) as e:
-#                 success = False
-#                 if not encodings:
-#                     encodings = []
-# 
-#                 try:
-#                     for enc in encodings:
-#                         #self.data = String(
-#                         self.data = str(
-#                             data,
-#                             enc,
-#                             errors=errors,
-#                         )
-#                         self.encoding = enc
-#                         success = True
-#                         break
-# 
-#                 except Exception:
-#                     pass
-# 
-#                 if not success:
-#                     raise UnicodeError(
-#                         encoding=encoding,
-#                         reason=" ".join([
-#                             f"Unable to decode with {encoding} encoding",
-#                             "even using alternate encodings",
-#                         ]),
-#                         object=data,
-#                     ) from e
 
     def path(self, basedir):
         """Get the save path for this part
