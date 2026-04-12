@@ -624,14 +624,23 @@ class Datetime(datetime.datetime):
         timestamp = str(self.timestamp()).replace(".", "")
         return int("{{:0<{}}}".format(size).format(timestamp))
 
-    def since(self, now=None, chunks=2) -> str:
+    def since(
+        self,
+        now: datetime.datetime|None = None,
+        chunks: int = 2,
+        sep: str = ", ",
+    ) -> str:
         """Returns a description of the amount of time that has passed from self
         to now. This is more exact than .estsince() but does a lot more
         computation to make it accurate
 
+        Now will equal None if we want to know the time elapsed between self
+        and the current time, otherwise it will be between self and now
+
         :param now: datetime, if None will default to the current datetime
         :param chunks: int, if a postive value only that many chunks will be
             returned, if None or -1 then all found chunks will be returned
+        :param sep: the separator between the chunks
         :returns: str, the elapsed time in english (eg, x years, xx months, or 
             x days, xx hours)
         """
@@ -646,8 +655,6 @@ class Datetime(datetime.datetime):
             (1 , 'second', 'seconds'),
         ]
 
-        # now will equal None if we want to know the time elapsed between self
-        # and the current time, otherwise it will be between self and now
         if not chunks or chunks < 0:
             chunks = len(period_chunks) + 2
 
@@ -663,6 +670,7 @@ class Datetime(datetime.datetime):
             if years:
                 name = "year" if years == 1 else "years"
                 output.append(f"{years} {name}")
+                months -= (years * 12)
                 chunks -= 1
 
             if chunks > 0:
@@ -670,21 +678,22 @@ class Datetime(datetime.datetime):
                 output.append(f"{months} {name}")
                 chunks -= 1
 
-        # difference in seconds
-        since = (now - self).total_seconds()
-        since -= (period_chunks[1][0] * month_days)
+        if chunks > 0:
+            # difference in seconds
+            since = (now - self).total_seconds()
+            since -= (period_chunks[1][0] * month_days)
 
-        for seconds, name, names in period_chunks:
-            if count := math.floor(since / seconds):
-                output.append(
-                    f"1 {name}" if count == 1 else f"{count} {names}"
-                )
-                since -= (seconds * count)
-                chunks -= 1
-                if since <= 0 or chunks <= 0:
-                    break
+            for seconds, name, names in period_chunks:
+                if count := math.floor(since / seconds):
+                    output.append(
+                        f"1 {name}" if count == 1 else f"{count} {names}"
+                    )
+                    since -= (seconds * count)
+                    chunks -= 1
+                    if since <= 0 or chunks <= 0:
+                        break
 
-        return ", ".join(output) if output else ""
+        return sep.join(output) if output else ""
 
     def estsince(self, now=None, chunks=2) -> str:
         """Returns a ballpark/estimate description of the amount of time that
