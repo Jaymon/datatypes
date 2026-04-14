@@ -19,6 +19,25 @@ from .path import Filepath, Dirpath
 from .http import HTTPHeaders
 
 
+def get_decoded_header(data: str|bytes) -> str:
+    """Helper function. This puts all the pieces of a decoded header together
+    into a string"""
+    ds = decode_header(data)
+    data = ""
+    for d, encoding in ds:
+        if isinstance(d, str):
+            data += d
+
+        else:
+            if encoding:
+                data += d.decode(encoding)
+
+            else:
+                data += d.decode()
+
+    return data
+
+
 class EmailAddress(str):
     """The parts of an email address header
 
@@ -52,11 +71,21 @@ class EmailAddress(str):
             address = ("", "")
 
         name, address = address
+        name = get_decoded_header(name)
 
-        ds = decode_header(name)
-        name, encoding = ds[0]
-        if encoding:
-            name = name.decode(encoding)
+#         if ds := decode_header(name):
+#             name = ""
+#             for data, encoding in ds:
+#                 if encoding:
+#                     name += data.decode(encoding)
+# 
+#                 else:
+#                     name += data.decode()
+
+#         ds = decode_header(name)
+#         name, encoding = ds[0]
+#         if encoding:
+#             name = name.decode(encoding)
 
         instance = super().__new__(cls, address)
         instance.name = name
@@ -221,10 +250,20 @@ class Email(object):
     def subject(self) -> str:
         if ret := self.msg.get("Subject", ""):
             # https://stackoverflow.com/a/7331577/5006
-            ds = decode_header(ret)
-            ret, encoding = ds[0]
-            if encoding:
-                ret = ret.decode(encoding)
+            ret = get_decoded_header(ret)
+
+#             if ds := decode_header(ret):
+#                 ret = ""
+#                 for data, encoding in ds:
+#                     if encoding:
+#                         ret += data.decode(encoding)
+# 
+#                     else:
+#                         ret += data.decode()
+
+#             ret, encoding = ds[0]
+#             if encoding:
+#                 ret = ret.decode(encoding)
 
         return ret
 

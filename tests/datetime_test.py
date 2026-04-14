@@ -438,7 +438,7 @@ class DatetimeTest(TestCase):
 
         d = Datetime(now, months=-24)
         self.assertEqual(
-            "1 year, 23 months, 4 weeks, 3 days",
+            "1 year, 11 months, 4 weeks, 3 days",
             d.since(now, chunks=0)
         )
 
@@ -455,7 +455,7 @@ class DatetimeTest(TestCase):
 
         d = Datetime(now, months=-24, hours=12, minutes=30, seconds=14)
         self.assertEqual(
-            "1 year, 23 months, 4 weeks, 2 days, 11 hours, 29 minutes, 46 seconds",
+            "1 year, 11 months, 4 weeks, 2 days, 11 hours, 29 minutes, 46 seconds",
             d.since(now, chunks=0)
         )
 

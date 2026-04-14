@@ -4,6 +4,7 @@ from datatypes.compat import *
 from datatypes.email import (
     Email,
     EmailAddress,
+    get_decoded_header,
 )
 from datatypes.string import ByteString
 
@@ -215,6 +216,37 @@ class EmailTest(TestCase):
         buffer = io.StringIO(str(data))
         em = Email(buffer)
         self.assertTrue(isinstance(em.plain, str))
+
+    def test_subject_bytes(self):
+        words = self.get_unicode_words()
+        em1 = Email(bytes(
+            self.create_email_message(
+                subject="foo " + words,
+                data="foo bar",
+            ),
+        ))
+
+        em2 = Email(bytes(em1))
+        subject = em2.subject
+        self.assertTrue(isinstance(subject, str))
+        self.assertTrue("foo " in subject)
+        self.assertTrue(words in subject)
+
+
+class GetDecodedHeaderTest(TestCase):
+    def test_1(self):
+        h = get_decoded_header("foo bar")
+        self.assertEqual("foo bar", h)
+
+    def test_2(self):
+        data = "pede. =?utf-8?q?=F0=A5=84=AB?="
+        h = get_decoded_header(data)
+        self.assertEqual("pede. \U0002512B", h)
+
+    def test_3(self):
+        data = "=?utf-8?q?=F0=A5=84=AB?="
+        h = get_decoded_header(data)
+        self.assertEqual("\U0002512B", h)
 
 
 class EmailAddressTest(TestCase):
