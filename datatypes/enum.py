@@ -123,10 +123,11 @@ def find_enum(enum_class: EnumType, name_or_value: Any) -> Enum:
                 name = convert_value_to_name(enum_class, name_or_value)
 
             except ValueError:
+                found = False
+
                 # if we have a string then check upper and lower names to see
                 # if we can find a match
                 if isinstance(name_or_value, basestring):
-                    found = False
                     for name in [name_or_value.upper(), name_or_value.lower()]:
                         try:
                             convert_name_to_value(enum_class, name)
@@ -136,8 +137,10 @@ def find_enum(enum_class: EnumType, name_or_value: Any) -> Enum:
                         except ValueError:
                             pass
 
-                    if not found:
-                        raise ValueError("Could not find the enum")
+                if not found:
+                    raise ValueError(
+                        f"Could not find the enum for class {enum_class}",
+                    )
 
         en = None
         for n in name.split("|"):

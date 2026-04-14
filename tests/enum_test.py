@@ -232,3 +232,11 @@ class StdEnumTest(TestCase):
         value = convert_name_to_value(Foo, "ONE|TWO")
         self.assertEqual((Foo.ONE|Foo.TWO).value, value)
 
+    def test_find_enum_none_value(self):
+        class Foo(enum.Enum):
+            ONE = 1
+            TWO = 2
+
+        with self.assertRaises(ValueError):
+            find_enum(Foo, None)
+
