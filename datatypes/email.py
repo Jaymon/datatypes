@@ -73,20 +73,6 @@ class EmailAddress(str):
         name, address = address
         name = get_decoded_header(name)
 
-#         if ds := decode_header(name):
-#             name = ""
-#             for data, encoding in ds:
-#                 if encoding:
-#                     name += data.decode(encoding)
-# 
-#                 else:
-#                     name += data.decode()
-
-#         ds = decode_header(name)
-#         name, encoding = ds[0]
-#         if encoding:
-#             name = name.decode(encoding)
-
         instance = super().__new__(cls, address)
         instance.name = name
         return instance
@@ -251,19 +237,6 @@ class Email(object):
         if ret := self.msg.get("Subject", ""):
             # https://stackoverflow.com/a/7331577/5006
             ret = get_decoded_header(ret)
-
-#             if ds := decode_header(ret):
-#                 ret = ""
-#                 for data, encoding in ds:
-#                     if encoding:
-#                         ret += data.decode(encoding)
-# 
-#                     else:
-#                         ret += data.decode()
-
-#             ret, encoding = ds[0]
-#             if encoding:
-#                 ret = ret.decode(encoding)
 
         return ret
 
