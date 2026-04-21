@@ -235,12 +235,9 @@ class EmailTest(TestCase):
     def test_email_part_decode_error(self):
         """Makes sure EmailPart correctly throws the error"""
         data = self.create_email_message(
-            headers={
-                "Content-Type": "text/plain; charset=us-ascii",
-            },
+            encoding="us-ascii",
             data=self.get_unicode_words(),
         )
-
 
         with self.assertRaises(UnicodeDecodeError):
             Email(data, encodings=[])
