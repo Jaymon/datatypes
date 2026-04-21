@@ -104,7 +104,7 @@ class EmailPart(object):
         data: bytes,
         encoding: str,
         encodings: list[str]|None = None,
-        errors: str = "",
+        errors: str = "strict",
         filename: str = "",
         index: int = 1,
     ):
@@ -114,9 +114,10 @@ class EmailPart(object):
         :param data: the part's data/body
         :param encoding: str, the content encoding
         :param encodings: list[str], the fallback encodings if encoding fails
-        :param errors: str, how to handle encoding errors
-        :param filename: str, filename for this attachment, if not provided this
-            part will be considered a body instead of an attachment
+        :param errors: str, how to handle encoding errors. Defaults to
+            "strict" but can be "ignore" or "replace"
+        :param filename: str, filename for this attachment, if not provided
+            this part will be considered a body instead of an attachment
         :param index: int, the part index/num of this email
         """
         self.email = email
@@ -136,36 +137,39 @@ class EmailPart(object):
             if encoding:
                 encodings = [encoding, *encodings]
 
-            success = False
+            enc_errors = []
 
             for enc in encodings:
                 if enc:
                     try:
                         self.data = data.decode(enc, errors=errors)
                         self.encoding = enc
-                        success = True
+                        enc_errors = []
                         break
 
-                    except Exception:
-                        pass
+                    except (UnicodeDecodeError, LookupError) as e:
+                        # LookupError for unknown encoding codec
+                        # UnicodeDecodeError for improper encoding codec
+                        enc_errors.append(e)
 
-            if not success:
+            if enc_errors:
                 raise UnicodeDecodeError(
-                    encoding=encoding,
-                    reason=(
-                        f"Unable to decode data with content encoding"
-                        " or alternate encodings"
+                    encoding,
+                    data,
+                    0,
+                    len(data),
+                    "Unable to decode data with encodings: {}".format(
+                        ", ".join(encodings),
                     ),
-                    object=data,
-                )
+                ) from ExceptionGroup("Found encoding errors", enc_errors)
 
     def path(self, basedir):
         """Get the save path for this part
 
         :param basedir: string, the base directory this will use to generate a
             full path
-        :returns: string, the full path to a file that this part could be saved
-            to
+        :returns: string, the full path to a file that this part could be
+            saved to
         """
         if self.filename:
             fileroot, ext = os.path.splitext(self.filename)
@@ -424,7 +428,7 @@ class Email(object):
         self,
         data: bytes|str|io.IOBase|EmailMessage,
         encodings: list[str]|None = None,
-        errors: str = "",
+        errors: str = "strict",
     ):
         """Encapsulate a raw/original email message
 
@@ -440,7 +444,7 @@ class Email(object):
         self.data = data
         self.parts = defaultdict(list)
 
-        if not encodings:
+        if encodings is None:
             encodings = ["UTF-8", "ISO-8859-1", "us-ascii"]
 
         if isinstance(data, bytes):
@@ -500,7 +504,9 @@ class Email(object):
                 email=self,
                 content_type=content_type,
                 data=part_data,
-                encoding=encoding
+                encoding=encoding,
+                encodings=encodings,
+                errors=errors,
             ))
 
     def path(self, basedir):
@@ -558,13 +564,13 @@ class Email(object):
                 if a.is_attachment():
                     yield a
 
-    def has_attachments(self):
+    def has_attachments(self) -> bool:
         """Does this email have attachments? Returns True or False"""
         for a in self.attachments():
             return True
         return False
 
-    def has_attachment(self):
+    def has_attachment(self) -> bool:
         """Alias of .has_attachments()"""
         return self.has_attachments()
 
