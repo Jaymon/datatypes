@@ -7,6 +7,8 @@ import time
 import math
 import calendar
 from collections.abc import Iterable
+from typing import Self
+from functools import cached_property
 
 from .compat import *
 from .string import String
@@ -14,6 +16,101 @@ from .string import String
 
 logger = logging.getLogger(__name__)
 
+
+class Timestamp(float):
+    """
+    https://docs.python.org/3/library/functions.html#float
+    https://docs.python.org/3/library/stdtypes.html#additional-methods-on-float
+    """
+    @cached_property
+    def seconds(self) -> int:
+        return int(str(self).split(".", 1)[0])
+
+    @cached_property
+    def microseconds(self) -> int:
+        return int(str(self).split(".", 1)[1])
+
+#     def __new__(
+#         cls,
+#         now: datetime.datetime|int|float|None = None,
+#         ndigits: int = 6,
+#     ) -> Self:
+#         if ndigits < 0:
+#             raise ValueError("Cannot round to less than 0")
+
+#         if ndigits > 6:
+#             raise ValueError(
+#                 "Cannot round to more than microsecond (6 digits) precision",
+#             )
+
+
+    def __new__(cls, now: datetime.datetime|int|float|None = None) -> Self:
+        if now is None:
+            now = Datetime().timestamp()
+
+        elif isinstance(now, datetime.datetime):
+            now = now.timestamp()
+
+        return super().__new__(cls now)
+
+#         instance = super().__new__(cls, round(now, ndigits))
+#         instance.ndigits = ndigits
+# #         instance.round(ndigits)
+#         return instance
+
+#     def __int__(self) -> int:
+#         return self.as_int()
+
+#         return int(str(self).replace(".", "", 1))
+#         return int(str(round(self, self.ndigits)).replace(".", "", 1))
+#         timestamp, msecs = str(round(self, self.ndigits)).split(".", 1)
+#         timestamp += "{{:0<{}}}".format(self.ndigits).format(msecs)
+#         return int(timestamp)
+
+    def datetime(self) -> datetime.datetime:
+        return Datetime(self)
+
+#     def round(self, ndigits: int) -> Self:
+#         if ndigits < 0:
+#             raise ValueError("Cannot round to less than 0")
+# 
+#         if ndigits > 6:
+#             raise ValueError(
+#                 "Cannot round to more than microsecond (6 digits) precision",
+#             )
+# 
+#         self.ndigits = ndigits
+#         return self
+
+    def as_int(self, ndigits: int = -1) -> int:
+        if ndigits < 0:
+            ndigits = self.ndigits
+
+        timestamp, msecs = str(self).split(".", 1)
+
+        if len(msecs) < ndigits:
+            msecs = "{{:0<{}}}".format(ndigits).format(msecs)
+
+        elif len(msecs) > ndigits:
+            msecs = msecs[0:ndigits]
+
+        return int(timestamp + msecs)
+
+#         if ndigits < 0:
+#             return int(self)
+# 
+#         else:
+#             return int(type(self)(self, self.ndigits))
+
+#         if ndigits < 0:
+#             raise ValueError("Cannot round to less than 0")
+# 
+#         if ndigits > 6:
+#             raise ValueError(
+#                 "Cannot round to more than microsecond (6 digits) precision",
+#             )
+# 
+#         return int(str(round(self, self.ndigits)).replace(".", "", 1))
 
 class ISO8601(str):
     """Parse an ISO 8601 datetime string
@@ -596,33 +693,75 @@ class Datetime(datetime.datetime):
             self.microsecond == 0
         )
 
-    def timestamp(self) -> float:
+    def timestamp(self) -> Timestamp:
+        """Return the current utc timestamp
+
+        This overrides parent to return a Timestamp instance instead of a
+        vanilla float
+
+        https://docs.python.org/3/library/datetime.html#datetime.datetime.timestamp
+
+        :returns: self as a utc epoch timestamp with microsecond precision
         """
-        return the current utc timestamp of self
+        return Timestamp(super().timestamp())
 
-        http://crazytechthoughts.blogspot.com/2012/02/get-current-utc-timestamp-in-python.html
+#     def timestamp(self) -> float:
+#         """
+#         return the current utc timestamp of self
+# 
+#         https://docs.python.org/3/library/datetime.html#datetime.datetime.timestamp
+# 
+#         :returns: float, the current utc timestamp with microsecond precision
+#         """
+#         # this only returns second precision, which is why we don't use it
+#         #now = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
+# 
+#         # this returns microsecond precision
+#         # http://bugs.python.org/msg180110
+#         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+#         return (self - epoch).total_seconds()
 
-        :returns: float, the current utc timestamp with microsecond precision
-        """
-        # this only returns second precision, which is why we don't use it
-        #now = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
+#     def timestamp(self) -> float:
+#         """
+#         return the current utc timestamp of self
+# 
+#         http://crazytechthoughts.blogspot.com/2012/02/get-current-utc-timestamp-in-python.html
+# 
+#         :returns: float, the current utc timestamp with microsecond precision
+#         """
+#         # this only returns second precision, which is why we don't use it
+#         #now = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
+# 
+#         # this returns microsecond precision
+#         # http://bugs.python.org/msg180110
+#         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+#         return (self - epoch).total_seconds()
 
-        # this returns microsecond precision
-        # http://bugs.python.org/msg180110
-        epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
-        return (self - epoch).total_seconds()
+#     def timestamp_ns(self, ndigits: int = 6) -> int:
+#         """Similar to .timestamp() but returns time as an integer number of
+#         nanoseconds since the epoch
+# 
+#         see time.time_ns()
+# 
+#         https://docs.python.org/3/library/time.html#time.time_ns
+# 
+#         :returns: int
+#         """
+#         if ndigits > 6:
+#             raise ValueError(
+#                 "ndigits has more than microsecond (6 digits) precision",
+#             )
+# 
+#         timestamp, msecs = str(self.timestamp()).split(".", 1)
+# 
+#         if ndigits:
+#             timestamp += "{{:0<{}}}".format(ndigits).format(msecs)
+# 
+#         return int(timestamp)
 
-    def timestamp_ns(self) -> int:
-        """Similar to .timestamp() but returns time as an integer number of
-        nanoseconds since the epoch
-
-        see time.time_ns()
-
-        :returns: int
-        """
-        size = len(str(time.time_ns()))
-        timestamp = str(self.timestamp()).replace(".", "")
-        return int("{{:0<{}}}".format(size).format(timestamp))
+#         size = len(str(time.time_ns()))
+#         timestamp = str(self.timestamp()).replace(".", "")
+#         return int("{{:0<{}}}".format(size).format(timestamp))
 
     def since(
         self,
