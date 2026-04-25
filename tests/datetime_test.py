@@ -7,33 +7,33 @@ from datatypes.compat import *
 from datatypes.datetime import (
     Datetime,
     ISO8601,
-    Timestamp,
+#     Timestamp,
 )
 from datatypes.string import String
 
 from . import TestCase, testdata
 
 
-class TimestampTest(TestCase):
-    def test_crud(self):
-        dt = Datetime()
-        ts = Timestamp()
-        self.assertTrue(isinstance(ts, float))
-        self.assertTrue(isinstance(ts.seconds, int))
-        self.assertTrue(isinstance(ts.microseconds, int))
-        self.assertTrue(str(ts).startswith(str(ts.seconds)))
-        self.assertTrue(str(ts).endswith(str(ts.microseconds)))
-        self.assertLess(ts, int(ts))
-        self.assertLess(dt, ts.datetime())
-
-        dt = Datetime(2010, 10, 10, 10, 10, 10, 111111)
-        ts = Timestamp(dt)
-        self.assertEqual(dt, ts.datetime())
-
-    def test_ndigits(self):
-        ts1 = str(int(Timestamp(ndigits=3)))
-        ts2 = str(int(Timestamp()))
-        self.assertLess(len(ts1), len(ts2))
+# class TimestampTest(TestCase):
+#     def test_crud(self):
+#         dt = Datetime()
+#         ts = Timestamp()
+#         self.assertTrue(isinstance(ts, float))
+#         self.assertTrue(isinstance(ts.seconds, int))
+#         self.assertTrue(isinstance(ts.microseconds, int))
+#         self.assertTrue(str(ts).startswith(str(ts.seconds)))
+#         self.assertTrue(str(ts).endswith(str(ts.microseconds)))
+#         self.assertLess(ts, int(ts))
+#         self.assertLess(dt, ts.datetime())
+# 
+#         dt = Datetime(2010, 10, 10, 10, 10, 10, 111111)
+#         ts = Timestamp(dt)
+#         self.assertEqual(dt, ts.datetime())
+# 
+#     def test_ndigits(self):
+#         ts1 = str(int(Timestamp(ndigits=3)))
+#         ts2 = str(int(Timestamp()))
+#         self.assertLess(len(ts1), len(ts2))
 
 
 class ISO8601Test(TestCase):
@@ -446,7 +446,7 @@ class DatetimeTest(TestCase):
     def test_time_ns(self):
         ts = time.time_ns()
         d = Datetime(ts)
-        self.assertEqual(ts, d.timestamp_ns())
+        self.assertEqual(ts, d.time_ns())
 
     def test_datehash(self):
         d1 = Datetime(microsecond=0)
@@ -734,4 +734,19 @@ class DatetimeTest(TestCase):
         dt = Datetime(2025, 12, 29, 12, 34, 56)
         self.assertEqual("2025-01-01", dt.year_start().isoformat())
         self.assertEqual(dt.year + 1, (dt.year_end() + 1).year)
+
+    def test_as_integer_ndigits(self):
+        ts3 = str(Datetime().as_integer(3))
+        ts6 = str(Datetime().as_integer(6))
+        ts9 = str(Datetime().as_integer(9))
+        self.assertLess(len(ts3), len(ts6))
+        self.assertLess(len(ts6), len(ts9))
+
+    def test___int__(self):
+        dt = Datetime()
+        self.assertEqual(dt.as_integer(), int(dt))
+
+    def test___float__(self):
+        dt = Datetime()
+        self.assertEqual(dt.timestamp(), float(dt))
 
