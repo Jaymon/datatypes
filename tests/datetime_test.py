@@ -7,33 +7,10 @@ from datatypes.compat import *
 from datatypes.datetime import (
     Datetime,
     ISO8601,
-#     Timestamp,
 )
 from datatypes.string import String
 
 from . import TestCase, testdata
-
-
-# class TimestampTest(TestCase):
-#     def test_crud(self):
-#         dt = Datetime()
-#         ts = Timestamp()
-#         self.assertTrue(isinstance(ts, float))
-#         self.assertTrue(isinstance(ts.seconds, int))
-#         self.assertTrue(isinstance(ts.microseconds, int))
-#         self.assertTrue(str(ts).startswith(str(ts.seconds)))
-#         self.assertTrue(str(ts).endswith(str(ts.microseconds)))
-#         self.assertLess(ts, int(ts))
-#         self.assertLess(dt, ts.datetime())
-# 
-#         dt = Datetime(2010, 10, 10, 10, 10, 10, 111111)
-#         ts = Timestamp(dt)
-#         self.assertEqual(dt, ts.datetime())
-# 
-#     def test_ndigits(self):
-#         ts1 = str(int(Timestamp(ndigits=3)))
-#         ts2 = str(int(Timestamp()))
-#         self.assertLess(len(ts1), len(ts2))
 
 
 class ISO8601Test(TestCase):
