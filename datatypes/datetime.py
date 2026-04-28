@@ -505,38 +505,6 @@ class Datetime(datetime.datetime):
                     tz=datetime.timezone.utc,
                 )
 
-#                 try:
-#                     instance = cls.fromtimestamp(
-#                         args[0],
-#                         tz=datetime.timezone.utc,
-#                     )
-# 
-#                 except ValueError as e:
-#                     raise ValueError(
-#                         f"timestamp {args[0]} is out of bounds",
-#                     ) from e
-# 
-#                 except OSError as e:
-#                     pout.v(e)
-#                     if isinstance(args[0], int):
-#                         # We convert a really big int into seconds and
-#                         # milliseconds values. We use a time.time() to figure
-#                         # out how big the milliseconds part should be, so
-#                         # 1706726703601782 would become 1706726703 seconds and
-#                         # 3601782 milliseconds
-#                         timestamp = str(args[0])
-#                         s, ms = str(time.time()).split(".")
-# 
-#                         seconds = timestamp[:len(s)]
-#                         milliseconds = timestamp[len(s):]
-#                         instance = cls.fromtimestamp(
-#                             float(f"{seconds}.{milliseconds}"),
-#                             tz=datetime.timezone.utc,
-#                         )
-# 
-#                     else:
-#                         raise
-
             elif isinstance(args[0], bytes):
                 # if the object is pickled we would get the pickled
                 # bytes as our one passed in positional
