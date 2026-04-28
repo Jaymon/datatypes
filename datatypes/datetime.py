@@ -418,6 +418,51 @@ class Datetime(datetime.datetime):
         msecs, usecs, mstr, ustr = cls.parse_subseconds(ms)
         return int(s), msecs, usecs, s, mstr, ustr
 
+    @classmethod
+    def fromtimestamp(
+        cls,
+        timestamp: int|float,
+        tz: datetime.timezone|None = None,
+    ) -> Self:
+        """Overrides parent to handle subsecond magnitude integers"""
+        def get_float(timestamp):
+            # We convert a really big int into seconds and
+            # milliseconds values. We use a time.time() to figure
+            # out how big the milliseconds part should be, so
+            # 1706726703601782 would become 1706726703 seconds and
+            # 3601782 milliseconds
+            timestamp = str(timestamp)
+            s, ms = str(time.time()).split(".")
+
+            seconds = timestamp[:len(s)]
+            milliseconds = timestamp[len(s):]
+            return float(f"{seconds}.{milliseconds}")
+
+        try:
+            instance = super().fromtimestamp(timestamp, tz)
+
+        except ValueError as e:
+            if (
+                isinstance(timestamp, int)
+                and timestamp > 0
+                and "out of range" in str(e)
+            ):
+                instance = super().fromtimestamp(get_float(timestamp), tz)
+
+            else:
+                raise ValueError(
+                    f"timestamp {timestamp} is out of bounds",
+                ) from e
+
+        except OSError as e:
+            if isinstance(timestamp, int):
+                instance = super().fromtimestamp(get_float(timestamp), tz)
+
+            else:
+                raise
+
+        return instance
+
     def __new__(cls, *args, **kwargs) -> Self:
         # remove any custom keywords
         args, replace_kwargs, timedelta_kwargs = cls.parse_args(args, kwargs)
@@ -455,36 +500,42 @@ class Datetime(datetime.datetime):
                 )
 
             elif isinstance(args[0], (int, float)):
-                try:
-                    instance = cls.fromtimestamp(
-                        args[0],
-                        tz=datetime.timezone.utc
-                    )
+                instance = cls.fromtimestamp(
+                    args[0],
+                    tz=datetime.timezone.utc,
+                )
 
-                except ValueError as e:
-                    raise ValueError(
-                        f"timestamp {args[0]} is out of bounds"
-                    ) from e
-
-                except OSError:
-                    if isinstance(args[0], int):
-                        # We convert a really big int into seconds and
-                        # milliseconds values. We use a time.time() to figure
-                        # out how big the milliseconds part should be, so
-                        # 1706726703601782 would become 1706726703 seconds and
-                        # 3601782 milliseconds
-                        timestamp = str(args[0])
-                        s, ms = str(time.time()).split(".")
-
-                        seconds = timestamp[:len(s)]
-                        milliseconds = timestamp[len(s):]
-                        instance = cls.fromtimestamp(
-                            float(f"{seconds}.{milliseconds}"),
-                            tz=datetime.timezone.utc
-                        )
-
-                    else:
-                        raise
+#                 try:
+#                     instance = cls.fromtimestamp(
+#                         args[0],
+#                         tz=datetime.timezone.utc,
+#                     )
+# 
+#                 except ValueError as e:
+#                     raise ValueError(
+#                         f"timestamp {args[0]} is out of bounds",
+#                     ) from e
+# 
+#                 except OSError as e:
+#                     pout.v(e)
+#                     if isinstance(args[0], int):
+#                         # We convert a really big int into seconds and
+#                         # milliseconds values. We use a time.time() to figure
+#                         # out how big the milliseconds part should be, so
+#                         # 1706726703601782 would become 1706726703 seconds and
+#                         # 3601782 milliseconds
+#                         timestamp = str(args[0])
+#                         s, ms = str(time.time()).split(".")
+# 
+#                         seconds = timestamp[:len(s)]
+#                         milliseconds = timestamp[len(s):]
+#                         instance = cls.fromtimestamp(
+#                             float(f"{seconds}.{milliseconds}"),
+#                             tz=datetime.timezone.utc,
+#                         )
+# 
+#                     else:
+#                         raise
 
             elif isinstance(args[0], bytes):
                 # if the object is pickled we would get the pickled

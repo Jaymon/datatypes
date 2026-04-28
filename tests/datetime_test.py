@@ -238,11 +238,24 @@ class DatetimeTest(TestCase):
         self.assertEqual(utc, dt)
 
     def test_timestamp_3(self):
-        with self.assertRaises(ValueError):
-            dt = Datetime(10775199116899)
+        dt = Datetime(10775199116899)
+        self.assertEqual(689900, dt.microsecond)
 
         with self.assertRaises(ValueError):
             dt = Datetime(-62167219200)
+
+    def test_timestamp_fromtimestamp(self):
+        """Make sure `fromtimestamp` can handle big integers that contain
+        the subsecond magnitude"""
+        ts = 1773419246001
+        dt = Datetime.fromtimestamp(ts, datetime.timezone.utc)
+        dt2 = Datetime(ts)
+        self.assertEqual(dt, dt2)
+
+    def test_timestamp_str(self):
+        ts = "1773419246001"
+        dt = Datetime(ts)
+        self.assertEqual(1000, dt.microsecond)
 
     def test_strings(self):
         d = Datetime(2018, 10, 5, 23, 35, 4)
