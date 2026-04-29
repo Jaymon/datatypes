@@ -140,18 +140,34 @@ class HTTPHeaders(Headers, Mapping):
         parts = k.replace('_', '-').split('-')
         return "-".join((self._convert_string_part(part) for part in parts))
 
-    def _convert_string_type(self, v):
+    def _convert_string_type(self, v, **kwargs):
         """Override the internal method wsgiref.headers.Headers uses to check
         values to make sure they are strings
+
+        Python changed this method between 3.12.11 and 3.12.13 and added
+        a keyword argument
         """
-        # wsgiref.headers.Headers expects a str() (py3) or unicode (py2), it
-        # does not accept even a child of str, so we need to convert the String
-        # instance to the actual str, as does the python wsgi methods, so even
-        # though we override this method we still return raw() strings so we
-        # get passed all the type(v) == "str" checks sadly, this method is
-        # missing in 2.7
-        # https://github.com/python/cpython/blob/2.7/Lib/wsgiref/headers.py
-        return String(v).raw()
+        if not isinstance(v, str):
+            v = String(v).raw()
+
+        return super()._convert_string_type(v, **kwargs)
+
+
+
+#     def _convert_string_type(self, v, **kwargs):
+#         """Override the internal method wsgiref.headers.Headers uses to check
+#         values to make sure they are strings"""
+#         return super()._convert_string_type(v, **kwargs)
+# 
+#         """
+#         # wsgiref.headers.Headers expects a str() (py3) or unicode (py2), it
+#         # does not accept even a child of str, so we need to convert the String
+#         # instance to the actual str, as does the python wsgi methods, so even
+#         # though we override this method we still return raw() strings so we
+#         # get passed all the type(v) == "str" checks sadly, this method is
+#         # missing in 2.7
+#         # https://github.com/python/cpython/blob/2.7/Lib/wsgiref/headers.py
+#         return String(v).raw()
 
     def get_all(self, name):
         """Get all the values for name
@@ -531,10 +547,6 @@ class HTTPHeaders(Headers, Mapping):
                 expires = int((now - exutc).total_seconds())
                 if now > exutc:
                     expires = -expires
-#                 pout.v(expires, now, exutc)
-#                 expires = expires.replace(
-#                     tzinfo=datetime.timezone.utc
-#                 ).timestamp()
 
             cookie[key]["expires"] = expires
 
@@ -606,18 +618,11 @@ class HTTPHeaders(Headers, Mapping):
             samesite="",
         )
 
-#     def delete_morsel(self, cookie: httpcookies.Morsel):
-#         self.delete_cookie(
-#             cookie.key,
-#             domain=cookie["domain"],
-#             path=cookie["path"],
-#         )
-
 
 class HTTPEnviron(HTTPHeaders):
     """just like Headers but allows any values (headers converts everything to
     unicode string)"""
-    def _convert_string_type(self, v):
+    def _convert_string_type(self, v, **kwargs):
         return v
 
 

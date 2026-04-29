@@ -313,6 +313,10 @@ class HTTPHeadersTest(TestCase):
         self.assertTrue("foo=\"\"" in hv)
         self.assertTrue("Max-Age=0" in hv)
 
+    def test_delete_header(self):
+        hs = HTTPHeaders()
+        del hs["foo"]
+
 
 class HTTPClientTest(TestCase):
     def test_alternative_method(self):
