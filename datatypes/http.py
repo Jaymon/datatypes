@@ -460,6 +460,7 @@ class HTTPHeaders(Headers, Mapping):
         self,
         key: str,
         value: str,
+        header: Literal["Set-Cookie", "Cookie"] = "Set-Cookie",
         *,
         max_age: int|datetime.timedelta|None = None,
         #comment: str = "",
@@ -467,7 +468,7 @@ class HTTPHeaders(Headers, Mapping):
         path: str = "/",
         secure: bool = True,
         httponly: bool = True,
-        samesite: Literal["Strict", "Lax", "None", ""] = "Strict",
+        samesite: Literal["Strict", "Lax", "None", ""] = "",
         partitioned: bool = False,
         expires: datetime.datetime|int|datetime.timedelta|None = None,
     ) -> None:
@@ -478,8 +479,9 @@ class HTTPHeaders(Headers, Mapping):
         .. note:: Most modern browsers seem to avoid `version` and `comment`,
             so this doesn't even bother with them
 
-        .. note:: This defaults to the most strict settings for the cookie
-
+        :param header: the header name for the cookie header
+            https://docs.python.org/3/library/http.cookies.html#http.cookies.BaseCookie.output
+        :keyword samesite: An empty value defaults to `Lax` in most browsers
         :keyword partitioned: if this is True then `secure` needs to also
             be True
         :keyword expires: This shouldn't be normally used since modern
@@ -533,7 +535,7 @@ class HTTPHeaders(Headers, Mapping):
 
             cookie[key]["expires"] = expires
 
-        self.add_header("Set-Cookie", cookie[key].OutputString())
+        self.add_header(header, cookie[key].OutputString())
 
     def get_cookie(self, key: str) -> httpcookies.Morsel|None:
         """Returns the matching cookie morsel at `key`
@@ -569,9 +571,17 @@ class HTTPHeaders(Headers, Mapping):
     def set_client_cookie(self, key: str, value: str):
         """Sets `key` and `value` in a client/request `Cookie` header
         instead of the server/response `Set-Cookie`"""
-        cookie = httpcookies.SimpleCookie()
-        cookie[key] = value
-        self.add_header("Cookie", cookie[key].OutputString())
+        self.set_cookie(
+            key,
+            value,
+            "Cookie",
+            path="",
+            secure=False,
+            httponly=False,
+        )
+#         cookie = httpcookies.SimpleCookie()
+#         cookie[key] = value
+#         self.add_header("Cookie", cookie[key].OutputString())
 
     def delete_cookie(self, key: str, domain: str = "", path: str = "/"):
         """Set a header to remove the cookie from the client
