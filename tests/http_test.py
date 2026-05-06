@@ -299,11 +299,15 @@ class HTTPHeadersTest(TestCase):
         self.assertEqual("/", cookie["path"])
         self.assertEqual("bar", cookie.value)
 
-    def test_set_client_cookie(self):
+    def test_add_cookie(self):
         hs = HTTPHeaders()
-        hs.set_client_cookie("foo", "bar")
+        hs.add_cookie("foo", "bar")
+
         cookie = hs.get_cookie("foo")
         self.assertEqual("bar", cookie.value)
+
+        v = hs.get("Cookie")
+        self.assertEqual("foo=bar", v)
 
     def test_delete_cookie(self):
         hs = HTTPHeaders()

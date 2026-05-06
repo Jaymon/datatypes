@@ -537,6 +537,22 @@ class HTTPHeaders(Headers, Mapping):
 
         self.add_header(header, cookie[key].OutputString())
 
+    def add_cookie(self, key: str, value: str):
+        """Sets `key` and `value` in a client/request `Cookie` header
+        instead of the server/response `Set-Cookie`"""
+        self.set_cookie(
+            key,
+            value,
+            header="Cookie",
+            domain="",
+            path="",
+            expires=None,
+            max_age=None,
+            secure=False,
+            httponly=False,
+            samesite="",
+        )
+
     def get_cookie(self, key: str) -> httpcookies.Morsel|None:
         """Returns the matching cookie morsel at `key`
 
@@ -567,21 +583,6 @@ class HTTPHeaders(Headers, Mapping):
                         morsel["max-age"] = int(morsel["max-age"])
 
                     yield morsel
-
-    def set_client_cookie(self, key: str, value: str):
-        """Sets `key` and `value` in a client/request `Cookie` header
-        instead of the server/response `Set-Cookie`"""
-        self.set_cookie(
-            key,
-            value,
-            "Cookie",
-            path="",
-            secure=False,
-            httponly=False,
-        )
-#         cookie = httpcookies.SimpleCookie()
-#         cookie[key] = value
-#         self.add_header("Cookie", cookie[key].OutputString())
 
     def delete_cookie(self, key: str, domain: str = "", path: str = "/"):
         """Set a header to remove the cookie from the client
