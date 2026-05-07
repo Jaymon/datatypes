@@ -16,14 +16,76 @@ import io
 import os
 import base64
 import datetime
-from typing import Literal
-from collections.abc import Generator
+from typing import Literal, Any
+from collections.abc import Generator, Mapping
 
 from .compat import *
 from .compat import cookies as httpcookies
 from .copy import Deepcopy
 from .string import String, ByteString
 from .config.environ import environ
+
+
+type _Headers = Mapping[str, Any]|list[tuple[str, Any]]|email.message.Message
+
+
+class UserAgent(String):
+    """Parse a request User-Agent header value
+
+    https://github.com/Jaymon/datatypes/issues/55
+
+    This has the following attributes:
+
+        * client_application
+        * client_version
+        * client_device
+    """
+    def __new__(cls, user_agent, **kwargs):
+        instance = super().__new__(cls, user_agent, **kwargs)
+        for k, v in cls.parse_user_agent(instance).items():
+            setattr(instance, k, v)
+
+        return instance
+
+
+    @classmethod
+    def parse_user_agent(cls, user_agent):
+        """parses any user agent string to the best of its ability and tries
+        not to error out"""
+        d = {}
+
+        regex = r"^([^/]+)" # 1 - get everything to first slash
+        regex += r"\/" # ignore the slash
+        regex += r"(\d[\d.]*)" # 2 - capture the numeric version or build
+        regex += r"\s+\(" # ignore whitespace before parens group
+        regex += r"([^\)]+)" # 3 - capture the full paren body
+        regex += r"\)\s*" # ignore the paren and any space if it is there
+        regex += r"(.*)$" # 4 - everything else (most common in browsers)
+        m = re.match(regex, user_agent)
+        if m:
+            application = m.group(1)
+            version = m.group(2)
+            system = m.group(3)
+            system_bits = re.split(r"\s*;\s*", system)
+            tail = m.group(4)
+
+            # common
+            d['client_application'] = application
+            d['client_version'] = version
+            d['client_device'] = system_bits[0]
+
+            if application.startswith("Mozilla"):
+                for browser in ["Chrome", "Safari", "Firefox"]:
+                    browser_m = re.search(
+                        r"{}\/(\d[\d.]*)".format(browser),
+                        tail
+                    )
+                    if browser_m:
+                        d['client_application'] = browser
+                        d['client_version'] = browser_m.group(1)
+                        break
+
+        return d
 
 
 class HTTPHeaders(Headers, Mapping):
@@ -61,12 +123,17 @@ class HTTPHeaders(Headers, Mapping):
         the warn-text using the method described in RFC 2047
     """
 
-    def __init__(self, headers=None, **kwargs):
-        super().__init__([])
+    def __init__(self, headers: _Headers|None = None, **kwargs):
+        # we can't pass `headers` into super because it doesn't normalize keys,
+        # it just sets them into `._headers`, which seems like an oversight to
+        # me
+        super().__init__()
         self.append(headers, **kwargs)
 
-    def _iter_headers(self, headers, **kwargs):
-        """
+    def _iter_headers(self, headers: _Headers, **kwargs) -> Generator[str, Any]:
+        """Internal method. Used to normalize `headers` into a tuple of
+        key/value pairs
+
         :param headers: dict[str, str]|list[tuple[str, str]]|Message
         :param **kwargs: key=val where key is the header name and val is the
             header value
@@ -140,34 +207,44 @@ class HTTPHeaders(Headers, Mapping):
         parts = k.replace('_', '-').split('-')
         return "-".join((self._convert_string_part(part) for part in parts))
 
-    def _convert_string_type(self, v, **kwargs):
-        """Override the internal method wsgiref.headers.Headers uses to check
-        values to make sure they are strings
+    def _convert_string_type(self, value: Any, *, name: bool) -> str:
+        if name:
+            value = value.replace('_', '-').lower()
 
-        Python changed this method between 3.12.11 and 3.12.13 and added
-        a keyword argument
-        """
-        if v is not str:
-            v = String(v).raw()
+        else:
+            if v is not str:
+                v = String(v).raw()
 
-        return super()._convert_string_type(v, **kwargs)
+        return super()._convert_string_type(value, name)
 
-    def get_all(self, name):
-        """Get all the values for name
+#     def _convert_string_type(self, v, **kwargs):
+#         """Override the internal method wsgiref.headers.Headers uses to check
+#         values to make sure they are strings
+# 
+#         Python changed this method between 3.12.11 and 3.12.13 and added
+#         a keyword argument
+#         """
+#         if v is not str:
+#             v = String(v).raw()
+# 
+#         return super()._convert_string_type(v, **kwargs)
 
-        :returns: list[str], any set values for name
-        """
-        name = self._convert_string_name(name)
-        return super().get_all(name)
+#     def get_all(self, name):
+#         """Get all the values for name
+# 
+#         :returns: list[str], any set values for name
+#         """
+#         name = self._convert_string_name(name)
+#         return super().get_all(name)
 
-    def get(self, name, default=None):
-        name = self._convert_string_name(name)
-        return super().get(name, default)
+#     def get(self, name, default=None):
+#         name = self._convert_string_name(name)
+#         return super().get(name, default)
 
-    def parse(self, name):
+    def parse(self, name: str) -> tuple[str, Mapping[str, str]]:
         """Parses the name header and returns main, params
 
-        :Example:
+        :example:
             h = HTTPHeaders()
             h.add_header("Content-Type", 'application/json; charset="utf8"')
             main, params = h.parse("Content-Type")
@@ -233,31 +310,33 @@ class HTTPHeaders(Headers, Mapping):
         """Return just the params of the header `name`"""
         return self.parse(name)[1]
 
-    def __delitem__(self, name):
-        name = self._convert_string_name(name)
-        return super().__delitem__(name)
+#     def __delitem__(self, name: str) -> None:
+#         name = self._convert_string_name(name)
+#         return super().__delitem__(name)
+# 
+#     def __setitem__(self, name, val):
+#         name = self._convert_string_name(name)
+#         return super().__setitem__(name, val)
 
-    def __setitem__(self, name, val):
-        name = self._convert_string_name(name)
-        return super().__setitem__(name, val)
+#     def setdefault(self, name, val):
+#         name = self._convert_string_name(name)
+#         return super().setdefault(name, val)
 
-    def setdefault(self, name, val):
-        name = self._convert_string_name(name)
-        return super().setdefault(name, val)
+#     def add_header(self, name, val, **params):
+#         """This is additive, meaning if name already exists then another row
+#         will be added containing val
+# 
+#         :param name: str, the header name/key
+#         :param val: str, the header value
+#         :param **params: these can be added as header variables to val
+#         """
+#         name = self._convert_string_name(name)
+#         return super().add_header(name, val, **params)
 
-    def add_header(self, name, val, **params):
-        """This is additive, meaning if name already exists then another row
-        will be added containing val
-
-        :param name: str, the header name/key
-        :param val: str, the header value
-        :param **params: these can be added as header variables to val
-        """
-        name = self._convert_string_name(name)
-        return super().add_header(name, val, **params)
-
-    def set_header(self, name, val, **params):
+    def set_header(self, name: str, val: Any, **params):
         """This completely replaces any currently set value of name with val
+
+        This is meant to be a companion to `.add_header`
 
         :param name: str, the header name/key
         :param val: str, the header value
@@ -266,19 +345,20 @@ class HTTPHeaders(Headers, Mapping):
         self.delete_header(name)
         self.add_header(name, val, **params)
 
-    def delete_header(self, name):
-        """Remove header name"""
+    def delete_header(self, name: str) -> None:
+        """Remove header name, this is meant to complement `.add_header` and
+        `.set_header`"""
         del self[name]
 
-    def has_header(self, name):
+    def has_header(self, name: str) -> bool:
         return name in self
 
-    def __contains__(self, name):
-        name = self._convert_string_name(name)
-        return super().__contains__(name)
+#     def __contains__(self, name):
+#         name = self._convert_string_name(name)
+#         return super().__contains__(name)
 
-    def keys(self):
-        return [k for k, v in self._headers]
+#     def keys(self):
+#         return [k for k, v in self._headers]
 
     def asgi(self):
         """Returns each header as a tuple of byte strings with the name as all
@@ -294,22 +374,23 @@ class HTTPHeaders(Headers, Mapping):
         for k, v in self.items():
             yield ByteString(k.lower()), ByteString(v)
 
-    def items(self):
+#     def items(self):
+#         for k, v in self._headers:
+#             yield k, v
+
+#     def iteritems(self):
+#         return self.items()
+# 
+#     def iterkeys(self):
+#         for k in self.keys():
+#             yield k
+
+    def __iter__(self) -> Generator[str]:
+        """Here for dict compatibility"""
         for k, v in self._headers:
-            yield k, v
-
-    def iteritems(self):
-        return self.items()
-
-    def iterkeys(self):
-        for k in self.keys():
             yield k
 
-    def __iter__(self):
-        for k, v in self._headers:
-            yield k
-
-    def pop(self, name, *args, **kwargs):
+    def pop(self, name: str, *args, **kwargs) -> str:
         """remove and return the value at name if it is in the dict
 
         This uses *args and **kwargs instead of default because this will raise
@@ -338,7 +419,7 @@ class HTTPHeaders(Headers, Mapping):
 
         return val
 
-    def append(self, headers, **kwargs):
+    def append(self, headers: _Headers|None, **kwargs) -> None:
         """This adds headers 
 
         :param headers: see `._iter_headers`
@@ -347,7 +428,7 @@ class HTTPHeaders(Headers, Mapping):
         for k, v in self._iter_headers(headers, **kwargs):
             self.add_header(k, v)
 
-    def update(self, headers=None, **kwargs):
+    def update(self, headers: _Headers|None = None, **kwargs) -> None:
         """This replaces headers currently in the instance with those found in
         headers. This is not additive, the value at key in headers will
         completely replace any value currently set
@@ -361,32 +442,32 @@ class HTTPHeaders(Headers, Mapping):
     def copy(self):
         return Deepcopy().copy(self)
 
-    def tolist(self):
-        """Return all the headers as a list of headers instead of a dict"""
-        return [": ".join(h) for h in self.items() if h[1]]
+#     def tolist(self) -> list[str, str]:
+#         """Return all the headers as a list of headers instead of a dict"""
+#         return [": ".join(h) for h in self.items() if h[1]]
 
-    def is_plain(self):
+    def is_plain(self) -> bool:
         """return True if body's content-type is text/plain"""
         ct = self.get("Content-Type", "")
         return "plain" in ct
 
-    def is_json(self):
+    def is_json(self) -> bool:
         """return True if body's content-type is application/json"""
         ct = self.get("Content-Type", "")
         return "json" in ct
 
-    def is_urlencoded(self):
+    def is_urlencoded(self) -> bool:
         """return True if body's content-type is
         application/x-www-form-urlencoded"""
         ct = self.get("Content-Type", "")
         return "form-urlencoded" in ct
 
-    def is_multipart(self):
+    def is_multipart(self) -> bool:
         """return True if body's content-type is multipart/form-data"""
         ct = self.get("Content-Type", "")
         return "multipart" in ct
 
-    def is_chunked(self):
+    def is_chunked(self) -> bool:
         """Return True if this set of headers is chunked"""
         return self.get('transfer-encoding', "").lower().startswith("chunked")
 
@@ -400,7 +481,7 @@ class HTTPHeaders(Headers, Mapping):
         value, params = self.parse("Content-Disposition")
         return value == "attachment"
 
-    def get_user_agent(self):
+    def get_user_agent(self) -> UserAgent:
         """Return the parsed user-agent string if it exists, empty string if it
         doesn't exist
 
@@ -412,7 +493,7 @@ class HTTPHeaders(Headers, Mapping):
 
         return ua
 
-    def get_content_encoding(self):
+    def get_content_encoding(self) -> str|None:
         """Get the content-type encoding if it is defined
 
         Uses the email stdlib to parse out the encoding from the content type
@@ -584,7 +665,7 @@ class HTTPHeaders(Headers, Mapping):
 
                     yield morsel
 
-    def delete_cookie(self, key: str, domain: str = "", path: str = "/"):
+    def delete_cookie(self, key: str, domain: str = "", path: str = "/") -> None:
         """Set a header to remove the cookie from the client
 
         As best I can tell, we want to set an `expires` in the past and a
@@ -1211,65 +1292,6 @@ class HTTPClient(object):
             body = str(body)
             body = body.encode(kwargs.get("encoding", environ.ENCODING))
         return headers, body
-
-
-class UserAgent(String):
-    """Parse a request User-Agent header value
-
-    https://github.com/Jaymon/datatypes/issues/55
-
-    This has the following attributes:
-
-        * client_application
-        * client_version
-        * client_device
-    """
-    def __new__(cls, user_agent, **kwargs):
-        instance = super().__new__(cls, user_agent, **kwargs)
-        for k, v in cls.parse_user_agent(instance).items():
-            setattr(instance, k, v)
-
-        return instance
-
-
-    @classmethod
-    def parse_user_agent(cls, user_agent):
-        """parses any user agent string to the best of its ability and tries
-        not to error out"""
-        d = {}
-
-        regex = r"^([^/]+)" # 1 - get everything to first slash
-        regex += r"\/" # ignore the slash
-        regex += r"(\d[\d.]*)" # 2 - capture the numeric version or build
-        regex += r"\s+\(" # ignore whitespace before parens group
-        regex += r"([^\)]+)" # 3 - capture the full paren body
-        regex += r"\)\s*" # ignore the paren and any space if it is there
-        regex += r"(.*)$" # 4 - everything else (most common in browsers)
-        m = re.match(regex, user_agent)
-        if m:
-            application = m.group(1)
-            version = m.group(2)
-            system = m.group(3)
-            system_bits = re.split(r"\s*;\s*", system)
-            tail = m.group(4)
-
-            # common
-            d['client_application'] = application
-            d['client_version'] = version
-            d['client_device'] = system_bits[0]
-
-            if application.startswith("Mozilla"):
-                for browser in ["Chrome", "Safari", "Firefox"]:
-                    browser_m = re.search(
-                        r"{}\/(\d[\d.]*)".format(browser),
-                        tail
-                    )
-                    if browser_m:
-                        d['client_application'] = browser
-                        d['client_version'] = browser_m.group(1)
-                        break
-
-        return d
 
 
 class MultipartPart(object):
