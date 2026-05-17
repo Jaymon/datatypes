@@ -290,3 +290,28 @@ class MultiSettingsTest(TestCase):
 #             s = MultiSettings(environs=environs)
 #             pout.v(s.nget)
 
+    def test_direct_set(self):
+        s = MultiSettings(prefixes=["FOO_", "BAR_", ""])
+
+        # even though instance has multiple environ handlers, setting the value
+        # directly will cause it to ignore the environment because direct
+        # values have precedence
+        s.CHE = 1
+        self.assertEqual(1, s.CHE)
+
+        with self.environ(s, CHE=2):
+            self.assertEqual(2, s.CHE)
+
+            with self.environ(s, CHE=3):
+                self.assertEqual(3, s.CHE)
+
+        self.assertEqual(1, s.CHE)
+
+        # setting the environment will not override the value because it was
+        # set directly on the instance
+        with self.environ(FOO_CHE=2):
+            self.assertEqual(1, s.CHE)
+
+            with self.environ(FOO_CHE=3):
+                self.assertEqual(1, s.CHE)
+
