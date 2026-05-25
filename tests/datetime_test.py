@@ -740,3 +740,14 @@ class DatetimeTest(TestCase):
         dt = Datetime()
         self.assertEqual(dt.timestamp(), float(dt))
 
+    def test_uuidv7(self):
+        uuid_dt = Datetime("2026-05-25T21:37:04.858000Z")
+        uuid_str = "019e6111-eb5a-7bbc-aa2c-0ca2456d1a32"
+        dt = Datetime.fromuuid(uuid_str)
+        self.assertEqual(uuid_dt, dt)
+
+        # non-v7 uuids should fail
+        uuid_str = "019e6111-eb5a-4bbc-aa2c-0ca2456d1a32"
+        with self.assertRaises(ValueError):
+            dt = Datetime.fromuuid(uuid_str)
+

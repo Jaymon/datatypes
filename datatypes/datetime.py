@@ -9,6 +9,7 @@ import calendar
 from collections.abc import Iterable
 from typing import Self
 from functools import cached_property
+import uuid
 
 from .compat import *
 from .string import String
@@ -422,7 +423,7 @@ class Datetime(datetime.datetime):
     def fromtimestamp(
         cls,
         timestamp: int|float,
-        tz: datetime.timezone|None = None,
+        tz: datetime.timezone|None = datetime.timezone.utc,
     ) -> Self:
         """Overrides parent to handle subsecond magnitude integers"""
         def get_float(timestamp):
@@ -462,6 +463,23 @@ class Datetime(datetime.datetime):
                 raise
 
         return instance
+
+    @classmethod
+    def fromuuid(cls, uuid_str: uuid.UUID|str) -> Self:
+        """Convert a UUIDv7 to a datetime value
+
+        Extract: Take the first 12 characters of the UUID string (excluding
+            dashes)
+        Transform: Parse the 12 hex characters into a decimal integer
+        Load: convert timestamp into datetime
+        """
+        uuid_str = str(uuid_str)
+
+        if uuid_str[14] != "7":
+            raise ValueError("UUID is not v7")
+
+        timestamp = int(uuid_str.replace("-", "")[:12], 16)
+        return cls.fromtimestamp(timestamp)
 
     def __new__(cls, *args, **kwargs) -> Self:
         # remove any custom keywords
