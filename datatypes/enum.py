@@ -173,6 +173,15 @@ def find_value(enum_class: EnumType, value: Any) -> Any:
     return find_enum(enum_class, value).value
 
 
+def get_names(enum_class: EnumType) -> list[str]:
+    """Get all the enum names of `enum_class` in a list"""
+    names = []
+    for name in enum_class.__members__.keys():
+        names = String(name)
+
+    return names
+
+
 ###############################################################################
 # Enum and EnumMeta are deprecated as of 2026-03-24 since they were originally
 # designed to bring Enum support to py2 and I almost always use the stdlib

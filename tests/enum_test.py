@@ -240,3 +240,13 @@ class StdEnumTest(TestCase):
         with self.assertRaises(ValueError):
             find_enum(Foo, None)
 
+    def test_find_enum_or_string(self):
+        class Foo(enum.IntEnum):
+            A = 0
+            B = enum.auto()
+            C = enum.auto()
+
+        with self.assertRaises(ValueError):
+            en = find_enum(Foo, "A|B")
+        #self.assertTrue((en & Foo.B) != 0)
+
