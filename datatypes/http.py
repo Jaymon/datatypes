@@ -479,6 +479,11 @@ class HTTPHeaders(Headers, Mapping):
         .. note:: Most modern browsers seem to avoid `version` and `comment`,
             so this doesn't even bother with them
 
+        .. note:: Cookies without a `max_age` are usually considered session
+            cookies by most modern browsers and will be deleted when the
+            browser session is completely closed out. To persist your cookies
+            between browser restarts set a `max_age`.
+
         :param header: the header name for the cookie header
             https://docs.python.org/3/library/http.cookies.html#http.cookies.BaseCookie.output
         :keyword samesite: An empty value defaults to `Lax` in most browsers
