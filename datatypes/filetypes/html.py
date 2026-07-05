@@ -36,6 +36,7 @@ class HTML(String):
     # https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
     # https://www.w3schools.com/html/html_blocks.asp
     BLOCK_TAGNAMES = set([
+        "address",
         "article",
         "aside",
         "blockquote",
@@ -63,11 +64,13 @@ class HTML(String):
         "h5",
         "h6",
         "header",
-        "hgroup",
+        "hgroup", # deprecated
         "hr",
         "li",
+        "main",
         "map",
-        "object",
+        "nav",
+        "noscript",
         "ol",
         "output",
         "p",
@@ -76,7 +79,6 @@ class HTML(String):
         "section",
         "table",
         "tbody",
-        "textarea",
         "tfoot",
         "th",
         "thead",
@@ -90,14 +92,17 @@ class HTML(String):
     INLINE_TAGNAMES = set([
         "a",
         "abbr",
-        "acronym",
+        "acronym", # deprecated
         "b",
         "bdo",
-        "big",
+        "big", # deprecated
+        "center", # deprecated
         "cite",
         "code",
+        "del",
         "dfn",
         "em",
+        "font", # deprecated, specifies font text, size and color
         "i",
         "img",
         "input",
@@ -107,6 +112,7 @@ class HTML(String):
         "object",
         "output",
         "q",
+        "s",
         "samp",
         "script",
         "select",
@@ -115,9 +121,39 @@ class HTML(String):
         "strong",
         "sub",
         "sup",
+        "textarea",
         "time",
-        "tt",
+        "tt", # deprecated
         "var",
+    ])
+
+    # https://www.w3.org/TR/2014/REC-html5-20141028/obsolete.html
+    # Ideally, I would like these to be in INLINE, VOID, or BLOCK but these
+    # are the ones I couldn't categorize
+    DEPRECATED_TAGNAMES = set([
+        #"acronym", # An acronym is defined using this tag
+        "applet", # use embed or object instead
+        "basefont", # use abbr instead
+        "bgsound", # use audio instead
+        "blink",
+        "dir", # specifies a directory list
+        "frame", # specifies a frame
+        "frameset", # specifies a set of frames
+        "isindex", # specifies a single-line input field
+        "listing", # use pre and code instead
+        "marquee",
+        "multicol",
+        "nextid",
+        "nobr",
+        "noembed", # makes it easy to supply alternative content that tells
+                   # users what they are missing
+        "noframes", # used to define a noframe section
+        "plaintext", # used to render all text in the document exactly as it
+                     # was typed in
+        "spacer",
+        "strike", # specifies a strike-through text
+        "xmp", # Renders text between the start and end tags without
+               # interpreting the HTML in between and using a monospaced font
     ])
 
     # https://www.w3schools.com/tags/default.asp
@@ -237,6 +273,10 @@ class HTML(String):
         "var", # Defines a variable
         "video", # Defines embedded video
         "wbr", # Defines a possible line break
+        *VOID_TAGNAMES,
+        *BLOCK_TAGNAMES,
+        *INLINE_TAGNAMES,
+        *DEPRECATED_TAGNAMES,
     ])
 
     # https://www.w3schools.com/tags/ref_attributes.asp

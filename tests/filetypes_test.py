@@ -18,6 +18,18 @@ class HTMLTest(TestCase):
         r = html.inject_into_head("foo")
         self.assertEqual("<html><head>foo</head><body></body></html>", r)
 
+#     def test_all_tagnames(self):
+#         pout.v(HTML.ALL_TAGNAMES)
+#         return
+#         atns = set(HTML.ALL_TAGNAMES)
+# 
+#         for tns in [HTML.VOID_TAGNAMES, HTML.BLOCK_TAGNAMES, HTML.INLINE_TAGNAMES]:
+#             for tn in tns:
+#                 atns.discard(tn)
+# 
+#         pout.v(atns)
+#         print(atns)
+
 
 class HTMLBlockTokenizerTest(TestCase):
     def test_blocks_1(self):
