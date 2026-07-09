@@ -4177,19 +4177,26 @@ class Sentinel(Cachepath):
 class UrlFilepath(Cachepath):
     """Retrieve a file from a url and save it as a local file
 
-    :Example:
+    :example:
+        # cache the file in the environment path
         p = UrlFilepath("https://example.com/foo.txt")
         print(p) # CACHE_DIR/foo.txt
+        print(p.url) # https://example.com/foo.txt
+        print(p.fetched) # True
 
+        # set the path where the file will be cached
         p = UrlFilepath("https://example.com/bar/foo/che.txt", "foo.txt")
         print(p) # ./foo.txt
+        print(p.url) # https://example.com/bar/foo/che.txt
+
+        p = UrlFilepath("https://example.com/foo.txt")
+        print(p.fetched) # False (file was fetched from cache)
+
+        # re-cache the file
+        p.fetch()
 
     this was moved here from Glyph's codebase on March 7, 2022
     """
-    http_client = HTTPClient
-    """The http client this will use to retrieve the file. If you want to
-    completely ignore this property just override the .fetch method"""
-
     def __new__(cls, url, path="", **kwargs):
         url = Url(url)
 
@@ -4221,7 +4228,7 @@ class UrlFilepath(Cachepath):
         # we need to fetch the file using url and save it to filepath
         logger.debug("Fetching {} to {}".format(self.url, self))
 
-        c = self.http_client(stream=True)
+        c = HTTPClient(stream=True)
         r = c.get(self.url)
         if r.status_code >= 400:
             raise IOError(r.status_code)
@@ -4231,9 +4238,16 @@ class UrlFilepath(Cachepath):
             # we use the encoding the server returned to decide if we should
             # treat this file as binary or text. Text should get decoded to
             # unicode in the response object so then we will write it to the
-            # file using self.encoding
+            # file using the the environment encoding
             encoding = r.encoding
-            for chunk in r.iter_content(chunk_size=1024): 
+
+            if encoding:
+                chunks = r.iter_content(chunk_size=1024, decode_unicode=True)
+
+            else:
+                chunks = r.iter_content(chunk_size=1024)
+
+            for chunk in chunks:
                 if chunk: # filter out keep-alive new chunks
                     if encoding:
                         data, data_encoding, errors = self.prepare_text(chunk)
@@ -4246,7 +4260,7 @@ class UrlFilepath(Cachepath):
                             fp = self.open(
                                 mode="w+",
                                 encoding=data_encoding,
-                                errors=errors
+                                errors=errors,
                             )
                         else:
                             fp = self.open("wb+")
@@ -4256,7 +4270,6 @@ class UrlFilepath(Cachepath):
         finally:
             if fp:
                 fp.close()
-
 
         self.fetched = True
 

@@ -374,7 +374,7 @@ class HTTPClientTest(TestCase):
         content = testdata.get_ascii(2000)
         r = HTTPResponse(200, ByteString(content), {}, None, None)
         rc = ""
-        for rch in r.iter_content(100):
+        for rch in r.iter_content(100, decode_unicode=True):
             rc += rch
         self.assertEqual(content, rc)
 

@@ -16,7 +16,7 @@ import io
 import os
 import base64
 import datetime
-from typing import Literal
+from typing import Literal, Any
 from collections.abc import Generator
 
 from .compat import *
@@ -627,12 +627,17 @@ class HTTPEnviron(HTTPHeaders):
 
 class HTTPResponse(object):
     """This is the response object that is returned from an HTTP request, it
-    tries its best to look like a requests response object so you can switch
-    this out when you need a more full-featured solution
+    tries its best to look like a `requests` response object so you can
+    switch this out when you need a more full-featured solution
+
+    Use `.content` to get the raw bytes. Use `.text` to get decoded unicode
     """
     @property
-    def encoding(self):
-        encoding = environ.ENCODING
+    def encoding(self) -> str|None:
+        """Return the header encoding of the response, or `None` if there was
+        no header encoding/charset"""
+        encoding = None
+
         if ct := self.headers.get("content-type", ""):
             # if the content-type header exists and there is no encoding then
             # it should be None except under specific media types
@@ -652,8 +657,8 @@ class HTTPResponse(object):
                 if self.headers.is_json():
                     encoding = "UTF-8"
 
-                elif ct.startswith("text/"):
-                    encoding = "ISO-8859-1"
+#                 elif ct.startswith("text/"):
+#                     encoding = "ISO-8859-1"
 
         return encoding
 
@@ -662,29 +667,37 @@ class HTTPResponse(object):
         return {c.key: c.value for c in self.headers.get_cookies()}
 
     @property
-    def content(self):
-        encoding = self.encoding
+    def text(self) -> str:
+        """Return the text as a unicode string, if you need bytes, use
+        `.content`"""
+        encoding = self.encoding or environ.ENCODING
         errors = environ.ENCODING_ERRORS
-        return self._body.decode(encoding, errors) if encoding else self._body
+        return self.content.decode(encoding, errors)
 
     @property
-    def status_code(self):
+    def _body(self) -> bytes:
+        """DEPRECATED. Use `.content` instead"""
+        return self.content
+
+    @property
+    def status_code(self) -> int:
+        """Requests compatibility"""
         return self.code
 
     @property
-    def body(self):
+    def body(self) -> Any:
         if self.headers.is_json():
             body = self.json()
 
         else:
-            body = self.content
+            body = self.text
 
         return body
 
-    def __init__(self, code, body, headers, request, response):
+    def __init__(self, code, content, headers, request, response):
         """
         :param code: int, the response http code
-        :param body: bytes, the response body
+        :param content: bytes, the response body
         :param headers: http.client:HTTPMessage, the headers
         :param request: urllib.request:Request, the client that made the http
             request
@@ -695,14 +708,18 @@ class HTTPResponse(object):
         self.response = response
         self.headers = HTTPHeaders(headers)
         self._headers = headers
-        self._body = body
+        self.content = content
         self.code = code
 
-    def json(self):
-        return json.loads(self._body)
+    def json(self) -> Any:
+        return json.loads(self.content)
 
-    def iter_content(self, chunk_size=0):
-        content = self.content
+    def iter_content(
+        self,
+        chunk_size: int = 0,
+        decode_unicode: bool = False,
+    ) -> Generator[str|bytes]:
+        content = self.text if decode_unicode else self.content
         if chunk_size:
             start = 0
             total = len(content)
@@ -750,9 +767,9 @@ class HTTPClient(object):
         """
         :param base_url: str, the base url that will be used (eg,
             http://localhost:8080)
-        :param headers: dict[str, str], these are the common headers that
+        :keyword headers: dict[str, str], these are the common headers that
             usually don't change all that much
-        :param json: bool, if True then try and do a json request when
+        :keyword json: bool, if True then try and do a json request when
             possible
         """
         self.base_url = self.get_base_url(base_url)
@@ -885,59 +902,6 @@ class HTTPClient(object):
             raise
 
         return res
-
-#         res = self._fetch(fetch_url, **fetch_kwargs)
-#         return res
-# 
-#     def _fetch(self, fetch_url, **kwargs):
-#         """Internal method called from self.fetch that performs the actual
-#         request
-# 
-#         If you wanted to switch out the backend to actually use requests then
-#         this should be the only method you would need to override
-# 
-#         :param method: str, the http method (eg, GET, POST)
-#         :param fetch_url: str, the full url requested
-#         :keyword request_class: Optional[Request]
-#         :keyword response_class: Optional[HTTPResponse]
-#         :keyword **kwargs: arguments passed through to the backend client
-#         :returns: HTTPResponse, a response instance
-#         """
-#         timeout = kwargs.pop("timeout", self.timeout)
-#         request_class = kwargs.pop("request_class", Request)
-#         response_class = kwargs.pop("response_class", HTTPResponse)
-# 
-#         # https://stackoverflow.com/a/48144049
-#          # default Request is from `compat *` import
-#         req = request_class(fetch_url, **kwargs)
-# 
-#         try:
-#             # https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen
-#             res = urlopen(req, timeout=timeout)
-#             ret = response_class(
-#                 res.code,
-#                 res.read(),
-#                 res.headers,
-#                 req,
-#                 res
-#             )
-# 
-#         except HTTPError as e:
-#             ret = response_class(
-#                 e.code,
-#                 # an HTTPError can also function as a non-exceptional file-like
-#                 # return value (the same thing that urlopen() returns).
-#                 # If you don't read the error it will leave a dangling socket
-#                 e.read(),
-#                 {},
-#                 req,
-#                 e
-#             )
-# 
-#         except URLError as e:
-#             raise
-# 
-#         return ret
 
     def get_base_url(self, base_url):
         """Internal method. Normalizes the base_url before setting it into

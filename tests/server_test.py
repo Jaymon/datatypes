@@ -33,11 +33,11 @@ class PathServerTest(ServerTestCase):
 
         with s:
             r = testdata.fetch(s.child(path="/foo.txt"))
-            self.assertEqual(path.file_text("foo.txt"), r.content)
-            self.assertEqual(path.file_bytes("foo.txt"), r._body)
+            self.assertEqual(path.file_text("foo.txt"), r.text)
+            self.assertEqual(path.file_bytes("foo.txt"), r.content)
 
             r = testdata.fetch(s.child(path="/baz/image.png"))
-            self.assertEqual(path.file_bytes("baz/image.png"), r._body)
+            self.assertEqual(path.file_bytes("baz/image.png"), r.content)
 
     def test_url(self):
         path = testdata.create_files({
@@ -48,7 +48,7 @@ class PathServerTest(ServerTestCase):
 
         with s:
             r = testdata.fetch(s.child(path="/foo.txt?bar=1&che=2"))
-            self.assertEqual(path.file_text("foo.txt"), r.content)
+            self.assertEqual(path.file_text("foo.txt"), r.text)
 
     def test_serve(self):
         """Moved and refactored from testdata on 1-24-2023"""
@@ -59,10 +59,10 @@ class PathServerTest(ServerTestCase):
 
         with s:
             res = testdata.fetch(s.child(path="foo.txt"))
-            self.assertEqual("foo", res.content)
+            self.assertEqual("foo", res.text)
 
             res = testdata.fetch(s.child(path="bar.txt"))
-            self.assertEqual("bar", res.content)
+            self.assertEqual("bar", res.text)
 
     def test_server_encoding(self):
         """Moved from testdata on 1-24-2023"""
@@ -75,7 +75,7 @@ class PathServerTest(ServerTestCase):
         with s:
             res = testdata.fetch(s.child(path=name))
             self.assertEqual(environ.ENCODING.upper(), res.encoding.upper())
-            self.assertEqual(content, res.content)
+            self.assertEqual(content, res.text)
 
         s = self.create_server(testdata.create_files({
             name: content,
@@ -84,7 +84,7 @@ class PathServerTest(ServerTestCase):
         with s:
             res = testdata.fetch(s.child(path=name))
             self.assertNotEqual("UTF-8", res.encoding.upper())
-            self.assertEqual(content, res.content)
+            self.assertEqual(content, res.text)
 
 
 class CallbackServerTest(ServerTestCase):
@@ -200,5 +200,5 @@ class WSGIServerTest(ServerTestCase):
         with s:
             r = testdata.fetch(s.child(path="/foo/bar?foo=1"))
             self.assertEqual(200, r.code)
-            self.assertEqual("GET", r.content)
+            self.assertEqual("GET", r.text)
 
