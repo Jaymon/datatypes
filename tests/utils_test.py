@@ -7,6 +7,7 @@ from datatypes.utils import (
     make_list,
     make_dict,
     infer_type,
+    copy_into,
 )
 
 from . import TestCase, IsolatedAsyncioTestCase
@@ -86,4 +87,24 @@ class InferTypeTest(TestCase):
     def test_bool(self):
         v = infer_type("True")
         self.assertTrue(v)
+
+
+class CopyIntoTest(TestCase):
+    def test_copy_into(self):
+        class Namespace(object):
+            pass
+
+        src = Namespace()
+        src.foo = 1
+        src.bar = 2
+        src._che = 3
+        src.__boo__ = 4
+
+        target = Namespace()
+
+        copy_into(src, target)
+        self.assertEqual(src.foo, target.foo)
+        self.assertEqual(src.bar, target.bar)
+        self.assertEqual(src._che, target._che)
+        self.assertIsNone(getattr(target, "__boo__", None))
 

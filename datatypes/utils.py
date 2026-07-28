@@ -177,3 +177,13 @@ def infer_type(v):
 
     return ret
 
+
+def copy_into(src: object, target: object):
+    """Copy `src` values into `target`"""
+    for n, v in vars(src).items():
+        if n.startswith("__"):
+            continue
+
+        setattr(target, n, v)
+
+
