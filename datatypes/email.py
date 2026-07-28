@@ -6,7 +6,7 @@ from collections import defaultdict
 import email.utils
 from email.parser import Parser, BytesParser
 from email.header import decode_header
-from email.message import EmailMessage
+from email.message import EmailMessage, Message
 from typing import Self
 from functools import cached_property
 import io
@@ -214,7 +214,7 @@ class EmailPart(object):
         return not self.is_attachment()
 
 
-class Email(object):
+class Email(Message):
     """Allow programmatic access to a raw email
 
     This was ripped out of popbak in December 2021 and plopped here
@@ -228,17 +228,13 @@ class Email(object):
     part_class = EmailPart
     """Each body or attachment in the email will be represented by this class"""
 
-    @property
-    def raw(self): # DEPRECATED
-        return String(self.msg)
-
     @cached_property
     def headers(self) -> HTTPHeaders:
-        return HTTPHeaders(self.msg.items())
+        return HTTPHeaders(self.items())
 
     @cached_property
     def subject(self) -> str:
-        if ret := self.msg.get("Subject", ""):
+        if ret := self.get("Subject", ""):
             # https://stackoverflow.com/a/7331577/5006
             ret = get_decoded_header(ret)
 
@@ -246,9 +242,9 @@ class Email(object):
 
     @cached_property
     def references(self) -> list[str]:
-        header_values = self.msg.get_all("References", [])
+        header_values = self.get_all("References", [])
         if not header_values:
-            header_values = self.msg.get_all("In-Reply-To", [])
+            header_values = self.get_all("In-Reply-To", [])
 
 
         refs = []
@@ -268,10 +264,10 @@ class Email(object):
         Returns a msgid that is similar to one returned from
         `email.utils.make_msgid`
         """
-        msgid = self.msg.get("Message-ID", "")
+        msgid = self.get("Message-ID", "")
         if not msgid:
             addr = self.reply_address
-            h = String(self.msg).sha256()
+            h = String(self).sha256()
             msgid = f"<{h}@{addr.domain}>"
 
         return msgid
@@ -298,7 +294,7 @@ class Email(object):
         ]
 
         for header_name in header_names:
-            header_values.extend(self.msg.get_all(header_name, []))
+            header_values.extend(self.get_all(header_name, []))
 
         addrs = []
         seen = set()
@@ -317,11 +313,11 @@ class Email(object):
 
         :returns: list, the list of recipients, this includes to, cc, bcc, etc.
         """
-        tos = self.msg.get_all("to", [])
-        ccs = self.msg.get_all("cc", [])
-        bccs = self.msg.get_all("bcc", [])
-        resent_tos = self.msg.get_all("resent-to", [])
-        resent_ccs = self.msg.get_all("resent-cc", [])
+        tos = self.get_all("to", [])
+        ccs = self.get_all("cc", [])
+        bccs = self.get_all("bcc", [])
+        resent_tos = self.get_all("resent-to", [])
+        resent_ccs = self.get_all("resent-cc", [])
         recipient_addrs = email.utils.getaddresses(
             tos + bccs + ccs + resent_tos + resent_ccs
         )
@@ -336,9 +332,9 @@ class Email(object):
         """Return the address that the email was delivered to, if that address
         can't be inferred then return an empty string
         """
-        to_addrs = self.msg.get_all("Delivered-To", [])
+        to_addrs = self.get_all("Delivered-To", [])
         if not to_addrs:
-            to_addrs = self.msg.get_all("To", [])
+            to_addrs = self.get_all("To", [])
 
         if len(to_addrs) == 1:
             return EmailAddress(email.utils.getaddresses(to_addrs)[0])
@@ -348,7 +344,7 @@ class Email(object):
     @cached_property
     def to_addresses(self) -> list[EmailAddress]:
         """Only to addresses, ignore cc"""
-        to_addrs = email.utils.getaddresses(self.msg.get_all("To", []))
+        to_addrs = email.utils.getaddresses(self.get_all("To", []))
         to_addrs = [EmailAddress(a) for a in to_addrs]
         return to_addrs
 
@@ -360,7 +356,7 @@ class Email(object):
     def from_address(self) -> EmailAddress:
         """Get just the email address this email is from"""
         from_addr = ""
-        from_addrs = email.utils.getaddresses(self.msg.get_all("From", []))
+        from_addrs = email.utils.getaddresses(self.get_all("From", []))
         return EmailAddress(from_addrs[0] if from_addrs else "")
 
     @property
@@ -370,9 +366,9 @@ class Email(object):
     @cached_property
     def reply_address(self) -> EmailAddress:
         """The email address that should be used to reply to this email"""
-        addrs = self.msg.get_all("Reply-To", [])
+        addrs = self.get_all("Reply-To", [])
         if not addrs:
-            addrs = self.msg.get_all("From", [])
+            addrs = self.get_all("From", [])
 
         return EmailAddress(email.utils.getaddresses(addrs)[0])
 
@@ -386,7 +382,7 @@ class Email(object):
     @property
     def date(self) -> str: # DEPRECATED
         """Get the string datestamp from the email"""
-        ret = str(self.msg.get('Date', ""))
+        ret = str(self.get("Date", ""))
         return ret
 
     @cached_property
@@ -397,7 +393,7 @@ class Email(object):
             a datetime instance with the date the email was sent, if no date
             header is found then this will return None
         """
-        d = self.msg.get('Date', "")
+        d = self.get("Date", "")
         #d = self.date
         if d:
             # https://docs.python.org/3/library/email.util.html#email.utils.parsedate_tz
@@ -426,7 +422,7 @@ class Email(object):
 
     def __init__(
         self,
-        data: bytes|str|io.IOBase|EmailMessage,
+        data: bytes|str|io.IOBase|Message,
         encodings: list[str]|None = None,
         errors: str = "strict",
     ):
@@ -447,40 +443,44 @@ class Email(object):
         if encodings is None:
             encodings = ["UTF-8", "ISO-8859-1", "us-ascii"]
 
-        if isinstance(data, bytes):
-            self.msg = BytesParser().parsebytes(data)
+        if isinstance(data, Message):
+            super().__init__()
 
-        elif isinstance(data, str):
-            self.msg = Parser().parsestr(data)
+            for n, v in vars(data).items():
+                setattr(self, n, v)
 
-        elif isinstance(data, io.IOBase):
-            mode = getattr(data, "mode", "")
-            if isinstance(data, io.BufferedIOBase) or "b" in mode:
-                self.msg = BytesParser().parse(data)
+            if self.is_multipart():
+                index = 0
+                for part in self.walk():
+                    # multipart/* are just containers
+                    if part.is_multipart():
+                        continue
 
-            else:
-                # Treat all other io as text io and pray
-                self.msg = Parser().parse(data)
+                    content_type = part.get_content_type()
+                    encoding = part.get_content_charset()
+                    filename = part.get_filename()
+                    part_data = part.get_payload(decode=True)
+                    index += 1
 
-        elif isinstance(data, EmailMessage):
-            self.msg = data
+                    self.parts[content_type].append(self.part_class(
+                        email=self,
+                        content_type=content_type,
+                        data=part_data,
+                        encoding=encoding,
+                        encodings=encodings,
+                        errors=errors,
+                        filename=filename,
+                        index=index,
+                    ))
 
-        else:
-            raise ValueError(f"Unsupported data type: {type(data)}")
+            else: # Not multipart, only body portion exists
 
-        if self.msg.is_multipart():
-            index = 0
-            for part in self.msg.walk():
-                # multipart/* are just containers
-                if part.is_multipart():
-                    continue
-
-                content_type = part.get_content_type()
-                encoding = part.get_content_charset()
-                filename = part.get_filename()
-                part_data = part.get_payload(decode=True)
-                index += 1
-
+                # RFC 2045 defines a message’s default type to be text/plain
+                # unless it appears inside a multipart/digest container, in
+                # which case it would be message/rfc822
+                content_type = self.get_content_type()
+                encoding = self.get_content_charset()
+                part_data = self.get_payload(decode=1)
                 self.parts[content_type].append(self.part_class(
                     email=self,
                     content_type=content_type,
@@ -488,26 +488,25 @@ class Email(object):
                     encoding=encoding,
                     encodings=encodings,
                     errors=errors,
-                    filename=filename,
-                    index=index,
                 ))
 
-        else: # Not multipart, only body portion exists
+        elif isinstance(data, bytes):
+            self.__init__(BytesParser().parsebytes(data))
 
-            # RFC 2045 defines a message’s default type to be text/plain unless
-            # it appears inside a multipart/digest container, in which case it
-            # would be message/rfc822
-            content_type = self.msg.get_content_type()
-            encoding = self.msg.get_content_charset()
-            part_data = self.msg.get_payload(decode=1)
-            self.parts[content_type].append(self.part_class(
-                email=self,
-                content_type=content_type,
-                data=part_data,
-                encoding=encoding,
-                encodings=encodings,
-                errors=errors,
-            ))
+        elif isinstance(data, str):
+            self.__init__(Parser().parsestr(data))
+
+        elif isinstance(data, io.IOBase):
+            mode = getattr(data, "mode", "")
+            if isinstance(data, io.BufferedIOBase) or "b" in mode:
+                self.__init__(BytesParser().parse(data))
+
+            else:
+                # Treat all other io as text io and pray
+                self.__init__(Parser().parse(data))
+
+        else:
+            raise ValueError(f"Unsupported data type: {type(data)}")
 
     def path(self, basedir):
         """Get the save path for this email, this should be a directory that
@@ -644,9 +643,9 @@ class Email(object):
 
         return ret
 
-    def __str__(self) -> str:
-        return str(self.msg)
-
-    def __bytes__(self) -> bytes:
-        return bytes(self.msg)
+#     def __str__(self) -> str:
+#         return str(self.msg)
+# 
+#     def __bytes__(self) -> bytes:
+#         return bytes(self.msg)
 
