@@ -214,7 +214,7 @@ class EmailPart(object):
         return not self.is_attachment()
 
 
-class Email(Message):
+class Email(EmailMessage):
     """Allow programmatic access to a raw email
 
     This was ripped out of popbak in December 2021 and plopped here
