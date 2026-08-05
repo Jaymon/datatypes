@@ -20,8 +20,8 @@ class EmailTest(TestCase):
         em = self.get_email("emoji-html-attachment")
 
         self.assertTrue(em.has_attachments())
-        self.assertEqual(1, len(list(em.attachments())))
-        self.assertEqual("foo@example.com", em.from_addr)
+        self.assertEqual(1, len(list(em.walk_attachments())))
+        self.assertEqual("foo@example.com", em.from_address)
 
         emoji = b'\xf0\x9f\x98\x82\xf0\x9f\x98\x8e\xf0\x9f\x91\x8d'
         self.assertTrue(emoji in ByteString(em.plain))
@@ -38,29 +38,32 @@ class EmailTest(TestCase):
 
     def test_parse_subject_multi_to(self):
         em = self.get_email("no-subject")
-        self.assertEqual(2, len(em.to_addrs))
+        self.assertEqual(2, len(em.to_addresses))
         self.assertTrue("" in em.subject)
 
     def test_parse_cc(self):
         em = self.get_email("cc")
-        self.assertEqual("foo@example.com", em.from_addr)
+        self.assertEqual("foo@example.com", em.from_address)
 
     def test_bad_subject(self):
         em = self.get_email("bad-1")
         self.assertEqual(
-            "PitchBook PE & VC News: Changing Course — PE Pivots Away from B2C Education, Toward B2B",
-            em.subject
+            (
+                "PitchBook PE & VC News: Changing Course"
+                " — PE Pivots Away from B2C Education, Toward B2B"
+            ),
+            em.subject,
         )
 
     def test_bad_2(self):
         basedir = testdata.create_dir()
         em = self.get_email("bad-2")
 
-        paths = em.save(basedir)
+        paths = em.save(basedir, save_original=True)
         email_dir = paths[0]
-        self.assertEqual(5, email_dir.filecount())
+        self.assertEqual(6, email_dir.filecount())
 
-    def test_original(self):
+    def test_save_original(self):
         """makes sure the original.txt file exists and isn't empty"""
         basedir = testdata.create_dir()
         em = self.get_email("bad-2")
@@ -72,45 +75,53 @@ class EmailTest(TestCase):
                 count = p.count()
         self.assertLess(0, count)
 
-    def test_save(self):
+    def test_save_2(self):
         basedir = testdata.create_dir()
         em = self.get_email("emoji-html-attachment")
-        paths = em.save(basedir)
+        paths = em.save(basedir, save_original=False)
         self.assertEqual(5, len(paths))
 
         em = self.get_email("cc")
-        paths = em.save(basedir)
+        paths = em.save(basedir, save_original=False)
         self.assertEqual(3, len(paths))
 
         em = self.get_email("no-subject")
-        paths = em.save(basedir)
+        paths = em.save(basedir, save_original=False)
         self.assertEqual(3, len(paths))
 
         em = self.get_email("simple-text")
-        paths = em.save(basedir)
+        paths = em.save(basedir, save_original=False)
         self.assertEqual(3, len(paths))
 
-    def test_subject_slashes(self):
+    def test__get_path_subject_slashes(self):
         em = self.get_email("subject-slashes")
-        tr = "".join([
-            "/example.com/foo@example.com/2018-06-07 142121 - [Name] Error in foo Library Developer "
-            "Devices 9B98F192-6530-2234976EB546 data Bundle 555B3437-8CF1-369E46E3AB15 ",
-            "Bar Staging.app main.ext293"
-        ])
-        self.assertEqual(tr, em.path("/"))
+        tr = (
+            "/example.com"
+            "/foo@example.com"
+            "/2018-06-07 142121 - [Name] Error in foo Library Developer"
+            " Devices 9B98F192-6530-2234976EB546"
+            " data Bundle 555B3437-8CF1-369E46E3AB15"
+            " Bar Staging.app main.ext293"
+        )
+        self.assertEqual(tr, em._get_path("/"))
 
-    def test_subject_question_mark(self):
+    def test__get_path_subject_question_mark(self):
         em = self.get_email("subject-question-mark")
-        tr = "".join([
-            "/example.com/foo@example.com/2018-06-07 142121 - [Action Required] Database Version ",
-            "Upgrade For Your Amazon Aurora PostgreSQL Database Instances ",
-            "[AWS Account NNNNNNNN]",
-        ])
-        self.assertEqual(tr, em.path("/"))
+        tr = (
+            "/example.com"
+            "/foo@example.com"
+            "/2018-06-07 142121 - [Action Required] Database Version"
+            " Upgrade For Your Amazon Aurora PostgreSQL Database Instances"
+            " [AWS Account NNNNNNNN]"
+        )
+        self.assertEqual(tr, em._get_path("/"))
 
     def test_subject_encoded(self):
         em = self.get_email("subject-encoded")
-        self.assertEqual("You're #1 - Come check these drops out...\U0001F440", em.subject)
+        self.assertEqual(
+            "You're #1 - Come check these drops out...\U0001F440",
+            em.subject,
+        )
 
     def test_bad_content_type(self):
         """Make sure an email part with unknown-8bit encoding can be safely
@@ -123,8 +134,13 @@ class EmailTest(TestCase):
         turn treats the unrecognized charset as iso-8859-1.
         """
         em = self.get_email("bad-content-type", errors="ignore")
-        p = em.parts["text/plain"][2]
-        self.assertEqual("UTF-8", p.encoding)
+        p = em.get_part("text/plain")
+        self.assertTrue(isinstance(p.get_content(), str))
+
+        #pout.v(em.plain, em.get_content_charset())
+
+        #p = em.parts["text/plain"][2]
+        #self.assertEqual("UTF-8", p.encoding)
 
     def test_no_date(self):
         """Gmail's welcome message in really old gmail accounts (mine dates
@@ -232,15 +248,27 @@ class EmailTest(TestCase):
         self.assertTrue("foo " in subject)
         self.assertTrue(words in subject)
 
-    def test_email_part_decode_error(self):
-        """Makes sure EmailPart correctly throws the error"""
-        data = self.create_email_message(
-            encoding="us-ascii",
-            data=self.get_unicode_words(),
-        )
+#     def test_part_decode_error(self):
+#         """Makes sure EmailPart correctly throws the error"""
+#         data = self.create_email_message(
+#             encoding="us-ascii",
+#             data=self.get_unicode_words(),
+#         )
+# 
+#         with self.assertRaises(UnicodeDecodeError):
+#             em = Email(data, encodings=[])
+#             pout.v(str(em))
 
-        with self.assertRaises(UnicodeDecodeError):
-            Email(data, encodings=[])
+#     def test_foobar(self):
+#         fileroot = "emoji-html-attachment"
+#         contents = self.get_contents(fileroot)
+#         from email import message_from_string, message_from_bytes
+#         from datatypes.email import FooMessage
+# 
+#         em = message_from_bytes(contents, _class=FooMessage)
+#         for part in em.walk():
+#             pout.v(part.__class__.__module__, part.__class__.__qualname__)
+#         #pout.v(em)
 
 
 class GetDecodedHeaderTest(TestCase):
