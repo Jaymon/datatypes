@@ -133,7 +133,7 @@ class EmailTest(TestCase):
         decoder passes "unknown-8bit" down to the charset converter, which in
         turn treats the unrecognized charset as iso-8859-1.
         """
-        em = self.get_email("bad-content-type", errors="ignore")
+        em = self.get_email("bad-content-type")
         p = em.get_part("text/plain")
         self.assertTrue(isinstance(p.get_content(), str))
 

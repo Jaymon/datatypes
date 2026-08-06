@@ -60,6 +60,8 @@ from .decorators import (
     deprecated,
 )
 from .email import (
+    EmailMessage,
+    EmailAddress,
     Email,
 )
 from .enum import (
