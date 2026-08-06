@@ -243,28 +243,6 @@ class EmailTest(TestCase):
         self.assertTrue("foo " in subject)
         self.assertTrue(words in subject)
 
-#     def test_part_decode_error(self):
-#         """Makes sure EmailPart correctly throws the error"""
-#         data = self.create_email_message(
-#             encoding="us-ascii",
-#             data=self.get_unicode_words(),
-#         )
-# 
-#         with self.assertRaises(UnicodeDecodeError):
-#             em = Email(data, encodings=[])
-#             pout.v(str(em))
-
-#     def test_foobar(self):
-#         fileroot = "emoji-html-attachment"
-#         contents = self.get_contents(fileroot)
-#         from email import message_from_string, message_from_bytes
-#         from datatypes.email import FooMessage
-# 
-#         em = message_from_bytes(contents, _class=FooMessage)
-#         for part in em.walk():
-#             pout.v(part.__class__.__module__, part.__class__.__qualname__)
-#         #pout.v(em)
-
 
 class GetDecodedHeaderTest(TestCase):
     def test_1(self):

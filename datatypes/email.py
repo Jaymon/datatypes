@@ -36,7 +36,7 @@ def get_decoded_header(data: str|bytes) -> str:
 
 
 class EmailAddress(str):
-    """The parts of an email address header
+    r"""The parts of an email address header
 
     `name <username@domain>`
            \_____________/
@@ -62,11 +62,6 @@ class EmailAddress(str):
     def domain(self) -> str:
         """Return `domain` segment of `<name> <username@domain>`"""
         return self.split("@", 1)[1]
-
-    @property
-    def hostname(self) -> str:
-        """Alias for `.domain`"""
-        return self.domain
 
     @cached_property
     def address(self) -> str:
