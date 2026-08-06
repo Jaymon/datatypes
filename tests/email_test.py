@@ -137,11 +137,6 @@ class EmailTest(TestCase):
         p = em.get_part("text/plain")
         self.assertTrue(isinstance(p.get_content(), str))
 
-        #pout.v(em.plain, em.get_content_charset())
-
-        #p = em.parts["text/plain"][2]
-        #self.assertEqual("UTF-8", p.encoding)
-
     def test_no_date(self):
         """Gmail's welcome message in really old gmail accounts (mine dates
         to the first year of Gmail's existence) doesn't have a date"""

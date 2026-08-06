@@ -369,6 +369,14 @@ class Email(EmailMessage):
 
     If you want to use the built-in parsing, you can just pass `EmailMessage`
     into the stdlib parsing function/class
+
+    :example:
+        # convert all emails of an mbox into an Email instance
+
+        import mailbox
+
+        for m in mailbox.mbox("<PATH-TO-MBOX>"):
+            em = Email(m)
     """
     @property
     def plain(self) -> str:
@@ -389,6 +397,8 @@ class Email(EmailMessage):
     ):
         """Encapsulate a raw/original email message
 
+        This is very similar to stdlib's `mailbox.Message.__init__`
+
         :param data: an original full email with all headers and parts
         """
         if data is not None:
@@ -400,31 +410,45 @@ class Email(EmailMessage):
             }
 
             if isinstance(data, message.Message):
-                em = data
+                self._become_message(data)
 
             elif isinstance(data, bytes):
-                em = parser.BytesParser(**parser_kwargs).parsebytes(data)
+                self._become_message(
+                    parser.BytesParser(**parser_kwargs).parsebytes(data),
+                )
 
             elif isinstance(data, str):
-                em = parser.Parser(**parser_kwargs).parsestr(data)
+                self._become_message(
+                    parser.Parser(**parser_kwargs).parsestr(data),
+                )
 
             elif isinstance(data, io.IOBase):
                 mode = getattr(data, "mode", "")
                 if isinstance(data, io.BufferedIOBase) or "b" in mode:
-                    em = parser.BytesParser(**parser_kwargs).parse(data)
+                    self._become_message(
+                        parser.BytesParser(**parser_kwargs).parse(data),
+                    )
 
                 else:
                     # Treat all other io as text io and pray
-                    em = parser.Parser(**parser_kwargs).parse(data)
+                    self._become_message(
+                        parser.Parser(**parser_kwargs).parse(data),
+                    )
 
             else:
                 raise ValueError(f"Unsupported data type: {type(data)}")
 
-            if em:
-                # copy the previous values into this new value, `vars` ignores
-                # property methods
-                for n, v in vars(em).items():
-                    setattr(self, n, v)
+    def _become_message(self, m: message.Message):
+        """Internal method. copy `message` into this instance
+
+        This is similar to stdlib's `mailbox.Message._become_message`
+        """
+        type_specific = getattr(m, '_type_specific_attributes', [])
+
+        # `vars` ignores property methods
+        for n, v in vars(m).items():
+            if n not in type_specific:
+                setattr(self, n, v)
 
     def _get_path(self, basedir: str) -> str:
         """Internal method. Get the save path for this email, this should be a
