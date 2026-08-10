@@ -296,9 +296,9 @@ class EmailMessage(message.EmailMessage):
 
         return stamp
 
-    def is_attachment(self) -> bool:
-        """True if this is an attachment, False if it is a body"""
-        return bool(self.get_filename())
+#     def is_attachment(self) -> bool:
+#         """True if this is an attachment, False if it is a body"""
+#         return bool(self.get_filename())
 
     def is_body(self) -> bool:
         """True if this is a body, False if it is an attachment"""
@@ -376,12 +376,14 @@ class Email(EmailMessage):
     @property
     def plain(self) -> str:
         """Return the first plain text body of this email, if it exists"""
+        #p = self.get_part("text/plain")
         p = self.get_body(("plain",))
         return p.get_content() if p else ""
 
     @property
     def html(self) -> str:
         """Return the first html body of this email, if it exists"""
+        #p = self.get_part("text/html")
         p = self.get_body(("html",))
         return p.get_content() if p else ""
 
