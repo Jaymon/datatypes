@@ -55,17 +55,17 @@ class EmailAddress(str):
 
     @cached_property
     def username(self) -> str:
-        """Return `username` segment of `<name> <username@domain>`"""
+        """Return `username` segment of `name <username@domain>`"""
         return self.split("@", 1)[0]
 
     @cached_property
     def domain(self) -> str:
-        """Return `domain` segment of `<name> <username@domain>`"""
+        """Return `domain` segment of `name <username@domain>`"""
         return self.split("@", 1)[1]
 
     @cached_property
     def address(self) -> str:
-        """Return `username@domain` segment of `<name> <username@domain>`"""
+        """Return `username@domain` segment of `name <username@domain>`"""
         return str(self)
 
     def __new__(cls, address: str|tuple[str, str]) -> Self:
@@ -296,10 +296,6 @@ class EmailMessage(message.EmailMessage):
 
         return stamp
 
-#     def is_attachment(self) -> bool:
-#         """True if this is an attachment, False if it is a body"""
-#         return bool(self.get_filename())
-
     def is_body(self) -> bool:
         """True if this is a body, False if it is an attachment"""
         return not self.is_attachment()
@@ -369,9 +365,13 @@ class Email(EmailMessage):
         # convert all emails of an mbox into an Email instance
 
         import mailbox
+        from datatypes import Email
 
-        for m in mailbox.mbox("<PATH-TO-MBOX>"):
-            em = Email(m)
+        def factory(fp: mailbox._PartialFile) -> Email:
+            return Email(fp.read())
+
+        for m in mailbox.mbox("<PATH-TO-MBOX>", factory=factory):
+            print(type(m)) # datatypes.email.Email
     """
     @property
     def plain(self) -> str:
