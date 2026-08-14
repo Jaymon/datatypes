@@ -140,7 +140,9 @@ class EmailTest(TestCase):
     def test_no_date(self):
         """Gmail's welcome message in really old gmail accounts (mine dates
         to the first year of Gmail's existence) doesn't have a date"""
-        em = self.get_email("no-date")
+        em = self.create_email_message()
+        del em["Date"]
+
         self.assertIsNone(em.datetime)
 
         basedir = testdata.create_dir()
