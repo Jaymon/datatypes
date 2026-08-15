@@ -273,6 +273,45 @@ class EmailMessage(message.EmailMessage):
 
             return Datetime(stamp)
 
+        else:
+            dt = None
+
+            regex = re.compile(r"""
+                (?P<dayname>\S+),
+                \s*(?P<day>\d{1,2})
+                \s*(?P<monthname>\S+)
+                \s*(?P<year>\d{4})
+                \s*(?P<hour>\d{2}):
+                \s*(?P<minute>\d{2}):
+                \s*(?P<second>\d{2})
+                \s*(?P<tzoffset>[+-]\d+)
+                \s*\((?P<tzname>[^\)]+)\)
+                """,
+                re.VERBOSE,
+            )
+
+            # we want to find the earliest received since that's the closest
+            # date to the missing Date header
+            for hv in self.get_all("Received", []):
+                if m := regex.search(hv):
+                    mdt = Datetime.strptime(
+                        "{} {} {} {}:{}:{} {}".format(
+                            m.group("day"),
+                            m.group("monthname"),
+                            m.group("year"),
+                            m.group("hour"),
+                            m.group("minute"),
+                            m.group("second"),
+                            m.group("tzoffset"),
+                        ),
+                        "%d %b %Y %H:%M:%S %z",
+                    )
+
+                    if dt is None or (dt > mdt):
+                        dt = mdt
+
+            return dt
+
     def datestamp(self, strformat: str = "", default: str = "UNKNOWN") -> str:
         """Get a datestamp for the email using strformat, if the email doesn't
         have a date header than use the default

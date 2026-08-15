@@ -137,9 +137,9 @@ class EmailTest(TestCase):
         p = em.get_part("text/plain")
         self.assertTrue(isinstance(p.get_content(), str))
 
-    def test_no_date(self):
-        """Gmail's welcome message in really old gmail accounts (mine dates
-        to the first year of Gmail's existence) doesn't have a date"""
+    def test_datetime_no_date(self):
+        """Make sure emails with no `Date` and `Received` headers don't
+        have a `.datetime` property"""
         em = self.create_email_message()
         del em["Date"]
 
@@ -148,6 +148,44 @@ class EmailTest(TestCase):
         basedir = testdata.create_dir()
         paths = em.save(basedir)
         self.assertTrue(paths[0].basename.startswith("UNKNOWN"))
+
+    def test_datetime_received(self):
+        """Get the datetime from the `Received` header if the `Date` header
+        is missing"""
+        dt = self.get_before_datetime()
+        dt = dt.replace(microsecond=0)
+
+        dt_format = "%a, %d %b %Y %H:%M:%S %z (%Z)"
+
+        em = self.create_email_message(
+            headers=[
+                ("Received", "by 10.11.12.13 with SMTP id {}; {}".format(
+                    self.get_hash(),
+                    dt.strftime(dt_format),
+                )),
+                ("Received", "by {} with SMTP id {} for {}; {}".format(
+                    self.get_domain(),
+                    self.get_hash(),
+                    self.get_email_address(),
+                    (dt + 1).strftime(dt_format),
+                )),
+                (
+                    "Received",
+                    "from {} ({} [{}]) by {} with ESMTPS id {}; {}".format(
+                        self.get_domain(),
+                        self.get_domain(),
+                        self.get_ipv4_address(),
+                        self.get_ipv4_address(),
+                        self.get_hash(),
+                        (dt + 2).strftime(dt_format),
+                    ),
+                ),
+            ],
+        )
+
+        del em["Date"]
+
+        self.assertEqual(dt, em.datetime)
 
     def test_addresses(self):
         data = self.create_email_message(
