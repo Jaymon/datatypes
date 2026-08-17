@@ -48,6 +48,9 @@ class ISO8601(str):
     microsecond: int|None = None
 
     tzinfo: datetime.timezone|None = None
+    """
+    https://docs.python.org/3/library/zoneinfo.html
+    """
 
     # in 3.11+ we can maybe replace this with:
     #    https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat
@@ -481,6 +484,38 @@ class Datetime(datetime.datetime):
         timestamp = int(uuid_str.replace("-", "")[:12], 16)
         return cls.fromtimestamp(timestamp)
 
+    @classmethod
+    def strpfind(cls, text: str, format: str) -> Self:
+        """Similar to `strptime` but will search all of `text` for `format`
+
+        This is like `re.search` where `strptime` is like `re.match`
+
+        :param text: random text that might contain `format`
+        :param format: the date format codes to find somewhere in `text`
+            https://docs.python.org/3/library/datetime.html#format-codes
+        :returns: a datetime object
+        """
+        regex = re.compile(r"\s+")
+        text_tokens = regex.split(text)
+        format_tokens = regex.split(format)
+        format_len = len(format_tokens)
+        find_format = " ".join(format_tokens)
+
+        for i in range(0, len(text_tokens) - (format_len - 1)):
+            find_text = " ".join(text_tokens[i:i+format_len])
+
+            try:
+                return cls.strptime(find_text, find_format)
+
+            except Exception as e:
+                pass
+
+        raise ValueError(
+            "text containing time data '%s' did not contain format '%s'",
+            text,
+            format,
+        )
+
     def __new__(cls, *args, **kwargs) -> Self:
         # remove any custom keywords
         args, replace_kwargs, timedelta_kwargs = cls.parse_args(args, kwargs)
@@ -691,8 +726,8 @@ class Datetime(datetime.datetime):
         chunks: int = 2,
         sep: str = ", ",
     ) -> str:
-        """Returns a description of the amount of time that has passed from self
-        to now. This is more exact than .estsince() but does a lot more
+        """Returns a description of the amount of time that has passed from
+        self to now. This is more exact than .estsince() but does a lot more
         computation to make it accurate
 
         Now will equal None if we want to know the time elapsed between self

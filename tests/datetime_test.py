@@ -751,3 +751,17 @@ class DatetimeTest(TestCase):
         with self.assertRaises(ValueError):
             dt = Datetime.fromuuid(uuid_str)
 
+    def test_strpfind(self):
+        dt_format = "%a, %d %b %Y %H:%M:%S %z"
+        text = (
+            "Received: by abc with SMTP id defgh.12\n"
+            "\t\tfor <foo@bar.com>; Wed, 16 Mar 2011 21:35:25 -0700 (PDT)"
+        )
+
+        tz = datetime.timezone(datetime.timedelta(hours=-7))
+        dt = Datetime.strpfind(text, dt_format)
+        self.assertEqual(Datetime(2011, 3, 16, 21, 35, 25, tzinfo=tz), dt)
+
+        with self.assertRaises(ValueError):
+            Datetime.strpfind("foo bar che", dt_format)
+
