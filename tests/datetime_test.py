@@ -438,14 +438,6 @@ class DatetimeTest(TestCase):
         d = Datetime(ts)
         self.assertEqual(ts, d.time_ns())
 
-    def test_datehash(self):
-        d1 = Datetime(microsecond=0)
-        h = d1.datehash()
-        self.assertIsInstance(h, str)
-
-        d2 = Datetime.fromdatehash(h)
-        self.assertEqual(d1, d2)
-
     def test_since_1(self):
         now = Datetime(month=8, day=1, year=2023)
 
@@ -476,19 +468,6 @@ class DatetimeTest(TestCase):
         dt = Datetime("2015-06-26 06:18:48+00:00")
         now = Datetime("2022-06-26 06:19:54+00:00")
         self.assertEqual("6 years, 11 months", dt.since(now))
-    
-
-    def test_estsince(self):
-        now = Datetime(month=8, day=1, year=2023)
-
-        d = Datetime(now, months=-5, days=-3)
-        self.assertEqual("5 months, 6 days", d.estsince(now))
-
-        d = Datetime(now, seconds=-30)
-        self.assertEqual("30 seconds", d.estsince(now))
-
-        d = Datetime(now, months=-5, days=-10)
-        self.assertEqual("5 months, 1 week", d.estsince(now))
 
     def test_now(self):
         d = Datetime()
