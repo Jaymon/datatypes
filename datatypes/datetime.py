@@ -8,7 +8,6 @@ import math
 import calendar
 from collections.abc import Iterable
 from typing import Self
-from functools import cached_property
 import uuid
 
 from .compat import *
@@ -171,8 +170,8 @@ class ISO8601(str):
 
 
 class Datetime(datetime.datetime):
-    """Wrapper around standard datetime.datetime class that assures UTC time and
-    full ISO8601 date strings with Z timezone.
+    """Wrapper around standard datetime.datetime class that assures UTC time
+    and full ISO8601 date strings with Z timezone.
 
     You can create an object multiple ways:
 
