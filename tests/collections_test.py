@@ -10,7 +10,7 @@ from datatypes.collections.mapping import (
     StackNamespace,
     ContextNamespace,
     DictTree,
-    NormalizeMixin,
+    NormalizeMappingMixin,
 )
 from datatypes.collections.sequence import (
     AppendList,
@@ -270,9 +270,9 @@ class DictTest(TestCase):
         self.assertEqual(2, d["new"])
 
 
-class NormalizeMixinTest(TestCase):
+class NormalizeMappingMixinTest(TestCase):
     def test_crud(self):
-        class ID(NormalizeMixin, dict):
+        class ID(NormalizeMappingMixin, dict):
             def normalize_key(self, k):
                 return k.lower()
 
@@ -290,7 +290,7 @@ class NormalizeMixinTest(TestCase):
         self.assertEqual(2, d["foo"])
 
         self.assertTrue(isinstance(d, dict))
-        self.assertTrue(isinstance(d, NormalizeMixin))
+        self.assertTrue(isinstance(d, NormalizeMappingMixin))
 
 
 class IdictTest(TestCase):

@@ -9,7 +9,7 @@ from .mapping import (
     ContextNamespace,
     Pool,
     NamespaceMixin,
-    NormalizeMixin,
+    NormalizeMappingMixin,
 )
 from .sequence import (
     AppendList,

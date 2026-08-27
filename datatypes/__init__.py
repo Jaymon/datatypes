@@ -3,7 +3,7 @@
 from .collections import (
     Pool,
     Dict, Dict as Dictionary,
-    NormalizeMixin,
+    NormalizeMappingMixin,
     NamespaceMixin,
     idict, idict as IDict, idict as Idict, idict as iDict,
     AppendList,

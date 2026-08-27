@@ -51,15 +51,13 @@ class Dictionary(dict):
 
     def __delitem__(self, key, /):
         return super().__delitem__(key)
-
 """
-from __future__ import annotations
 from contextlib import contextmanager, AbstractContextManager
 
 from ..compat import *
 from .container import HotSet
 from .sequence import Stack
-from collections.abc import Mapping, Generator, Iterable
+from collections.abc import Mapping, Generator, Iterable, Hashable, Sequence
 from typing import Any, Self
 
 
@@ -71,18 +69,18 @@ class Pool(dict):
     you can use this as kind of a hot cache of the maxsize most used items in
     the Pool
 
-    :Example:
+    :example:
         class HotPool(Pool):
             def __missing__(self, key):
                 value = get_some_value_here(key)
                 self[key] = value # cache value at key
                 return value
     """
-    def __init__(self, maxsize=0):
+    def __init__(self, maxsize: int = 0):
         super().__init__()
         self.pq = HotSet(maxsize=maxsize)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Hashable) -> Any:
         shuffle = key in self
         value = super().__getitem__(key)
 
@@ -92,7 +90,7 @@ class Pool(dict):
 
         return value
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: Hashable, value: Any):
         if len(self.pq) == self.pq.maxsize:
             self.popitem()
 
@@ -100,11 +98,11 @@ class Pool(dict):
 
         self.pq.add(key)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: Hashable):
         super().__delitem__(key)
         self.pq.remove(key)
 
-    def popitem(self):
+    def popitem(self) -> tuple[Hashable, Any]:
         if self:
             dead_key = self.pq.pop()
             dead_value = super().__getitem__(dead_key)
@@ -114,22 +112,22 @@ class Pool(dict):
         else:
             raise KeyError("Pool is empty")
 
-    def pop(self, key, *args):
+    def pop(self, key: Hashable, *args) -> Any:
         if key in self:
             self.pq.remove(key)
         return super().pop(key, *args)
 
-    def setdefault(self, key, value):
+    def setdefault(self, key: Hashable, value: Any):
         if key not in self:
             self[key] = value
 
-    def get(self, key, default=None):
+    def get(self, key: Hashable, default: Any = None) -> Any:
         value = default
         if key in self:
             value = self[key]
         return value
 
-    def update(self, d):
+    def update(self, d: Mapping):
         for k, v in d.items():
             self[k] = v
 
@@ -144,11 +142,11 @@ class Dict(dict):
         else:
             super().__init__(*args, **kwargs)
 
-    def ritems(self, *keys):
-        """Iterate through the dict and all sub dicts
+    def ritems(self, *keys: Hashable) -> Generator[tuple[list[Hashable], Any]]:
+        """Recursive items. Iterate through the dict and all sub dicts
 
         :param *keys: str, if you only want to find and iterate certain keys
-        :yields: tuple, (list, mixed), the list is the key path, all the keys
+        :yields: tuple, the list is the key path, all the keys
             it would take to get to this key (eg, ["foo", "bar"]) and mixed is
             the value found at the end of the key path
         """
@@ -170,8 +168,8 @@ class Dict(dict):
         for kp, d in iterdict(self, [], keys):
             yield kp, d
 
-    def rkeys(self, *keys):
-        """Iterate through all key paths
+    def rkeys(self, *keys: Hashable) -> Generator[list[Hashable]]:
+        """Recursive keys. Iterate through all key paths
 
         :param *keys: str, if you only want to find and iterate certain keys
         :yields: list, the key paths
@@ -179,8 +177,8 @@ class Dict(dict):
         for kp, _ in self.ritems(*keys):
             yield kp
 
-    def rvalues(self, *keys):
-        """Iterate through all values
+    def rvalues(self, *keys: Hashable) -> Generator[Any]:
+        """recursive values. Iterate through all values
 
         :param *keys: str, if you only want to find and iterate certain keys
         :yields: mixed, the found values
@@ -188,9 +186,9 @@ class Dict(dict):
         for _, v in self.ritems(*keys):
             yield v
 
-    def rget(self, key, default=None):
-        """Return the first matching value found at key anywhere in the dict or
-        sub dicts
+    def rget(self, key: Hashable, default: Any = None) -> Any:
+        """Recursive get. Return the first matching value found at key
+        anywhere in the dict or sub dicts
 
         :param key: string, the key to find in this or any sub dicts
         :param default: mixed, if key isn't found, return this value
@@ -201,19 +199,20 @@ class Dict(dict):
             break
         return v
 
-    def gets(self, keys, default=None):
+    def gets(self, keys: Sequence[Hashable], default: Any = None) -> Any:
         """Check every key in the keys list, first found key is returned, if
         none of the keys exist then return default
 
-        :Example:
+        :example:
             d = Dict({
                 "foo": 1,
                 "bar": 2,
                 "che": 3,
             })
 
-            d.get(["does", "not", "exist", "foo"], 5) # 1
-            d.get(["does", "bar", "exist", "foo"], 5) # 2
+            d.get(["does", "not", "exist"], 5) # 5
+            d.get(["does", "not", "exist", "foo"], 5) # 1 because "foo"
+            d.get(["does", "bar", "exist", "foo"], 5) # 2 because "bar"
 
         :param keys: list, a list of keys to check in the order they should be
             checked
@@ -226,12 +225,12 @@ class Dict(dict):
                 return self[k]
         return default
 
-    def pops(self, keys, *default):
+    def pops(self, keys: Sequence[Hashable], *default) -> Any:
         """Check every key in the keys list, first found key will be returned,
         if none of the keys exist then return default, all keys in the keys
         list will be popped, even the ones after a value is found
 
-        :Example:
+        :example:
             d = Dict({
                 "foo": 1,
                 "bar": 2,
@@ -266,10 +265,11 @@ class Dict(dict):
 
         return ret
 
-    def merge(self, other):
-        """Very similar to .update() but merges the dicts instead of overriding
+    def merge(self, other: Mapping):
+        """Very similar to `.update()` but merges the dicts instead of
+        overriding
 
-        :Example:
+        :example:
             d = {
                 "foo": {
                     "bar": 1
@@ -306,14 +306,14 @@ class Dict(dict):
                 self[k] = other[k]
 
 
-class NormalizeMixin(object):
+class NormalizeMappingMixin(object):
     """Mixin to create a normalizing dictionary
 
     This class must come before the mapping base class when defining the
     custom child class
 
     :example:
-        class Foo(NormalizeMixin, dict):
+        class Foo(NormalizeKeyMixin, dict):
             def normalize_key(self, k):
                 return k
 
@@ -330,24 +330,24 @@ class NormalizeMixin(object):
         super().__init__()
         self.update(*args, **kwargs)
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: Hashable, v: Any):
         k = self.normalize_key(k)
         v = self.normalize_value(v)
         return super().__setitem__(k, v)
 
-    def __delitem__(self, k):
+    def __delitem__(self, k: Hashable):
         k = self.normalize_key(k)
         return super().__delitem__(k)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: Hashable) -> Any:
         k = self.normalize_key(k)
         return super().__getitem__(k)
 
-    def __contains__(self, k):
+    def __contains__(self, k: Hashable) -> bool:
         k = self.normalize_key(k)
         return super().__contains__(k)
 
-    def setdefault(self, k, default=None):
+    def setdefault(self, k: Hashable, default: Any = None):
         k = self.normalize_key(k)
         v = self.normalize_value(default)
         return super().setdefault(k, v)
@@ -358,40 +358,42 @@ class NormalizeMixin(object):
         for k, v in d.items():
             self[k] = v
 
-    def pop(self, k, *default):
+    def pop(self, k: Hashable, *default: Any) -> Any:
         k = self.normalize_key(k)
         if default:
             default = [self.normalize_value(default[0])]
         return super().pop(k, *default)
 
-    def get(self, k, default=None):
+    def get(self, k: Hashable, default: Any = None) -> Any:
         k = self.normalize_key(k)
         v = self.normalize_value(default)
         return super().get(k, v)
 
-    def normalize_key(self, k):
+    def normalize_key(self, k: Hashable) -> Hashable:
         return k
 
-    def normalize_value(self, v):
+    def normalize_value(self, v: Any) -> Hashable:
         return v
 
-    def ritems(self, *keys):
+    def ritems(self, *keys: Hashable) -> Generator[tuple[Hashable, Any]]:
         keys = map(self.normalize_key, keys)
         return super().ritems(*keys)
 
 
-class idict(NormalizeMixin, Dict):
-    """A case insensitive dictionary, adapted from `herd.utils.NormalizeDict`,
-    naming convention is meant to mimic python's use of i* for case-insensitive
-    functions and python's built-in dict class (which is why the classname is
-    all lowercase)"""
+class idict(NormalizeMappingMixin, Dict):
+    """A case insensitive dictionary, naming convention is meant to mimic
+    python's use of i* for case-insensitive functions and python's built-in
+    dict class (which is why the classname is all lowercase)
+
+    Adapted from `herd.utils.NormalizeDict`
+    """
     def __init__(self, *args, **kwargs):
         # lookup table holding key variations to the actual key
         self.key_lookup = {}
 
         super().__init__(*args, **kwargs)
 
-    def normalize_key(self, k):
+    def normalize_key(self, k: Hashable) -> Hashable:
         if k in self.key_lookup:
             k = self.key_lookup[k]
 
@@ -458,6 +460,14 @@ class StackNamespace(Mapping):
     """Nested namespaces that can be changed for the given context and then
     reverted to the previous context when the context is done
 
+    This is different than `ContextNamespace` in that it doesn't save the
+    popped contexts, so once a context is popped it's gone
+
+    Internally, an instance keeps track of a stack of contexts and pops off
+    the last context created every time a context block is finished. This
+    class quacks like a mapping and always references the last context on
+    the stack.
+
     :example:
         n = StackNamespace()
         n["foo"] = 1
@@ -469,12 +479,10 @@ class StackNamespace(Mapping):
 
             print(n["foo"]) # 2
 
-        print(n["foo"]) # 1
+            with n("named context"):
+                print(n["foo"]) # 2 because it forgot
 
-    Internally, an instance keeps track of a stack of contexts and pops off
-    the last context created every time a context block is finished. This
-    class quacks like a mapping and always references the last context on
-    the stack
+        print(n["foo"]) # 1
     """
     def __init__(self, name: str = "", cascade: bool = True):
         """
@@ -492,7 +500,7 @@ class StackNamespace(Mapping):
 
         self.push_context(name, source="__init__")
 
-    def __enter__(self) -> ContextNamespace:
+    def __enter__(self) -> Self:
         """Allow `with instance:` context invocation"""
         context_tuple = self._contexts["active"][-1]
         if context_tuple[2] == "__call__":
@@ -503,11 +511,16 @@ class StackNamespace(Mapping):
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[Exception],
+        exc_val: Exception,
+        exc_tb: list,
+    ) -> None:
         self.pop_context()
         return None
 
-    def __call__(self, name: str = "", **kwargs):
+    def __call__(self, name: str = "", **kwargs) -> Self:
         """Allow `with instance(...):` context invocation"""
         self.push_context(name, kwargs, "__call__")
         return self
@@ -516,8 +529,8 @@ class StackNamespace(Mapping):
     def context(
         self,
         name: str = "",
-        **kwargs
-    ) -> AbstractContextManager[ContextNamespace]:
+        **kwargs,
+    ) -> AbstractContextManager[Self]:
         """This is meant to be used with the "with ..." command, its purpose is
         to make it easier to change the context and restore it back to the
         previous context when it is done
@@ -534,7 +547,6 @@ class StackNamespace(Mapping):
     def context_name(self) -> str:
         """Get the current context name"""
         return self._current_context_tuple()[0]
-        #return self._contexts["active"][-1][0]
 
     def _current_context_tuple(self) -> tuple[str, Mapping, str]:
         """Internal method. Gets the full context tuple for the current
@@ -549,7 +561,6 @@ class StackNamespace(Mapping):
     def current_context(self) -> Mapping:
         """get the current context"""
         return self._current_context_tuple()[1]
-        #return self._contexts["active"][-1][1]
 
     def has_context(self) -> bool:
         try:
@@ -559,17 +570,13 @@ class StackNamespace(Mapping):
         except IndexError:
             return False
 
-#         if contexts := self.__dict__.get("_contexts", None):
-#             return len(contexts["active"]) > 0
-#         return False
-
     def push_context(
         self,
         name: str,
         context: Mapping|None = None,
         source: str = "",
     ) -> str:
-        """push a context named name onto the context stack"""
+        """push a `context` named `name` onto the context stack"""
         self._contexts["active"].append([name, context or {}, source])
         return name
 
@@ -587,35 +594,34 @@ class StackNamespace(Mapping):
             if not self._contexts["cascade"]:
                 break
 
-    def __setattr__(self, k, v):
+    def __setattr__(self, k: Hashable, v: Any):
         if self.has_context():
             self.__setitem__(k, v)
 
         else:
             super().__setattr__(k, v)
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: Hashable, v: Any):
         self.current_context().__setitem__(k, v)
 
-    def __delattr__(self, k):
+    def __delattr__(self, k: Hashable):
         if self.has_context():
             self.__delitem__(k)
 
         else:
             super().__delattr__(k)
 
-    def __delitem__(self, k):
+    def __delitem__(self, k: Hashable):
         self.current_context().__delitem__(k)
 
-    def __getattr__(self, k):
+    def __getattr__(self, k: Hashable) -> Any:
         if self.has_context():
             return self.__getitem__(k)
 
         else:
             raise KeyError(k)
-            #return super().__getattr__(k)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: Hashable) -> Any:
         """Most of the context LIFO magic happens here, this will work through
         the contexts looking for k"""
         for context in self.active_contexts():
@@ -627,43 +633,43 @@ class StackNamespace(Mapping):
 
         return self.__missing__(k)
 
-    def __missing__(self, k):
+    def __missing__(self, k: Hashable):
         raise KeyError(k)
 
-    def __contains__(self, k):
+    def __contains__(self, k: Hashable) -> bool:
         for context in self.active_contexts():
             if k in context:
                 return True
 
         return False
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Unlike a normal dict this is O(n)"""
         return len(list(self.keys()))
 
-    def __ior__(self, other):
+    def __ior__(self, other: Mapping) -> Self:
         """self |= other"""
         self.update(other)
         return self
 
-    def __or__(self, other):
+    def __or__(self, other: Mapping) -> Mapping:
         """self | other"""
         d = {i[0]: i[1] for i in self.items()}
         d.update(other)
         return d
 
-    def setdefault(self, k, v):
+    def setdefault(self, k: Hashable, v: Any):
         if k not in self:
             self[k] = v
 
-    def get(self, k, default=None):
+    def get(self, k: Hashable, default: Any = None) -> Any:
         try:
             return self[k]
 
         except KeyError:
             return default
 
-    def pop(self, k, *default):
+    def pop(self, k: Hashable, *default: Any) -> Any:
         """Pop works a little differently than other key access methods, pop
         will only return a value if it is actually in the current context, if
         `k` is not in the current context then this will return default. It
@@ -685,7 +691,7 @@ class StackNamespace(Mapping):
 
         return v
 
-    def popitem(self):
+    def popitem(self) -> tuple[Hashable, Any]:
         return self.current_context().popitem()
 
     def clear(self):
@@ -695,11 +701,11 @@ class StackNamespace(Mapping):
         # create temp dictionary so I don't have to mess with the arguments
         self.current_context().update(*args, **kwargs)
 
-    def copy(self):
+    def copy(self) -> Mapping:
         """return a dict of all active values in the config at the moment"""
         return dict(item for item in self.items())
 
-    def items(self):
+    def items(self) -> Generator[Hashable, Any]:
         seen_keys = set()
         for context in self.active_contexts():
             for k, v in context.items():
@@ -707,14 +713,14 @@ class StackNamespace(Mapping):
                     yield k, v
                     seen_keys.add(k)
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Hashable]:
         yield from self.keys()
 
-    def keys(self):
+    def keys(self) -> Generator[Hashable]:
         for k, _ in self.items():
             yield k
 
-    def values(self):
+    def values(self) -> Generator[Any]:
         for _, v in self.items():
             yield v
 
@@ -731,6 +737,14 @@ class ContextNamespace(StackNamespace):
 
     Similar to a ChainMap:
         https://docs.python.org/3/library/collections.html#chainmap-objects
+
+    This is different than `StackNamespace` because it will remember previous
+    contexts so you can restore them
+
+    Internally, this class keeps a stack of active contexts and when the
+    context blocks are done, the context is moved to an inactive mapping,
+    if the context name is used again, that context will be moved from the
+    inactive mapping back to the active stack
 
     :example:
         n = ContextNamespace()
@@ -767,11 +781,6 @@ class ContextNamespace(StackNamespace):
             "foo" in n.foo # True
 
         n.foo # 1
-
-    Internally, this class keeps a stack of active contexts and when the
-    context blocks are done, the context is moved to an inactive mapping,
-    if the context name is used again, that context will be moved from the
-    inactive mapping back to the active stack
     """
     def push_context(
         self,
@@ -832,7 +841,7 @@ class DictTree(Dict):
             has no value
     """
     @property
-    def pathkeys(self):
+    def pathkeys(self) -> Iterable[Hashable]:
         """Get the path of keys from the absolute head tree to this tree
 
         :returns: list[str]
@@ -853,7 +862,13 @@ class DictTree(Dict):
         super().__init__()
         self.update(*args, **kwargs)
 
-    def update(self, mapping_or_iterable=None, **kwargs):
+    def update(
+        self,
+        mapping_or_iterable: Mapping[Hashable, Any]
+            |Iterable[tuple[Hashable, Any]]
+            |None = None,
+        **kwargs
+    ):
         """
         https://docs.python.org/3/library/stdtypes.html#dict.update
         """
@@ -868,7 +883,7 @@ class DictTree(Dict):
             for k, v in kwargs.items():
                 self.set(k, v)
 
-    def create_instance(self):
+    def create_instance(self) -> Self:
         """Internal method. Called from .add_node and is only responsible
         for creating an instance of this class.
 
@@ -880,7 +895,7 @@ class DictTree(Dict):
         """
         return type(self)()
 
-    def __getitem__(self, keys):
+    def __getitem__(self, keys: Iterable[Hashable]|Hashable) -> Any:
         """Allow list access in normal dict interactions
 
         :param keys: list[hashable]|hashable
@@ -889,15 +904,15 @@ class DictTree(Dict):
         node = self.get_node(keys)
         return node.value
 
-    def __setitem__(self, keys, value):
+    def __setitem__(self, keys: Iterable[Hashable]|Hashable, value: Any):
         """Allow list access in normal dict interactions"""
         self.set(keys, value)
 
-    def __delitem__(self, keys):
+    def __delitem__(self, keys: Iterable[Hashable]|Hashable):
         """Allow list access in normal dict interactions"""
         self.pop_node(keys)
 
-    def __contains__(self, keys):
+    def __contains__(self, keys: Iterable[Hashable]|Hashable) -> bool:
         """Allow list access when checking a key"""
         try:
             self.get_node(keys)
@@ -908,7 +923,7 @@ class DictTree(Dict):
 
         return ret
 
-    def set(self, keys, value):
+    def set(self, keys: Iterable[Hashable]|Hashable, value: Any):
         """Set value into the last key in keys, creating intermediate dicts 
         along the way
 
@@ -947,14 +962,14 @@ class DictTree(Dict):
                     self.normalize_value(value)
                 )
 
-    def add_node(self, key, node, value):
+    def add_node(self, key: Hashable, node: Self, value: Any):
         """Add `node` into `self` at `key` with `value`
 
         .. note:: this is never called for the root node since the root node
             is never added into another node
 
         :param key: Hashable, already ran through .normalize_key
-        :param node: ClasspathFinder, freshly created with .create_instance
+        :param node: freshly created with .create_instance
         :param value: Any, already ran through .normalize_value
         """
         node.parent = self
@@ -963,7 +978,7 @@ class DictTree(Dict):
         node.value = value
         super().__setitem__(key, node)
 
-    def update_node(self, key, node, value):
+    def update_node(self, key: Hashable, node: Self, value: Any):
         """Update `node` of `self` at `key` with `value`
 
         .. note:: this only updates the value of node, the key is only here to
@@ -971,12 +986,12 @@ class DictTree(Dict):
             the same node when the root node is being updated
 
         :param key: Hashable, already ran through .normalize_key
-        :param node: ClasspathFinder, the node to update
+        :param node: the node to update
         :param value: Any, already ran through .normalize_value
         """
         node.value = value
 
-    def normalize_keys(self, keys):
+    def normalize_keys(self, keys: Iterable[Hashable]) -> Iterable[Hashable]:
         """Internal method. This makes sure keys is a sequence
 
         Called on both set and get
@@ -989,7 +1004,7 @@ class DictTree(Dict):
 
         return keys
 
-    def normalize_key(self, key):
+    def normalize_key(self, key: Hashable) -> Hashable:
         """Internal method. Hook that is called right before key is used
         to access
 
@@ -1000,7 +1015,7 @@ class DictTree(Dict):
         """
         return key
 
-    def normalize_value(self, value):
+    def normalize_value(self, value: Any) -> Any:
         """Internal method. Hook that is called right before value is set
         into the node.
 
@@ -1011,7 +1026,7 @@ class DictTree(Dict):
         """
         return value
 
-    def get_node(self, keys):
+    def get_node(self, keys: Iterable[Hashable]|Hashable) -> Self:
         """Gets the node found at keys, most of the magic happens in this
         method and is a key building block of all the other methods
 
@@ -1033,7 +1048,7 @@ class DictTree(Dict):
 
         return node
 
-    def get(self, keys, default=None):
+    def get(self, keys: Iterable[Hashable]|Hashable, default: Any = None) -> Any:
         """Get the value of the last key in keys, otherwise return default
 
         :param keys: list[hashable]|hashable, the path to return
@@ -1047,7 +1062,7 @@ class DictTree(Dict):
         except KeyError:
             return default
 
-    def pop(self, keys, *default):
+    def pop(self, keys: Iterable[Hashable]|Hashable, *default) -> Any:
         """Pop a value from the tree
 
         This does not trim the tree if it isn't a leaf, so if this is a
@@ -1082,7 +1097,7 @@ class DictTree(Dict):
             else:
                 raise
 
-    def pop_node(self, keys, *default):
+    def pop_node(self, keys: Iterable[Hashable]|Hashable, *default) -> Self:
         """Pop the node and trim the tree
 
         NOTE -- this trims the tree, so if you pop a tree node it will trim
@@ -1114,7 +1129,7 @@ class DictTree(Dict):
             else:
                 raise
 
-    def setdefault(self, keys, default=None):
+    def setdefault(self, keys: Iterable[Hashable]|Hashable, default: Any = None):
         """As with .set and .get this allows a list of keys or key"""
         if keys in self:
             return self[keys]
@@ -1123,7 +1138,7 @@ class DictTree(Dict):
             self.set(keys, default)
             return default
 
-    def trees(self, depth=-1):
+    def trees(self, depth: int = -1) -> Generator[tuple[Iterable[Hashable], Self]]:
         """Iterate through the trees in this tree
 
         A tree is a node that contains other trees
@@ -1146,7 +1161,7 @@ class DictTree(Dict):
                         else:
                             yield [k], sd
 
-    def leaves(self, depth=-1):
+    def leaves(self, depth: int = -1) -> Generator[tuple[Iterable[Hashable], Self]]:
         """Iterate through the leaves in this tree
 
         A leaf is a node that is the end of a tree
@@ -1160,7 +1175,11 @@ class DictTree(Dict):
                 if not len(d):
                     yield ks + [k], d
 
-    def walk(self, keys, set_missing=False):
+    def walk(
+        self,
+        keys: Iterable[Hashable]|Hashable,
+        set_missing: bool = False,
+    ) -> Generator[tuple[Iterable[Hashable], Self]]:
         """Walk each node of the tree in keys.
 
         Basically, if you passed in ["foo", "bar", "che"] it would first
@@ -1197,7 +1216,7 @@ class DictTree(Dict):
                 else:
                     raise KeyError(k)
 
-    def nodes(self, depth=-1):
+    def nodes(self, depth: int = -1) -> Generator[Self]:
         """Iterate all the rows in depth order, so do the first row of keys,
         then the second row of keys, etc. It's similar to how you would
         recursively iterate a folder, first you do all the files in the
@@ -1224,16 +1243,17 @@ class DictTree(Dict):
                     if sk:
                         yield [k] + sk, sd
 
-    def preorder(self) -> Generator:
+    def preorder(self) -> Generator[Any]:
         """preorder traversal - perform first on node itself, then children
 
         :returns: the value of the node, not the node itself
         """
         yield self.value
+
         for node in self.values():
             yield from node.preorder()
 
-    def postorder(self) -> Generator:
+    def postorder(self) -> Generator[Any]:
         """postorder traversal - perform first on node's children, then the
         node itself
 
