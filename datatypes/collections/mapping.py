@@ -493,12 +493,15 @@ class StackNamespace(Mapping):
         """
         super().__init__()
 
-        self._contexts = {
-            "active": [],
-            "cascade": cascade,
-        }
+        self._contexts = self._create_contexts()
+        self._contexts.setdefault("active", [])
+        self._contexts.setdefault("cascade", cascade)
+#         self._contexts = {
+#             "active": [],
+#             "cascade": cascade,
+#         }
 
-        self.push_context(name, source="__init__")
+        self._push_context(name, source="__init__")
 
     def __enter__(self) -> Self:
         """Allow `with instance:` context invocation"""
@@ -507,7 +510,7 @@ class StackNamespace(Mapping):
             context_tuple[2] = "__enter__"
 
         else:
-            self.push_context("", source="__enter__")
+            self._push_context("", source="__enter__")
 
         return self
 
@@ -517,12 +520,12 @@ class StackNamespace(Mapping):
         exc_val: Exception,
         exc_tb: list,
     ) -> None:
-        self.pop_context()
+        self._pop_context()
         return None
 
     def __call__(self, name: str = "", **kwargs) -> Self:
         """Allow `with instance(...):` context invocation"""
-        self.push_context(name, kwargs, "__call__")
+        self._push_context(name, kwargs, "__call__")
         return self
 
     @contextmanager
@@ -570,17 +573,22 @@ class StackNamespace(Mapping):
         except IndexError:
             return False
 
-    def push_context(
+    def _create_contexts(self) -> Mapping:
+        return {}
+
+    def _push_context(
         self,
         name: str,
         context: Mapping|None = None,
         source: str = "",
-    ) -> str:
+    ):
         """push a `context` named `name` onto the context stack"""
-        self._contexts["active"].append([name, context or {}, source])
-        return name
+        if context is None:
+            context = {}
 
-    def pop_context(self) -> tuple[str, Mapping, str]:
+        self._contexts["active"].append([name, context, source])
+
+    def _pop_context(self) -> tuple[str, Mapping, str]:
         """Pop the last context from the stack"""
         if self.has_context():
             return self._contexts["active"].pop(-1)
@@ -782,27 +790,55 @@ class ContextNamespace(StackNamespace):
 
         n.foo # 1
     """
-    def push_context(
+    def _create_contexts(self) -> Mapping:
+        return {"all": {}}
+
+    def _push_context(
         self,
         name: str,
         context: Mapping|None = None,
         source: str = "",
-    ) -> str:
-        inactive = self._contexts.get("inactive", {})
-        d = inactive.get(name, {})
+    ):
+        if name not in self._contexts["all"]:
+            self._contexts["all"][name] = {}
+
+        d = self._contexts["all"][name]
 
         if context:
             d.update(context)
 
-        return super().push_context(name, d, source)
+        super()._push_context(name, d, source)
 
-    def pop_context(self) -> Mapping:
-        """Pop the last context from the stack"""
-        context_tuple = super().pop_context()
-        self._contexts.setdefault("inactive", {})
+#         inactive = self._contexts.get("inactive", {})
+#         d = inactive.get(name, {})
+# 
+#         if context:
+#             d.update(context)
+# 
+#         super()._push_context(name, d, source)
 
-        self._contexts["inactive"][context_tuple[0]] = context_tuple[1]
-        return context_tuple
+#     def _pop_context(self) -> tuple[str, Mapping, str]:
+#         """Pop the last context from the stack"""
+#         context_tuple = super()._pop_context()
+#         self._contexts.setdefault("inactive", {})
+# 
+#         self._contexts["inactive"][context_tuple[0]] = context_tuple[1]
+#         return context_tuple
+
+    def find_context(self, name: str) -> Mapping:
+        """Find the context at `name` and return it"""
+        if name in self._contexts["all"]:
+            return self._contexts["all"][name]
+
+#         for context_tuple in self._contexts["active"]:
+#             if name == context_tuple[0]:
+#                 return context_tuple[1]
+# 
+#         if inactive_contexts := self._contexts.get("inactive", {}):
+#             if name in inactive_contexts:
+#                 return inactive_contexts[name]
+
+        raise KeyError(name)
 
 
 class DictTree(Dict):

@@ -718,7 +718,7 @@ class ContextNamespaceTest(TestCase):
         c.foo = 1
         self.assertTrue("foo" in c)
 
-        c.push_context("foobar")
+        c._push_context("foobar")
         self.assertFalse("foo" in c)
 
         c.foo = 5
@@ -729,25 +729,10 @@ class ContextNamespaceTest(TestCase):
         self.assertTrue("bar" in c)
         self.assertEqual(6, c.bar)
 
-        c.pop_context()
+        c._pop_context()
         self.assertTrue("foo" in c)
         self.assertFalse("bar" in c)
         self.assertEqual(1, c.foo)
-
-#     def test_clear_context(self):
-#         c = ContextNamespace()
-# 
-#         c.foo = 1
-# 
-#         with c.context("foobar"):
-#             c.foo = 2
-#             c.bar = 3
-#             self.assertEqual(2, c.foo)
-#             self.assertEqual(3, c.bar)
-# 
-#         c.clear_context("foobar")
-#         with c.context("foobar"):
-#             self.assertEqual(1, c.foo)
 
     def test___missing__1(self):
         class ChildNS(ContextNamespace):
@@ -774,28 +759,33 @@ class ContextNamespaceTest(TestCase):
         n.setdefault("foo", 1)
         self.assertEqual(1, n.foo)
 
-        n.push_context("bar")
+        n._push_context("bar")
         self.assertEqual(1, n.foo)
         n.setdefault("foo", 2)
         self.assertEqual(1, n.foo)
 
     def test___contains__(self):
         n = ContextNamespace(cascade=False)
-        #n.switch_context("foo")
         self.assertFalse("bar" in n)
 
         n["bar"] = 1
         self.assertTrue("bar" in n)
 
-        with n:
+        # new name so it's a new context
+        with n("level1"):
             self.assertFalse("bar" in n)
+
+            # no name just like when created, so it reactivates the first
+            # context from creation
+            with n:
+                self.assertTrue("bar" in n)
 
     def test_setdefault(self):
         n = ContextNamespace()
         n.setdefault("foo", 1)
         self.assertEqual(1, n.foo)
 
-        n.push_context("bar")
+        n._push_context("bar")
         self.assertEqual(1, n.foo)
         n.setdefault("foo", 2)
         self.assertEqual(1, n.foo)
@@ -806,10 +796,40 @@ class ContextNamespaceTest(TestCase):
 
         self.assertEqual(1, n.get("foo"))
 
-        n.push_context("bar")
+        n._push_context("bar")
         self.assertEqual(1, n.get("foo"))
         n.foo = 2
         self.assertEqual(2, n.get("foo"))
+
+    def test_find_context(self):
+        n = ContextNamespace("base")
+        n.foo = 1
+
+        with n("level1"):
+            n.foo = 2
+
+        self.assertEqual(1, n.foo)
+
+        context = n.find_context("base")
+        self.assertEqual(1, context["foo"])
+
+        context = n.find_context("level1")
+        self.assertEqual(2, context["foo"])
+
+    def test_reactivate(self):
+        n = ContextNamespace("base")
+        n.foo = 1
+
+        with n("level1"):
+            n.foo = 2
+
+            with n("base"):
+                self.assertEqual(1, n.foo)
+                n.foo = 3
+
+            self.assertEqual(2, n.foo)
+
+        self.assertEqual(3, n.foo)
 
 
 class StackTest(TestCase):
