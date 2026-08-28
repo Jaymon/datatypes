@@ -500,6 +500,23 @@ class StackNamespaceTest(TestCase):
 
         self.assertFalse("foo" in n)
 
+    def test_get___missing__(self):
+        class MissingN(StackNamespace):
+            def __missing__(self, k):
+                return None
+
+        n = MissingN()
+
+        v = n.get("foo", 1)
+        self.assertEqual(1, v)
+
+        v = n.get("foo")
+        self.assertIsNone(v)
+
+        n.foo = 2
+        v = n.get("foo", 1)
+        self.assertEqual(2, v)
+
 
 class ContextNamespaceTest(TestCase):
     def test_crud(self):
@@ -790,7 +807,7 @@ class ContextNamespaceTest(TestCase):
         n.setdefault("foo", 2)
         self.assertEqual(1, n.foo)
 
-    def test_get(self):
+    def test_get_1(self):
         n = ContextNamespace()
         n.foo = 1
 

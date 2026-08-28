@@ -662,11 +662,14 @@ class StackNamespace(Mapping):
             self[k] = v
 
     def get(self, k: Hashable, default: Any = None) -> Any:
-        try:
-            return self[k]
+        # we have to check each context like this because if we try and use
+        # `self[k]` then we can get unexpected results when a class
+        # implements `__missing__`
+        for context in self.active_contexts():
+            if k in context:
+                return context[k]
 
-        except KeyError:
-            return default
+        return default
 
     def pop(self, k: Hashable, *default: Any) -> Any:
         """Pop works a little differently than other key access methods, pop
