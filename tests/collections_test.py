@@ -801,21 +801,6 @@ class ContextNamespaceTest(TestCase):
         n.foo = 2
         self.assertEqual(2, n.get("foo"))
 
-    def test_find_context(self):
-        n = ContextNamespace("base")
-        n.foo = 1
-
-        with n("level1"):
-            n.foo = 2
-
-        self.assertEqual(1, n.foo)
-
-        context = n.find_context("base")
-        self.assertEqual(1, context["foo"])
-
-        context = n.find_context("level1")
-        self.assertEqual(2, context["foo"])
-
     def test_reactivate(self):
         n = ContextNamespace("base")
         n.foo = 1

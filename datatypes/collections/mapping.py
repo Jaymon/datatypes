@@ -493,19 +493,14 @@ class StackNamespace(Mapping):
         """
         super().__init__()
 
-        self._contexts = self._create_contexts()
-        self._contexts.setdefault("active", [])
-        self._contexts.setdefault("cascade", cascade)
-#         self._contexts = {
-#             "active": [],
-#             "cascade": cascade,
-#         }
+        self._active_contexts = []
+        self._cascade = cascade
 
         self._push_context(name, source="__init__")
 
     def __enter__(self) -> Self:
         """Allow `with instance:` context invocation"""
-        context_tuple = self._contexts["active"][-1]
+        context_tuple = self._active_contexts[-1]
         if context_tuple[2] == "__call__":
             context_tuple[2] = "__enter__"
 
@@ -554,11 +549,10 @@ class StackNamespace(Mapping):
     def _current_context_tuple(self) -> tuple[str, Mapping, str]:
         """Internal method. Gets the full context tuple for the current
         context"""
-        #return self._contexts["active"][-1]
         # we pull directly from the __dict__ so __setattr__
         # doesn't infinite loop
-        if contexts := self.__dict__.get("_contexts", None):
-            return contexts["active"][-1]
+        if contexts := self.__dict__.get("_active_contexts", None):
+            return contexts[-1]
         raise IndexError("No current contexts")
 
     def current_context(self) -> Mapping:
@@ -573,9 +567,6 @@ class StackNamespace(Mapping):
         except IndexError:
             return False
 
-    def _create_contexts(self) -> Mapping:
-        return {}
-
     def _push_context(
         self,
         name: str,
@@ -586,20 +577,20 @@ class StackNamespace(Mapping):
         if context is None:
             context = {}
 
-        self._contexts["active"].append([name, context, source])
+        self._active_contexts.append([name, context, source])
 
     def _pop_context(self) -> tuple[str, Mapping, str]:
         """Pop the last context from the stack"""
         if self.has_context():
-            return self._contexts["active"].pop(-1)
+            return self._active_contexts.pop(-1)
 
     def active_contexts(self) -> Generator[Mapping]:
         """yield all the contexts taking into account the cascade setting
         """
-        for context_tuple in reversed(self._contexts["active"]):
+        for context_tuple in reversed(self._active_contexts):
             yield context_tuple[1]
 
-            if not self._contexts["cascade"]:
+            if not self._cascade:
                 break
 
     def __setattr__(self, k: Hashable, v: Any):
@@ -749,10 +740,16 @@ class ContextNamespace(StackNamespace):
     This is different than `StackNamespace` because it will remember previous
     contexts so you can restore them
 
-    Internally, this class keeps a stack of active contexts and when the
-    context blocks are done, the context is moved to an inactive mapping,
-    if the context name is used again, that context will be moved from the
-    inactive mapping back to the active stack
+    Internally, this class keeps a stack of created contexts and when the
+    context blocks are done, the context is popped off the active stack but
+    a pointer is kept to the context in case the `name` is used again,
+    if the context name is used again, that context will be moved back onto
+    the active stack.
+
+    This class can be thought of as a context  mapping while `StackNamespace`
+    can more be thought of as a list, in `StackNamespace` you can have
+    multiple contexts with the same name because once their popped they are
+    forgotten, but you can only have one context per name with this class.
 
     :example:
         n = ContextNamespace()
@@ -790,8 +787,10 @@ class ContextNamespace(StackNamespace):
 
         n.foo # 1
     """
-    def _create_contexts(self) -> Mapping:
-        return {"all": {}}
+
+    def __init__(self, name: str = "", cascade: bool = True):
+        self._all_contexts = {}
+        super().__init__(name, cascade)
 
     def _push_context(
         self,
@@ -799,46 +798,15 @@ class ContextNamespace(StackNamespace):
         context: Mapping|None = None,
         source: str = "",
     ):
-        if name not in self._contexts["all"]:
-            self._contexts["all"][name] = {}
+        if name not in self._all_contexts:
+            self._all_contexts[name] = {}
 
-        d = self._contexts["all"][name]
+        d = self._all_contexts[name]
 
         if context:
             d.update(context)
 
         super()._push_context(name, d, source)
-
-#         inactive = self._contexts.get("inactive", {})
-#         d = inactive.get(name, {})
-# 
-#         if context:
-#             d.update(context)
-# 
-#         super()._push_context(name, d, source)
-
-#     def _pop_context(self) -> tuple[str, Mapping, str]:
-#         """Pop the last context from the stack"""
-#         context_tuple = super()._pop_context()
-#         self._contexts.setdefault("inactive", {})
-# 
-#         self._contexts["inactive"][context_tuple[0]] = context_tuple[1]
-#         return context_tuple
-
-    def find_context(self, name: str) -> Mapping:
-        """Find the context at `name` and return it"""
-        if name in self._contexts["all"]:
-            return self._contexts["all"][name]
-
-#         for context_tuple in self._contexts["active"]:
-#             if name == context_tuple[0]:
-#                 return context_tuple[1]
-# 
-#         if inactive_contexts := self._contexts.get("inactive", {}):
-#             if name in inactive_contexts:
-#                 return inactive_contexts[name]
-
-        raise KeyError(name)
 
 
 class DictTree(Dict):
