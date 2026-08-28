@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dict and Map like objects
 
@@ -790,7 +789,6 @@ class ContextNamespace(StackNamespace):
 
         n.foo # 1
     """
-
     def __init__(self, name: str = "", cascade: bool = True):
         self._all_contexts = {}
         super().__init__(name, cascade)
