@@ -112,6 +112,12 @@ class EmailMessage(message.EmailMessage):
         m = email.message_from_string(s, _class=EmailMessage)
         print(type(m)) # datatypes.email.EmailMessage
 
+        # get the plain text body of the email
+        m.get_body(("plain",)).get_content()
+
+        # get the HTML body of the email
+        m.get_body(("html",)).get_content()
+
     https://docs.python.org/3/library/email.message.html#email.message.EmailMessage
     """
     @property
