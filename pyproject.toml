@@ -5,22 +5,22 @@ authors = [
   { name = "Jay Marcyes", email = "jay@marcyes.com" }
 ]
 keywords = [
-  ""
+  "",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3"
+  "Programming Language :: Python :: 3",
 ]
 name = "datatypes"
 dynamic = [
-  "version"
+  "version",
 ]
 readme = "README.md"
 license = "MIT"
 license-files = [
-  "LICENSE.txt"
+  "LICENSE.txt",
 ]
 
 [project.urls]
@@ -32,12 +32,12 @@ tests = [
   "testdata",
 ]
 ssh = [
-  "asyncssh"
+  "asyncssh==2.22.0",
 ]
 
 [build-system]
 requires = [
-  "setuptools>=62.3.0"
+  "setuptools>=62.3.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -46,10 +46,10 @@ exclude = [
   "tests*",
   "example*",
   "*_test*",
-  "docs*"
+  "docs*",
 ]
 include = [
-  "datatypes*"
+  "datatypes*",
 ]
 
 [tool.setuptools.dynamic]
