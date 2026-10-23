@@ -1180,6 +1180,20 @@ class DictTree(Dict):
                 if not len(d):
                     yield ks + [k], d
 
+    def suffixes(self, keys: Iterable[Hashable]|Hashable) -> Generator[Self]:
+        """Iterate through the leaves that match the passed in suffix keys
+
+        If you had a node at foo->bar->che and another node at baz->bar->che
+        and you passed in `["bar", "che"]` then this would yield foo->bar-che
+        and then baz->bar->che because they both end with bar->che
+        """
+        keys = self.normalize_keys(keys)
+        start_i = len(keys) - 1
+
+        for nks, n in self.leaves():
+            if nks[start_i:] == keys:
+                yield n
+
     def walk(
         self,
         keys: Iterable[Hashable]|Hashable,

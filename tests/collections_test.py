@@ -1150,6 +1150,22 @@ class DictTreeTest(TestCase):
             list(d.preorder()),
         )
 
+    def test_suffixes(self):
+        d = DictTree()
+
+        keys = ["foo", "bar", "che"]
+        d.set(keys, 1)
+
+        keys = ["foo", "baz", "che"]
+        d.set(keys, 2)
+
+        keys = ["boo", "bar", "che"]
+        d.set(keys, 3)
+
+        values = set([1, 3])
+        for n in d.suffixes(["bar", "che"]):
+            self.assertTrue(n.value in values)
+
 
 class SortedSetTest(TestCase):
     def test_order(self):
