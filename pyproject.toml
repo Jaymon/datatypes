@@ -32,7 +32,7 @@ tests = [
   "testdata",
 ]
 ssh = [
-  "asyncssh==2.22.0",
+  "asyncssh==2.24.0",
 ]
 
 [build-system]
