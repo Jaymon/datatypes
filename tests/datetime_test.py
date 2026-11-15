@@ -469,6 +469,11 @@ class DatetimeTest(TestCase):
         now = Datetime("2022-06-26 06:19:54+00:00")
         self.assertEqual("6 years, 11 months", dt.since(now))
 
+    def test_since_3(self):
+        dt = Datetime()
+        now = Datetime()
+        self.assertEqual("0 seconds", dt.since(now))
+
     def test_now(self):
         d = Datetime()
         d2 = Datetime.now()

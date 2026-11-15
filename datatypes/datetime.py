@@ -722,8 +722,10 @@ class Datetime(datetime.datetime):
     def since(
         self,
         now: datetime.datetime|None = None,
+        *,
         chunks: int = 2,
         sep: str = ", ",
+        default: str = "0 seconds",
     ) -> str:
         """Returns a description of the amount of time that has passed from
         self to now. This is more exact than .estsince() but does a lot more
@@ -732,11 +734,12 @@ class Datetime(datetime.datetime):
         Now will equal None if we want to know the time elapsed between self
         and the current time, otherwise it will be between self and now
 
-        :param now: datetime, if None will default to the current datetime
-        :param chunks: int, if a postive value only that many chunks will be
-            returned, if None or -1 then all found chunks will be returned
-        :param sep: the separator between the chunks
-        :returns: str, the elapsed time in english (eg, x years, xx months, or 
+        :param now: if None will default to the current datetime
+        :keyword chunks: if a postive value only that many chunks will be
+            returned, if less than 1 then all found chunks will be returned
+        :keyword sep: the separator between the chunks
+        :keyword default: the default value if no chunks were found
+        :returns: the elapsed time in english (eg, x years, xx months, or 
             x days, xx hours)
         """
         output = []
@@ -788,7 +791,7 @@ class Datetime(datetime.datetime):
                     if since <= 0 or chunks <= 0:
                         break
 
-        return sep.join(output) if output else ""
+        return sep.join(output) if output else default
 
     @classmethod
     def now(cls, tz=datetime.timezone.utc) -> datetime.datetime:
