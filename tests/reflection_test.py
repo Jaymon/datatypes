@@ -222,9 +222,13 @@ class ClasspathFinderTest(TestCase):
         m = prefix.get_module("foo")
         pf = ClasspathFinder(prefixes=[prefix])
         pf.add_class(m.Bar.Che)
-        for ks, n in pf.nodes():
-            if n.value.get("class_name", "") == "Che":
-                self.assertTrue(n.value["module_name"].endswith(".foo"))
+        self.assertTrue(
+            pf["foo", "Bar", "Che"]["module_name"].endswith(".foo"),
+        )
+
+#         for ks, n in pf.nodes():
+#             if n.value and (n.value.get("class_name", "") == "Che"):
+#                 self.assertTrue(n.value["module_name"].endswith(".foo"))
 
 
 class ClassFinderTest(TestCase):

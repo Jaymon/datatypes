@@ -155,7 +155,8 @@ class ClasspathFinder(BaseClassFinder):
 
         self.prefixes = prefixes or set()
         self.kwargs = kwargs # convenience for default .create_instance
-        self.value = self._get_node_default_value(**kwargs)
+        self.value = None
+#         self.value = self._get_node_default_value(**kwargs)
 
     def create_instance(self):
         """Internal method that makes sure creating sub-instances of this
@@ -188,12 +189,12 @@ class ClasspathFinder(BaseClassFinder):
 
         return f"{klass.__module__}:{klass.__qualname__}"
 
-    def _get_node_default_value(self, **kwargs):
-        """Get the default value for the node on creation
-
-        :returns: Any
-        """
-        return {}
+#     def _get_node_default_value(self, **kwargs):
+#         """Get the default value for the node on creation
+# 
+#         :returns: Any
+#         """
+#         return {}
 
     def _get_node_module_item(
         self,
@@ -212,9 +213,10 @@ class ClasspathFinder(BaseClassFinder):
         :returns: index 0 is the key(s) in the tree, no key(s) will be added
             if it is `None`, index 1 is the value of the final key in the tree
         """
-        value = self._get_node_default_value(**kwargs)
-        value.update(kwargs)
-        return key, value
+#         value = self._get_node_default_value(**kwargs)
+#         value.update(kwargs)
+#         return key, value
+        return key, {**kwargs}
 
     def _get_node_class_item(
         self,
@@ -242,9 +244,10 @@ class ClasspathFinder(BaseClassFinder):
                     path
                 * class_name: this will always be set
         """
-        value = self._get_node_default_value(**kwargs)
-        value.update(kwargs)
-        return key, value
+#         value = self._get_node_default_value(**kwargs)
+#         value.update(kwargs)
+#         return key, value
+        return key, {**kwargs}
 
     def _get_node_module_items(
         self,
@@ -383,63 +386,6 @@ class ClasspathFinder(BaseClassFinder):
             v.pop("reflect_name", None)
             yield k, v, kwargs
 
-#     def _get_node_path_items(
-#         self,
-#         klass: type,
-#         **kwargs,
-#     ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
-#         """Internal method for this class. This will generate all the path
-#         nodes for `klass`
-# 
-#         :returns: a generator of keys, value, and the latest kwargs
-#         """
-#         # can't use `yield from` because kwargs can build on each other so we
-#         # need to capture it
-#         for k, v, kwargs in self._get_node_module_items(klass, **kwargs):
-#             yield k, v, kwargs
-# 
-#         for k, v, kwargs in self._get_node_class_items(klass, **kwargs):
-#             yield k, v, kwargs
-# 
-#     def _get_node_items(
-#         self,
-#         klass: type,
-#     ) -> Generator[Sequence[Hashable], Mapping]:
-#         """Internal method for parent. This yields the keys and values that
-#         will be used to create new nodes in this tree
-# 
-#         If there are `.prefixes` then this is called for each value in the full
-#         classpath. So if the full classpath was `foo.bar:Che.Baz` then this
-#         would yield `foo`, `bar`, `Che`, and `Baz`. If there are no `.prefixes`
-#         then this will be called with just `CHe` and `Baz`
-# 
-#         :returns: a generator of keys and value for a node in the tree. Index 0
-#             contains the key from root to the node. Index 1 contains the value
-#             at that node, by default that value is a dict which will contain
-#             the value returned from either `._get_node_module_item`
-#         """
-#         # avoid circular dependency
-#         from .path import ReflectName
-# 
-#         rn = ReflectName(self._get_classpath(klass))
-# 
-#         # these values are added to and passed into the child
-#         # `._get_node_*_info` methods. These are updated each iteration and
-#         # shallow copied into the node value by default (see
-#         # `._get_node_default_value`). That means, for the most part, you
-#         # shouldn't touch these keys but children classes can add keys to
-#         # the value
-#         kwargs = {
-#             "keys": [],
-#             "module_keys": [],
-#             "modules": [],
-#             "class_keys": [],
-#             "reflect_name": rn,
-#         }
-#         for keys, value, kwargs in self._get_node_path_items(klass, **kwargs):
-#             value.pop("reflect_name", None)
-#             yield keys, value
-
     def add_class(self, klass: type):
         """This is the method that should be used to add new classes to the
         tree
@@ -566,10 +512,12 @@ class MethodpathFinder(ClasspathFinder):
         if key and key.startswith("_"):
             return None, None
 
-        value = self._get_node_default_value(**kwargs)
-        value.update(kwargs)
-        value.pop("reflect_name", None)
-        return key, value
+        return key, {**kwargs}
+
+#         value = self._get_node_default_value(**kwargs)
+#         value.update(kwargs)
+#         value.pop("reflect_name", None)
+#         return key, value
 
     def get_method_items(self) -> tuple[list[str], Mapping]:
         """go through and return destination nodes keys and values"""
