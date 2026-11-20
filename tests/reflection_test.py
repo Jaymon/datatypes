@@ -5,6 +5,7 @@ import functools
 from typing import Any, Literal, Annotated, TypedDict, Type
 import runpy
 import ast
+import inspect
 
 from datatypes.compat import *
 from datatypes.reflection import (
@@ -2979,8 +2980,22 @@ class MethodpathFinderTest(TestCase):
         n = pf.get_node(["foo", "Bar", "che"])
         self.assertIsNone(n.value)
 
+    def test_node_types(self):
+        prefix = self.create_module({
+            "foo": """
+                class Bar(object):
+                    def che(self): pass
+            """
+        })
 
-import inspect
+        m = prefix.get_module("foo")
+        pf = MethodpathFinder(prefixes=[prefix])
+        pf.add_class(m.Bar)
+
+        self.assertEqual("module", pf["foo"]["node_type"])
+        self.assertEqual("class", pf["foo", "Bar"]["node_type"])
+        self.assertEqual("method", pf["foo", "Bar", "che"]["node_type"])
+
 
 class ReflectArgumentTest(TestCase):
     def test_bound_keyword(self):

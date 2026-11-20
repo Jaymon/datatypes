@@ -928,7 +928,7 @@ class DictTree(Dict):
 
         return ret
 
-    def set(self, keys: Iterable[Hashable]|Hashable, value: Any):
+    def set(self, keys: Sequence[Hashable]|Hashable, value: Any):
         """Set value into the last key in keys, creating intermediate dicts 
         along the way
 
@@ -942,7 +942,12 @@ class DictTree(Dict):
             key = self.normalize_key(keys[0])
             if key not in self:
                 #self.add_node(key, self.create_instance(), None)
-                self.add_path_node(key, None, value)
+                self.add_node(
+                    key,
+                    self.create_instance(),
+                    self.normalize_path_value(value),
+                )
+#                 self.add_path_node(key, None, value)
 
             super().__getitem__(key).set(keys[1:], value)
 
@@ -1004,7 +1009,7 @@ class DictTree(Dict):
         """
         node.value = value
 
-    def normalize_keys(self, keys: Iterable[Hashable]) -> Iterable[Hashable]:
+    def normalize_keys(self, keys: Sequence[Hashable]) -> Iterable[Hashable]:
         """Internal method. This makes sure keys is a sequence
 
         Called on both set and get
@@ -1027,6 +1032,15 @@ class DictTree(Dict):
         :returns: Hashable
         """
         return key
+
+    def normalize_path_value(self, value: Any) -> Any:
+        """Internal method. Called right before a waypoint value is added
+        while adding a destination value
+
+        :param value: this is the destination value since sometimes this might
+            be useful for creating the waypoint value in child classes
+        """
+        return None
 
     def normalize_value(self, value: Any) -> Any:
         """Internal method. Hook that is called right before value is set

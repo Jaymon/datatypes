@@ -199,7 +199,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         key: str,
         **kwargs,
-    ) -> tuple[Hashable|tuple[Hashable]|list[Hashable]|None, Mapping|None]:
+    ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
         """Get the module key and value for a node representing a module.
 
         This is called for each module in the full classpath. So if the
@@ -214,14 +214,14 @@ class ClasspathFinder(BaseClassFinder):
         """
         value = self._get_node_default_value(**kwargs)
         value.update(kwargs)
-        value.pop("reflect_name", None)
+#         value.pop("reflect_name", None)
         return key, value
 
     def _get_node_class_info(
         self,
         key: str,
         **kwargs,
-    ) -> tuple[Hashable|tuple[Hashable]|list[Hashable]|None, Mapping|None]:
+    ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
         """Get the key and value for a node representing a class
 
         This is called for each class in the full classpath. So if the
@@ -245,7 +245,7 @@ class ClasspathFinder(BaseClassFinder):
         """
         value = self._get_node_default_value(**kwargs)
         value.update(kwargs)
-        value.pop("reflect_name", None)
+#         value.pop("reflect_name", None)
         return key, value
 
     def _get_node_module_items(
@@ -287,7 +287,8 @@ class ClasspathFinder(BaseClassFinder):
 
                         kwargs["modules"].append(m)
                         v["modules"] = kwargs["modules"][:]
-                        v["class_keys"] = []
+                        v["node_type"] = "module"
+#                         v.pop("class_keys", None)
 
                         yield kwargs["keys"], v, kwargs
 
@@ -332,6 +333,7 @@ class ClasspathFinder(BaseClassFinder):
 
             v["module_keys"] = kwargs["module_keys"][:]
             v["modules"] = kwargs["modules"][:]
+            v["node_type"] = "class"
 
             yield kwargs["keys"], v, kwargs
 
@@ -353,7 +355,10 @@ class ClasspathFinder(BaseClassFinder):
         for k, v, kwargs in self._get_node_class_items(klass, **kwargs):
             yield k, v, kwargs
 
-    def _get_node_items(self, klass: type) -> Generator[list[str], Mapping]:
+    def _get_node_items(
+        self,
+        klass: type,
+    ) -> Generator[Sequence[Hashable], Mapping]:
         """Internal method for parent. This yields the keys and values that
         will be used to create new nodes in this tree
 
@@ -386,6 +391,7 @@ class ClasspathFinder(BaseClassFinder):
             "reflect_name": rn,
         }
         for keys, value, kwargs in self._get_node_path_items(klass, **kwargs):
+            value.pop("reflect_name", None)
             yield keys, value
 
     def add_class(self, klass: type):
@@ -402,10 +408,17 @@ class ClasspathFinder(BaseClassFinder):
         for klass in classes:
             self.add_class(klass)
 
-    def get_class_items(self) -> tuple[list[str], Mapping]:
+    def get_module_items(self) -> tuple[Sequence[Hashable], Mapping]:
+        """go through and return module nodes"""
+        for keys, node in self.nodes():
+            if node.value and node.value["node_type"] == "module":
+                yield keys, node.value
+
+    def get_class_items(self) -> tuple[Sequence[Hashable], Mapping]:
         """go through and return destination nodes keys and values"""
         for keys, node in self.nodes():
-            if node.value and "class" in node.value:
+            if node.value and node.value["node_type"] == "class":
+#             if node.value and "class" in node.value:
                 yield keys, node.value
 
     def find_class_node(self, klass: type) -> Mapping:
@@ -419,7 +432,8 @@ class ClasspathFinder(BaseClassFinder):
         :returns: ClasspathFinder
         """
         for keys, node in self.nodes():
-            if node.value and "class" in node.value:
+            if node.value and node.value["node_type"] == "class":
+#             if node.value and "class" in node.value:
                 if node.value["class"] is klass:
                     return node
 
@@ -475,13 +489,14 @@ class MethodpathFinder(ClasspathFinder):
                 for vk in ["module_keys", "modules", "class_keys"]:
                     v[vk] = kwargs[vk][:]
 
+                v["node_type"] = "method"
                 yield v["keys"], v, kwargs
 
     def _get_node_method_info(
         self,
         key: str,
         **kwargs,
-    ) -> tuple[Hashable|tuple[Hashable]|list[Hashable]|None, Mapping|None]:
+    ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
         """Internal method to the class. This is similar to
         `._get_node_module_info` and `._get_node_class_info`.
 
@@ -497,16 +512,17 @@ class MethodpathFinder(ClasspathFinder):
         value.pop("reflect_name", None)
         return key, value
 
-    def get_class_items(self) -> tuple[list[str], Mapping]:
-        """go through and return destination nodes keys and values"""
-        for keys, value in super().get_class_items():
-            if "method" not in value:
-                yield keys, value
+#     def get_class_items(self) -> tuple[list[str], Mapping]:
+#         """go through and return destination nodes keys and values"""
+#         for keys, value in super().get_class_items():
+#             if "method" not in value:
+#                 yield keys, value
 
     def get_method_items(self) -> tuple[list[str], Mapping]:
         """go through and return destination nodes keys and values"""
         for keys, node in self.nodes():
-            if node.value and "method" in node.value:
+            if node.value and node.value["node_type"] == "method":
+#             if node.value and "method" in node.value:
                 yield keys, node.value
 
 
