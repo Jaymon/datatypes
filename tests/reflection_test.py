@@ -2995,6 +2995,30 @@ class MethodpathFinderTest(TestCase):
         self.assertEqual("class", pf["foo", "Bar"]["node_type"])
         self.assertEqual("method", pf["foo", "Bar", "che"]["node_type"])
 
+    def test_type_keys_exist(self):
+        prefix = self.create_module({
+            "foo": """
+                class Bar(object):
+                    def che(self): pass
+            """
+        })
+
+        m = prefix.get_module("foo")
+        pf = MethodpathFinder(prefixes=[prefix])
+        pf.add_class(m.Bar)
+
+        self.assertTrue("module_keys" in pf["foo"])
+        self.assertFalse("class_keys" in pf["foo"])
+        self.assertFalse("method_keys" in pf["foo"])
+
+        self.assertTrue("module_keys" in pf["foo", "Bar"])
+        self.assertTrue("class_keys" in pf["foo", "Bar"])
+        self.assertFalse("method_keys" in pf["foo", "Bar"])
+
+        self.assertTrue("module_keys" in pf["foo", "Bar", "che"])
+        self.assertTrue("class_keys" in pf["foo", "Bar", "che"])
+        self.assertTrue("method_keys" in pf["foo", "Bar", "che"])
+
 
 class ReflectArgumentTest(TestCase):
     def test_bound_keyword(self):

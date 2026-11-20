@@ -333,28 +333,11 @@ class ClasspathFinder(BaseClassFinder):
 
             yield kwargs["keys"], v, kwargs
 
-    def _get_node_path_items(
+    def _get_node_items(
         self,
         klass: type,
         **kwargs,
     ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
-        """Internal method for this class. This will generate all the path
-        nodes for `klass`
-
-        :returns: a generator of keys, value, and the latest kwargs
-        """
-        # can't use `yield from` because kwargs can build on each other so we
-        # need to capture it
-        for k, v, kwargs in self._get_node_module_items(klass, **kwargs):
-            yield k, v, kwargs
-
-        for k, v, kwargs in self._get_node_class_items(klass, **kwargs):
-            yield k, v, kwargs
-
-    def _get_node_items(
-        self,
-        klass: type,
-    ) -> Generator[Sequence[Hashable], Mapping]:
         """Internal method for parent. This yields the keys and values that
         will be used to create new nodes in this tree
 
@@ -363,10 +346,11 @@ class ClasspathFinder(BaseClassFinder):
         would yield `foo`, `bar`, `Che`, and `Baz`. If there are no `.prefixes`
         then this will be called with just `CHe` and `Baz`
 
-        :returns: a generator of keys and value for a node in the tree. Index 0
-            contains the key from root to the node. Index 1 contains the value
-            at that node, by default that value is a dict which will contain
-            the value returned from either `._get_node_module_item`
+        :returns: a generator of keys and value and the latest kwargs for a
+            node in the tree. Index 0 contains the key from root to the node.
+            Index 1 contains the value at that node. Index 2 contains the
+            lastest kwargs that are passed to the next iteration to create
+            the next node's value
         """
         # avoid circular dependency
         from .path import ReflectName
@@ -380,15 +364,81 @@ class ClasspathFinder(BaseClassFinder):
         # shouldn't touch these keys but children classes can add keys to
         # the value
         kwargs = {
+            **kwargs,
             "keys": [],
             "module_keys": [],
             "modules": [],
-            "class_keys": [],
             "reflect_name": rn,
         }
-        for keys, value, kwargs in self._get_node_path_items(klass, **kwargs):
-            value.pop("reflect_name", None)
-            yield keys, value
+
+        # can't use `yield from` because kwargs can build on each other so we
+        # need to capture it
+        for k, v, kwargs in self._get_node_module_items(klass, **kwargs):
+            v.pop("reflect_name", None)
+            yield k, v, kwargs
+
+        kwargs["class_keys"] = []
+
+        for k, v, kwargs in self._get_node_class_items(klass, **kwargs):
+            v.pop("reflect_name", None)
+            yield k, v, kwargs
+
+#     def _get_node_path_items(
+#         self,
+#         klass: type,
+#         **kwargs,
+#     ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+#         """Internal method for this class. This will generate all the path
+#         nodes for `klass`
+# 
+#         :returns: a generator of keys, value, and the latest kwargs
+#         """
+#         # can't use `yield from` because kwargs can build on each other so we
+#         # need to capture it
+#         for k, v, kwargs in self._get_node_module_items(klass, **kwargs):
+#             yield k, v, kwargs
+# 
+#         for k, v, kwargs in self._get_node_class_items(klass, **kwargs):
+#             yield k, v, kwargs
+# 
+#     def _get_node_items(
+#         self,
+#         klass: type,
+#     ) -> Generator[Sequence[Hashable], Mapping]:
+#         """Internal method for parent. This yields the keys and values that
+#         will be used to create new nodes in this tree
+# 
+#         If there are `.prefixes` then this is called for each value in the full
+#         classpath. So if the full classpath was `foo.bar:Che.Baz` then this
+#         would yield `foo`, `bar`, `Che`, and `Baz`. If there are no `.prefixes`
+#         then this will be called with just `CHe` and `Baz`
+# 
+#         :returns: a generator of keys and value for a node in the tree. Index 0
+#             contains the key from root to the node. Index 1 contains the value
+#             at that node, by default that value is a dict which will contain
+#             the value returned from either `._get_node_module_item`
+#         """
+#         # avoid circular dependency
+#         from .path import ReflectName
+# 
+#         rn = ReflectName(self._get_classpath(klass))
+# 
+#         # these values are added to and passed into the child
+#         # `._get_node_*_info` methods. These are updated each iteration and
+#         # shallow copied into the node value by default (see
+#         # `._get_node_default_value`). That means, for the most part, you
+#         # shouldn't touch these keys but children classes can add keys to
+#         # the value
+#         kwargs = {
+#             "keys": [],
+#             "module_keys": [],
+#             "modules": [],
+#             "class_keys": [],
+#             "reflect_name": rn,
+#         }
+#         for keys, value, kwargs in self._get_node_path_items(klass, **kwargs):
+#             value.pop("reflect_name", None)
+#             yield keys, value
 
     def add_class(self, klass: type):
         """This is the method that should be used to add new classes to the
@@ -396,7 +446,7 @@ class ClasspathFinder(BaseClassFinder):
 
         :param klass: type, the class to add to the tree
         """
-        for keys, value in self._get_node_items(klass):
+        for keys, value, _ in self._get_node_items(klass):
             self.set(keys, value)
 
     def add_classes(self, classes: Iterable[type]):
@@ -438,18 +488,33 @@ class MethodpathFinder(ClasspathFinder):
     """Create a tree of the full callpath 
     (<MODULE_NAME>:<QUALNAME>.<METHOD_NAME>) of a class added with .add_class
     """
-    def _get_node_path_items(
+    def _get_node_items(
         self,
         klass: type,
         **kwargs,
     ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
         """Internal method of parent. Overloaded to also yield methods"""
-        path_node_items = super()._get_node_path_items(klass, **kwargs)
-        for keys, value, kwargs in path_node_items:
-            kwargs["method_keys"] = []
-            yield keys, value, kwargs
+        for k, v, kwargs in super()._get_node_items(klass, **kwargs):
+            yield k, v, kwargs
 
-        yield from self._get_node_method_items(klass, **kwargs)
+        kwargs["method_keys"] = []
+
+        for k, v, kwargs in self._get_node_method_items(klass, **kwargs):
+            v.pop("reflect_name", None)
+            yield k, v, kwargs
+
+#     def _get_node_path_items(
+#         self,
+#         klass: type,
+#         **kwargs,
+#     ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+#         """Internal method of parent. Overloaded to also yield methods"""
+#         path_node_items = super()._get_node_path_items(klass, **kwargs)
+#         for keys, value, kwargs in path_node_items:
+#             kwargs["method_keys"] = []
+#             yield keys, value, kwargs
+# 
+#         yield from self._get_node_method_items(klass, **kwargs)
 
     def _get_node_method_items(
         self,
@@ -506,17 +571,10 @@ class MethodpathFinder(ClasspathFinder):
         value.pop("reflect_name", None)
         return key, value
 
-#     def get_class_items(self) -> tuple[list[str], Mapping]:
-#         """go through and return destination nodes keys and values"""
-#         for keys, value in super().get_class_items():
-#             if "method" not in value:
-#                 yield keys, value
-
     def get_method_items(self) -> tuple[list[str], Mapping]:
         """go through and return destination nodes keys and values"""
         for keys, node in self.nodes():
             if node.value and node.value["node_type"] == "method":
-#             if node.value and "method" in node.value:
                 yield keys, node.value
 
 
