@@ -195,7 +195,7 @@ class ClasspathFinder(BaseClassFinder):
         """
         return {}
 
-    def _get_node_module_info(
+    def _get_node_module_item(
         self,
         key: str,
         **kwargs,
@@ -214,10 +214,9 @@ class ClasspathFinder(BaseClassFinder):
         """
         value = self._get_node_default_value(**kwargs)
         value.update(kwargs)
-#         value.pop("reflect_name", None)
         return key, value
 
-    def _get_node_class_info(
+    def _get_node_class_item(
         self,
         key: str,
         **kwargs,
@@ -245,7 +244,6 @@ class ClasspathFinder(BaseClassFinder):
         """
         value = self._get_node_default_value(**kwargs)
         value.update(kwargs)
-#         value.pop("reflect_name", None)
         return key, value
 
     def _get_node_module_items(
@@ -270,7 +268,7 @@ class ClasspathFinder(BaseClassFinder):
 
                         kwargs["module_name"] = m.__name__
 
-                        k, v = self._get_node_module_info(
+                        k, v = self._get_node_module_item(
                             rm.module_basename,
                             module=m,
                             **kwargs,
@@ -288,8 +286,6 @@ class ClasspathFinder(BaseClassFinder):
                         kwargs["modules"].append(m)
                         v["modules"] = kwargs["modules"][:]
                         v["node_type"] = "module"
-#                         v.pop("class_keys", None)
-
                         yield kwargs["keys"], v, kwargs
 
                 break
@@ -319,7 +315,7 @@ class ClasspathFinder(BaseClassFinder):
             if i == class_i:
                 kwargs["class"] = klass
 
-            k, v = self._get_node_class_info(class_name, **kwargs)
+            k, v = self._get_node_class_item(class_name, **kwargs)
 
             if k is not None:
                 for vk in ["keys", "class_keys"]:
@@ -370,7 +366,7 @@ class ClasspathFinder(BaseClassFinder):
         :returns: a generator of keys and value for a node in the tree. Index 0
             contains the key from root to the node. Index 1 contains the value
             at that node, by default that value is a dict which will contain
-            the value returned from either `._get_node_module_info`
+            the value returned from either `._get_node_module_item`
         """
         # avoid circular dependency
         from .path import ReflectName
@@ -418,7 +414,6 @@ class ClasspathFinder(BaseClassFinder):
         """go through and return destination nodes keys and values"""
         for keys, node in self.nodes():
             if node.value and node.value["node_type"] == "class":
-#             if node.value and "class" in node.value:
                 yield keys, node.value
 
     def find_class_node(self, klass: type) -> Mapping:
@@ -433,7 +428,6 @@ class ClasspathFinder(BaseClassFinder):
         """
         for keys, node in self.nodes():
             if node.value and node.value["node_type"] == "class":
-#             if node.value and "class" in node.value:
                 if node.value["class"] is klass:
                     return node
 
@@ -470,7 +464,7 @@ class MethodpathFinder(ClasspathFinder):
         """
         methods = inspect.getmembers(klass, callable)
         for method_name, method in methods:
-            k, v = self._get_node_method_info(
+            k, v = self._get_node_method_item(
                 method_name,
                 method_name=method_name,
                 method=method,
@@ -492,13 +486,13 @@ class MethodpathFinder(ClasspathFinder):
                 v["node_type"] = "method"
                 yield v["keys"], v, kwargs
 
-    def _get_node_method_info(
+    def _get_node_method_item(
         self,
         key: str,
         **kwargs,
     ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
         """Internal method to the class. This is similar to
-        `._get_node_module_info` and `._get_node_class_info`.
+        `._get_node_module_item` and `._get_node_class_item`.
 
         If the key is None then it won't move to a new node in the tree and
         will overwrite the previous key, if value is None then this info

@@ -51,8 +51,8 @@ class ClasspathFinderTest(TestCase):
 
     def test_add_empty_key(self):
         class CPF(ClasspathFinder):
-            def _get_node_class_info(self, key, **kwargs):
-                key, value = super()._get_node_class_info(key, **kwargs)
+            def _get_node_class_item(self, key, **kwargs):
+                key, value = super()._get_node_class_item(key, **kwargs)
                 if key == "Default":
                     key = None
                 return key, value
@@ -2966,10 +2966,9 @@ class MethodpathFinderTest(TestCase):
         })
 
         class KSFinder(MethodpathFinder):
-            def _get_node_method_info(self, key, **kwargs):
-                key, value = super()._get_node_method_info(key, **kwargs)
+            def _get_node_method_item(self, key, **kwargs):
+                key, value = super()._get_node_method_item(key, **kwargs)
                 return [key, "bam"], value
-
 
         m = prefix.get_module("foo")
         pf = KSFinder(prefixes=[prefix])
