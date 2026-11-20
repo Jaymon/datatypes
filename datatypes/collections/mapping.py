@@ -872,7 +872,7 @@ class DictTree(Dict):
         mapping_or_iterable: Mapping[Hashable, Any]
             |Iterable[tuple[Hashable, Any]]
             |None = None,
-        **kwargs
+        **kwargs,
     ):
         """
         https://docs.python.org/3/library/stdtypes.html#dict.update
@@ -941,7 +941,8 @@ class DictTree(Dict):
         if len(keys) > 1:
             key = self.normalize_key(keys[0])
             if key not in self:
-                self.add_node(key, self.create_instance(), None)
+                #self.add_node(key, self.create_instance(), None)
+                self.add_path_node(key, None, value)
 
             super().__getitem__(key).set(keys[1:], value)
 
@@ -966,6 +967,13 @@ class DictTree(Dict):
                     self,
                     self.normalize_value(value)
                 )
+
+    def add_path_node(self, key: Hashable, key_value: Any, value: Any):
+        """Adds a path node at `key` for the ultimate child `value`, this
+        is called when a key along a key path doesn't exist and so a new
+        node needs to be created and added to the tree to ultimately set
+        child node's `value` into the tree"""
+        self.add_node(key, self.create_instance(), key_value)
 
     def add_node(self, key: Hashable, node: Self, value: Any):
         """Add `node` into `self` at `key` with `value`
