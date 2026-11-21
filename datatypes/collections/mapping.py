@@ -945,7 +945,7 @@ class DictTree(Dict):
                 self.add_node(
                     key,
                     self.create_instance(),
-                    self.normalize_path_value(value),
+                    self.normalize_path_value(key, value),
                 )
 #                 self.add_path_node(key, None, value)
 
@@ -973,12 +973,12 @@ class DictTree(Dict):
                     self.normalize_value(value)
                 )
 
-    def add_path_node(self, key: Hashable, key_value: Any, value: Any):
-        """Adds a path node at `key` for the ultimate child `value`, this
-        is called when a key along a key path doesn't exist and so a new
-        node needs to be created and added to the tree to ultimately set
-        child node's `value` into the tree"""
-        self.add_node(key, self.create_instance(), key_value)
+#     def add_path_node(self, key: Hashable, key_value: Any, value: Any):
+#         """Adds a path node at `key` for the ultimate child `value`, this
+#         is called when a key along a key path doesn't exist and so a new
+#         node needs to be created and added to the tree to ultimately set
+#         child node's `value` into the tree"""
+#         self.add_node(key, self.create_instance(), key_value)
 
     def add_node(self, key: Hashable, node: Self, value: Any):
         """Add `node` into `self` at `key` with `value`
@@ -1033,10 +1033,15 @@ class DictTree(Dict):
         """
         return key
 
-    def normalize_path_value(self, value: Any) -> Any:
+    def normalize_path_value(self, key: Hashable, value: Any) -> Any:
         """Internal method. Called right before a waypoint value is added
         while adding a destination value
 
+        Basically, this will be called and then `.add_node(key, value)` with
+        the value returned from this method will be called right after
+
+        :parma key: the key the returned value will be set at, this is a
+            sub key to the final set of keys that `value` will be set at
         :param value: this is the destination value since sometimes this might
             be useful for creating the waypoint value in child classes
         """
