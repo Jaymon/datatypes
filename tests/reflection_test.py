@@ -127,24 +127,16 @@ class ClasspathFinderTest(TestCase):
         pf.add_class(prefix.get_module("foo.baz").che)
         self.assertEqual(pf["foo"]["class"].__name__, "foo")
 
-    def test_get_class_items(self):
+    def test_get_class_items_1(self):
         """Make sure we can iterate through all destination nodes in the tree
         """
-        prefix = self.create_module(
-            {
-                "": [
-                    "class Foo(object): pass",
-                ],
-                "foo": {
-                    "": [
-                        "class Bar(object): pass",
-                    ],
-                    "baz": [
-                        "class Che(object): pass",
-                    ],
-                },
+        prefix = self.create_module({
+            "": "class Foo(object): pass",
+            "foo": {
+                "": "class Bar(object): pass",
+                "baz": "class Che(object): pass",
             },
-        )
+        })
 
         pf_classes = set()
         pf = ClasspathFinder(prefixes=[prefix])
@@ -157,6 +149,24 @@ class ClasspathFinderTest(TestCase):
             node_classes.add(value["class"].__name__)
 
         self.assertEqual(pf_classes, node_classes)
+
+    def test_get_class_items_2(self):
+        """Make sure we can iterate through all destination nodes in the tree
+        """
+        prefix = self.create_module("""
+            class Foo(object):
+                class Bar(object):
+                    class Che(object):
+                        pass
+        """)
+
+        pf = ClasspathFinder(prefixes=[prefix])
+        m = prefix.get_module()
+        pf.add_class(m.Foo.Bar.Che)
+
+        self.assertEqual("path_class", pf["Foo"]["node_type"])
+        self.assertEqual("path_class", pf["Foo", "Bar"]["node_type"])
+        self.assertEqual("class", pf["Foo", "Bar", "Che"]["node_type"])
 
     def test_runpath_classes(self):
         """Test a class that was loaded using something like `runpy.run_path`

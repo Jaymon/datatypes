@@ -973,13 +973,6 @@ class DictTree(Dict):
                     self.normalize_value(value)
                 )
 
-#     def add_path_node(self, key: Hashable, key_value: Any, value: Any):
-#         """Adds a path node at `key` for the ultimate child `value`, this
-#         is called when a key along a key path doesn't exist and so a new
-#         node needs to be created and added to the tree to ultimately set
-#         child node's `value` into the tree"""
-#         self.add_node(key, self.create_instance(), key_value)
-
     def add_node(self, key: Hashable, node: Self, value: Any):
         """Add `node` into `self` at `key` with `value`
 

@@ -318,7 +318,7 @@ class ClasspathFinder(BaseClassFinder):
 
             v["module_keys"] = kwargs["module_keys"][:]
             v["modules"] = kwargs["modules"][:]
-            v["node_type"] = "class"
+            v["node_type"] = "class" if (i == class_i) else "path_class"
 
             yield kwargs["keys"], v, kwargs
 
