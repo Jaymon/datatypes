@@ -13,7 +13,7 @@ from typing import Self
 
 from ..compat import *
 from ..string import NamingConvention
-from ..collections.mapping import DictTree, DictTree2
+from ..collections.mapping import DictTree
 from .. import logging
 
 
