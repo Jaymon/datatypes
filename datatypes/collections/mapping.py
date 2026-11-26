@@ -403,7 +403,6 @@ class NormalizeMappingMixin(object):
 
     def setdefault(self, k: Hashable, default: Any = None):
         k = self._normalize_key(k)
-        v = self._normalize_value(k, default)
         return super().setdefault(k, v)
 
     def update(self, *args, **kwargs):
@@ -414,13 +413,10 @@ class NormalizeMappingMixin(object):
 
     def pop(self, k: Hashable, *default: Any) -> Any:
         k = self._normalize_key(k)
-        if default:
-            default = [self._normalize_value(k, default[0])]
         return super().pop(k, *default)
 
     def get(self, k: Hashable, default: Any = None) -> Any:
         k = self._normalize_key(k)
-        v = self._normalize_value(k, default)
         return super().get(k, v)
 
     def _normalize_key(self, k: Hashable) -> Hashable:
@@ -895,6 +891,13 @@ class DictTree(NormalizeMappingMixin, Dict):
     * .root: DictTree, the absolute head node of the tree
     * .value: Any, the value at this node of the tree, None if the node
         has no value
+
+    .. note::
+        * `_normalize_value` can be called with key's value as None, this
+            means that the value is for the root Node.
+        * `_normalize_value` is called with the node's `.value`, not the
+            node itself, this is different than a normal
+            `NormalizeMappingMixin` child
     """
     @property
     def pathkeys(self) -> Sequence[Hashable]:
@@ -1013,17 +1016,6 @@ class DictTree(NormalizeMappingMixin, Dict):
         """
         node.value = value
 
-#     def _normalize_key(self, key: Hashable) -> Hashable:
-#         """Internal method. Hook that is called right before key is used
-#         to access
-# 
-#         Called on both set and get
-# 
-#         :param key: Hashable
-#         :returns: Hashable
-#         """
-#         return key
-
     def _normalize_path_value(self, key: Hashable, value: Any) -> Any:
         """Internal method. Called right before a intermediate/path/waypoint
         value is added while adding a destination value
@@ -1037,18 +1029,6 @@ class DictTree(NormalizeMappingMixin, Dict):
             be useful for creating the waypoint value in child classes
         """
         return None
-
-#     def _normalize_value(self, key: Hashable|None, value: Any) -> Any:
-#         """Internal method. Hook that is called right before `value` is set
-#         into the node at `key`
-# 
-#         Called *only* on set
-# 
-#         :param key: if None then `value` is the root value
-#         :param value: Any
-#         :returns: Any
-#         """
-#         return value
 
     def trees(self, depth: int = -1) -> Generator[tuple[Sequence[Hashable], Self]]:
         """Iterate through the trees in this tree
