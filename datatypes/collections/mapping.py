@@ -366,42 +366,44 @@ class NormalizeMappingMixin(object):
 
     :example:
         class Foo(NormalizeKeyMixin, dict):
-            def normalize_key(self, k):
+            def _normalize_key(self, k):
                 return k
 
-            def normalize_value(self, v):
+            def _normalize_value(self, k, v):
                 return v
 
-    You can override the .normalize_key and .normalize_value methods, which get
-    called anytime you set/get a value. You can check out the idict class for
-    an implementation that uses those methods to allow case-insensitive keys
+    You can override the `._normalize_key` or `_.normalize_value` methods,
+    which get called anytime you set/get a value. You can check out the idict
+    class for an implementation that uses those methods to allow
+    case-insensitive keys
 
     Taken from `herd.utils.NormalizeDict`
     """
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.update(*args, **kwargs)
+        if args or kwargs:
+            self.update(*args, **kwargs)
 
     def __setitem__(self, k: Hashable, v: Any):
-        k = self.normalize_key(k)
-        v = self.normalize_value(v)
+        k = self._normalize_key(k)
+        v = self._normalize_value(k, v)
         return super().__setitem__(k, v)
 
     def __delitem__(self, k: Hashable):
-        k = self.normalize_key(k)
+        k = self._normalize_key(k)
         return super().__delitem__(k)
 
     def __getitem__(self, k: Hashable) -> Any:
-        k = self.normalize_key(k)
+        k = self._normalize_key(k)
         return super().__getitem__(k)
 
     def __contains__(self, k: Hashable) -> bool:
-        k = self.normalize_key(k)
+        k = self._normalize_key(k)
         return super().__contains__(k)
 
     def setdefault(self, k: Hashable, default: Any = None):
-        k = self.normalize_key(k)
-        v = self.normalize_value(default)
+        k = self._normalize_key(k)
+        v = self._normalize_value(k, default)
         return super().setdefault(k, v)
 
     def update(self, *args, **kwargs):
@@ -411,24 +413,24 @@ class NormalizeMappingMixin(object):
             self[k] = v
 
     def pop(self, k: Hashable, *default: Any) -> Any:
-        k = self.normalize_key(k)
+        k = self._normalize_key(k)
         if default:
-            default = [self.normalize_value(default[0])]
+            default = [self._normalize_value(k, default[0])]
         return super().pop(k, *default)
 
     def get(self, k: Hashable, default: Any = None) -> Any:
-        k = self.normalize_key(k)
-        v = self.normalize_value(default)
+        k = self._normalize_key(k)
+        v = self._normalize_value(k, default)
         return super().get(k, v)
 
-    def normalize_key(self, k: Hashable) -> Hashable:
+    def _normalize_key(self, k: Hashable) -> Hashable:
         return k
 
-    def normalize_value(self, v: Any) -> Hashable:
+    def _normalize_value(self, k: Hashable, v: Any) -> Hashable:
         return v
 
     def ritems(self, *keys: Hashable) -> Generator[tuple[Hashable, Any]]:
-        keys = map(self.normalize_key, keys)
+        keys = map(self._normalize_key, keys)
         return super().ritems(*keys)
 
 
@@ -445,7 +447,7 @@ class idict(NormalizeMappingMixin, Dict):
 
         super().__init__(*args, **kwargs)
 
-    def normalize_key(self, k: Hashable) -> Hashable:
+    def _normalize_key(self, k: Hashable) -> Hashable:
         if k in self.key_lookup:
             k = self.key_lookup[k]
 
@@ -863,7 +865,7 @@ class ContextNamespace(StackNamespace):
         super()._push_context(name, d, source)
 
 
-class DictTree(Dict):
+class DictTree(NormalizeMappingMixin, Dict):
     """A dict of dicts. Each key is another dict and each dict has a `.value`
     property that contains the value for that node in the dict tree.
 
@@ -921,9 +923,11 @@ class DictTree(Dict):
     def update(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def __setitem__(self, key: Hashable, value: Any):
-        """Allow list access in normal dict interactions"""
-        self.set_node([key], value)
+    def __setitem__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def setdefault(self, *args, **kwargs):
+        raise NotImplementedError()
 
     def set_node(self, keys: Sequence[Hashable], value: Any):
         """Set value into the last key in keys, creating intermediate/path
@@ -1009,16 +1013,16 @@ class DictTree(Dict):
         """
         node.value = value
 
-    def _normalize_key(self, key: Hashable) -> Hashable:
-        """Internal method. Hook that is called right before key is used
-        to access
-
-        Called on both set and get
-
-        :param key: Hashable
-        :returns: Hashable
-        """
-        return key
+#     def _normalize_key(self, key: Hashable) -> Hashable:
+#         """Internal method. Hook that is called right before key is used
+#         to access
+# 
+#         Called on both set and get
+# 
+#         :param key: Hashable
+#         :returns: Hashable
+#         """
+#         return key
 
     def _normalize_path_value(self, key: Hashable, value: Any) -> Any:
         """Internal method. Called right before a intermediate/path/waypoint
@@ -1034,17 +1038,17 @@ class DictTree(Dict):
         """
         return None
 
-    def _normalize_value(self, key: Hashable|None, value: Any) -> Any:
-        """Internal method. Hook that is called right before `value` is set
-        into the node at `key`
-
-        Called *only* on set
-
-        :param key: if None then `value` is the root value
-        :param value: Any
-        :returns: Any
-        """
-        return value
+#     def _normalize_value(self, key: Hashable|None, value: Any) -> Any:
+#         """Internal method. Hook that is called right before `value` is set
+#         into the node at `key`
+# 
+#         Called *only* on set
+# 
+#         :param key: if None then `value` is the root value
+#         :param value: Any
+#         :returns: Any
+#         """
+#         return value
 
     def trees(self, depth: int = -1) -> Generator[tuple[Sequence[Hashable], Self]]:
         """Iterate through the trees in this tree
@@ -1129,7 +1133,6 @@ class DictTree(Dict):
             else:
                 if set_missing:
                     d.set_node([k], None)
-                    #d.setdefault(k, None)
                     d = d[k]
                     yield ks, d
 

@@ -309,7 +309,7 @@ class DictTest(TestCase):
 class NormalizeMappingMixinTest(TestCase):
     def test_crud(self):
         class ID(NormalizeMappingMixin, dict):
-            def normalize_key(self, k):
+            def _normalize_key(self, k):
                 return k.lower()
 
         d = ID()
