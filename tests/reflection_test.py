@@ -2954,11 +2954,11 @@ class MethodpathFinderTest(TestCase):
         pf = MethodpathFinder(prefixes=[prefix])
         pf.add_class(m.Bar)
 
-        v_boo = pf[["foo", "Bar", "boo"]]
+        v_boo = pf["foo"]["Bar"]["boo"].value
         self.assertEqual("boo", v_boo["method_name"])
         self.assertTrue("method" in v_boo)
 
-        v_che = pf[["foo", "Bar", "che"]]
+        v_che = pf["foo"]["Bar"]["che"].value
         self.assertEqual("che", v_che["method_name"])
         self.assertTrue("method" in v_che)
 
@@ -2982,10 +2982,10 @@ class MethodpathFinderTest(TestCase):
         m = prefix.get_module("foo")
         pf = KSFinder(prefixes=[prefix])
         pf.add_class(m.Bar)
-        n = pf.get_node(["foo", "Bar", "che", "bam"])
+        n = pf.getpath(["foo", "Bar", "che", "bam"])
         self.assertTrue("method_name" in n.value)
 
-        n = pf.get_node(["foo", "Bar", "che"])
+        n = pf.getpath(["foo", "Bar", "che"])
         self.assertIsNone(n.value)
 
     def test_node_types(self):
@@ -3000,9 +3000,9 @@ class MethodpathFinderTest(TestCase):
         pf = MethodpathFinder(prefixes=[prefix])
         pf.add_class(m.Bar)
 
-        self.assertEqual("module", pf["foo"]["node_type"])
-        self.assertEqual("class", pf["foo", "Bar"]["node_type"])
-        self.assertEqual("method", pf["foo", "Bar", "che"]["node_type"])
+        self.assertEqual("module", pf["foo"].value["node_type"])
+        self.assertEqual("class", pf["foo"]["Bar"].value["node_type"])
+        self.assertEqual("method", pf["foo"]["Bar"]["che"].value["node_type"])
 
     def test_type_keys_exist(self):
         prefix = self.create_module({
@@ -3016,17 +3016,17 @@ class MethodpathFinderTest(TestCase):
         pf = MethodpathFinder(prefixes=[prefix])
         pf.add_class(m.Bar)
 
-        self.assertTrue("module_keys" in pf["foo"])
-        self.assertFalse("class_keys" in pf["foo"])
-        self.assertFalse("method_keys" in pf["foo"])
+        self.assertTrue("module_keys" in pf["foo"].value)
+        self.assertFalse("class_keys" in pf["foo"].value)
+        self.assertFalse("method_keys" in pf["foo"].value)
 
-        self.assertTrue("module_keys" in pf["foo", "Bar"])
-        self.assertTrue("class_keys" in pf["foo", "Bar"])
-        self.assertFalse("method_keys" in pf["foo", "Bar"])
+        self.assertTrue("module_keys" in pf["foo"]["Bar"].value)
+        self.assertTrue("class_keys" in pf["foo"]["Bar"].value)
+        self.assertFalse("method_keys" in pf["foo"]["Bar"].value)
 
-        self.assertTrue("module_keys" in pf["foo", "Bar", "che"])
-        self.assertTrue("class_keys" in pf["foo", "Bar", "che"])
-        self.assertTrue("method_keys" in pf["foo", "Bar", "che"])
+        self.assertTrue("module_keys" in pf["foo"]["Bar"]["che"].value)
+        self.assertTrue("class_keys" in pf["foo"]["Bar"]["che"].value)
+        self.assertTrue("method_keys" in pf["foo"]["Bar"]["che"].value)
 
 
 class ReflectArgumentTest(TestCase):
