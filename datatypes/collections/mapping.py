@@ -924,27 +924,6 @@ class DictTree(Dict):
     def update(self, *args, **kwargs):
         raise NotImplementedError()
 
-#     def update(
-#         self,
-#         mapping_or_iterable: Mapping[Hashable, Any]
-#             |Iterable[tuple[Hashable, Any]]
-#             |None = None,
-#         **kwargs,
-#     ):
-#         """
-#         https://docs.python.org/3/library/stdtypes.html#dict.update
-#         """
-#         if mapping_or_iterable:
-#             if isinstance(mapping_or_iterable, Mapping):
-#                 mapping_or_iterable = mapping_or_iterable.items()
-# 
-#             for k, v in mapping_or_iterable:
-#                 self.set(k, v)
-# 
-#         if kwargs:
-#             for k, v in kwargs.items():
-#                 self.set(k, v)
-
     def __setitem__(self, key: Hashable, value: Any):
         """Allow list access in normal dict interactions"""
         self.set_node([key], value)

@@ -43,10 +43,10 @@ class ClasspathFinderTest(TestCase):
         pf.add_class(m.Foo)
         pf.add_class(m.CheBoo)
 
-        value = pf.get(["foo_bar", "CheBoo"])
+        value = pf.getpath(["foo_bar", "CheBoo"]).value
         self.assertEqual("CheBoo", value["class"].__name__)
 
-        value = pf.get(["foo_bar", "Foo"])
+        value = pf.getpath(["foo_bar", "Foo"]).value
         self.assertEqual("Foo", value["class"].__name__)
 
     def test_add_empty_key(self):
@@ -61,7 +61,7 @@ class ClasspathFinderTest(TestCase):
         m = prefix.get_module()
         pf = CPF([prefix])
         pf.add_class(m.Default)
-        self.assertEqual(m.Default, pf[[]]["class"])
+        self.assertEqual(m.Default, pf.value["class"])
 
     def test_get_prefix_modules(self):
         prefix = self.create_module({
@@ -116,16 +116,16 @@ class ClasspathFinderTest(TestCase):
 
         # first we add a waypoint node
         pf.add_class(waypoint_class)
-        self.assertTrue("module" in pf["foo"])
+        self.assertTrue("module" in pf["foo"].value)
 
         # now lets add the destination node and make sure it overwrites the
         # waypoint node
         pf.add_class(dest_class)
-        self.assertEqual(pf["foo"]["class"].__name__, "foo")
+        self.assertEqual("foo", pf["foo"].value["class"].__name__)
 
         # make sure adding another waypoint doesn't overwrite our destination
         pf.add_class(prefix.get_module("foo.baz").che)
-        self.assertEqual(pf["foo"]["class"].__name__, "foo")
+        self.assertEqual("foo", pf["foo"].value["class"].__name__)
 
     def test_get_class_items_1(self):
         """Make sure we can iterate through all destination nodes in the tree
@@ -163,9 +163,9 @@ class ClasspathFinderTest(TestCase):
         m = prefix.get_module()
         pf.add_class(m.Foo.Bar.Che)
 
-        self.assertEqual("path_class", pf["Foo"]["node_type"])
-        self.assertEqual("path_class", pf["Foo", "Bar"]["node_type"])
-        self.assertEqual("class", pf["Foo", "Bar", "Che"]["node_type"])
+        self.assertEqual("path_class", pf["Foo"].value["node_type"])
+        self.assertEqual("path_class", pf["Foo"]["Bar"].value["node_type"])
+        self.assertEqual("class", pf["Foo"]["Bar"]["Che"].value["node_type"])
 
     def test_runpath_classes(self):
         """Test a class that was loaded using something like `runpy.run_path`
@@ -181,7 +181,7 @@ class ClasspathFinderTest(TestCase):
         pf = ClasspathFinder()
         pf.add_class(m["Foo"].Bar.Che)
 
-        che_value = pf.get_node("Foo").get_node("Bar")["Che"]
+        che_value = pf["Foo"]["Bar"]["Che"].value
         self.assertEqual(3, len(che_value["class_keys"]))
         self.assertEqual(0, len(che_value["module_keys"]))
 
@@ -232,7 +232,7 @@ class ClasspathFinderTest(TestCase):
         pf = ClasspathFinder(prefixes=[prefix])
         pf.add_class(m.Bar.Che)
         self.assertTrue(
-            pf["foo", "Bar", "Che"]["module_name"].endswith(".foo"),
+            pf["foo"]["Bar"]["Che"].value["module_name"].endswith(".foo"),
         )
 
 

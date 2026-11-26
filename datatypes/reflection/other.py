@@ -9,17 +9,18 @@ from collections.abc import (
     Iterable,
     Hashable,
 )
+from typing import Self
 
 from ..compat import *
 from ..string import NamingConvention
-from ..collections.mapping import DictTree2
+from ..collections.mapping import DictTree, DictTree2
 from .. import logging
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseClassFinder(DictTree2):
+class BaseClassFinder(DictTree):
     @classmethod
     def find_modules(cls, prefixes=None, paths=None, fileroot=""):
         """Tries to find modules to pass into .__init__ by first checking
@@ -143,7 +144,7 @@ class ClasspathFinder(BaseClassFinder):
     third stab at the problem. I've now integrated this version back into
     Endpoints. So the circle of life continues
     """
-    def __init__(self, prefixes=None, **kwargs):
+    def __init__(self, prefixes: Iterable[str]|None = None, **kwargs):
         """
         :param prefixes: list[str], passing in prefixes means the <MODULE-NAME>
             will be used when adding the classpaths, if there are no prefixes
@@ -155,9 +156,8 @@ class ClasspathFinder(BaseClassFinder):
 
         self.prefixes = prefixes or set()
         self.kwargs = kwargs # convenience for default .create_instance
-        self.value = None
 
-    def create_instance(self):
+    def _create_instance(self) -> Self:
         """Internal method that makes sure creating sub-instances of this
         class when creating nodes doesn't error out"""
         return type(self)(
@@ -165,7 +165,7 @@ class ClasspathFinder(BaseClassFinder):
             **self.kwargs,
         )
 
-    def update_node(self, key, node, value):
+    def _update_node(self, key: str, node: Self, value: Mapping):
         """Update the node only if value has a class (meaning it's a
         destination value and not a waypoint value) or node doesn't already
         have a value
@@ -176,9 +176,9 @@ class ClasspathFinder(BaseClassFinder):
         (not final paths but just a waypoint towards our final destination).
         """
         if not node.value or "class" in value:
-            super().update_node(key, node, value)
+            super()._update_node(key, node, value)
 
-    def _get_classpath(self, klass):
+    def _get_classpath(self, klass: type) -> str:
         """Internal method. Get the classpath (<MODULE_NAME>:<CLASS_QUALNAME>)
         for klass"""
         if "<" in klass.__qualname__:
@@ -192,7 +192,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         key: str,
         **kwargs,
-    ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
+    ) -> tuple[str|Sequence[str]|None, Mapping|None]:
         """Get the module key and value for a node representing a module.
 
         This is called for each module in the full classpath. So if the
@@ -211,7 +211,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         key: str,
         **kwargs,
-    ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
+    ) -> tuple[Hashable|Sequence[str]|None, Mapping|None]:
         """Get the key and value for a node representing a class
 
         This is called for each class in the full classpath. So if the
@@ -239,7 +239,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         klass: type,
         **kwargs
-    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+    ) -> Generator[Sequence[str], Mapping, Mapping]:
         """Internal method for this class. This will generate all the module
         nodes for `klass` and is called from `._get_node_path_items`
 
@@ -283,7 +283,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+    ) -> Generator[Sequence[str], Mapping, Mapping]:
         """Internal method for this class. This will generate all the class
         nodes for `klass` and is called from `._get_node_path_items`
 
@@ -326,7 +326,7 @@ class ClasspathFinder(BaseClassFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+    ) -> Generator[Sequence[str], Mapping, Mapping]:
         """Internal method for parent. This yields the keys and values that
         will be used to create new nodes in this tree
 
@@ -379,20 +379,20 @@ class ClasspathFinder(BaseClassFinder):
         :param klass: type, the class to add to the tree
         """
         for keys, value, _ in self._get_node_items(klass):
-            self.set(keys, value)
+            self.set_node(keys, value)
 
     def add_classes(self, classes: Iterable[type]):
         """Adds all the classes using .add_class"""
         for klass in classes:
             self.add_class(klass)
 
-    def get_module_items(self) -> tuple[Sequence[Hashable], Mapping]:
+    def get_module_items(self) -> tuple[Sequence[str], Mapping]:
         """go through and return module nodes"""
         for keys, node in self.nodes():
             if node.value and node.value["node_type"] == "module":
                 yield keys, node.value
 
-    def get_class_items(self) -> tuple[Sequence[Hashable], Mapping]:
+    def get_class_items(self) -> tuple[Sequence[str], Mapping]:
         """go through and return destination nodes keys and values"""
         for keys, node in self.nodes():
             if node.value and node.value["node_type"] == "class":
@@ -424,7 +424,7 @@ class MethodpathFinder(ClasspathFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+    ) -> Generator[Sequence[str], Mapping, Mapping]:
         """Internal method of parent. Overloaded to also yield methods"""
         for k, v, kwargs in super()._get_node_items(klass, **kwargs):
             yield k, v, kwargs
@@ -439,7 +439,7 @@ class MethodpathFinder(ClasspathFinder):
         self,
         klass: type,
         **kwargs,
-    ) -> Generator[Sequence[Hashable], Mapping, Mapping]:
+    ) -> Generator[Sequence[str], Mapping, Mapping]:
         """Internal method of this class. This yields all the method nodes
         that should be added to the tree
 
@@ -474,7 +474,7 @@ class MethodpathFinder(ClasspathFinder):
         self,
         key: str,
         **kwargs,
-    ) -> tuple[Hashable|Sequence[Hashable]|None, Mapping|None]:
+    ) -> tuple[str|Sequence[str]|None, Mapping|None]:
         """Internal method to the class. This is similar to
         `._get_node_module_item` and `._get_node_class_item`.
 
@@ -541,7 +541,7 @@ class ClassFinder(BaseClassFinder):
         :param klass: type, the class to add to the tree
         """
         for keys, value in self._get_node_items(klass):
-            self.set(keys, value)
+            self.set_node(keys, value)
 
     def add_classes(self, classes: Sequence[type]):
         """Adds all the classes using .add_class"""
@@ -616,7 +616,7 @@ class ClassFinder(BaseClassFinder):
         else:
             for _, n in self.nodes():
                 if klass in n:
-                    return n.get_node(klass)
+                    return n[klass]
 
         raise KeyError(f"{klass} not found in tree")
 
@@ -810,8 +810,8 @@ class ClassKeyFinder(ClassFinder):
         """
         return [f"{NamingConvention(klass.__name__).varname()}_class"]
 
-    def add_node(self, klass, node, value):
-        super().add_node(klass, node, value)
+    def _add_node(self, klass, node, value):
+        super()._add_node(klass, node, value)
 
         # this is the first time the root node is adding a node, so do some
         # initialization
