@@ -57,7 +57,7 @@ from ..compat import *
 from .container import HotSet
 from .sequence import Stack
 from collections.abc import Mapping, Generator, Iterable, Hashable, Sequence
-from typing import Any, Self
+from typing import Any, Self, Never
 
 
 class Pool(dict):
@@ -263,6 +263,59 @@ class Dict(dict):
                 raise KeyError(", ".join(keys))
 
         return ret
+
+    def getpath(self, keys: Sequence[Hashable], default: Any = None) -> Any:
+        """Get the value at the end of the path of `keys`
+
+        :example:
+            d = Dict({
+                "foo": {
+                    "bar": {
+                        "che": 1,
+                    },
+                },
+            })
+            d.getpath(["foo", "bar", "che"]) # 1
+
+        https://github.com/Jaymon/datatypes/issues/29
+        """
+        ret = self
+        for k in keys:
+            if isinstance(ret, Mapping) and (k in ret):
+                ret = ret[k]
+
+            else:
+                return default
+
+        return ret
+
+    def poppath(self, keys: Sequence[Hashable], *default: Any) -> Any:
+        """pop the value at the end of the path of `keys`
+
+        :example:
+            d = Dict({
+                "foo": {
+                    "bar": {
+                        "che": 1,
+                    },
+                },
+            })
+            d.poppath(["foo", "bar", "che"]) # 1
+
+        https://github.com/Jaymon/datatypes/issues/29
+        """
+        keys = list(keys)
+        d = self.getpath(keys[:-1], Never)
+        if d is Never:
+            if len(default):
+                return default[0]
+
+        else:
+            try:
+                return d.pop(keys[-1], *default)
+
+            except Exception as e:
+                raise KeyError(keys[-1]) from e
 
     def merge(self, other: Mapping):
         """Very similar to `.update()` but merges the dicts instead of
@@ -811,6 +864,355 @@ class ContextNamespace(StackNamespace):
 
 
 class DictTree(Dict):
+    """A dict/tree hybrid. This could also be called a NestingDict,
+    hierarchyDict, or something like that
+
+    :example:
+        d = DictTree()
+
+        d.set_node(["foo", "bar", "che"], 1)
+        d["foo"]["bar"]["che"].value # 1
+
+        d.set_node([], 2) # set a value on the root node
+        d.value # 2
+
+    This is the terminology (with tree_ prefix) I'm trying to adhere to:
+        https://en.wikipedia.org/wiki/Tree_(data_structure)#Terminology
+
+    Each tree node in the tree has these properties:
+
+        * .parent: DictTree, points to the tree node above this tree, this
+            will be None if this is the absolute head tree
+        * .key: str, the name of the key this tree is in (so 
+            `self == self.parent[self.name]`), this will be "" if this
+            node is the absolute .root node of the tree
+        * .pathkeys: list[str], similar to .name but returns the entire set of
+            names in the order needed to traverse from the .root node back
+            to this node. This isn't named .keys to avoid a naming collision
+            with the dict.keys method
+        * .root: DictTree, the absolute head node of the tree
+        * .value: Any, the value at this node of the tree, None if the node
+            has no value
+    """
+    @property
+    def pathkeys(self) -> Iterable[Hashable]:
+        """Get the path of keys from the absolute head tree to this tree
+
+        :returns: list[str]
+        """
+        keys = [self.key]
+        parent = self
+        while parent := parent.parent:
+            keys.append(parent.key)
+        return list(reversed(keys[:-1]))
+
+    def __init__(self):
+        """An instance should be built up specifically using `.set_node` so
+        this doesn't support passing in any values by default.
+
+        You should only change passing in any values if you know what you're
+        doing because `_create_instance`, which is used to create new nodes
+        relies on `__init__` not taking any arguments
+        """
+        self.root = self
+        self.parent = None
+        self.key = None
+        self.value = None
+
+        super().__init__()
+
+    def update(self, *args, **kwargs):
+        raise NotImplementedError()
+
+#     def update(
+#         self,
+#         mapping_or_iterable: Mapping[Hashable, Any]
+#             |Iterable[tuple[Hashable, Any]]
+#             |None = None,
+#         **kwargs,
+#     ):
+#         """
+#         https://docs.python.org/3/library/stdtypes.html#dict.update
+#         """
+#         if mapping_or_iterable:
+#             if isinstance(mapping_or_iterable, Mapping):
+#                 mapping_or_iterable = mapping_or_iterable.items()
+# 
+#             for k, v in mapping_or_iterable:
+#                 self.set(k, v)
+# 
+#         if kwargs:
+#             for k, v in kwargs.items():
+#                 self.set(k, v)
+
+    def __setitem__(self, key: Hashable, value: Any):
+        """Allow list access in normal dict interactions"""
+        self.set_node([key], value)
+
+    def set_node(self, keys: Sequence[Hashable], value: Any):
+        """Set value into the last key in keys, creating intermediate/path
+        nodes along the way. If the path node already exists then it will
+        be left untouched
+
+        :param keys: list[hashable]|hashable, a list of keys or the key you
+            want to set value in
+        :param value: Any
+        """
+        if len(keys) > 1:
+            key = self._normalize_key(keys[0])
+            if key not in self:
+                #self.add_node(key, self.create_instance(), None)
+                self._add_node(
+                    key,
+                    self._create_instance(),
+                    self._normalize_path_value(key, value),
+                )
+
+            super().__getitem__(key).set_node(keys[1:], value)
+
+        else:
+            if keys:
+                key = self._normalize_key(keys[0])
+                value = self._normalize_value(key, value)
+                if key not in self:
+                    self._add_node(key, self._create_instance(), value)
+
+                else:
+                    self._update_node(
+                        key,
+                        super().__getitem__(key),
+                        value
+                    )
+
+            else:
+                # root of the tree
+                self._update_node(
+                    self.key,
+                    self,
+                    self._normalize_value(None, value)
+                )
+
+    def _create_instance(self) -> Self:
+        """Internal method. Called from .add_node and is only responsible
+        for creating an instance of this class.
+
+        The reason this exists is because the __init__ might be customized
+        in a child class and so this can also be customized so nothing fails
+        and .add_node can be left alone since it sets the node properties
+
+        :returns: DictTree instance
+        """
+        return type(self)()
+
+    def _add_node(self, key: Hashable, node: Self, value: Any):
+        """Add `node` into `self` at `key` with `value`
+
+        .. note:: this is never called for the root node since the root node
+            is never added into another node
+
+        :param key: Hashable, already ran through .normalize_key
+        :param node: freshly created with .create_instance
+        :param value: Any, already ran through .normalize_value
+        """
+        node.parent = self
+        node.key = key
+        node.root = self.root
+        node.value = value
+        super().__setitem__(key, node)
+
+    def _update_node(self, key: Hashable, node: Self, value: Any):
+        """Update `node` of `self` at `key` with `value`
+
+        .. note:: this only updates the value of node, the key is only here to
+            keep the signature the same as .add_node and self and node can be
+            the same node when the root node is being updated
+
+        :param key: Hashable, already ran through .normalize_key
+        :param node: the node to update
+        :param value: Any, already ran through .normalize_value
+        """
+        node.value = value
+
+    def _normalize_key(self, key: Hashable) -> Hashable:
+        """Internal method. Hook that is called right before key is used
+        to access
+
+        Called on both set and get
+
+        :param key: Hashable
+        :returns: Hashable
+        """
+        return key
+
+    def _normalize_path_value(self, key: Hashable, value: Any) -> Any:
+        """Internal method. Called right before a intermediate/path/waypoint
+        value is added while adding a destination value
+
+        Basically, this will be called and then `.add_node(key, value)` with
+        the value returned from this method will be called right after
+
+        :parma key: the key the returned value will be set at, this is a
+            sub key to the final set of keys that `value` will be set at
+        :param value: this is the destination value since sometimes this might
+            be useful for creating the waypoint value in child classes
+        """
+        return None
+
+    def _normalize_value(self, key: Hashable|None, value: Any) -> Any:
+        """Internal method. Hook that is called right before `value` is set
+        into the node at `key`
+
+        Called *only* on set
+
+        :param key: if None then `value` is the root value
+        :param value: Any
+        :returns: Any
+        """
+        return value
+
+    def trees(self, depth: int = -1) -> Generator[tuple[Sequence[Hashable], Self]]:
+        """Iterate through the trees in this tree
+
+        A tree is a node that contains other trees
+
+        :param depth: int, If above 0 only proceed to that depth. If -1 then
+            don't worry about depth
+        :returns: generator[tuple(list, DictTree)], index 0 is the path of keys
+            to get to this tree, and empty list is the root tree. Index 1 is
+            the tree
+        """
+        if depth > 0 or depth < 0:
+            if len(self):
+                yield [], self
+
+                for k, d in self.items():
+                    for sk, sd in d.trees(depth=depth-1):
+                        if sk:
+                            yield [k] + sk, sd
+
+                        else:
+                            yield [k], sd
+
+    def leaves(self, depth: int = -1) -> Generator[tuple[Sequence[Hashable], Self]]:
+        """Iterate through the leaves in this tree
+
+        A leaf is a node that is at the end of a tree
+
+        :param depth: int, see .trees
+        :returns: generator[tuple(list, DictTree)], Index 0 is the path of
+            keys.  Index 1 is the value of the leaf node
+        """
+        for ks, tree in self.trees(depth=depth):
+            for k, d in tree.items():
+                if not len(d):
+                    yield ks + [k], d
+
+    def suffixes(self, keys: Sequence[Hashable]) -> Generator[Self]:
+        """Iterate through the leaves that match the passed in suffix keys
+
+        If you had a node at foo->bar->che and another node at baz->bar->che
+        and you passed in `["bar", "che"]` then this would yield foo->bar-che
+        and then baz->bar->che because they both end with bar->che
+        """
+        start_i = len(keys) - 1
+
+        for nks, n in self.leaves():
+            if nks[start_i:] == keys:
+                yield n
+
+    def walk(
+        self,
+        keys: Iterable[Hashable],
+        set_missing: bool = False,
+    ) -> Generator[tuple[Iterable[Hashable], Self]]:
+        """Walk each node of the tree in keys.
+
+        Basically, if you passed in ["foo", "bar", "che"] it would first
+        yield the node at ["foo"], then ["foo", "bar"], and finally the
+        node at ["foo", "bar", "che"]
+
+        :param keys: list[str]|str, the path key(s) to walk
+        :returns: generator[DictTree]
+        """
+        d = self
+        i = -(len(keys) - 1)
+        while i < 1:
+            if i < 0:
+                ks = keys[:i]
+
+            else:
+                ks = keys
+
+            i += 1
+
+            k = ks[-1]
+            if k in d:
+                d = d[k]
+                yield ks, d
+
+            else:
+                if set_missing:
+                    d.set_node([k], None)
+                    #d.setdefault(k, None)
+                    d = d[k]
+                    yield ks, d
+
+                else:
+                    raise KeyError(k)
+
+    def nodes(self, depth: int = -1) -> Generator[Self]:
+        """Iterate all the rows in depth order, so do the first row of keys,
+        then the second row of keys, etc. It's similar to how you would
+        recursively iterate a folder, first you do all the files in the
+        root folder, then you do all the files of all the folders in the
+        root folder, etc.
+
+        :param depth: see .trees
+        :returns: each row of nodes starting from the root node and iterating
+            all keys of each level of nodes until the leaf nodes
+        """
+        if depth > 0 or depth < 0:
+            yield [], self
+
+            nodes = []
+            for k, d in self.items():
+                yield [k], d
+
+                if len(d):
+                    nodes.append((k, d))
+
+            for k, n in nodes:
+                for sk, sd in n.nodes(depth=depth-1):
+                    if sk:
+                        yield [k] + sk, sd
+
+    def preorder(self) -> Generator[Any]:
+        """preorder traversal - perform first on node itself, then children
+
+        :returns: the value of the node, not the node itself
+        """
+        yield self.value
+
+        for node in self.values():
+            yield from node.preorder()
+
+    def postorder(self) -> Generator[Any]:
+        """postorder traversal - perform first on node's children, then the
+        node itself
+
+        :returns: the value of the node, not the node itself
+        """
+        for node in self.values():
+            yield from node.postorder()
+
+        yield self.value
+
+
+
+
+
+
+class DictTree2(Dict):
     """A dict/tree hybrid, what that means is you can pass in a list of keys
     and it will create sub DictTrees at each key so you can nest values. This
     could also be called a NestingDict, hierarchyDict, or something like that

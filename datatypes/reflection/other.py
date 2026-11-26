@@ -12,14 +12,14 @@ from collections.abc import (
 
 from ..compat import *
 from ..string import NamingConvention
-from ..collections.mapping import DictTree
+from ..collections.mapping import DictTree2
 from .. import logging
 
 
 logger = logging.getLogger(__name__)
 
 
-class BaseClassFinder(DictTree):
+class BaseClassFinder(DictTree2):
     @classmethod
     def find_modules(cls, prefixes=None, paths=None, fileroot=""):
         """Tries to find modules to pass into .__init__ by first checking

@@ -269,6 +269,42 @@ class DictTest(TestCase):
         self.assertEqual(2, d["che"]["che2"])
         self.assertEqual(2, d["new"])
 
+    def test_getpath(self):
+        d = Dict({
+            "foo": {
+                "bar": {
+                    "che": 1,
+                },
+            },
+        })
+
+        v = d.getpath(["foo", "bar", "che"])
+        self.assertEqual(1, v)
+
+        v = d.getpath(["foo", "bar", "boo"])
+        self.assertEqual(None, v)
+
+        v = d.getpath(["foo", "bar", "boo"], 2)
+        self.assertEqual(2, v)
+
+    def test_poppath(self):
+        d = Dict({
+            "foo": {
+                "bar": {
+                    "che": 1,
+                },
+            },
+        })
+
+        v = d.poppath(["foo", "bar", "che"])
+        self.assertEqual(1, v)
+
+        with self.assertRaises(KeyError):
+            d.poppath(["foo", "bar", "che"])
+
+        v = d.poppath(["foo", "bar", "che"], 2)
+        self.assertEqual(2, v)
+
 
 class NormalizeMappingMixinTest(TestCase):
     def test_crud(self):
@@ -860,25 +896,24 @@ class DictTreeTest(TestCase):
         d = DictTree()
 
         keys = ["foo", "bar", "che"]
-        d.set(keys, 1)
+        d.set_node(keys, 1)
 
-        self.assertEqual(1, d.get(keys))
-        self.assertEqual(1, d["foo", "bar", "che"])
-        self.assertEqual(5, d.get(["foo", "che"], 5))
+        self.assertEqual(1, d.getpath(keys).value)
+        self.assertEqual(5, d.getpath(["foo", "che"], 5))
 
     def test_set_root(self):
         d = DictTree()
 
-        d.set([], 1)
+        d.set_node([], 1)
         self.assertEqual(1, d.value)
-        self.assertEqual(1, d[[]])
+        self.assertEqual(1, d.getpath([]).value)
 
-        d.set(["foo", "bar"], 2)
-        self.assertEqual(2, d["foo", "bar"])
-        self.assertEqual(None, d["foo"])
+        d.set_node(["foo", "bar"], 2)
+        self.assertEqual(2, d["foo"]["bar"].value)
+        self.assertEqual(None, d["foo"].value)
 
-        d.set("", 3)
-        self.assertEqual(3, d[""])
+        d.set_node([""], 3)
+        self.assertEqual(3, d[""].value)
 
     def test_set_already_exists(self):
         """Setting on a sub key (eg [foo, bar]) and then setting on the parent
@@ -887,70 +922,28 @@ class DictTreeTest(TestCase):
         """
         d = DictTree()
 
-        d.set(["foo", "bar"], 1)
-        self.assertEqual(1, d["foo", "bar"])
+        d.set_node(["foo", "bar"], 1)
+        self.assertEqual(1, d.getpath(["foo", "bar"]).value)
 
-        d.set(["foo"], 2)
-        self.assertEqual(1, d["foo", "bar"])
-        self.assertEqual(2, d["foo"])
+        d.set_node(["foo"], 2)
+        self.assertEqual(1, d.getpath(["foo", "bar"]).value)
+        self.assertEqual(2, d["foo"].value)
 
     def test_pop_1(self):
         d = DictTree()
-        d.set(["foo", "bar", "che"], 2)
+        d.set_node(["foo", "bar", "che"], 2)
 
-        self.assertEqual(2, d.pop(["foo", "bar", "che"]))
-        self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
-
-    def test_pop_2(self):
-        d = DictTree()
-        d.set(["foo", "bar", "che"], 1)
-        d.set(["foo", "bar"], 2)
-        d.set(["foo"], 3)
-
-        self.assertEqual(2, d.pop(["foo", "bar"]))
-
-        with self.assertRaises(KeyError):
-            d.pop(["foo", "bar"])
-
-        self.assertEqual(1, d.pop(["foo", "bar", "che"]))
-
-    def test_pop_node(self):
-        d = DictTree()
-        d.set(["foo", "bar", "che"], 1)
-        d.set(["foo", "bar"], 2)
-
-        self.assertEqual(2, d.pop_node(["foo", "bar"]).value)
-        self.assertEqual(6, d.pop(["foo", "bar", "che"], 6))
-
-    def test_setdefault(self):
-        d = DictTree()
-        d.setdefault(["foo", "bar", "che"], 3)
-        self.assertEqual(3, d["foo", "bar", "che"])
-
-    def test_magic_methods(self):
-        d = DictTree()
-        d[["foo", "bar"]] = 4
-        self.assertEqual(4, d[["foo", "bar"]])
-
-        self.assertTrue(["foo", "bar"] in d)
-
-        del d[["foo", "bar"]]
-
-        with self.assertRaises(KeyError):
-            del d[["foo", "bar"]]
-
-        self.assertFalse(["foo", "bar"] in d)
-        self.assertTrue(["foo"] in d)
-        self.assertTrue("foo" in d)
+        self.assertEqual(2, d.poppath(["foo", "bar", "che"]).value)
+        self.assertEqual(6, d.poppath(["foo", "bar", "che"], 6))
 
     def test_trees(self):
         d = DictTree()
 
         self.assertEqual(0, len(list(d.trees())))
 
-        d[["foo", "bar"]] = 1
-        d[["foo", "che", "baz"]] = 2
-        d[["foo", "che", "boo", "far"]] = 3
+        d.set_node(["foo", "bar"], 1)
+        d.set_node(["foo", "che", "baz"], 2)
+        d.set_node(["foo", "che", "boo", "far"], 3)
 
         td = {
             None: ["foo"],
@@ -965,9 +958,9 @@ class DictTreeTest(TestCase):
 
     def test_leaves(self):
         d = DictTree()
-        d[["foo", "bar"]] = 1
-        d[["foo", "che", "baz"]] = 2
-        d[["foo", "che", "boo", "far"]] = 3
+        d.set_node(["foo", "bar"], 1)
+        d.set_node(["foo", "che", "baz"], 2)
+        d.set_node(["foo", "che", "boo", "far"], 3)
 
         td = {
             "bar": 1,
@@ -992,67 +985,24 @@ class DictTreeTest(TestCase):
         d = DictTree()
         self.assertEqual(None, d.parent)
 
-        d[["foo", "bar"]] = 1
-        self.assertEqual(d, d.get_node("foo").parent)
-        self.assertEqual("foo", d.get_node("foo").key)
+        d.set_node(["foo", "bar"], 1)
+        self.assertEqual(d, d["foo"].parent)
+        self.assertEqual("foo", d["foo"].key)
 
-        d[["foo", "baz", "che"]] = 2
-        self.assertEqual("baz", d.get_node(["foo", "baz"]).key)
-        self.assertEqual(["foo", "baz"], d.get_node(["foo", "baz"]).pathkeys)
+        d.set_node(["foo", "baz", "che"], 2)
+        self.assertEqual("baz", d["foo"]["baz"].key)
+        self.assertEqual(["foo", "baz"], d["foo"]["baz"].pathkeys)
 
-        self.assertEqual(d, d.get_node(["foo", "baz"]).root)
+        self.assertEqual(d, d["foo"]["baz"].root)
 
         # root should have an empty list as keys
         self.assertEqual([], d.pathkeys)
 
-    def test_get_node(self):
-        d = DictTree([
-            (["foo", "bar"], 1),
-            (["foo", "che"], 2),
-        ])
-        self.assertEqual(1, len(d))
-        self.assertEqual(2, len(d.get_node(["foo"])))
-        self.assertEqual(0, len(d.get_node(["foo", "bar"])))
-        self.assertEqual(0, len(d.get_node(["foo", "che"])))
-
-        with self.assertRaises(KeyError):
-            d.get_node(["DOES-NOT-EXIST"])
-
-    def test___getitem__(self):
-        d = DictTree([
-            ("foo", 1),
-            (["foo", "bar"], 2),
-        ])
-
-        self.assertEqual(1, d["foo"])
-        self.assertEqual(1, d[["foo"]])
-        self.assertEqual(2, d[["foo", "bar"]])
-        self.assertEqual(2, d["foo", "bar"])
-
-    def test___init__(self):
-        d = DictTree(
-            [
-                (["foo", "bar"], 1),
-            ],
-            foo=2
-        )
-        self.assertEqual(2, d["foo"])
-
-        d = DictTree([
-            (["foo", "bar"], 1),
-            (["foo", "che"], 2),
-        ])
-
-        self.assertEqual(1, d[["foo", "bar"]])
-        self.assertEqual(2, d["foo", "che"])
-        self.assertEqual(1, len(d))
-        self.assertEqual(2, len(d.get_node("foo")))
-
     def test_walk_1(self):
         d = DictTree()
-        d[["foo", "bar"]] = 1
-        d[["foo", "che", "baz"]] = 2
-        d[["foo", "che", "boo", "far"]] = 3
+        d.set_node(["foo", "bar"], 1)
+        d.set_node(["foo", "che", "baz"], 2)
+        d.set_node(["foo", "che", "boo", "far"], 3)
 
         it = d.walk(["foo", "che", "boo", "far"])
         ks, sd = it.__next__()
@@ -1081,9 +1031,9 @@ class DictTreeTest(TestCase):
 
     def test_nodes(self):
         d = DictTree()
-        d[["foo", "bar"]] = 1
-        d[["foo", "che", "baz"]] = 2
-        d[["foo", "che", "boo", "far"]] = 3
+        d.set_node(["foo", "bar"], 1)
+        d.set_node(["foo", "che", "baz"], 2)
+        d.set_node(["foo", "che", "boo", "far"], 3)
 
         keys = set([
             tuple(),
@@ -1127,18 +1077,18 @@ class DictTreeTest(TestCase):
 
     def test_preorder_postorder(self):
         d = DictTree()
-        d[["A"]] = "A"
+        d.set_node(["A"], "A")
 
-        d[["A", "B"]] = "B"
-        d[["A", "B", "E"]] = "E"
-        d[["A", "B", "F"]] = "F"
+        d.set_node(["A", "B"], "B")
+        d.set_node(["A", "B", "E"], "E")
+        d.set_node(["A", "B", "F"], "F")
 
-        d[["A", "C"]] = "C"
+        d.set_node(["A", "C"], "C")
 
-        d[["A", "D"]] = "D"
-        d[["A", "D", "G"]] = "G"
-        d[["A", "D", "H"]] = "H"
-        d[["A", "D", "I"]] = "I"
+        d.set_node(["A", "D"], "D")
+        d.set_node(["A", "D", "G"], "G")
+        d.set_node(["A", "D", "H"], "H")
+        d.set_node(["A", "D", "I"], "I")
 
         self.assertEqual(
             ["E", "F", "B", "C", "G", "H", "I", "D", "A", None],
@@ -1153,14 +1103,9 @@ class DictTreeTest(TestCase):
     def test_suffixes(self):
         d = DictTree()
 
-        keys = ["foo", "bar", "che"]
-        d.set(keys, 1)
-
-        keys = ["foo", "baz", "che"]
-        d.set(keys, 2)
-
-        keys = ["boo", "bar", "che"]
-        d.set(keys, 3)
+        d.set_node(["foo", "bar", "che"], 1)
+        d.set_node(["foo", "baz", "che"], 2)
+        d.set_node(["boo", "bar", "che"], 3)
 
         values = set([1, 3])
         for n in d.suffixes(["bar", "che"]):

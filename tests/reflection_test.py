@@ -151,8 +151,7 @@ class ClasspathFinderTest(TestCase):
         self.assertEqual(pf_classes, node_classes)
 
     def test_get_class_items_2(self):
-        """Make sure class items ignore path class items
-        """
+        """Make sure class items ignore path class items"""
         prefix = self.create_module("""
             class Foo(object):
                 class Bar(object):
