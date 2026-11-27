@@ -403,7 +403,7 @@ class NormalizeMappingMixin(object):
 
     def setdefault(self, k: Hashable, default: Any = None):
         k = self._normalize_key(k)
-        return super().setdefault(k, v)
+        return super().setdefault(k, default)
 
     def update(self, *args, **kwargs):
         # create temp dictionary so I don't have to mess with the arguments
@@ -417,7 +417,7 @@ class NormalizeMappingMixin(object):
 
     def get(self, k: Hashable, default: Any = None) -> Any:
         k = self._normalize_key(k)
-        return super().get(k, v)
+        return super().get(k, default)
 
     def _normalize_key(self, k: Hashable) -> Hashable:
         return k

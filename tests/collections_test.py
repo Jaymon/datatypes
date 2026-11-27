@@ -328,6 +328,28 @@ class NormalizeMappingMixinTest(TestCase):
         self.assertTrue(isinstance(d, dict))
         self.assertTrue(isinstance(d, NormalizeMappingMixin))
 
+    def test_setdefault(self):
+        class D(NormalizeMappingMixin, dict): pass
+        #d = NormalizeMappingMixin()
+        d = D()
+
+        d.setdefault("foo", 1)
+        self.assertEqual(1, d["foo"])
+
+        d.setdefault("foo", 2)
+        self.assertEqual(1, d["foo"])
+
+    def test_get(self):
+        class D(NormalizeMappingMixin, dict): pass
+        d = D()
+        #d = NormalizeMappingMixin()
+
+        self.assertEqual(None, d.get("foo"))
+        self.assertEqual(1, d.get("foo", 1))
+
+        d["foo"] = 2
+        self.assertEqual(2, d.get("foo", 1))
+
 
 class IdictTest(TestCase):
     def test_ritems(self):
